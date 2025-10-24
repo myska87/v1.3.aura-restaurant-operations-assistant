@@ -8,10 +8,10 @@ import {
   Wrench,
   Users,
   BarChart3,
-  Settings,
+  FileText,
+  ListChecks,
+  Monitor,
   LogOut,
-  Menu,
-  X
 } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 import {
@@ -19,6 +19,7 @@ import {
   SidebarContent,
   SidebarGroup,
   SidebarGroupContent,
+  SidebarGroupLabel,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
@@ -33,6 +34,11 @@ const navigationItems = [
     title: "Dashboard",
     url: createPageUrl("Dashboard"),
     icon: LayoutDashboard,
+  },
+  {
+    title: "My Checklists",
+    url: createPageUrl("MyChecklists"),
+    icon: ListChecks,
   },
   {
     title: "Compliance",
@@ -61,6 +67,19 @@ const navigationItems = [
   },
 ];
 
+const managerItems = [
+  {
+    title: "Checklist Templates",
+    url: createPageUrl("ChecklistTemplates"),
+    icon: FileText,
+  },
+  {
+    title: "Checklist Monitor",
+    url: createPageUrl("ChecklistMonitor"),
+    icon: Monitor,
+  },
+];
+
 export default function Layout({ children }) {
   const location = useLocation();
   const [user, setUser] = React.useState(null);
@@ -80,6 +99,8 @@ export default function Layout({ children }) {
   const handleLogout = async () => {
     await base44.auth.logout();
   };
+
+  const isManager = user?.role === 'admin';
 
   return (
     <SidebarProvider>
@@ -115,6 +136,9 @@ export default function Layout({ children }) {
           
           <SidebarContent className="p-3">
             <SidebarGroup>
+              <SidebarGroupLabel className="text-xs font-medium text-gray-500 uppercase tracking-wider px-2 py-2">
+                Main Menu
+              </SidebarGroupLabel>
               <SidebarGroupContent>
                 <SidebarMenu className="space-y-1">
                   {navigationItems.map((item) => {
@@ -142,6 +166,40 @@ export default function Layout({ children }) {
                 </SidebarMenu>
               </SidebarGroupContent>
             </SidebarGroup>
+
+            {isManager && (
+              <SidebarGroup>
+                <SidebarGroupLabel className="text-xs font-medium text-gray-500 uppercase tracking-wider px-2 py-2">
+                  Manager Tools
+                </SidebarGroupLabel>
+                <SidebarGroupContent>
+                  <SidebarMenu className="space-y-1">
+                    {managerItems.map((item) => {
+                      const isActive = location.pathname === item.url;
+                      return (
+                        <SidebarMenuItem key={item.title}>
+                          <SidebarMenuButton 
+                            asChild 
+                            className={`
+                              transition-all duration-200 rounded-xl px-4 py-3
+                              ${isActive 
+                                ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-lg shadow-blue-200' 
+                                : 'hover:bg-gray-50 text-gray-700'
+                              }
+                            `}
+                          >
+                            <Link to={item.url} className="flex items-center gap-3">
+                              <item.icon className={`w-5 h-5 ${isActive ? 'text-white' : 'text-gray-500'}`} />
+                              <span className="font-medium">{item.title}</span>
+                            </Link>
+                          </SidebarMenuButton>
+                        </SidebarMenuItem>
+                      );
+                    })}
+                  </SidebarMenu>
+                </SidebarGroupContent>
+              </SidebarGroup>
+            )}
           </SidebarContent>
 
           <SidebarFooter className="border-t border-gray-100 p-4">

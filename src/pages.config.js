@@ -4,6 +4,10 @@ import Inventory from './pages/Inventory';
 import Maintenance from './pages/Maintenance';
 import Staff from './pages/Staff';
 import Reports from './pages/Reports';
+import ChecklistTemplates from './pages/ChecklistTemplates';
+import MyChecklists from './pages/MyChecklists';
+import ExecuteChecklist from './pages/ExecuteChecklist';
+import ChecklistMonitor from './pages/ChecklistMonitor';
 import Layout from './Layout.jsx';
 
 
@@ -14,6 +18,10 @@ export const PAGES = {
     "Maintenance": Maintenance,
     "Staff": Staff,
     "Reports": Reports,
+    "ChecklistTemplates": ChecklistTemplates,
+    "MyChecklists": MyChecklists,
+    "ExecuteChecklist": ExecuteChecklist,
+    "ChecklistMonitor": ChecklistMonitor,
 }
 
 export const pagesConfig = {

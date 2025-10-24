@@ -1,0 +1,81 @@
+{
+  "name": "ChecklistTemplate",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Template name"
+    },
+    "description": {
+      "type": "string",
+      "description": "What this checklist is for"
+    },
+    "frequency": {
+      "type": "string",
+      "enum": [
+        "daily",
+        "weekly",
+        "monthly"
+      ],
+      "description": "How often checklist should be completed"
+    },
+    "shift_type": {
+      "type": "string",
+      "enum": [
+        "opening",
+        "mid_shift",
+        "closing",
+        "any"
+      ],
+      "description": "Which shift phase this applies to"
+    },
+    "applicable_roles": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Which roles should complete this checklist"
+    },
+    "tasks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "task_id": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "requires_photo": {
+            "type": "boolean"
+          },
+          "requires_signature": {
+            "type": "boolean"
+          },
+          "requires_temperature": {
+            "type": "boolean"
+          },
+          "order": {
+            "type": "number"
+          }
+        }
+      }
+    },
+    "reminder_minutes": {
+      "type": "number",
+      "description": "Minutes after shift start to send reminder",
+      "default": 15
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true
+    }
+  },
+  "required": [
+    "name",
+    "frequency",
+    "shift_type",
+    "tasks"
+  ]
+}
