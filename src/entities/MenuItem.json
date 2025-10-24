@@ -6,21 +6,25 @@
       "type": "string",
       "description": "Menu item name"
     },
-    "category": {
+    "category_id": {
       "type": "string",
-      "enum": [
-        "appetizers",
-        "mains",
-        "desserts",
-        "beverages",
-        "sides",
-        "specials"
-      ],
-      "description": "Menu category"
+      "description": "Reference to MenuCategory"
+    },
+    "category_name": {
+      "type": "string",
+      "description": "Cached category name"
     },
     "sell_price": {
       "type": "number",
       "description": "Price charged to customer"
+    },
+    "image_url": {
+      "type": "string",
+      "description": "Photo of the dish"
+    },
+    "description": {
+      "type": "string",
+      "description": "Menu item description"
     },
     "recipe": {
       "type": "array",
@@ -71,9 +75,6 @@
         "type": "string"
       }
     },
-    "image_url": {
-      "type": "string"
-    },
     "is_active": {
       "type": "boolean",
       "default": true
@@ -85,7 +86,7 @@
   },
   "required": [
     "name",
-    "category",
+    "category_id",
     "sell_price"
   ]
 }
