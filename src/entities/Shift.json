@@ -46,6 +46,10 @@
       "format": "date-time",
       "description": "Actual clock out time"
     },
+    "location": {
+      "type": "string",
+      "description": "Work location"
+    },
     "status": {
       "type": "string",
       "enum": [
@@ -55,6 +59,10 @@
         "missed"
       ],
       "default": "scheduled"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Shift notes"
     }
   },
   "required": [

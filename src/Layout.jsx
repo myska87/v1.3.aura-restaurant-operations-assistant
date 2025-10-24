@@ -50,6 +50,11 @@ const navigationItems = [
     icon: FileText,
   },
   {
+    title: "Shift & Rota",
+    url: createPageUrl("StaffRota"),
+    icon: Users,
+  },
+  {
     title: "Checklist Templates",
     url: createPageUrl("ChecklistTemplates"),
     icon: ClipboardList,
@@ -73,11 +78,6 @@ const navigationItems = [
     title: "Maintenance",
     url: createPageUrl("Maintenance"),
     icon: Wrench,
-  },
-  {
-    title: "Staff",
-    url: createPageUrl("Staff"),
-    icon: Users,
   },
   {
     title: "Reports",

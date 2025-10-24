@@ -1,0 +1,69 @@
+{
+  "name": "Availability",
+  "type": "object",
+  "properties": {
+    "staff_email": {
+      "type": "string",
+      "description": "Staff member email"
+    },
+    "staff_name": {
+      "type": "string",
+      "description": "Staff member name"
+    },
+    "date": {
+      "type": "string",
+      "format": "date",
+      "description": "Date of availability"
+    },
+    "day_of_week": {
+      "type": "string",
+      "enum": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "sunday"
+      ],
+      "description": "Day of week"
+    },
+    "is_available": {
+      "type": "boolean",
+      "default": true,
+      "description": "Whether staff is available"
+    },
+    "preferred_shift_type": {
+      "type": "string",
+      "enum": [
+        "opening",
+        "mid_shift",
+        "closing",
+        "any"
+      ],
+      "description": "Preferred shift type"
+    },
+    "start_time": {
+      "type": "string",
+      "description": "Available from (HH:mm)"
+    },
+    "end_time": {
+      "type": "string",
+      "description": "Available until (HH:mm)"
+    },
+    "repeat_weekly": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether this repeats weekly"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Additional notes"
+    }
+  },
+  "required": [
+    "staff_email",
+    "date",
+    "is_available"
+  ]
+}

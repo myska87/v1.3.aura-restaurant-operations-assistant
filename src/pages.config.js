@@ -15,6 +15,10 @@ import ProductionPlanning from './pages/ProductionPlanning';
 import Ordering from './pages/Ordering';
 import OrderHistory from './pages/OrderHistory';
 import MenuAnalysis from './pages/MenuAnalysis';
+import StaffRota from './pages/StaffRota';
+import MyShifts from './pages/MyShifts';
+import ClockInOut from './pages/ClockInOut';
+import ManageAvailability from './pages/ManageAvailability';
 import Layout from './Layout.jsx';
 
 
@@ -36,6 +40,10 @@ export const PAGES = {
     "Ordering": Ordering,
     "OrderHistory": OrderHistory,
     "MenuAnalysis": MenuAnalysis,
+    "StaffRota": StaffRota,
+    "MyShifts": MyShifts,
+    "ClockInOut": ClockInOut,
+    "ManageAvailability": ManageAvailability,
 }
 
 export const pagesConfig = {

@@ -1,0 +1,53 @@
+{
+  "name": "ClockEvent",
+  "type": "object",
+  "properties": {
+    "user_email": {
+      "type": "string",
+      "description": "Staff member email"
+    },
+    "user_name": {
+      "type": "string",
+      "description": "Staff member name"
+    },
+    "shift_id": {
+      "type": "string",
+      "description": "Reference to Shift"
+    },
+    "event_type": {
+      "type": "string",
+      "enum": [
+        "clock_in",
+        "clock_out"
+      ],
+      "description": "Type of clock event"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the event occurred"
+    },
+    "location_lat": {
+      "type": "number",
+      "description": "GPS latitude (optional)"
+    },
+    "location_lng": {
+      "type": "number",
+      "description": "GPS longitude (optional)"
+    },
+    "location_name": {
+      "type": "string",
+      "description": "Location description"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Optional notes"
+    }
+  },
+  "required": [
+    "user_email",
+    "shift_id",
+    "event_type",
+    "timestamp"
+  ]
+}
