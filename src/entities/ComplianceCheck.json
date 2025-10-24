@@ -1,0 +1,63 @@
+{
+  "name": "ComplianceCheck",
+  "type": "object",
+  "properties": {
+    "check_type": {
+      "type": "string",
+      "enum": [
+        "temperature_log",
+        "cleaning_checklist",
+        "hygiene_audit",
+        "safety_inspection",
+        "food_handling"
+      ],
+      "description": "Type of compliance check"
+    },
+    "area": {
+      "type": "string",
+      "description": "Area or equipment being checked"
+    },
+    "temperature_value": {
+      "type": "number",
+      "description": "Temperature reading if applicable"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "passed",
+        "failed",
+        "needs_attention"
+      ],
+      "default": "passed"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Additional observations"
+    },
+    "photo_urls": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Evidence photos"
+    },
+    "supervisor_signature": {
+      "type": "string",
+      "description": "Digital signature URL"
+    },
+    "checked_by": {
+      "type": "string",
+      "description": "Staff member who performed check"
+    },
+    "check_date": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "check_type",
+    "area",
+    "status",
+    "check_date"
+  ]
+}

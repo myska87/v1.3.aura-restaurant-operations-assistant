@@ -1,0 +1,74 @@
+{
+  "name": "StaffTask",
+  "type": "object",
+  "properties": {
+    "task_name": {
+      "type": "string",
+      "description": "Name of the task"
+    },
+    "description": {
+      "type": "string",
+      "description": "Task details"
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "opening",
+        "closing",
+        "prep",
+        "cleaning",
+        "service",
+        "maintenance",
+        "training"
+      ],
+      "description": "Task category"
+    },
+    "assigned_to": {
+      "type": "string",
+      "description": "Staff member email"
+    },
+    "shift": {
+      "type": "string",
+      "enum": [
+        "morning",
+        "afternoon",
+        "evening",
+        "night"
+      ],
+      "description": "Shift assignment"
+    },
+    "due_date": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "in_progress",
+        "completed",
+        "overdue"
+      ],
+      "default": "pending"
+    },
+    "completed_date": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "completion_notes": {
+      "type": "string",
+      "description": "Notes on completion"
+    },
+    "photo_url": {
+      "type": "string",
+      "description": "Completion photo if required"
+    }
+  },
+  "required": [
+    "task_name",
+    "category",
+    "assigned_to",
+    "due_date",
+    "status"
+  ]
+}

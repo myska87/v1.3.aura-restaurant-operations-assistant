@@ -1,0 +1,49 @@
+{
+  "type": "object",
+  "properties": {
+    "position": {
+      "type": "string",
+      "enum": [
+        "owner",
+        "manager",
+        "chef",
+        "line_cook",
+        "server",
+        "bartender",
+        "cleaner",
+        "maintenance"
+      ],
+      "description": "Staff position"
+    },
+    "phone": {
+      "type": "string",
+      "description": "Contact phone number"
+    },
+    "hire_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "shift_preference": {
+      "type": "string",
+      "enum": [
+        "morning",
+        "afternoon",
+        "evening",
+        "night",
+        "flexible"
+      ]
+    },
+    "certifications": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Food safety, first aid, etc."
+    },
+    "emergency_contact": {
+      "type": "string",
+      "description": "Emergency contact info"
+    }
+  },
+  "name": "User"
+}
