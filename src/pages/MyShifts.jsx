@@ -1,10 +1,11 @@
+
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Calendar, Clock, MapPin, AlertCircle } from "lucide-react";
+import { Calendar, Clock, MapPin, AlertCircle, ArrowLeft, Home } from "lucide-react";
 import { format, isToday, isFuture, isPast, parseISO } from "date-fns";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -86,6 +87,22 @@ export default function MyShifts() {
   return (
     <div className="p-6 md:p-8 bg-gray-50 min-h-screen">
       <div className="max-w-7xl mx-auto">
+        {/* Back Buttons */}
+        <div className="flex gap-3 mb-6">
+          <Link to={createPageUrl("StaffRota")}>
+            <Button variant="outline" size="sm">
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back to Shift & Rota
+            </Button>
+          </Link>
+          <Link to={createPageUrl("Dashboard")}>
+            <Button variant="outline" size="sm">
+              <Home className="w-4 h-4 mr-2" />
+              Dashboard
+            </Button>
+          </Link>
+        </div>
+
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">My Shifts</h1>
           <p className="text-gray-600">View and manage your work schedule</p>

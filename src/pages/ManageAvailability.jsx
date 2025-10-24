@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -15,8 +16,23 @@ import {
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, Plus, Trash2, CheckCircle, XCircle } from "lucide-react";
+import { Calendar, Plus, Trash2, CheckCircle, XCircle, ArrowLeft, Home } from "lucide-react"; // Added ArrowLeft, Home
 import { format, addDays, startOfWeek } from "date-fns";
+import { Link } from "react-router-dom"; // Added Link import
+
+// Helper function to create page URLs.
+// This is a placeholder; in a real application, this would typically
+// be imported from a routing utility or defined based on your routing setup.
+const createPageUrl = (pageName) => {
+  switch (pageName) {
+    case "StaffRota":
+      return "/staff-rota"; // Example path
+    case "Dashboard":
+      return "/dashboard"; // Example path
+    default:
+      return "/";
+  }
+};
 
 export default function ManageAvailability() {
   const queryClient = useQueryClient();
@@ -116,6 +132,22 @@ export default function ManageAvailability() {
   return (
     <div className="p-6 md:p-8 bg-gray-50 min-h-screen">
       <div className="max-w-7xl mx-auto">
+        {/* Back Buttons */}
+        <div className="flex gap-3 mb-6">
+          <Link to={createPageUrl("StaffRota")}>
+            <Button variant="outline" size="sm">
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back to Shift & Rota
+            </Button>
+          </Link>
+          <Link to={createPageUrl("Dashboard")}>
+            <Button variant="outline" size="sm">
+              <Home className="w-4 h-4 mr-2" />
+              Dashboard
+            </Button>
+          </Link>
+        </div>
+
         <div className="flex justify-between items-center mb-8">
           <div>
             <h1 className="text-3xl font-bold text-gray-900 mb-2">Manage Availability</h1>

@@ -14,7 +14,7 @@ import {
   Menu,
   X,
   LogOut,
-  ChefHat, // Ensure ChefHat is imported
+  // ChefHat, // ChefHat is no longer used after removing "Weekly Rota Schedule"
   Calculator,
   ShoppingCart,
   FileText,
@@ -54,11 +54,7 @@ const navigationItems = [
     url: createPageUrl("StaffRota"),
     icon: Users,
   },
-  {
-    title: "Weekly Rota Schedule", // New item added
-    url: createPageUrl("WeeklyRotaSchedule"), // Corresponding URL
-    icon: ChefHat, // Corresponding icon
-  },
+  // The "Weekly Rota Schedule" item has been removed as per the outline.
   {
     title: "Checklist Templates",
     url: createPageUrl("ChecklistTemplates"),

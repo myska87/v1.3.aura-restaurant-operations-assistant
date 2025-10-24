@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -8,9 +9,9 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { CheckCircle, XCircle, MinusCircle, Camera, ArrowLeft } from "lucide-react";
+import { CheckCircle, XCircle, MinusCircle, Camera, ArrowLeft, Home } from "lucide-react";
 import { format } from "date-fns";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 
 export default function ExecuteChecklist() {
@@ -133,14 +134,21 @@ export default function ExecuteChecklist() {
   return (
     <div className="p-6 md:p-8 bg-gray-50 min-h-screen">
       <div className="max-w-3xl mx-auto">
-        <Button
-          variant="outline"
-          onClick={() => navigate(createPageUrl('MyChecklists'))}
-          className="mb-6"
-        >
-          <ArrowLeft className="w-4 h-4 mr-2" />
-          Back to Checklists
-        </Button>
+        <div className="flex gap-3 mb-6">
+          <Button
+            variant="outline"
+            onClick={() => navigate(createPageUrl('MyChecklists'))}
+          >
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back to Checklists
+          </Button>
+          <Link to={createPageUrl("Dashboard")}>
+            <Button variant="outline" size="sm">
+              <Home className="w-4 h-4 mr-2" />
+              Dashboard
+            </Button>
+          </Link>
+        </div>
 
         {/* Header */}
         <Card className="bg-white border-none shadow-lg mb-6">

@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
@@ -12,8 +13,10 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Input } from "@/components/ui/input";
-import { CheckCircle, Clock, AlertTriangle, XCircle } from "lucide-react";
+import { CheckCircle, Clock, AlertTriangle, XCircle, Home } from "lucide-react"; // Added Home icon
 import { format } from "date-fns";
+import { Link } from "react-router-dom"; // Added Link for navigation
+import { Button } from "@/components/ui/button"; // Added Button component
 
 export default function ChecklistMonitor() {
   const [filterStatus, setFilterStatus] = useState("all");
@@ -86,9 +89,28 @@ export default function ChecklistMonitor() {
     return Math.round((completed / execution.tasks.length) * 100);
   };
 
+  // Assuming createPageUrl is a helper function that returns the path.
+  // If it's not defined elsewhere, a placeholder or direct path is needed.
+  // For this implementation, we will assume a direct path to '/dashboard'.
+  const createPageUrl = (pageName) => {
+    if (pageName === "Dashboard") return "/dashboard";
+    // Add other page mappings if necessary
+    return "/"; // Default fallback
+  };
+
   return (
     <div className="p-6 md:p-8 bg-gray-50 min-h-screen">
       <div className="max-w-7xl mx-auto">
+        {/* Back Button */}
+        <div className="mb-6">
+          <Link to={createPageUrl("Dashboard")}>
+            <Button variant="outline" size="sm">
+              <Home className="w-4 h-4 mr-2" />
+              Dashboard
+            </Button>
+          </Link>
+        </div>
+
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Checklist Monitor</h1>
           <p className="text-gray-600">Real-time tracking of all checklist completions</p>

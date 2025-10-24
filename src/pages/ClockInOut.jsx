@@ -1,12 +1,19 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Clock, LogIn, LogOut, MapPin, AlertCircle } from "lucide-react";
+import { Clock, LogIn, LogOut, MapPin, AlertCircle, ArrowLeft, Home } from "lucide-react";
 import { format, differenceInMinutes, differenceInHours } from "date-fns";
 import { motion } from "framer-motion";
+import { Link } from "react-router-dom"; // Added Link import
+
+// Assuming createPageUrl is a utility function available in the project.
+// In a Base44 application, this might also be handled by base44.pages.PageName.url()
+// or a custom utility. We're importing based on the outline's usage.
+import { createPageUrl } from "@/lib/utils"; 
 
 export default function ClockInOut() {
   const queryClient = useQueryClient();
@@ -164,6 +171,22 @@ export default function ClockInOut() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6 md:p-8">
       <div className="max-w-4xl mx-auto">
+        {/* Back Buttons */}
+        <div className="flex gap-3 mb-6">
+          <Link to={createPageUrl("StaffRota")}>
+            <Button variant="outline" size="sm">
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back to Shift & Rota
+            </Button>
+          </Link>
+          <Link to={createPageUrl("Dashboard")}>
+            <Button variant="outline" size="sm">
+              <Home className="w-4 h-4 mr-2" />
+              Dashboard
+            </Button>
+          </Link>
+        </div>
+
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Clock In / Out</h1>
           <p className="text-gray-600">Track your shift hours automatically</p>

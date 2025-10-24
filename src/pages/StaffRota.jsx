@@ -1,16 +1,17 @@
 import React from "react";
 import { Card, CardContent } from "@/components/ui/card";
-import { Calendar, UserCog, CalendarCheck, Clock, BarChart3, CalendarDays } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Calendar, UserCog, CalendarCheck, Clock, BarChart3, CalendarDays, Home } from "lucide-react";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { motion } from "framer-motion";
 
 const rotaModules = [
   {
-    title: "Weekly Rota",
+    title: "Weekly Rota Schedule",
     description: "Gantt chart view of weekly shift schedules by position",
     icon: CalendarDays,
-    url: createPageUrl("WeeklyRota"),
+    url: createPageUrl("WeeklyRotaSchedule"),
     color: "from-emerald-500 to-emerald-600",
     bgColor: "bg-emerald-50",
     iconColor: "text-emerald-600",
@@ -66,6 +67,16 @@ export default function StaffRota() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6 md:p-8">
       <div className="max-w-7xl mx-auto">
+        {/* Back Button */}
+        <div className="mb-6">
+          <Link to={createPageUrl("Dashboard")}>
+            <Button variant="outline" size="sm">
+              <Home className="w-4 h-4 mr-2" />
+              Dashboard
+            </Button>
+          </Link>
+        </div>
+
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-4xl font-bold text-gray-900 mb-3">
