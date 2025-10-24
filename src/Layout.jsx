@@ -14,7 +14,7 @@ import {
   Menu,
   X,
   LogOut,
-  ChefHat,
+  ChefHat, // Ensure ChefHat is imported
   Calculator,
   ShoppingCart,
   FileText,
@@ -53,6 +53,11 @@ const navigationItems = [
     title: "Shift & Rota",
     url: createPageUrl("StaffRota"),
     icon: Users,
+  },
+  {
+    title: "Weekly Rota Schedule", // New item added
+    url: createPageUrl("WeeklyRotaSchedule"), // Corresponding URL
+    icon: ChefHat, // Corresponding icon
   },
   {
     title: "Checklist Templates",

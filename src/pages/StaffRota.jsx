@@ -1,11 +1,20 @@
 import React from "react";
 import { Card, CardContent } from "@/components/ui/card";
-import { Calendar, UserCog, CalendarCheck, Clock, BarChart3 } from "lucide-react";
+import { Calendar, UserCog, CalendarCheck, Clock, BarChart3, CalendarDays } from "lucide-react";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { motion } from "framer-motion";
 
 const rotaModules = [
+  {
+    title: "Weekly Rota",
+    description: "Gantt chart view of weekly shift schedules by position",
+    icon: CalendarDays,
+    url: createPageUrl("WeeklyRota"),
+    color: "from-emerald-500 to-emerald-600",
+    bgColor: "bg-emerald-50",
+    iconColor: "text-emerald-600",
+  },
   {
     title: "My Shifts",
     description: "View your upcoming and past shifts with status tracking",

@@ -19,6 +19,7 @@ import StaffRota from './pages/StaffRota';
 import MyShifts from './pages/MyShifts';
 import ClockInOut from './pages/ClockInOut';
 import ManageAvailability from './pages/ManageAvailability';
+import WeeklyRota from './pages/WeeklyRota';
 import Layout from './Layout.jsx';
 
 
@@ -44,6 +45,7 @@ export const PAGES = {
     "MyShifts": MyShifts,
     "ClockInOut": ClockInOut,
     "ManageAvailability": ManageAvailability,
+    "WeeklyRota": WeeklyRota,
 }
 
 export const pagesConfig = {
