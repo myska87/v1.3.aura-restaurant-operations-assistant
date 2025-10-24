@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -29,23 +30,8 @@ const navigationItems = [
     icon: LayoutDashboard,
   },
   {
-    title: "Menu Analysis",
-    url: createPageUrl("MenuAnalysis"),
-    icon: BarChart3,
-  },
-  {
-    title: "Menu Management",
-    url: createPageUrl("MenuManagement"),
-    icon: ChefHat,
-  },
-  {
-    title: "Suppliers",
-    url: createPageUrl("SupplierManagement"),
-    icon: Truck,
-  },
-  {
-    title: "Stock Take",
-    url: createPageUrl("IngredientStock"),
+    title: "Inventory",
+    url: createPageUrl("Inventory"),
     icon: Package,
   },
   {
