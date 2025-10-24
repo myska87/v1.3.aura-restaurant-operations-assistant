@@ -1,7 +1,8 @@
-
-import React from "react";
+import React, { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { createPageUrl } from "@/utils";
+import { base44 } from "@/api/base44Client";
+import { useQuery } from "@tanstack/react-query";
 import {
   LayoutDashboard,
   ClipboardCheck,
@@ -9,29 +10,17 @@ import {
   Wrench,
   Users,
   BarChart3,
-  FileText,
-  ListChecks, // Still used for My Checklists, even if not in new navItems. Keep it.
-  Monitor,
+  Menu,
+  X,
   LogOut,
-  ChefHat, // New icon
-  Calculator, // New icon
-  ShoppingCart, // New icon
+  ChefHat,
+  Calculator,
+  ShoppingCart,
+  FileText,
+  Truck,
+  ListChecks,
+  ClipboardList,
 } from "lucide-react";
-import { base44 } from "@/api/base44Client";
-import {
-  Sidebar,
-  SidebarContent,
-  SidebarGroup,
-  SidebarGroupContent,
-  SidebarGroupLabel,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
-  SidebarHeader,
-  SidebarFooter,
-  SidebarProvider,
-  SidebarTrigger,
-} from "@/components/ui/sidebar";
 
 const navigationItems = [
   {
@@ -52,7 +41,7 @@ const navigationItems = [
   {
     title: "Suppliers",
     url: createPageUrl("SupplierManagement"),
-    icon: Users,
+    icon: Truck,
   },
   {
     title: "Stock Take",
@@ -73,6 +62,21 @@ const navigationItems = [
     title: "Order History",
     url: createPageUrl("OrderHistory"),
     icon: FileText,
+  },
+  {
+    title: "Checklist Templates",
+    url: createPageUrl("ChecklistTemplates"),
+    icon: ClipboardList,
+  },
+  {
+    title: "My Checklists",
+    url: createPageUrl("MyChecklists"),
+    icon: ListChecks,
+  },
+  {
+    title: "Checklist Monitor",
+    url: createPageUrl("ChecklistMonitor"),
+    icon: ClipboardCheck,
   },
   {
     title: "Compliance",
@@ -96,180 +100,130 @@ const navigationItems = [
   },
 ];
 
-const managerItems = [
-  {
-    title: "Checklist Templates",
-    url: createPageUrl("ChecklistTemplates"),
-    icon: FileText,
-  },
-  {
-    title: "Checklist Monitor",
-    url: createPageUrl("ChecklistMonitor"),
-    icon: Monitor,
-  },
-];
-
-export default function Layout({ children }) {
+export default function Layout({ children, currentPageName }) {
   const location = useLocation();
-  const [user, setUser] = React.useState(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  React.useEffect(() => {
-    const loadUser = async () => {
-      try {
-        const currentUser = await base44.auth.me();
-        setUser(currentUser);
-      } catch (error) {
-        console.error("Error loading user:", error);
-      }
-    };
-    loadUser();
-  }, []);
+  const { data: user } = useQuery({
+    queryKey: ["currentUser"],
+    queryFn: () => base44.auth.me(),
+  });
 
-  const handleLogout = async () => {
-    await base44.auth.logout();
+  const handleLogout = () => {
+    base44.auth.logout();
   };
 
-  const isManager = user?.role === 'admin';
+  const isActive = (url) => {
+    return location.pathname === url;
+  };
 
   return (
-    <SidebarProvider>
-      <style>{`
-        :root {
-          --primary-dark: #0f172a;
-          --primary-blue: #1e40af;
-          --accent-blue: #3b82f6;
-          --bg-light: #f8fafc;
-          --text-primary: #1e293b;
-          --text-secondary: #64748b;
-          --border-color: #e2e8f0;
-        }
-        
-        body {
-          background: var(--bg-light);
-        }
-      `}</style>
-      
-      <div className="min-h-screen flex w-full bg-gray-50">
-        <Sidebar className="border-r border-gray-200 bg-white">
-          <SidebarHeader className="border-b border-gray-100 p-6">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-blue-800 rounded-xl flex items-center justify-center shadow-lg">
-                <span className="text-white font-bold text-xl">A</span>
-              </div>
-              <div>
-                <h2 className="font-bold text-xl text-gray-900">AURA</h2>
-                <p className="text-xs text-gray-500">Restaurant Assistant</p>
-              </div>
-            </div>
-          </SidebarHeader>
-          
-          <SidebarContent className="p-3">
-            <SidebarGroup>
-              <SidebarGroupLabel className="text-xs font-medium text-gray-500 uppercase tracking-wider px-2 py-2">
-                Main Menu
-              </SidebarGroupLabel>
-              <SidebarGroupContent>
-                <SidebarMenu className="space-y-1">
-                  {navigationItems.map((item) => {
-                    const isActive = location.pathname === item.url;
-                    return (
-                      <SidebarMenuItem key={item.title}>
-                        <SidebarMenuButton 
-                          asChild 
-                          className={`
-                            transition-all duration-200 rounded-xl px-4 py-3
-                            ${isActive 
-                              ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-lg shadow-blue-200' 
-                              : 'hover:bg-gray-50 text-gray-700'
-                            }
-                          `}
-                        >
-                          <Link to={item.url} className="flex items-center gap-3">
-                            <item.icon className={`w-5 h-5 ${isActive ? 'text-white' : 'text-gray-500'}`} />
-                            <span className="font-medium">{item.title}</span>
-                          </Link>
-                        </SidebarMenuButton>
-                      </SidebarMenuItem>
-                    );
-                  })}
-                </SidebarMenu>
-              </SidebarGroupContent>
-            </SidebarGroup>
-
-            {isManager && (
-              <SidebarGroup>
-                <SidebarGroupLabel className="text-xs font-medium text-gray-500 uppercase tracking-wider px-2 py-2">
-                  Manager Tools
-                </SidebarGroupLabel>
-                <SidebarGroupContent>
-                  <SidebarMenu className="space-y-1">
-                    {managerItems.map((item) => {
-                      const isActive = location.pathname === item.url;
-                      return (
-                        <SidebarMenuItem key={item.title}>
-                          <SidebarMenuButton 
-                            asChild 
-                            className={`
-                              transition-all duration-200 rounded-xl px-4 py-3
-                              ${isActive 
-                                ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-lg shadow-blue-200' 
-                                : 'hover:bg-gray-50 text-gray-700'
-                              }
-                            `}
-                          >
-                            <Link to={item.url} className="flex items-center gap-3">
-                              <item.icon className={`w-5 h-5 ${isActive ? 'text-white' : 'text-gray-500'}`} />
-                              <span className="font-medium">{item.title}</span>
-                            </Link>
-                          </SidebarMenuButton>
-                        </SidebarMenuItem>
-                      );
-                    })}
-                  </SidebarMenu>
-                </SidebarGroupContent>
-              </SidebarGroup>
-            )}
-          </SidebarContent>
-
-          <SidebarFooter className="border-t border-gray-100 p-4">
-            {user && (
-              <div className="space-y-3">
-                <div className="flex items-center gap-3 px-2">
-                  <div className="w-10 h-10 bg-gradient-to-br from-gray-700 to-gray-900 rounded-full flex items-center justify-center">
-                    <span className="text-white font-semibold text-sm">
-                      {user.full_name?.charAt(0)?.toUpperCase() || 'U'}
-                    </span>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-sm text-gray-900 truncate">{user.full_name}</p>
-                    <p className="text-xs text-gray-500 truncate">{user.position || 'Staff'}</p>
-                  </div>
-                </div>
-                <button
-                  onClick={handleLogout}
-                  className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors duration-200"
-                >
-                  <LogOut className="w-4 h-4" />
-                  Logout
-                </button>
-              </div>
-            )}
-          </SidebarFooter>
-        </Sidebar>
-
-        <main className="flex-1 flex flex-col overflow-hidden">
-          <header className="bg-white border-b border-gray-200 px-6 py-4 md:hidden">
-            <div className="flex items-center gap-4">
-              <SidebarTrigger className="hover:bg-gray-100 p-2 rounded-lg transition-colors duration-200" />
-              <h1 className="text-xl font-bold text-gray-900">AURA</h1>
-            </div>
-          </header>
-
-          <div className="flex-1 overflow-auto">
-            {children}
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+      {/* Mobile Header */}
+      <div className="lg:hidden fixed top-0 left-0 right-0 bg-white border-b border-slate-200 z-40 px-4 py-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setSidebarOpen(!sidebarOpen)}
+              className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
+            >
+              {sidebarOpen ? (
+                <X className="w-6 h-6 text-slate-700" />
+              ) : (
+                <Menu className="w-6 h-6 text-slate-700" />
+              )}
+            </button>
+            <h1 className="text-xl font-bold bg-gradient-to-r from-blue-600 to-green-600 bg-clip-text text-transparent">
+              AURA
+            </h1>
           </div>
-        </main>
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium text-slate-700">
+              {user?.full_name}
+            </span>
+          </div>
+        </div>
       </div>
-    </SidebarProvider>
+
+      {/* Sidebar */}
+      <aside
+        className={`fixed top-0 left-0 h-full bg-white border-r border-slate-200 z-50 transition-transform duration-300 ${
+          sidebarOpen ? "translate-x-0" : "-translate-x-full"
+        } lg:translate-x-0 w-64`}
+      >
+        <div className="flex flex-col h-full">
+          {/* Logo */}
+          <div className="p-6 border-b border-slate-200">
+            <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-green-600 bg-clip-text text-transparent">
+              AURA
+            </h1>
+            <p className="text-xs text-slate-600 mt-1">
+              Restaurant Operations Assistant
+            </p>
+          </div>
+
+          {/* Navigation */}
+          <nav className="flex-1 overflow-y-auto p-4">
+            <div className="space-y-1">
+              {navigationItems.map((item) => {
+                const Icon = item.icon;
+                const active = isActive(item.url);
+
+                return (
+                  <Link
+                    key={item.title}
+                    to={item.url}
+                    onClick={() => setSidebarOpen(false)}
+                    className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${
+                      active
+                        ? "bg-gradient-to-r from-blue-50 to-green-50 text-blue-700 font-medium"
+                        : "text-slate-700 hover:bg-slate-50"
+                    }`}
+                  >
+                    <Icon className={`w-5 h-5 ${active ? "text-blue-600" : "text-slate-500"}`} />
+                    <span className="text-sm">{item.title}</span>
+                  </Link>
+                );
+              })}
+            </div>
+          </nav>
+
+          {/* User Section */}
+          <div className="p-4 border-t border-slate-200">
+            <div className="flex items-center gap-3 mb-3 px-2">
+              <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-green-500 rounded-full flex items-center justify-center text-white font-semibold">
+                {user?.full_name?.charAt(0)?.toUpperCase() || "U"}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-slate-900 truncate">
+                  {user?.full_name || "User"}
+                </p>
+                <p className="text-xs text-slate-500 truncate">{user?.email}</p>
+              </div>
+            </div>
+            <button
+              onClick={handleLogout}
+              className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+            >
+              <LogOut className="w-4 h-4" />
+              <span>Logout</span>
+            </button>
+          </div>
+        </div>
+      </aside>
+
+      {/* Overlay for mobile */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
+      {/* Main Content */}
+      <main className="lg:ml-64 pt-16 lg:pt-0 min-h-screen">
+        {children}
+      </main>
+    </div>
   );
 }
