@@ -11,6 +11,10 @@ import ChecklistMonitor from './pages/ChecklistMonitor';
 import MenuManagement from './pages/MenuManagement';
 import SupplierManagement from './pages/SupplierManagement';
 import IngredientStock from './pages/IngredientStock';
+import ProductionPlanning from './pages/ProductionPlanning';
+import Ordering from './pages/Ordering';
+import OrderHistory from './pages/OrderHistory';
+import MenuAnalysis from './pages/MenuAnalysis';
 import Layout from './Layout.jsx';
 
 
@@ -28,6 +32,10 @@ export const PAGES = {
     "MenuManagement": MenuManagement,
     "SupplierManagement": SupplierManagement,
     "IngredientStock": IngredientStock,
+    "ProductionPlanning": ProductionPlanning,
+    "Ordering": Ordering,
+    "OrderHistory": OrderHistory,
+    "MenuAnalysis": MenuAnalysis,
 }
 
 export const pagesConfig = {

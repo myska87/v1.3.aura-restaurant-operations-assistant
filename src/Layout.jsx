@@ -1,3 +1,4 @@
+
 import React from "react";
 import { Link, useLocation } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -9,9 +10,12 @@ import {
   Users,
   BarChart3,
   FileText,
-  ListChecks,
+  ListChecks, // Still used for My Checklists, even if not in new navItems. Keep it.
   Monitor,
   LogOut,
+  ChefHat, // New icon
+  Calculator, // New icon
+  ShoppingCart, // New icon
 } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 import {
@@ -36,19 +40,44 @@ const navigationItems = [
     icon: LayoutDashboard,
   },
   {
-    title: "My Checklists",
-    url: createPageUrl("MyChecklists"),
-    icon: ListChecks,
+    title: "Menu Analysis",
+    url: createPageUrl("MenuAnalysis"),
+    icon: BarChart3,
+  },
+  {
+    title: "Menu Management",
+    url: createPageUrl("MenuManagement"),
+    icon: ChefHat,
+  },
+  {
+    title: "Suppliers",
+    url: createPageUrl("SupplierManagement"),
+    icon: Users,
+  },
+  {
+    title: "Stock Take",
+    url: createPageUrl("IngredientStock"),
+    icon: Package,
+  },
+  {
+    title: "Production Planning",
+    url: createPageUrl("ProductionPlanning"),
+    icon: Calculator,
+  },
+  {
+    title: "Ordering",
+    url: createPageUrl("Ordering"),
+    icon: ShoppingCart,
+  },
+  {
+    title: "Order History",
+    url: createPageUrl("OrderHistory"),
+    icon: FileText,
   },
   {
     title: "Compliance",
     url: createPageUrl("Compliance"),
     icon: ClipboardCheck,
-  },
-  {
-    title: "Inventory",
-    url: createPageUrl("Inventory"),
-    icon: Package,
   },
   {
     title: "Maintenance",
