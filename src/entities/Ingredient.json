@@ -1,0 +1,75 @@
+{
+  "name": "Ingredient",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Ingredient name"
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "produce",
+        "meat_poultry",
+        "seafood",
+        "dairy",
+        "dry_goods",
+        "spices",
+        "beverages",
+        "packaging"
+      ],
+      "description": "Ingredient category"
+    },
+    "unit": {
+      "type": "string",
+      "description": "Base unit (kg, g, liters, pieces, etc.)"
+    },
+    "current_stock": {
+      "type": "number",
+      "default": 0,
+      "description": "Current quantity in stock"
+    },
+    "par_level": {
+      "type": "number",
+      "description": "Ideal stock level"
+    },
+    "reorder_point": {
+      "type": "number",
+      "description": "When to reorder"
+    },
+    "supplier_id": {
+      "type": "string",
+      "description": "Primary supplier"
+    },
+    "supplier_name": {
+      "type": "string",
+      "description": "Cached supplier name"
+    },
+    "unit_cost": {
+      "type": "number",
+      "description": "Cost per unit from supplier"
+    },
+    "pack_size": {
+      "type": "string",
+      "description": "How supplier sells it (e.g., 2kg pack)"
+    },
+    "storage_location": {
+      "type": "string",
+      "description": "Where stored"
+    },
+    "shelf_life_days": {
+      "type": "number",
+      "description": "Days until expiry"
+    },
+    "last_cost_update": {
+      "type": "string",
+      "format": "date"
+    }
+  },
+  "required": [
+    "name",
+    "category",
+    "unit",
+    "unit_cost"
+  ]
+}

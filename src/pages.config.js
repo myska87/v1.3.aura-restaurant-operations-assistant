@@ -8,6 +8,9 @@ import ChecklistTemplates from './pages/ChecklistTemplates';
 import MyChecklists from './pages/MyChecklists';
 import ExecuteChecklist from './pages/ExecuteChecklist';
 import ChecklistMonitor from './pages/ChecklistMonitor';
+import MenuManagement from './pages/MenuManagement';
+import SupplierManagement from './pages/SupplierManagement';
+import IngredientStock from './pages/IngredientStock';
 import Layout from './Layout.jsx';
 
 
@@ -22,6 +25,9 @@ export const PAGES = {
     "MyChecklists": MyChecklists,
     "ExecuteChecklist": ExecuteChecklist,
     "ChecklistMonitor": ChecklistMonitor,
+    "MenuManagement": MenuManagement,
+    "SupplierManagement": SupplierManagement,
+    "IngredientStock": IngredientStock,
 }
 
 export const pagesConfig = {

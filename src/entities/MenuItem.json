@@ -1,0 +1,91 @@
+{
+  "name": "MenuItem",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Menu item name"
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "appetizers",
+        "mains",
+        "desserts",
+        "beverages",
+        "sides",
+        "specials"
+      ],
+      "description": "Menu category"
+    },
+    "sell_price": {
+      "type": "number",
+      "description": "Price charged to customer"
+    },
+    "recipe": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "ingredient_id": {
+            "type": "string"
+          },
+          "ingredient_name": {
+            "type": "string"
+          },
+          "quantity": {
+            "type": "number"
+          },
+          "unit": {
+            "type": "string"
+          },
+          "cost": {
+            "type": "number",
+            "description": "Cost for this quantity"
+          }
+        }
+      },
+      "description": "List of ingredients and quantities"
+    },
+    "total_cost": {
+      "type": "number",
+      "description": "Sum of ingredient costs"
+    },
+    "food_cost_percentage": {
+      "type": "number",
+      "description": "Cost as % of sell price"
+    },
+    "profit_margin": {
+      "type": "number",
+      "description": "Profit per portion"
+    },
+    "prep_time_minutes": {
+      "type": "number"
+    },
+    "cooking_instructions": {
+      "type": "string"
+    },
+    "allergens": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "image_url": {
+      "type": "string"
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true
+    },
+    "popularity_score": {
+      "type": "number",
+      "description": "Track sales volume"
+    }
+  },
+  "required": [
+    "name",
+    "category",
+    "sell_price"
+  ]
+}

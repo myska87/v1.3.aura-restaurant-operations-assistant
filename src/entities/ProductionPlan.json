@@ -1,0 +1,89 @@
+{
+  "name": "ProductionPlan",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Plan name (e.g., Weekend Service, Catering Event)"
+    },
+    "date": {
+      "type": "string",
+      "format": "date"
+    },
+    "menu_items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "menu_item_id": {
+            "type": "string"
+          },
+          "menu_item_name": {
+            "type": "string"
+          },
+          "portions_needed": {
+            "type": "number"
+          },
+          "sell_price": {
+            "type": "number"
+          },
+          "cost_per_portion": {
+            "type": "number"
+          }
+        }
+      }
+    },
+    "total_portions": {
+      "type": "number"
+    },
+    "total_revenue": {
+      "type": "number"
+    },
+    "total_cost": {
+      "type": "number"
+    },
+    "projected_profit": {
+      "type": "number"
+    },
+    "ingredients_needed": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "ingredient_id": {
+            "type": "string"
+          },
+          "ingredient_name": {
+            "type": "string"
+          },
+          "quantity_needed": {
+            "type": "number"
+          },
+          "unit": {
+            "type": "string"
+          },
+          "current_stock": {
+            "type": "number"
+          },
+          "to_order": {
+            "type": "number"
+          }
+        }
+      }
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "planning",
+        "approved",
+        "in_production",
+        "completed"
+      ],
+      "default": "planning"
+    }
+  },
+  "required": [
+    "name",
+    "date"
+  ]
+}
