@@ -35,6 +35,8 @@ import SuggestionBox from './pages/SuggestionBox';
 import TeamDirectory from './pages/TeamDirectory';
 import AdvancedChecklists from './pages/AdvancedChecklists';
 import RestaurantRoutines from './pages/RestaurantRoutines';
+import FormBuilder from './pages/FormBuilder';
+import FormLibrary from './pages/FormLibrary';
 import Layout from './Layout.jsx';
 
 
@@ -76,6 +78,8 @@ export const PAGES = {
     "TeamDirectory": TeamDirectory,
     "AdvancedChecklists": AdvancedChecklists,
     "RestaurantRoutines": RestaurantRoutines,
+    "FormBuilder": FormBuilder,
+    "FormLibrary": FormLibrary,
 }
 
 export const pagesConfig = {

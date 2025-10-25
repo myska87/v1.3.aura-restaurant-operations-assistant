@@ -1,0 +1,96 @@
+{
+  "name": "FormAssignment",
+  "type": "object",
+  "properties": {
+    "form_id": {
+      "type": "string",
+      "description": "Reference to FormTemplate"
+    },
+    "form_name": {
+      "type": "string",
+      "description": "Cached form name"
+    },
+    "assigned_to_role": {
+      "type": "string",
+      "description": "Position/role assigned to"
+    },
+    "assigned_to_department": {
+      "type": "string",
+      "description": "Department assigned to"
+    },
+    "assigned_to_email": {
+      "type": "string",
+      "description": "Specific user email (optional)"
+    },
+    "assigned_to_name": {
+      "type": "string",
+      "description": "Specific user name (optional)"
+    },
+    "schedule_type": {
+      "type": "string",
+      "enum": [
+        "once",
+        "daily",
+        "weekly",
+        "monthly",
+        "custom"
+      ],
+      "default": "once"
+    },
+    "schedule_day_of_week": {
+      "type": "string",
+      "enum": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "sunday"
+      ],
+      "description": "For weekly schedules"
+    },
+    "schedule_day_of_month": {
+      "type": "number",
+      "description": "For monthly schedules (1-31)"
+    },
+    "due_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Specific due date for one-time forms"
+    },
+    "due_time": {
+      "type": "string",
+      "description": "Time form is due (HH:mm)"
+    },
+    "start_date": {
+      "type": "string",
+      "format": "date",
+      "description": "When assignments start"
+    },
+    "end_date": {
+      "type": "string",
+      "format": "date",
+      "description": "When assignments end (optional)"
+    },
+    "reminder_minutes": {
+      "type": "number",
+      "default": 15,
+      "description": "Minutes before due time to send reminder"
+    },
+    "escalate_after_hours": {
+      "type": "number",
+      "default": 2,
+      "description": "Hours overdue before escalation"
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true
+    }
+  },
+  "required": [
+    "form_id",
+    "schedule_type",
+    "due_time"
+  ]
+}

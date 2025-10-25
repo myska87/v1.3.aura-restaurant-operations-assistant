@@ -1,0 +1,124 @@
+{
+  "name": "FormTemplate",
+  "type": "object",
+  "properties": {
+    "form_name": {
+      "type": "string",
+      "description": "Name of the form template"
+    },
+    "description": {
+      "type": "string",
+      "description": "What this form is for"
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "cleaning",
+        "hygiene",
+        "maintenance",
+        "training",
+        "audit",
+        "safety",
+        "quality",
+        "other"
+      ],
+      "description": "Form category"
+    },
+    "fields": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "field_id": {
+            "type": "string"
+          },
+          "field_type": {
+            "type": "string",
+            "enum": [
+              "text",
+              "number",
+              "dropdown",
+              "checkbox",
+              "radio",
+              "yesno",
+              "date",
+              "file",
+              "photo",
+              "signature",
+              "rating",
+              "section_header",
+              "textarea"
+            ]
+          },
+          "field_label": {
+            "type": "string"
+          },
+          "field_hint": {
+            "type": "string"
+          },
+          "options": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "required": {
+            "type": "boolean",
+            "default": false
+          },
+          "conditional_logic": {
+            "type": "object",
+            "properties": {
+              "show_if_field": {
+                "type": "string"
+              },
+              "show_if_value": {
+                "type": "string"
+              }
+            }
+          },
+          "order_index": {
+            "type": "number"
+          }
+        }
+      },
+      "description": "Form fields configuration"
+    },
+    "requires_signature": {
+      "type": "boolean",
+      "default": true,
+      "description": "Whether signature is required"
+    },
+    "auto_calculate_score": {
+      "type": "boolean",
+      "default": false,
+      "description": "Auto-calculate score from yes/no answers"
+    },
+    "passing_score": {
+      "type": "number",
+      "description": "Minimum score to pass (percentage)"
+    },
+    "version_number": {
+      "type": "number",
+      "default": 1,
+      "description": "Template version for tracking"
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true
+    },
+    "color_theme": {
+      "type": "string",
+      "default": "#014D40",
+      "description": "Form brand color"
+    },
+    "icon": {
+      "type": "string",
+      "description": "Emoji or icon for form"
+    }
+  },
+  "required": [
+    "form_name",
+    "fields"
+  ]
+}
