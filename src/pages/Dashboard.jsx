@@ -367,6 +367,7 @@ export default function Dashboard() {
             icon={ClipboardCheck}
             color="bg-green-500"
             trend={{ positive: true, value: "+3%" }}
+            link={createPageUrl("Compliance")}
           />
           <StatCard
             title="Low Stock Items"
@@ -374,6 +375,7 @@ export default function Dashboard() {
             subtitle={`${inventoryItems.length} total items`}
             icon={Package}
             color="bg-orange-500"
+            link={createPageUrl("InventoryManagement")}
           />
           <StatCard
             title="Open Tickets"
@@ -381,6 +383,7 @@ export default function Dashboard() {
             subtitle={`${maintenanceTickets.length} total tickets`}
             icon={Wrench}
             color="bg-red-500"
+            link={createPageUrl("Maintenance")}
           />
           <StatCard
             title="Pending Tasks"
@@ -388,6 +391,7 @@ export default function Dashboard() {
             subtitle={`${staffTasks.length} total tasks`}
             icon={Users}
             color="bg-blue-500"
+            link={createPageUrl("AdvancedChecklists")}
           />
         </div>
 
