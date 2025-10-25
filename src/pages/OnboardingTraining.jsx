@@ -263,10 +263,26 @@ export default function OnboardingTraining() {
     const progress = getStepProgress(step.id);
     if (!progress) return;
 
-    // This function is now only for completing the step if acknowledged
-    // The acknowledged status itself is updated directly by the checkbox's onChange
+    // If already acknowledged, just complete the step
     if (progress.acknowledged) {
       handleCompleteStep(step);
+    }
+  };
+
+  const handleAcknowledgementChange = async (step, isChecked) => {
+    const progress = getStepProgress(step.id);
+    if (!progress) return;
+
+    try {
+      await updateProgressMutation.mutateAsync({
+        id: progress.id,
+        data: { 
+          acknowledged: isChecked,
+          acknowledged_at: isChecked ? new Date().toISOString() : null
+        }
+      });
+    } catch (error) {
+      console.error("Error updating acknowledgement:", error);
     }
   };
 
@@ -560,35 +576,31 @@ export default function OnboardingTraining() {
                     <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg mb-4">
                       <p className="text-gray-800">{selectedStep.acknowledgement_text}</p>
                     </div>
-                    <div className="p-4 bg-white border-2 border-gray-200 rounded-lg hover:border-blue-300 hover:bg-blue-50 transition-all">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const currentProgress = getStepProgress(selectedStep.id);
+                        const isCurrentlyChecked = currentProgress?.acknowledged || false;
+                        handleAcknowledgementChange(selectedStep, !isCurrentlyChecked);
+                      }}
+                      disabled={getStepProgress(selectedStep.id)?.acknowledged}
+                      className="w-full p-4 bg-white border-2 border-gray-200 rounded-lg hover:border-blue-300 hover:bg-blue-50 transition-all disabled:opacity-50 disabled:cursor-not-allowed text-left"
+                    >
                       <div className="flex items-start gap-3">
-                        <input
-                          type="checkbox"
-                          id="acknowledge-checkbox"
-                          checked={getStepProgress(selectedStep.id)?.acknowledged || false}
-                          onChange={async (e) => {
-                            const progress = getStepProgress(selectedStep.id);
-                            if (progress && !progress.acknowledged) { // Only allow changing if not already acknowledged
-                              await updateProgressMutation.mutateAsync({
-                                id: progress.id,
-                                data: { 
-                                  acknowledged: e.target.checked,
-                                  acknowledged_at: new Date().toISOString()
-                                }
-                              });
-                            }
-                          }}
-                          disabled={getStepProgress(selectedStep.id)?.acknowledged}
-                          className="w-5 h-5 mt-1 cursor-pointer accent-blue-600"
-                        />
-                        <label 
-                          htmlFor="acknowledge-checkbox" 
-                          className="flex-1 text-gray-800 cursor-pointer leading-relaxed select-none"
-                        >
+                        <div className={`w-6 h-6 flex-shrink-0 mt-0.5 rounded border-2 flex items-center justify-center ${
+                          getStepProgress(selectedStep.id)?.acknowledged 
+                            ? 'bg-blue-600 border-blue-600' 
+                            : 'border-gray-300 bg-white'
+                        }`}>
+                          {getStepProgress(selectedStep.id)?.acknowledged && (
+                            <CheckCircle className="w-4 h-4 text-white" />
+                          )}
+                        </div>
+                        <span className="flex-1 text-gray-800 leading-relaxed">
                           I have read and understood the above information and agree to comply with these requirements.
-                        </label>
+                        </span>
                       </div>
-                    </div>
+                    </button>
                   </div>
                 )}
 
