@@ -298,12 +298,28 @@ export default function MenuManagement() {
     
     // Calculate cost per serving with waste
     const costPerServing = recipe.reduce((sum, item) => {
-      const ingredientDetail = ingredients.find(ing => ing.id === item.ingredient_id);
-      if (!ingredientDetail) return sum;
+      // Try to find ingredient by ID
+      let ingredientDetail = ingredients.find(ing => ing.id === item.ingredient_id);
+      
+      // If not found by ID, try by name (fallback for older or manually added items)
+      if (!ingredientDetail) {
+        ingredientDetail = ingredients.find(ing => ing.name === item.ingredient_name);
+        if (ingredientDetail) {
+          console.warn(`Ingredient "${item.ingredient_name}" (ID: ${item.ingredient_id}) not found by ID, matched by name.`);
+        } else {
+          console.warn(`Ingredient "${item.ingredient_name}" (ID: ${item.ingredient_id}) not found in inventory for cost calculation.`);
+          // If not found, use the stored cost from the recipe if available.
+          // This might be imperfect if the recipe cost is outdated, but it's a fallback.
+          return sum + (item.cost || 0); 
+        }
+      }
 
-      const individualCost = ingredientDetail.unit_cost * item.quantity;
+      // Use unit_cost from inventory, or fallback to recipe's cost/quantity if inventory unit_cost is zero/null
+      const effectiveUnitCost = ingredientDetail.unit_cost > 0 ? ingredientDetail.unit_cost : (item.cost / item.quantity);
+      const individualCost = effectiveUnitCost * item.quantity;
       return sum + individualCost;
     }, 0);
+
 
     const costPerServingWithWaste = costPerServing * (1 + wastePercentage / 100);
 
@@ -317,26 +333,56 @@ export default function MenuManagement() {
       : 0;
 
     // Calculate ingredient quantities needed for servings
-    const ingredientsNeeded = recipe.map(item => {
-      const ingredientDetail = ingredients.find(ing => ing.id === item.ingredient_id);
-      if (!ingredientDetail) return null;
+    const ingredientsNeeded = recipe.map(recipeItem => {
+      // Try to find ingredient by ID
+      let ingredientDetail = ingredients.find(ing => ing.id === recipeItem.ingredient_id);
+      
+      // If not found by ID, try by name (fallback)
+      if (!ingredientDetail) {
+        ingredientDetail = ingredients.find(ing => ing.name === recipeItem.ingredient_name);
+        if (ingredientDetail) {
+          console.warn(`Ingredient "${recipeItem.ingredient_name}" (ID: ${recipeItem.ingredient_id}) not found by ID, matched by name.`);
+        }
+      }
+      
+      if (!ingredientDetail) {
+        console.error(`Ingredient "${recipeItem.ingredient_name}" (ID: ${recipeItem.ingredient_id}) not found in inventory!`);
+        // Return a placeholder with the recipe data, indicating it's missing
+        const quantityNeededRaw = recipeItem.quantity * servings;
+        const quantityNeededWithWaste = quantityNeededRaw * (1 + wastePercentage / 100);
+        const unitCostFromRecipe = recipeItem.quantity > 0 ? recipeItem.cost / recipeItem.quantity : 0; // Use stored cost for calculation
+        const totalCostFromRecipe = quantityNeededWithWaste * unitCostFromRecipe;
+        return {
+          ingredient_id: recipeItem.ingredient_id,
+          ingredient_name: recipeItem.ingredient_name,
+          quantity_needed: quantityNeededWithWaste,
+          unit: recipeItem.unit,
+          unit_cost: unitCostFromRecipe, 
+          total_cost: totalCostFromRecipe,
+          supplier_id: null,
+          supplier_name: "⚠️ Not in Inventory", // Display a clear message
+          supplier_email: null,
+          missing: true, // Flag this item as missing
+        };
+      }
 
-      const quantityNeededRaw = item.quantity * servings;
+      const quantityNeededRaw = recipeItem.quantity * servings;
       const quantityNeededWithWaste = quantityNeededRaw * (1 + wastePercentage / 100);
       const totalIngredientCost = quantityNeededWithWaste * ingredientDetail.unit_cost;
 
       return {
-        ingredient_id: item.ingredient_id,
+        ingredient_id: ingredientDetail.id,
         ingredient_name: ingredientDetail.name,
         quantity_needed: quantityNeededWithWaste,
         unit: ingredientDetail.unit,
         unit_cost: ingredientDetail.unit_cost,
         total_cost: totalIngredientCost,
         supplier_id: ingredientDetail.supplier_id,
-        supplier_name: ingredientDetail.supplier_name,
+        supplier_name: ingredientDetail.supplier_name || "⚠️ No Supplier", // Default if supplier_name is missing
         supplier_email: ingredientDetail.supplier_email,
+        missing: false, // This item was found
       };
-    }).filter(Boolean);
+    });
 
     return {
       costPerServing: costPerServingWithWaste,
@@ -360,36 +406,42 @@ export default function MenuManagement() {
       return;
     }
 
-    // Check which ingredients are missing suppliers
-    const ingredientsWithoutSuppliers = [];
+    // New: Check for missing ingredients first
+    const missingIngredients = ingredientsNeeded.filter(ing => ing.missing);
+    if (missingIngredients.length > 0) {
+      alert(`⚠️ Cannot create order. The following ingredient(s) are not found in your Inventory:\n\n${
+        missingIngredients.map(i => `• ${i.ingredient_name}`).join('\n')
+      }\n\nPlease add these ingredients to Inventory Management first.`);
+      return;
+    }
+
+    // Check which ingredients are missing suppliers (now filters based on 'missing: false' items)
+    const ingredientsWithoutSuppliers = ingredientsNeeded.filter(ing => !ing.supplier_id && !ing.missing);
+    if (ingredientsWithoutSuppliers.length > 0) {
+      const errorMessage = `⚠️ Cannot create order. The following ingredients need suppliers:\n\n${
+        ingredientsWithoutSuppliers.map(item => `• ${item.ingredient_name}`).join('\n')
+      }\n\nPlease go to Inventory Management and assign suppliers to these ingredients.`;
+      
+      alert(errorMessage);
+      return;
+    }
+
+    // Group by supplier
     const ordersBySupplier = {};
 
     for (const recipeItem of ingredientsNeeded) {
-      const ingredient = ingredients.find(ing => ing.id === recipeItem.ingredient_id);
-      
-      if (!ingredient) {
-        ingredientsWithoutSuppliers.push({
-          name: recipeItem.ingredient_name,
-          reason: 'Ingredient not found in inventory'
-        });
-        continue;
-      }
+      // Skip ingredients that were marked as missing (should be caught by previous check, but for safety)
+      if (recipeItem.missing) continue;
 
-      if (!ingredient.supplier_id) {
-        ingredientsWithoutSuppliers.push({
-          name: recipeItem.ingredient_name,
-          reason: 'No supplier assigned'
-        });
-        continue;
-      }
-
-      const supplierId = ingredient.supplier_id;
+      const supplierId = recipeItem.supplier_id;
+      // Also skip if supplierId is somehow null/undefined here (should be caught by previous check, but for safety)
+      if (!supplierId) continue; 
 
       if (!ordersBySupplier[supplierId]) {
         ordersBySupplier[supplierId] = {
-          supplier_id: ingredient.supplier_id,
-          supplier_name: ingredient.supplier_name,
-          supplier_email: ingredient.supplier_email,
+          supplier_id: recipeItem.supplier_id,
+          supplier_name: recipeItem.supplier_name,
+          supplier_email: recipeItem.supplier_email,
           items: [],
         };
       }
@@ -404,18 +456,9 @@ export default function MenuManagement() {
       });
     }
 
-    // Show detailed error if ingredients missing suppliers
-    if (ingredientsWithoutSuppliers.length > 0) {
-      const errorMessage = `⚠️ Cannot create order. The following ingredients need suppliers:\n\n${
-        ingredientsWithoutSuppliers.map(item => `• ${item.name} - ${item.reason}`).join('\n')
-      }\n\nPlease go to Inventory Management and assign suppliers to these ingredients.`;
-      
-      alert(errorMessage);
-      return;
-    }
-
     if (Object.keys(ordersBySupplier).length === 0) {
-      alert('⚠️ No valid ingredients to order. Please check supplier assignments.');
+      // This should ideally not happen if ingredientsNeeded is not empty and no missing ingredients/suppliers.
+      alert('⚠️ No valid ingredients with suppliers to order. Please check your recipes and inventory.');
       return;
     }
 
@@ -1050,28 +1093,51 @@ export default function MenuManagement() {
 
                 {/* Ingredients Breakdown */}
                 <div>
-                  <h4 className="font-semibold text-gray-900 mb-3">Ingredients Needed ({servings} servings)</h4>
-                  {metrics.ingredientsNeeded.length === 0 ? (
+                  <h4 className="font-semibold text-gray-900 mb-3">
+                    Ingredients Needed ({servings} servings)
+                    {calculatorItem?.recipe?.length > 0 && (
+                      <span className="text-sm font-normal text-gray-500 ml-2">
+                        ({calculatorItem.recipe.length} ingredients in recipe)
+                      </span>
+                    )}
+                  </h4>
+                  {metrics.ingredientsNeeded.length === 0 && calculatorItem?.recipe?.length === 0 ? (
                     <Card className="bg-amber-50 border-amber-200">
                       <CardContent className="p-4 text-center">
                         <p className="text-amber-800">⚠️ No ingredients found in recipe</p>
+                        <p className="text-sm text-amber-600 mt-2">
+                          This menu item doesn't have any ingredients added yet.
+                        </p>
                       </CardContent>
                     </Card>
                   ) : (
                     <div className="space-y-2">
                       {metrics.ingredientsNeeded.map((item, index) => {
-                        const ingredient = ingredients.find(ing => ing.id === item.ingredient_id);
-                        const hasSupplier = ingredient?.supplier_id;
+                        const hasSupplier = item.supplier_id && !item.missing;
                         
                         return (
-                          <Card key={index} className={`border ${hasSupplier ? 'border-gray-200' : 'border-red-200 bg-red-50'}`}>
+                          <Card 
+                            key={index} 
+                            className={`border ${
+                              item.missing 
+                                ? 'border-red-300 bg-red-50' 
+                                : hasSupplier 
+                                  ? 'border-gray-200' 
+                                  : 'border-amber-200 bg-amber-50'
+                            }`}
+                          >
                             <CardContent className="p-4">
                               <div className="flex justify-between items-center">
                                 <div className="flex-1">
                                   <div className="flex items-center gap-2">
                                     <p className="font-medium text-gray-900">{item.ingredient_name}</p>
-                                    {!hasSupplier && (
+                                    {item.missing && (
                                       <Badge className="bg-red-100 text-red-800 text-xs">
+                                        Not in Inventory
+                                      </Badge>
+                                    )}
+                                    {!hasSupplier && !item.missing && (
+                                      <Badge className="bg-amber-100 text-amber-800 text-xs">
                                         No Supplier
                                       </Badge>
                                     )}
@@ -1082,11 +1148,16 @@ export default function MenuManagement() {
                                       <span className="text-amber-600 ml-1"> (+{wastePercentage}% waste)</span>
                                     )}
                                   </p>
-                                  {ingredient?.supplier_name && (
-                                    <p className="text-xs text-gray-500">Supplier: {ingredient.supplier_name}</p>
+                                  {!item.missing && item.supplier_name && (
+                                    <p className="text-xs text-gray-500">Supplier: {item.supplier_name}</p>
                                   )}
-                                  {!hasSupplier && (
+                                  {item.missing && (
                                     <p className="text-xs text-red-600 mt-1">
+                                      ⚠️ Please add this ingredient to Inventory Management
+                                    </p>
+                                  )}
+                                  {!hasSupplier && !item.missing && (
+                                    <p className="text-xs text-amber-600 mt-1">
                                       ⚠️ Please assign a supplier in Inventory Management
                                     </p>
                                   )}
