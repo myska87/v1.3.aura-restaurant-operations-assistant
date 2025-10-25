@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -8,12 +7,8 @@ import { Badge } from "@/components/ui/badge";
 import { Clock, LogIn, LogOut, MapPin, AlertCircle, ArrowLeft, Home } from "lucide-react";
 import { format, differenceInMinutes, differenceInHours } from "date-fns";
 import { motion } from "framer-motion";
-import { Link } from "react-router-dom"; // Added Link import
-
-// Assuming createPageUrl is a utility function available in the project.
-// In a Base44 application, this might also be handled by base44.pages.PageName.url()
-// or a custom utility. We're importing based on the outline's usage.
-import { createPageUrl } from "@/lib/utils"; 
+import { Link } from "react-router-dom";
+import { createPageUrl } from "@/utils";
 
 export default function ClockInOut() {
   const queryClient = useQueryClient();

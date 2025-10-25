@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -16,23 +15,10 @@ import {
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, Plus, Trash2, CheckCircle, XCircle, ArrowLeft, Home } from "lucide-react"; // Added ArrowLeft, Home
-import { format, addDays, startOfWeek } from "date-fns";
-import { Link } from "react-router-dom"; // Added Link import
-
-// Helper function to create page URLs.
-// This is a placeholder; in a real application, this would typically
-// be imported from a routing utility or defined based on your routing setup.
-const createPageUrl = (pageName) => {
-  switch (pageName) {
-    case "StaffRota":
-      return "/staff-rota"; // Example path
-    case "Dashboard":
-      return "/dashboard"; // Example path
-    default:
-      return "/";
-  }
-};
+import { Calendar, Plus, Trash2, CheckCircle, XCircle, ArrowLeft, Home } from "lucide-react";
+import { format, addDays } from "date-fns";
+import { Link } from "react-router-dom";
+import { createPageUrl } from "@/utils";
 
 export default function ManageAvailability() {
   const queryClient = useQueryClient();
