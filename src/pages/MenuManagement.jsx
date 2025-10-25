@@ -21,10 +21,8 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Plus, Pencil, Trash2, ChefHat, Camera, Image as ImageIcon, Folder, ArrowLeft, Home } from "lucide-react";
+import { Plus, Pencil, Trash2, ChefHat, Camera, Image as ImageIcon, Folder } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Link } from "react-router-dom";
-import { createPageUrl } from "@/utils";
 
 export default function MenuManagement() {
   const queryClient = useQueryClient();
@@ -281,25 +279,11 @@ export default function MenuManagement() {
   return (
     <div className="p-6 md:p-8 bg-gray-50 min-h-screen">
       <div className="max-w-7xl mx-auto">
-        {/* Header with Back Button */}
-        <div className="flex items-center gap-4 mb-6">
-          <Link to={createPageUrl("Inventory")}>
-            <Button variant="outline" size="icon">
-              <ArrowLeft className="w-5 h-5" />
-            </Button>
-          </Link>
-          <Link to={createPageUrl("Dashboard")}>
-            <Button variant="outline" size="icon">
-              <Home className="w-5 h-5" />
-            </Button>
-          </Link>
-          <div className="flex-1">
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">Restaurant Menu</h1>
-            <p className="text-gray-600">Complete menu with photos, recipes, and pricing</p>
-          </div>
-        </div>
-
         <div className="flex justify-between items-center mb-8">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">Menu Management</h1>
+            <p className="text-gray-600">Manage menu categories and items with recipes</p>
+          </div>
           <div className="flex gap-3">
             <Dialog open={showCategoryForm} onOpenChange={(open) => !open && resetCategoryForm()}>
               <DialogTrigger asChild>
@@ -750,21 +734,6 @@ export default function MenuManagement() {
                       </Badge>
                     </div>
                   </div>
-
-                  {/* Ingredients List */}
-                  {item.recipe && item.recipe.length > 0 && (
-                    <div className="mt-4 pt-4 border-t border-gray-100">
-                      <p className="text-xs font-semibold text-gray-700 mb-2">Ingredients:</p>
-                      <div className="space-y-1">
-                        {item.recipe.map((ing, idx) => (
-                          <div key={idx} className="flex justify-between text-xs text-gray-600">
-                            <span>{ing.ingredient_name}</span>
-                            <span>{ing.quantity} {ing.unit}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
 
                   <div className="text-xs text-gray-500 mt-3 pt-3 border-t border-gray-100">
                     {item.recipe?.length || 0} ingredients • {item.prep_time_minutes || 0} min prep
