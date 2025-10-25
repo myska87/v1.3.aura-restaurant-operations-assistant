@@ -39,6 +39,18 @@ export default function Ordering() {
     },
   });
 
+  const clearDraftOrdersMutation = useMutation({
+    mutationFn: async () => {
+      const drafts = allOrders.filter(o => o.status === 'draft');
+      await Promise.all(drafts.map(draft => 
+        base44.entities.PurchaseOrder.delete(draft.id)
+      ));
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['purchaseOrders'] });
+    },
+  });
+
   const generateEmailContent = (order, deliveryDate) => {
     const subject = `Purchase Order ${order.order_number} from AURA Restaurant`;
     
@@ -144,6 +156,25 @@ AURA Restaurant Management Team`;
   const handleDeleteOrder = async (orderId) => {
     if (confirm('Delete this draft order?')) {
       await deleteOrderMutation.mutateAsync(orderId);
+    }
+  };
+
+  const handleClearAllDrafts = async () => {
+    const draftCount = draftOrders.length;
+    
+    if (draftCount === 0) {
+      alert('No draft orders to clear');
+      return;
+    }
+
+    if (confirm(`⚠️ Are you sure you want to clear all ${draftCount} draft order(s)?\n\nThis action cannot be undone.`)) {
+      try {
+        await clearDraftOrdersMutation.mutateAsync();
+        alert(`✅ Successfully cleared ${draftCount} draft order(s)`);
+      } catch (error) {
+        console.error('Error clearing drafts:', error);
+        alert('❌ Failed to clear draft orders. Please try again.');
+      }
     }
   };
 
@@ -394,8 +425,39 @@ AURA Restaurant Management Team`;
         </div>
 
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Purchase Orders</h1>
-          <p className="text-gray-600">Manage orders through their complete lifecycle</p>
+          <div className="flex justify-between items-start mb-4">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">Purchase Orders</h1>
+              <p className="text-gray-600">Manage orders through their complete lifecycle</p>
+            </div>
+            {draftOrders.length > 0 && (
+              <Button
+                onClick={handleClearAllDrafts}
+                variant="outline"
+                className="bg-red-50 text-red-600 hover:bg-red-100 hover:text-red-700 border-red-200"
+                disabled={clearDraftOrdersMutation.isPending}
+              >
+                <Trash2 className="w-4 h-4 mr-2" />
+                {clearDraftOrdersMutation.isPending ? 'Clearing...' : `Clear All Drafts (${draftOrders.length})`}
+              </Button>
+            )}
+          </div>
+
+          {draftOrders.length > 0 && (
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+              <div className="flex items-start gap-3">
+                <ShoppingCart className="w-5 h-5 text-amber-600 mt-0.5" />
+                <div className="flex-1">
+                  <p className="font-semibold text-amber-900">
+                    📋 {draftOrders.length} Draft Order{draftOrders.length !== 1 ? 's' : ''} Ready
+                  </p>
+                  <p className="text-sm text-amber-700 mt-1">
+                    Review quantities and delivery dates, then send to suppliers via email.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {isLoading ? (
