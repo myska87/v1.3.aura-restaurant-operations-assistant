@@ -116,9 +116,11 @@ export default function Layout({ children, currentPageName }) {
                 <Menu className="w-6 h-6 text-slate-700" />
               )}
             </button>
-            <h1 className="text-xl font-bold bg-gradient-to-r from-blue-600 to-green-600 bg-clip-text text-transparent">
-              AURA
-            </h1>
+            <img 
+              src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/68fbb8d31770834f6bea4e9b/404b389b2_image.png" 
+              alt="AURA One Pro"
+              className="h-8"
+            />
           </div>
           <div className="flex items-center gap-2">
             <span className="text-sm font-medium text-slate-700">
@@ -137,10 +139,12 @@ export default function Layout({ children, currentPageName }) {
         <div className="flex flex-col h-full">
           {/* Logo */}
           <div className="p-6 border-b border-slate-200">
-            <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-green-600 bg-clip-text text-transparent">
-              AURA
-            </h1>
-            <p className="text-xs text-slate-600 mt-1">
+            <img 
+              src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/68fbb8d31770834f6bea4e9b/404b389b2_image.png" 
+              alt="AURA One Pro"
+              className="w-full h-auto mb-2"
+            />
+            <p className="text-xs text-slate-600 mt-2">
               Restaurant Operations Assistant
             </p>
           </div>
