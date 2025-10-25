@@ -1,5 +1,4 @@
-
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -29,12 +28,12 @@ export default function ProductionPlanning() {
   const queryClient = useQueryClient();
   const [showForm, setShowForm] = useState(false);
   const [creatingOrders, setCreatingOrders] = useState(false);
-  const [editingPlan, setEditingPlan] = useState(null); // New state for editing
+  const [editingPlan, setEditingPlan] = useState(null);
   const [formData, setFormData] = useState({
     name: "",
     date: format(new Date(), 'yyyy-MM-dd'),
     menu_items: [],
-    status: "planning", // New default status
+    status: "planning",
   });
   const [selectedMenuItem, setSelectedMenuItem] = useState("");
   const [portions, setPortions] = useState("");
@@ -61,18 +60,18 @@ export default function ProductionPlanning() {
       setShowForm(false);
       setFormData({
         name: "",
-        date: format(new Date(), 'yyyy-MM-dd'), // Reset to current date
+        date: format(new Date(), 'yyyy-MM-dd'),
         menu_items: [],
         status: "planning",
       });
     },
   });
 
-  const createOrderMutation = useMutation({ // Renamed from createPurchaseOrderMutation
+  const createOrderMutation = useMutation({
     mutationFn: (data) => base44.entities.PurchaseOrder.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['purchaseOrders'] });
-      queryClient.invalidateQueries({ queryKey: ['productionPlans'] }); // Also invalidate production plans
+      queryClient.invalidateQueries({ queryKey: ['productionPlans'] });
     },
   });
 
@@ -81,10 +80,10 @@ export default function ProductionPlanning() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['productionPlans'] });
       setShowForm(false);
-      setEditingPlan(null); // Clear editing state
+      setEditingPlan(null);
       setFormData({
         name: "",
-        date: format(new Date(), 'yyyy-MM-dd'), // Reset to current date
+        date: format(new Date(), 'yyyy-MM-dd'),
         menu_items: [],
         status: "planning",
       });
@@ -121,18 +120,17 @@ export default function ProductionPlanning() {
     setPortions("");
   };
 
-  // Helper function to calculate totals and ingredients needed for display and submission
   const calculatePlanTotals = () => {
     const totalPortions = formData.menu_items.reduce((sum, item) => sum + item.portions_needed, 0);
     const totalRevenue = formData.menu_items.reduce((sum, item) => sum + (item.sell_price * item.portions_needed), 0);
     const totalCost = formData.menu_items.reduce((sum, item) => sum + (item.cost_per_portion * item.portions_needed), 0);
     const projectedProfit = totalRevenue - totalCost;
 
-    const ingredientsMap = new Map(); // Using Map for efficient lookup
+    const ingredientsMap = new Map();
 
     formData.menu_items.forEach(planItem => {
       const menuItem = menuItems.find(m => m.id === planItem.menu_item_id);
-      if (!menuItem?.recipe) return; // Skip if no recipe
+      if (!menuItem?.recipe) return;
 
       menuItem.recipe.forEach(recipeItem => {
         const quantityNeeded = recipeItem.quantity * planItem.portions_needed;
@@ -147,8 +145,8 @@ export default function ProductionPlanning() {
             ingredient_name: recipeItem.ingredient_name,
             quantity_needed: quantityNeeded,
             unit: recipeItem.unit,
-            current_stock: inventoryItem?.current_stock || 0, // Get current stock from inventory
-            to_order: Math.max(0, quantityNeeded - (inventoryItem?.current_stock || 0)), // Calculate amount to order
+            current_stock: inventoryItem?.current_stock || 0,
+            to_order: Math.max(0, quantityNeeded - (inventoryItem?.current_stock || 0)),
           });
         }
       });
@@ -207,13 +205,12 @@ export default function ProductionPlanning() {
     }
   };
 
-  const handleOrderIngredients = async (plan) => { // Renamed from handleCreatePurchaseOrders
+  const handleOrderIngredients = async (plan) => {
     setCreatingOrders(true);
     
     try {
       const ingredientsNeeded = plan.ingredients_needed || [];
       
-      // Check for missing suppliers and zero quantities to order
       const ingredientsToOrder = ingredientsNeeded.filter(ing => ing.to_order > 0);
 
       if (ingredientsToOrder.length === 0) {
@@ -233,7 +230,6 @@ export default function ProductionPlanning() {
         return;
       }
 
-      // Group by supplier
       const ordersBySupplier = {};
       
       ingredientsToOrder.forEach(ing => {
@@ -259,17 +255,15 @@ export default function ProductionPlanning() {
         }
       });
 
-      // Create POs and send emails
       let ordersCreated = 0;
       for (const [supplierId, order] of Object.entries(ordersBySupplier)) {
         const subtotal = order.items.reduce((sum, item) => sum + item.line_total, 0);
-        const tax = subtotal * 0.2; // Assuming 20% VAT
+        const tax = subtotal * 0.2;
         const total = subtotal + tax;
         
         const poNumber = `PO-${Date.now()}-${supplierId.substring(0, 4)}`;
 
-        // Create PO
-        await createOrderMutation.mutateAsync({ // Using createOrderMutation
+        await createOrderMutation.mutateAsync({
           order_number: poNumber,
           supplier_id: order.supplier_id,
           supplier_name: order.supplier_name,
@@ -286,7 +280,6 @@ export default function ProductionPlanning() {
           email_sent_at: new Date().toISOString(),
         });
 
-        // Send email to supplier
         const emailBody = `
 Dear ${order.supplier_name},
 
@@ -321,14 +314,12 @@ AURA Restaurant Management
         ordersCreated++;
       }
 
-      // Update plan status to 'approved' if orders were created, or just refresh if no orders needed
-      if (plan.status === 'planning') { // Only auto-approve if it was in planning
+      if (plan.status === 'planning') {
         await updatePlanMutation.mutateAsync({
           id: plan.id,
           data: { status: 'approved', orders_created: true }
         });
       } else {
-        // If plan was already approved, just ensure orders_created flag is set and invalidate queries
         await updatePlanMutation.mutateAsync({
           id: plan.id,
           data: { orders_created: true }
@@ -350,7 +341,6 @@ AURA Restaurant Management
   return (
     <div className="p-6 md:p-8 bg-gray-50 min-h-screen">
       <div className="max-w-7xl mx-auto">
-        {/* Back Buttons */}
         <div className="flex gap-3 mb-6">
           <Link to={createPageUrl("Dashboard")}>
             <Button variant="outline" size="sm">
@@ -373,7 +363,7 @@ AURA Restaurant Management
           </div>
           <Dialog open={showForm} onOpenChange={(isOpen) => {
             setShowForm(isOpen);
-            if (!isOpen) { // Reset form when closing
+            if (!isOpen) {
               setEditingPlan(null);
               setFormData({
                 name: "",
@@ -420,7 +410,6 @@ AURA Restaurant Management
                   </div>
                 </div>
 
-                {/* Menu Items Selection */}
                 <div className="space-y-4">
                   <Label className="text-lg font-semibold">Menu Items & Portions</Label>
                   
@@ -494,7 +483,6 @@ AURA Restaurant Management
                     </div>
                   )}
 
-                  {/* Summary */}
                   {totals && (
                     <div className="space-y-4">
                       <Card className="bg-blue-50 border-blue-200">
@@ -520,7 +508,6 @@ AURA Restaurant Management
                         </CardContent>
                       </Card>
 
-                      {/* Ingredients Needed */}
                       <div>
                         <h4 className="font-semibold text-gray-900 mb-3">Ingredients Required:</h4>
                         <div className="space-y-2 max-h-64 overflow-y-auto">
@@ -567,7 +554,6 @@ AURA Restaurant Management
           </Dialog>
         </div>
 
-        {/* Plans List */}
         <div className="space-y-4">
           {isLoading ? (
             <Card className="bg-white">
@@ -657,7 +643,6 @@ AURA Restaurant Management
                       </DropdownMenu>
                     </div>
 
-                    {/* Menu Items */}
                     <div className="space-y-2 mb-4">
                       <p className="text-sm font-semibold text-gray-700">Menu Items:</p>
                       {plan.menu_items?.map((item, index) => (
@@ -668,7 +653,6 @@ AURA Restaurant Management
                       ))}
                     </div>
 
-                    {/* Financial Summary */}
                     <div className="grid grid-cols-2 gap-4 mb-4 p-4 bg-gradient-to-br from-emerald-50 to-blue-50 rounded-lg">
                       <div>
                         <p className="text-xs text-gray-600">Total Portions</p>
@@ -688,7 +672,6 @@ AURA Restaurant Management
                       </div>
                     </div>
 
-                    {/* Action Buttons */}
                     <div className="flex gap-2">
                       {plan.status === 'approved' && !plan.orders_created && (
                         <Button
@@ -720,7 +703,6 @@ AURA Restaurant Management
                       )}
                     </div>
 
-                    {/* Low Stock Warning */}
                     {plan.ingredients_needed?.some(ing => ing.to_order > 0) && (
                       <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
                         <p className="text-sm text-amber-800 flex items-center gap-2">
@@ -734,7 +716,8 @@ AURA Restaurant Management
                   </CardContent>
                 </Card>
               );
-            })}
+            })
+          )}
         </div>
       </div>
     </div>
