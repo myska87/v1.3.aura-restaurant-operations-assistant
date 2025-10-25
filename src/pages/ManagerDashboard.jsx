@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -85,16 +86,35 @@ export default function ManagerDashboard() {
     queryFn: () => base44.entities.User.list(),
   });
 
-  // Stats
+  // Dynamic Stats Calculations
   const totalTeam = teamMembers.length;
   const activeMembers = teamMembers.filter(m => m.status === 'active').length;
   const onLeave = teamMembers.filter(m => m.status === 'on_leave').length;
+  const onProbation = teamMembers.filter(m => m.status === 'probation').length;
+  
+  // Calculate documents needing attention
   const documentsExpiring = hrDocuments.filter(doc => {
     if (!doc.expiry_date) return false;
     const daysUntilExpiry = Math.ceil((new Date(doc.expiry_date) - new Date()) / (1000 * 60 * 60 * 24));
     return daysUntilExpiry <= 30 && daysUntilExpiry > 0;
   }).length;
+  
   const documentsExpired = hrDocuments.filter(doc => doc.status === 'expired').length;
+  const documentsPending = hrDocuments.filter(doc => doc.status === 'pending_review').length;
+  const totalDocumentAlerts = documentsExpiring + documentsExpired + documentsPending;
+
+  // Department breakdown
+  const departmentStats = teamMembers.reduce((acc, member) => {
+    acc[member.department] = (acc[member.department] || 0) + 1;
+    return acc;
+  }, {});
+
+  // Position breakdown
+  const positionStats = teamMembers.reduce((acc, member) => {
+    acc[member.position] = (acc[member.position] || 0) + 1;
+    return acc;
+  }, {});
+
 
   // Filtered team members
   const filteredTeamMembers = teamMembers.filter(member => {
@@ -205,8 +225,8 @@ export default function ManagerDashboard() {
               <div className="flex items-center gap-3">
                 <Calendar className="w-8 h-8 text-yellow-600" />
                 <div>
-                  <p className="text-2xl font-bold text-gray-900">{onLeave}</p>
-                  <p className="text-xs text-gray-600">On Leave</p>
+                  <p className="text-2xl font-bold text-gray-900">{onLeave + onProbation}</p>
+                  <p className="text-xs text-gray-600">On Leave/Probation</p>
                 </div>
               </div>
             </CardContent>
@@ -217,10 +237,48 @@ export default function ManagerDashboard() {
               <div className="flex items-center gap-3">
                 <AlertTriangle className="w-8 h-8 text-red-600" />
                 <div>
-                  <p className="text-2xl font-bold text-gray-900">{documentsExpiring + documentsExpired}</p>
+                  <p className="text-2xl font-bold text-gray-900">{totalDocumentAlerts}</p>
                   <p className="text-xs text-gray-600">Docs Alert</p>
                 </div>
               </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Additional Stats Row */}
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
+          <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-none">
+            <CardContent className="p-4 text-center">
+              <p className="text-3xl font-bold text-blue-900">{departmentStats.kitchen || 0}</p>
+              <p className="text-xs text-blue-700 font-medium">Kitchen Staff</p>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-gradient-to-br from-purple-50 to-purple-100 border-none">
+            <CardContent className="p-4 text-center">
+              <p className="text-3xl font-bold text-purple-900">{departmentStats.front_of_house || 0}</p>
+              <p className="text-xs text-purple-700 font-medium">Front of House</p>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-gradient-to-br from-pink-50 to-pink-100 border-none">
+            <CardContent className="p-4 text-center">
+              <p className="text-3xl font-bold text-pink-900">{departmentStats.bar || 0}</p>
+              <p className="text-xs text-pink-700 font-medium">Bar Staff</p>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-gradient-to-br from-green-50 to-green-100 border-none">
+            <CardContent className="p-4 text-center">
+              <p className="text-3xl font-bold text-green-900">{departmentStats.cleaning || 0}</p>
+              <p className="text-xs text-green-700 font-medium">Cleaning</p>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-gradient-to-br from-orange-50 to-orange-100 border-none">
+            <CardContent className="p-4 text-center">
+              <p className="text-3xl font-bold text-orange-900">{departmentStats.maintenance || 0}</p>
+              <p className="text-xs text-orange-700 font-medium">Maintenance</p>
             </CardContent>
           </Card>
         </div>
@@ -388,7 +446,7 @@ export default function ManagerDashboard() {
               </CardHeader>
               <CardContent>
                 {/* Document Alerts */}
-                {(documentsExpiring > 0 || documentsExpired > 0) && (
+                {(documentsExpiring > 0 || documentsExpired > 0 || documentsPending > 0) && (
                   <div className="space-y-2 mb-6">
                     {documentsExpired > 0 && (
                       <Card className="bg-red-50 border-red-200">
@@ -416,8 +474,22 @@ export default function ManagerDashboard() {
                         </CardContent>
                       </Card>
                     )}
+                    {documentsPending > 0 && (
+                      <Card className="bg-blue-50 border-blue-200">
+                        <CardContent className="p-4 flex items-center gap-3">
+                          <Upload className="w-5 h-5 text-blue-600" />
+                          <div>
+                            <p className="font-semibold text-blue-900">
+                              {documentsPending} document{documentsPending > 1 ? 's are' : ' is'} pending review
+                            </p>
+                            <p className="text-sm text-blue-700">Awaiting your approval</p>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )}
                   </div>
                 )}
+
 
                 {/* Documents by Staff Member */}
                 <div className="space-y-4">
