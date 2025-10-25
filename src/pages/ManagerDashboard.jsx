@@ -170,7 +170,7 @@ export default function ManagerDashboard() {
 
   // Function to handle editing responsibility
   const handleEditResponsibility = (roleToEdit) => {
-    // selectedRole is already set in the onClick handler before this function is called
+    setSelectedRole(roleToEdit); // Set the selected role here
     setShowAddResponsibilityDialog(true);
   };
 
@@ -922,10 +922,7 @@ export default function ManagerDashboard() {
                             <Button
                               variant="ghost"
                               size="icon"
-                              onClick={() => {
-                                setSelectedRole(role);
-                                handleEditResponsibility(role);
-                              }}
+                              onClick={() => handleEditResponsibility(role)}
                             >
                               <Edit className="w-4 h-4" />
                             </Button>
