@@ -435,340 +435,22 @@ export default function MenuManagement() {
             <p className="text-gray-600">Manage menu categories and items with recipes</p>
           </div>
           <div className="flex gap-3">
-            <Dialog open={showCategoryForm} onOpenChange={(open) => !open && resetCategoryForm()}>
-              <DialogTrigger asChild>
-                <Button variant="outline" className="border-green-600 text-green-700 hover:bg-green-50">
-                  <Folder className="w-4 h-4 mr-2" />
-                  Manage Categories
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-md">
-                <DialogHeader>
-                  <DialogTitle>{editingCategory ? 'Edit Category' : 'Create Category'}</DialogTitle>
-                </DialogHeader>
-                <form onSubmit={handleSubmitCategory} className="space-y-4 mt-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="cat_name">Category Name</Label>
-                    <Input
-                      id="cat_name"
-                      value={categoryFormData.name}
-                      onChange={(e) => setCategoryFormData({ ...categoryFormData, name: e.target.value })}
-                      placeholder="e.g., Starters, Mains, Desserts"
-                      required
-                    />
-                  </div>
+            <Button 
+              variant="outline" 
+              className="border-green-600 text-green-700 hover:bg-green-50"
+              onClick={() => setShowCategoryForm(true)}
+            >
+              <Folder className="w-4 h-4 mr-2" />
+              Manage Categories
+            </Button>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="cat_desc">Description</Label>
-                    <Textarea
-                      id="cat_desc"
-                      value={categoryFormData.description}
-                      onChange={(e) => setCategoryFormData({ ...categoryFormData, description: e.target.value })}
-                      rows={2}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="cat_order">Display Order</Label>
-                    <Input
-                      id="cat_order"
-                      type="number"
-                      value={categoryFormData.display_order}
-                      onChange={(e) => setCategoryFormData({ ...categoryFormData, display_order: e.target.value })}
-                      placeholder="1, 2, 3..."
-                    />
-                  </div>
-
-                  <div className="flex justify-end gap-3 pt-4">
-                    <Button type="button" variant="outline" onClick={resetCategoryForm}>
-                      Cancel
-                    </Button>
-                    <Button type="submit" className="bg-green-600 hover:bg-green-700">
-                      {editingCategory ? 'Update' : 'Create'} Category
-                    </Button>
-                  </div>
-                </form>
-
-                {categories.length > 0 && (
-                  <div className="mt-6 border-t pt-4">
-                    <h4 className="font-semibold text-gray-900 mb-3">Existing Categories</h4>
-                    <div className="space-y-2">
-                      {categories.map(cat => (
-                        <div key={cat.id} className="flex items-center justify-between p-2 bg-gray-50 rounded">
-                          <span className="font-medium text-gray-900">{cat.name}</span>
-                          <div className="flex gap-1">
-                            <Button variant="ghost" size="icon" onClick={() => handleEditCategory(cat)}>
-                              <Pencil className="w-4 h-4" />
-                            </Button>
-                            <Button 
-                              variant="ghost" 
-                              size="icon" 
-                              onClick={() => {
-                                if (confirm(`Delete category "${cat.name}"?`)) {
-                                  deleteCategoryMutation.mutate(cat.id);
-                                }
-                              }}
-                            >
-                              <Trash2 className="w-4 h-4 text-red-500" />
-                            </Button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </DialogContent>
-            </Dialog>
-
-            <Dialog open={showItemForm} onOpenChange={(open) => !open && resetItemForm()}>
-              <DialogTrigger asChild>
-                <Button className="bg-green-600 hover:bg-green-700">
-                  <Plus className="w-4 h-4 mr-2" />
-                  Add Menu Item
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-                <DialogHeader>
-                  <DialogTitle>{editingItem ? 'Edit Menu Item' : 'Create Menu Item'}</DialogTitle>
-                </DialogHeader>
-                <form onSubmit={handleSubmitItem} className="space-y-6 mt-4">
-                  {/* Image Upload Section */}
-                  <div className="space-y-2">
-                    <Label>Dish Photo</Label>
-                    <div className="flex items-center gap-4">
-                      {itemFormData.image_url ? (
-                        <div className="relative w-32 h-32 rounded-lg overflow-hidden border-2 border-gray-200">
-                          <img src={itemFormData.image_url} alt="Dish" className="w-full h-full object-cover" />
-                          <button
-                            type="button"
-                            onClick={() => setItemFormData({ ...itemFormData, image_url: "" })}
-                            className="absolute top-1 right-1 p-1 bg-red-500 text-white rounded-full hover:bg-red-600"
-                          >
-                            <Trash2 className="w-3 h-3" />
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="w-32 h-32 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center bg-gray-50">
-                          <ImageIcon className="w-8 h-8 text-gray-400" />
-                        </div>
-                      )}
-                      <div>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          onClick={() => document.getElementById('dish-photo-upload').click()}
-                          disabled={uploadingImage}
-                        >
-                          <Camera className="w-4 h-4 mr-2" />
-                          {uploadingImage ? 'Uploading...' : 'Upload Photo'}
-                        </Button>
-                        <p className="text-xs text-gray-500 mt-1">Recommended: 800x600px</p>
-                        <input
-                          id="dish-photo-upload"
-                          type="file"
-                          accept="image/*"
-                          onChange={handleImageUpload}
-                          className="hidden"
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="grid md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="name">Item Name</Label>
-                      <Input
-                        id="name"
-                        value={itemFormData.name}
-                        onChange={(e) => setItemFormData({ ...itemFormData, name: e.target.value })}
-                        placeholder="e.g., Margherita Pizza"
-                        required
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="category">Category</Label>
-                      <Select
-                        value={itemFormData.category_id}
-                        onValueChange={(value) => setItemFormData({ ...itemFormData, category_id: value })}
-                        required
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select category" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {categories.map(cat => (
-                            <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="sell_price">Sell Price (£)</Label>
-                      <Input
-                        id="sell_price"
-                        type="number"
-                        step="0.01"
-                        value={itemFormData.sell_price}
-                        onChange={(e) => setItemFormData({ ...itemFormData, sell_price: e.target.value })}
-                        required
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="prep_time">Prep Time (minutes)</Label>
-                      <Input
-                        id="prep_time"
-                        type="number"
-                        value={itemFormData.prep_time_minutes}
-                        onChange={(e) => setItemFormData({ ...itemFormData, prep_time_minutes: e.target.value })}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="description">Description</Label>
-                    <Textarea
-                      id="description"
-                      value={itemFormData.description}
-                      onChange={(e) => setItemFormData({ ...itemFormData, description: e.target.value })}
-                      rows={2}
-                      placeholder="Brief description for the menu..."
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="instructions">Cooking Instructions</Label>
-                    <Textarea
-                      id="instructions"
-                      value={itemFormData.cooking_instructions}
-                      onChange={(e) => setItemFormData({ ...itemFormData, cooking_instructions: e.target.value })}
-                      rows={3}
-                    />
-                  </div>
-
-                  {/* Recipe Builder */}
-                  <div className="space-y-4">
-                    <div className="flex justify-between items-center">
-                      <Label className="text-lg font-semibold">Recipe / Ingredients</Label>
-                      <span className="text-sm text-gray-500">{itemFormData.recipe.length} ingredients</span>
-                    </div>
-
-                    <Card className="bg-gray-50">
-                      <CardContent className="p-4 space-y-3">
-                        <div className="grid grid-cols-3 gap-3">
-                          <div className="col-span-2">
-                            <Select
-                              value={selectedIngredient}
-                              onValueChange={setSelectedIngredient}
-                            >
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select ingredient" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {ingredients.map(ing => (
-                                  <SelectItem key={ing.id} value={ing.id}>
-                                    {ing.name} ({ing.unit}) - £{ing.unit_cost?.toFixed(2)}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <Input
-                            type="number"
-                            step="0.01"
-                            placeholder="Quantity"
-                            value={ingredientQty}
-                            onChange={(e) => setIngredientQty(e.target.value)}
-                          />
-                        </div>
-                        <Button 
-                          type="button" 
-                          onClick={handleAddIngredient} 
-                          className="w-full"
-                          size="sm"
-                          disabled={!selectedIngredient || !ingredientQty}
-                        >
-                          <Plus className="w-4 h-4 mr-2" />
-                          Add Ingredient
-                        </Button>
-                      </CardContent>
-                    </Card>
-
-                    {itemFormData.recipe.length > 0 && (
-                      <div className="space-y-2">
-                        {itemFormData.recipe.map((item, index) => (
-                          <Card key={index} className="border border-gray-200">
-                            <CardContent className="p-4">
-                              <div className="flex justify-between items-center">
-                                <div>
-                                  <p className="font-medium text-gray-900">
-                                    {item.ingredient_name}
-                                  </p>
-                                  <p className="text-sm text-gray-600">
-                                    {item.quantity} {item.unit} × £{(item.cost / item.quantity).toFixed(2)} = £{item.cost.toFixed(2)}
-                                  </p>
-                                </div>
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="icon"
-                                  onClick={() => handleRemoveIngredient(item.ingredient_id)}
-                                >
-                                  <Trash2 className="w-4 h-4 text-red-500" />
-                                </Button>
-                              </div>
-                            </CardContent>
-                          </Card>
-                        ))}
-                      </div>
-                    )}
-
-                    {/* Cost Summary */}
-                    {itemFormData.recipe.length > 0 && itemFormData.sell_price && (
-                      <Card className="bg-blue-50 border-blue-200">
-                        <CardContent className="p-4 space-y-2">
-                          <div className="flex justify-between text-sm">
-                            <span className="font-medium">Total Cost:</span>
-                            <span className="font-bold">£{totals.totalCost.toFixed(2)}</span>
-                          </div>
-                          <div className="flex justify-between text-sm">
-                            <span className="font-medium">Sell Price:</span>
-                            <span className="font-bold">£{parseFloat(itemFormData.sell_price).toFixed(2)}</span>
-                          </div>
-                          <div className="flex justify-between text-sm border-t border-blue-300 pt-2">
-                            <span className="font-medium">Profit Margin:</span>
-                            <span className={`font-bold ${totals.profitMargin > 0 ? 'text-green-700' : 'text-red-700'}`}>
-                              £{totals.profitMargin.toFixed(2)}
-                            </span>
-                          </div>
-                          <div className="flex justify-between text-sm">
-                            <span className="font-medium">Food Cost %:</span>
-                            <span className={`font-bold ${totals.foodCostPercentage < 35 ? 'text-green-700' : 'text-amber-700'}`}>
-                              {totals.foodCostPercentage.toFixed(1)}%
-                            </span>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    )}
-                  </div>
-
-                  <div className="flex justify-end gap-3 pt-4">
-                    <Button type="button" variant="outline" onClick={resetItemForm}>
-                      Cancel
-                    </Button>
-                    <Button 
-                      type="submit" 
-                      disabled={createMenuItemMutation.isPending || updateMenuItemMutation.isPending || itemFormData.recipe.length === 0}
-                      className="bg-green-600 hover:bg-green-700"
-                    >
-                      {editingItem ? 'Update Item' : 'Create Item'}
-                    </Button>
-                  </div>
-                </form>
-              </DialogContent>
-            </Dialog>
+            <Button 
+              className="bg-green-600 hover:bg-green-700"
+              onClick={() => setShowItemForm(true)}
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Add Menu Item
+            </Button>
           </div>
         </div>
 
@@ -807,6 +489,13 @@ export default function MenuManagement() {
                 <CardContent className="p-12 text-center">
                   <ChefHat className="w-12 h-12 text-gray-400 mx-auto mb-4" />
                   <p className="text-gray-500">No menu items created yet</p>
+                  <Button 
+                    className="mt-4 bg-green-600 hover:bg-green-700"
+                    onClick={() => setShowItemForm(true)}
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    Create Your First Menu Item
+                  </Button>
                 </CardContent>
               </Card>
             </div>
@@ -889,7 +578,6 @@ export default function MenuManagement() {
                     {item.recipe?.length || 0} ingredients • {item.prep_time_minutes || 0} min prep
                   </div>
 
-                  {/* NEW: Profit Calculator Button */}
                   <Button
                     variant="outline"
                     size="sm"
@@ -904,6 +592,353 @@ export default function MenuManagement() {
             ))
           )}
         </div>
+
+        {/* Add Menu Item Dialog */}
+        <Dialog open={showItemForm} onOpenChange={(open) => {
+          if (!open) resetItemForm();
+          setShowItemForm(open);
+        }}>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>{editingItem ? 'Edit Menu Item' : 'Create Menu Item'}</DialogTitle>
+            </DialogHeader>
+            <form onSubmit={handleSubmitItem} className="space-y-6 mt-4">
+              {/* Image Upload Section */}
+              <div className="space-y-2">
+                <Label>Dish Photo</Label>
+                <div className="flex items-center gap-4">
+                  {itemFormData.image_url ? (
+                    <div className="relative w-32 h-32 rounded-lg overflow-hidden border-2 border-gray-200">
+                      <img src={itemFormData.image_url} alt="Dish" className="w-full h-full object-cover" />
+                      <button
+                        type="button"
+                        onClick={() => setItemFormData({ ...itemFormData, image_url: "" })}
+                        className="absolute top-1 right-1 p-1 bg-red-500 text-white rounded-full hover:bg-red-600"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="w-32 h-32 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center bg-gray-50">
+                      <ImageIcon className="w-8 h-8 text-gray-400" />
+                    </div>
+                  )}
+                  <div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => document.getElementById('dish-photo-upload').click()}
+                      disabled={uploadingImage}
+                    >
+                      <Camera className="w-4 h-4 mr-2" />
+                      {uploadingImage ? 'Uploading...' : 'Upload Photo'}
+                    </Button>
+                    <p className="text-xs text-gray-500 mt-1">Recommended: 800x600px</p>
+                    <input
+                      id="dish-photo-upload"
+                      type="file"
+                      accept="image/*"
+                      onChange={handleImageUpload}
+                      className="hidden"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="name">Item Name</Label>
+                  <Input
+                    id="name"
+                    value={itemFormData.name}
+                    onChange={(e) => setItemFormData({ ...itemFormData, name: e.target.value })}
+                    placeholder="e.g., Margherita Pizza"
+                    required
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="category">Category</Label>
+                  <Select
+                    value={itemFormData.category_id}
+                    onValueChange={(value) => setItemFormData({ ...itemFormData, category_id: value })}
+                    required
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {categories.length === 0 ? (
+                        <div className="p-4 text-center text-gray-500">
+                          <p>No categories yet</p>
+                          <Button 
+                            variant="link" 
+                            size="sm"
+                            onClick={() => {
+                              setShowItemForm(false);
+                              setShowCategoryForm(true);
+                            }}
+                          >
+                            Create Category First
+                          </Button>
+                        </div>
+                      ) : (
+                        categories.map(cat => (
+                          <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
+                        ))
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="sell_price">Sell Price (£)</Label>
+                  <Input
+                    id="sell_price"
+                    type="number"
+                    step="0.01"
+                    value={itemFormData.sell_price}
+                    onChange={(e) => setItemFormData({ ...itemFormData, sell_price: e.target.value })}
+                    required
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="prep_time">Prep Time (minutes)</Label>
+                  <Input
+                    id="prep_time"
+                    type="number"
+                    value={itemFormData.prep_time_minutes}
+                    onChange={(e) => setItemFormData({ ...itemFormData, prep_time_minutes: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="description">Description</Label>
+                <Textarea
+                  id="description"
+                  value={itemFormData.description}
+                  onChange={(e) => setItemFormData({ ...itemFormData, description: e.target.value })}
+                  rows={2}
+                  placeholder="Brief description for the menu..."
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="instructions">Cooking Instructions</Label>
+                <Textarea
+                  id="instructions"
+                  value={itemFormData.cooking_instructions}
+                  onChange={(e) => setItemFormData({ ...itemFormData, cooking_instructions: e.target.value })}
+                  rows={3}
+                />
+              </div>
+
+              {/* Recipe Builder */}
+              <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <Label className="text-lg font-semibold">Recipe / Ingredients</Label>
+                  <span className="text-sm text-gray-500">{itemFormData.recipe.length} ingredients</span>
+                </div>
+
+                <Card className="bg-gray-50">
+                  <CardContent className="p-4 space-y-3">
+                    <div className="grid grid-cols-3 gap-3">
+                      <div className="col-span-2">
+                        <Select
+                          value={selectedIngredient}
+                          onValueChange={setSelectedIngredient}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select ingredient" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {ingredients.map(ing => (
+                              <SelectItem key={ing.id} value={ing.id}>
+                                {ing.name} ({ing.unit}) - £{ing.unit_cost?.toFixed(2)}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        placeholder="Quantity"
+                        value={ingredientQty}
+                        onChange={(e) => setIngredientQty(e.target.value)}
+                      />
+                    </div>
+                    <Button 
+                      type="button" 
+                      onClick={handleAddIngredient} 
+                      className="w-full"
+                      size="sm"
+                      disabled={!selectedIngredient || !ingredientQty}
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      Add Ingredient
+                    </Button>
+                  </CardContent>
+                </Card>
+
+                {itemFormData.recipe.length > 0 && (
+                  <div className="space-y-2">
+                    {itemFormData.recipe.map((item, index) => (
+                      <Card key={index} className="border border-gray-200">
+                        <CardContent className="p-4">
+                          <div className="flex justify-between items-center">
+                            <div>
+                              <p className="font-medium text-gray-900">
+                                {item.ingredient_name}
+                              </p>
+                              <p className="text-sm text-gray-600">
+                                {item.quantity} {item.unit} × £{(item.cost / item.quantity).toFixed(2)} = £{item.cost.toFixed(2)}
+                              </p>
+                            </div>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleRemoveIngredient(item.ingredient_id)}
+                            >
+                              <Trash2 className="w-4 h-4 text-red-500" />
+                            </Button>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                )}
+
+                {/* Cost Summary */}
+                {itemFormData.recipe.length > 0 && itemFormData.sell_price && (
+                  <Card className="bg-blue-50 border-blue-200">
+                    <CardContent className="p-4 space-y-2">
+                      <div className="flex justify-between text-sm">
+                        <span className="font-medium">Total Cost:</span>
+                        <span className="font-bold">£{totals.totalCost.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="font-medium">Sell Price:</span>
+                        <span className="font-bold">£{parseFloat(itemFormData.sell_price).toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between text-sm border-t border-blue-300 pt-2">
+                        <span className="font-medium">Profit Margin:</span>
+                        <span className={`font-bold ${totals.profitMargin > 0 ? 'text-green-700' : 'text-red-700'}`}>
+                          £{totals.profitMargin.toFixed(2)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="font-medium">Food Cost %:</span>
+                        <span className={`font-bold ${totals.foodCostPercentage < 35 ? 'text-green-700' : 'text-amber-700'}`}>
+                          {totals.foodCostPercentage.toFixed(1)}%
+                        </span>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+
+              <div className="flex justify-end gap-3 pt-4">
+                <Button type="button" variant="outline" onClick={resetItemForm}>
+                  Cancel
+                </Button>
+                <Button 
+                  type="submit" 
+                  disabled={createMenuItemMutation.isPending || updateMenuItemMutation.isPending || itemFormData.recipe.length === 0}
+                  className="bg-green-600 hover:bg-green-700"
+                >
+                  {editingItem ? 'Update Item' : 'Create Item'}
+                </Button>
+              </div>
+            </form>
+          </DialogContent>
+        </Dialog>
+
+        {/* Category Management Dialog */}
+        <Dialog open={showCategoryForm} onOpenChange={(open) => {
+          if (!open) resetCategoryForm();
+          setShowCategoryForm(open);
+        }}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>{editingCategory ? 'Edit Category' : 'Create Category'}</DialogTitle>
+            </DialogHeader>
+            <form onSubmit={handleSubmitCategory} className="space-y-4 mt-4">
+              <div className="space-y-2">
+                <Label htmlFor="cat_name">Category Name</Label>
+                <Input
+                  id="cat_name"
+                  value={categoryFormData.name}
+                  onChange={(e) => setCategoryFormData({ ...categoryFormData, name: e.target.value })}
+                  placeholder="e.g., Starters, Mains, Desserts"
+                  required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="cat_desc">Description</Label>
+                <Textarea
+                  id="cat_desc"
+                  value={categoryFormData.description}
+                  onChange={(e) => setCategoryFormData({ ...categoryFormData, description: e.target.value })}
+                  rows={2}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="cat_order">Display Order</Label>
+                <Input
+                  id="cat_order"
+                  type="number"
+                  value={categoryFormData.display_order}
+                  onChange={(e) => setCategoryFormData({ ...categoryFormData, display_order: e.target.value })}
+                  placeholder="1, 2, 3..."
+                />
+              </div>
+
+              <div className="flex justify-end gap-3 pt-4">
+                <Button type="button" variant="outline" onClick={resetCategoryForm}>
+                  Cancel
+                </Button>
+                <Button type="submit" className="bg-green-600 hover:bg-green-700">
+                  {editingCategory ? 'Update' : 'Create'} Category
+                </Button>
+              </div>
+            </form>
+
+            {categories.length > 0 && (
+              <div className="mt-6 border-t pt-4">
+                <h4 className="font-semibold text-gray-900 mb-3">Existing Categories</h4>
+                <div className="space-y-2">
+                  {categories.map(cat => (
+                    <div key={cat.id} className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                      <span className="font-medium text-gray-900">{cat.name}</span>
+                      <div className="flex gap-1">
+                        <Button variant="ghost" size="icon" onClick={() => handleEditCategory(cat)}>
+                          <Pencil className="w-4 h-4" />
+                        </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          onClick={() => {
+                            if (confirm(`Delete category "${cat.name}"?`)) {
+                              deleteCategoryMutation.mutate(cat.id);
+                            }
+                          }}
+                        >
+                          <Trash2 className="w-4 h-4 text-red-500" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
 
         {/* Profit Calculator Dialog */}
         <Dialog open={showProfitCalculator} onOpenChange={setShowProfitCalculator}>
