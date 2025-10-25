@@ -16,6 +16,7 @@
         "daily",
         "weekly",
         "monthly",
+        "six_monthly",
         "yearly"
       ],
       "description": "How often checklist should be completed"
@@ -67,6 +68,11 @@
       "type": "number",
       "description": "Minutes after shift start to send reminder",
       "default": 15
+    },
+    "advance_notice_days": {
+      "type": "number",
+      "description": "Days before due date to show in to-do list",
+      "default": 14
     },
     "is_active": {
       "type": "boolean",

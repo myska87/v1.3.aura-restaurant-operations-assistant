@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -49,6 +50,7 @@ export default function AdvancedChecklists() {
   const [viewMode, setViewMode] = useState("my-checklists"); // "my-checklists" or "templates" or "monitor"
   const [showTemplateForm, setShowTemplateForm] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState(null);
+  const [showHygieneGuide, setShowHygieneGuide] = useState(false); // New state for hygiene guide dialog
   const [formData, setFormData] = useState({
     name: "",
     description: "",
@@ -56,6 +58,7 @@ export default function AdvancedChecklists() {
     shift_type: "opening",
     applicable_roles: [],
     reminder_minutes: 15,
+    advance_notice_days: 14, // New field for advance notice
     tasks: [],
   });
   const [newTask, setNewTask] = useState({
@@ -114,6 +117,108 @@ export default function AdvancedChecklists() {
     },
   });
 
+  const createHygieneTemplate = async () => {
+    const hygieneTemplate = {
+      name: "6-Monthly Hygiene Inspection",
+      description: "Comprehensive hygiene and food safety audit conducted every 6 months",
+      frequency: "six_monthly",
+      shift_type: "any",
+      applicable_roles: ["manager", "owner"], // Assigned to managers and owners
+      advance_notice_days: 14,
+      reminder_minutes: 0,
+      is_active: true,
+      tasks: [
+        {
+          task_id: "hygiene_1",
+          description: "Inspect all food storage areas (fridges, freezers, dry storage) for cleanliness and proper temperature",
+          requires_photo: true,
+          requires_temperature: true,
+          order: 1
+        },
+        {
+          task_id: "hygiene_2",
+          description: "Check all food preparation surfaces and equipment for sanitization standards",
+          requires_photo: true,
+          requires_signature: false,
+          order: 2
+        },
+        {
+          task_id: "hygiene_3",
+          description: "Review staff hygiene practices and uniform cleanliness",
+          requires_photo: false,
+          requires_signature: false,
+          order: 3
+        },
+        {
+          task_id: "hygiene_4",
+          description: "Inspect handwashing facilities (soap, hot water, paper towels available)",
+          requires_photo: true,
+          requires_signature: false,
+          order: 4
+        },
+        {
+          task_id: "hygiene_5",
+          description: "Check waste disposal systems and pest control measures",
+          requires_photo: true,
+          requires_signature: false,
+          order: 5
+        },
+        {
+          task_id: "hygiene_6",
+          description: "Verify all cleaning schedules are being followed and documented",
+          requires_photo: true,
+          requires_signature: false,
+          order: 6
+        },
+        {
+          task_id: "hygiene_7",
+          description: "Review food rotation systems (FIFO) and expiry date checks",
+          requires_photo: false,
+          requires_signature: false,
+          order: 7
+        },
+        {
+          task_id: "hygiene_8",
+          description: "Inspect kitchen extraction and ventilation systems",
+          requires_photo: true,
+          requires_signature: false,
+          order: 8
+        },
+        {
+          task_id: "hygiene_9",
+          description: "Check all staff training records are up to date (food hygiene certificates)",
+          requires_photo: true,
+          requires_signature: false,
+          order: 9
+        },
+        {
+          task_id: "hygiene_10",
+          description: "Review and update HACCP documentation",
+          requires_photo: false,
+          requires_signature: true,
+          order: 10
+        },
+        {
+          task_id: "hygiene_11",
+          description: "Conduct water temperature checks (hot water > 63°C, cold < 8°C)",
+          requires_photo: false,
+          requires_temperature: true,
+          order: 11
+        },
+        {
+          task_id: "hygiene_12",
+          description: "Final manager sign-off and action plan for any issues identified",
+          requires_photo: false,
+          requires_signature: true,
+          order: 12
+        }
+      ]
+    };
+
+    await createTemplateMutation.mutateAsync(hygieneTemplate);
+    setShowHygieneGuide(false);
+  };
+
   const resetForm = () => {
     setShowTemplateForm(false);
     setEditingTemplate(null);
@@ -124,6 +229,7 @@ export default function AdvancedChecklists() {
       shift_type: "opening",
       applicable_roles: [],
       reminder_minutes: 15,
+      advance_notice_days: 14, // Reset this new field
       tasks: [],
     });
     setNewTask({
@@ -143,6 +249,7 @@ export default function AdvancedChecklists() {
       shift_type: template.shift_type,
       applicable_roles: template.applicable_roles || [],
       reminder_minutes: template.reminder_minutes || 15,
+      advance_notice_days: template.advance_notice_days || 14, // Load this new field
       tasks: template.tasks || [],
     });
     setShowTemplateForm(true);
@@ -223,6 +330,8 @@ export default function AdvancedChecklists() {
         return 'bg-blue-100 text-blue-800 border-blue-200';
       case 'closing':
         return 'bg-purple-100 text-purple-800 border-purple-200';
+      case 'any':
+        return 'bg-indigo-100 text-indigo-800 border-indigo-200'; // Color for 'any' shift
       default:
         return 'bg-gray-100 text-gray-800 border-gray-200';
     }
@@ -262,7 +371,7 @@ export default function AdvancedChecklists() {
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Advanced Checklists</h1>
-          <p className="text-gray-600">Manage daily, weekly, monthly, and yearly checklists</p>
+          <p className="text-gray-600">Manage daily, weekly, monthly, 6-monthly and yearly checklists</p>
         </div>
 
         {/* Stats Cards */}
@@ -351,12 +460,92 @@ export default function AdvancedChecklists() {
           )}
         </div>
 
+        {/* Hygiene Template Quick Create */}
+        {isAdmin && viewMode === 'templates' && (
+          <Card className="bg-gradient-to-r from-green-50 to-emerald-50 border-green-200 mb-6">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-lg font-semibold text-green-900 mb-1">
+                    🧼 Quick Setup: 6-Monthly Hygiene Inspection
+                  </h3>
+                  <p className="text-sm text-green-700">
+                    Comprehensive hygiene audit template with 12 inspection points (assigned to managers only)
+                  </p>
+                </div>
+                <Button 
+                  onClick={() => setShowHygieneGuide(true)}
+                  className="bg-green-600 hover:bg-green-700"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Create Template
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Hygiene Template Preview Dialog */}
+        <Dialog open={showHygieneGuide} onOpenChange={setShowHygieneGuide}>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>6-Monthly Hygiene Inspection Template</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 mt-4">
+              <div className="bg-blue-50 p-4 rounded-lg">
+                <h4 className="font-semibold text-blue-900 mb-2">📋 Template Details</h4>
+                <ul className="space-y-2 text-sm text-blue-800">
+                  <li>✓ Frequency: Every 6 months</li>
+                  <li>✓ Assigned to: Managers and Owners only</li>
+                  <li>✓ Advance Notice: Appears 2 weeks before due date</li>
+                  <li>✓ Tasks: 12 comprehensive hygiene checks</li>
+                </ul>
+              </div>
+
+              <div className="space-y-3">
+                <h4 className="font-semibold text-gray-900">Inspection Tasks Include:</h4>
+                <div className="grid gap-2">
+                  {[
+                    "Food storage areas inspection (with photos & temperature checks)",
+                    "Food preparation surfaces sanitization check",
+                    "Staff hygiene practices review",
+                    "Handwashing facilities inspection",
+                    "Waste disposal and pest control",
+                    "Cleaning schedule verification",
+                    "Food rotation systems (FIFO) review",
+                    "Kitchen ventilation systems check",
+                    "Staff training records verification",
+                    "HACCP documentation update",
+                    "Water temperature checks",
+                    "Final manager sign-off with action plan"
+                  ].map((task, index) => (
+                    <div key={index} className="flex items-start gap-2 p-2 bg-gray-50 rounded">
+                      <CheckCircle className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
+                      <span className="text-sm text-gray-700">{task}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-4">
+                <Button variant="outline" onClick={() => setShowHygieneGuide(false)}>
+                  Cancel
+                </Button>
+                <Button onClick={createHygieneTemplate} className="bg-green-600 hover:bg-green-700">
+                  Create This Template
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
         {/* Tabs for Frequency */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid grid-cols-4 w-full max-w-2xl mb-8">
+          <TabsList className="grid grid-cols-5 w-full max-w-3xl mb-8"> {/* Changed to grid-cols-5 */}
             <TabsTrigger value="daily">📅 Daily</TabsTrigger>
             <TabsTrigger value="weekly">📆 Weekly</TabsTrigger>
             <TabsTrigger value="monthly">🗓️ Monthly</TabsTrigger>
+            <TabsTrigger value="six_monthly">🧼 6 Months</TabsTrigger> {/* New Tab */}
             <TabsTrigger value="yearly">📊 Yearly</TabsTrigger>
           </TabsList>
 
@@ -482,6 +671,49 @@ export default function AdvancedChecklists() {
             {viewMode === 'monitor' && isAdmin && (
               <MonitorView
                 executions={filterExecutionsByFrequency(allExecutions, 'monthly')}
+                getProgress={getProgress}
+                getStatusColor={getStatusColor}
+                getShiftTypeColor={getShiftTypeColor}
+              />
+            )}
+          </TabsContent>
+
+          {/* 6-Monthly Tab */}
+          <TabsContent value="six_monthly">
+            {viewMode === 'my-checklists' && (
+              <MyChecklistsView
+                executions={filterExecutionsByFrequency(myExecutions, 'six_monthly')}
+                getProgress={getProgress}
+                getStatusColor={getStatusColor}
+                getShiftTypeColor={getShiftTypeColor}
+                navigate={navigate}
+              />
+            )}
+
+            {viewMode === 'templates' && isAdmin && (
+              <TemplatesView
+                templates={filterByFrequency(templates, 'six_monthly')}
+                showForm={showTemplateForm}
+                setShowForm={setShowTemplateForm}
+                formData={formData}
+                setFormData={setFormData}
+                newTask={newTask}
+                setNewTask={setNewTask}
+                handleAddTask={handleAddTask}
+                handleRemoveTask={handleRemoveTask}
+                handleSubmit={handleSubmit}
+                handleEdit={handleEdit}
+                handleDelete={(id) => deleteTemplateMutation.mutate(id)}
+                getShiftTypeColor={getShiftTypeColor}
+                editingTemplate={editingTemplate}
+                resetForm={resetForm}
+                frequency="six_monthly"
+              />
+            )}
+
+            {viewMode === 'monitor' && isAdmin && (
+              <MonitorView
+                executions={filterExecutionsByFrequency(allExecutions, 'six_monthly')}
                 getProgress={getProgress}
                 getStatusColor={getStatusColor}
                 getShiftTypeColor={getShiftTypeColor}
@@ -637,17 +869,24 @@ function TemplatesView({
   return (
     <div>
       <div className="flex justify-end mb-6">
-        <Dialog open={showForm} onOpenChange={(open) => !open && resetForm()}>
+        <Dialog open={showForm} onOpenChange={(open) => {
+          if (!open) {
+            resetForm();
+            setShowForm(false); // Explicitly set showForm to false when dialog closes
+          } else {
+            setShowForm(true);
+          }
+        }}>
           <DialogTrigger asChild>
             <Button className="bg-blue-600 hover:bg-blue-700">
               <Plus className="w-4 h-4 mr-2" />
-              New {frequency.charAt(0).toUpperCase() + frequency.slice(1)} Template
+              New {frequency.charAt(0).toUpperCase() + frequency.slice(1).replace(/_/, ' ')} Template
             </Button>
           </DialogTrigger>
           <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>
-                {editingTemplate ? 'Edit Template' : `Create ${frequency.charAt(0).toUpperCase() + frequency.slice(1)} Checklist Template`}
+                {editingTemplate ? 'Edit Template' : `Create ${frequency.charAt(0).toUpperCase() + frequency.slice(1).replace(/_/, ' ')} Checklist Template`}
               </DialogTitle>
             </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-6 mt-4">
@@ -688,6 +927,16 @@ function TemplatesView({
                     type="number"
                     value={formData.reminder_minutes}
                     onChange={(e) => setFormData({ ...formData, reminder_minutes: parseInt(e.target.value) })}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="advance_notice_days">Advance Notice (days before due)</Label>
+                  <Input
+                    id="advance_notice_days"
+                    type="number"
+                    value={formData.advance_notice_days}
+                    onChange={(e) => setFormData({ ...formData, advance_notice_days: parseInt(e.target.value) })}
                   />
                 </div>
               </div>
@@ -823,7 +1072,7 @@ function TemplatesView({
           <div className="col-span-full">
             <Card className="bg-white">
               <CardContent className="p-12 text-center">
-                <p className="text-gray-500">No {frequency} templates created yet</p>
+                <p className="text-gray-500">No {frequency.replace(/_/, ' ')} templates created yet</p>
               </CardContent>
             </Card>
           </div>
@@ -841,7 +1090,7 @@ function TemplatesView({
                         {template.shift_type?.replace(/_/g, ' ')}
                       </Badge>
                       <Badge variant="outline">
-                        {template.frequency}
+                        {template.frequency?.replace(/_/, ' ')}
                       </Badge>
                     </div>
                   </div>
@@ -879,6 +1128,11 @@ function TemplatesView({
                     <p className="text-gray-600 text-xs mt-1">
                       Reminder: {template.reminder_minutes || 15} min after shift start
                     </p>
+                    {template.advance_notice_days > 0 && (
+                      <p className="text-gray-600 text-xs">
+                        Visible {template.advance_notice_days} days before due
+                      </p>
+                    )}
                   </div>
                 </div>
               </CardContent>

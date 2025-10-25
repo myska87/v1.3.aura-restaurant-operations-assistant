@@ -21,6 +21,8 @@ import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { format } from "date-fns"; // Added for date formatting
+import { Badge } from "@/components/ui/badge"; // Added for badges
 
 export default function Dashboard() {
   const [dailyQuote, setDailyQuote] = useState("");
@@ -46,9 +48,50 @@ export default function Dashboard() {
     queryFn: () => base44.entities.StaffTask.list("-due_date", 50),
   });
 
-  const { data: cultureContent = [] } = useQuery({
+  const { data: cultureContent = [], isLoading: loadingCulture } = useQuery({
     queryKey: ['cultureContent'],
     queryFn: () => base44.entities.CultureContent.list(),
+  });
+
+  const { data: user } = useQuery({
+    queryKey: ['currentUser'],
+    queryFn: () => base44.auth.me(),
+  });
+
+  const { data: upcomingChecklists = [] } = useQuery({
+    queryKey: ['upcomingChecklists', user?.email],
+    queryFn: async () => {
+      // Fetch all checklist executions and templates
+      const allExecutions = await base44.entities.ChecklistExecution.list('-execution_date');
+      const templates = await base44.entities.ChecklistTemplate.list();
+      
+      const templatesMap = new Map(templates.map(t => [t.id, t]));
+
+      const now = new Date();
+      now.setHours(0, 0, 0, 0); // Normalize 'now' to the start of today
+      const twoWeeksFromNow = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000);
+      twoWeeksFromNow.setHours(23, 59, 59, 999); // Normalize 'twoWeeksFromNow' to end of day
+
+      return allExecutions.filter(exec => {
+        const template = templatesMap.get(exec.template_id);
+        if (!template) return false;
+
+        const execDate = new Date(exec.execution_date);
+        execDate.setHours(0, 0, 0, 0); // Normalize 'execDate' to the start of its day
+
+        const daysUntilDue = Math.ceil((execDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+        
+        // Filter for manager/owner-specific checklists that are due within 14 days and not completed
+        return (
+          template.applicable_roles?.includes(user?.position) &&
+          exec.status !== 'completed' &&
+          exec.assigned_to_email === user?.email &&
+          execDate >= now && // Ensure it's not overdue
+          execDate <= twoWeeksFromNow // Ensure it's within the next 14 days
+        );
+      });
+    },
+    enabled: !!user?.email && (user?.position === 'manager' || user?.position === 'owner'),
   });
 
   // Get daily motivational quote
@@ -63,41 +106,38 @@ export default function Dashboard() {
         setDailyQuote(existingQuote.content);
         setLoadingQuote(false);
       } else {
-        // Generate a new daily quote using AI
-        try {
-          const today = new Date().toISOString().split('T')[0];
-          const cachedQuote = localStorage.getItem('dailyQuote');
-          const cachedDate = localStorage.getItem('dailyQuoteDate');
-          
-          if (cachedQuote && cachedDate === today) {
-            setDailyQuote(cachedQuote);
-          } else {
+        // Only try to generate if culture content is loaded and no existing quote
+        const today = new Date().toISOString().split('T')[0];
+        const cachedQuote = localStorage.getItem('dailyQuote');
+        const cachedDate = localStorage.getItem('dailyQuoteDate');
+        
+        if (cachedQuote && cachedDate === today) {
+          setDailyQuote(cachedQuote);
+          setLoadingQuote(false);
+        } else {
+          try {
             const response = await base44.integrations.Core.InvokeLLM({
               prompt: `Generate one inspiring and motivational quote about hospitality, customer service, or teamwork in the restaurant industry. Make it uplifting and positive. Return only the quote text without quotes or author attribution. Keep it under 100 characters.`,
             });
             
-            // Assuming response can be a string or an object with a 'quote' property
             const newQuote = typeof response === 'string' ? response : (response && response.quote) ? response.quote : "Excellence in hospitality starts with a smile and genuine care for every guest.";
             setDailyQuote(newQuote);
             localStorage.setItem('dailyQuote', newQuote);
             localStorage.setItem('dailyQuoteDate', today);
+            setLoadingQuote(false);
+          } catch (error) {
+            console.error("Error generating quote:", error);
+            setDailyQuote("Excellence in hospitality starts with a smile and genuine care for every guest.");
+            setLoadingQuote(false);
           }
-        } catch (error) {
-          console.error("Error generating quote:", error);
-          setDailyQuote("Excellence in hospitality starts with a smile and genuine care for every guest.");
         }
       }
-      setLoadingQuote(false);
     };
 
-    // Only fetch if cultureContent data is loaded to prevent multiple LLM calls
-    // if cultureContent is empty initially then populates.
-    if (!loadingQuote && cultureContent !== undefined) { 
-        fetchDailyQuote();
+    if (!loadingCulture) { // Trigger fetch when cultureContent is done loading
+      fetchDailyQuote();
     }
-    // The dependency array ensures this effect runs when cultureContent changes
-    // or when the component mounts if cultureContent is already present.
-  }, [cultureContent]); 
+  }, [cultureContent, loadingCulture]); 
 
   // Calculate stats
   const complianceRate = complianceChecks.length > 0
@@ -190,6 +230,81 @@ export default function Dashboard() {
             <span className="text-sm font-medium text-gray-700">System Online</span>
           </div>
         </div>
+
+        {/* Manager Upcoming Tasks Alert */}
+        {upcomingChecklists.length > 0 && (user?.position === 'manager' || user?.position === 'owner') && (
+          <Card className="bg-gradient-to-r from-orange-50 to-amber-50 border-orange-200">
+            <CardContent className="p-6">
+              <div className="flex items-start gap-4">
+                <div className="p-3 bg-orange-100 rounded-lg">
+                  <AlertTriangle className="w-6 h-6 text-orange-600" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-lg font-semibold text-orange-900 mb-2">
+                    📋 Upcoming Manager Tasks
+                  </h3>
+                  <p className="text-sm text-orange-800 mb-3">
+                    You have {upcomingChecklists.length} checklist(s) due within the next 2 weeks
+                  </p>
+                  <div className="space-y-2">
+                    {upcomingChecklists.map((checklist) => {
+                      const todayDate = new Date();
+                      todayDate.setHours(0,0,0,0);
+                      const execDate = new Date(checklist.execution_date);
+                      execDate.setHours(0,0,0,0);
+                      
+                      const daysUntil = Math.ceil(
+                        (execDate.getTime() - todayDate.getTime()) / 
+                        (1000 * 60 * 60 * 24)
+                      );
+                      
+                      return (
+                        <div key={checklist.id} className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-3 bg-white rounded-lg">
+                          <div>
+                            <p className="font-medium text-gray-900">{checklist.template_name}</p>
+                            <p className="text-sm text-gray-600 flex items-center mt-1 sm:mt-0">
+                              Due: {format(new Date(checklist.execution_date), 'PPP')}
+                              {daysUntil === 0 && (
+                                <Badge className="ml-2 bg-red-100 text-red-800 hover:bg-red-100">
+                                  Due Today
+                                </Badge>
+                              )}
+                              {daysUntil > 0 && daysUntil <= 3 && (
+                                <Badge className="ml-2 bg-red-100 text-red-800 hover:bg-red-100">
+                                  {daysUntil} day{daysUntil > 1 ? 's' : ''} left
+                                </Badge>
+                              )}
+                              {daysUntil > 3 && daysUntil <= 7 && (
+                                <Badge className="ml-2 bg-yellow-100 text-yellow-800 hover:bg-yellow-100">
+                                  {daysUntil} days left
+                                </Badge>
+                              )}
+                              {daysUntil > 7 && daysUntil <= 14 && (
+                                <Badge className="ml-2 bg-blue-100 text-blue-800 hover:bg-blue-100">
+                                  {daysUntil} days left
+                                </Badge>
+                              )}
+                            </p>
+                          </div>
+                          <Link to={createPageUrl(`ExecuteChecklist?id=${checklist.id}`)}>
+                            <Button size="sm" variant="outline" className="mt-2 sm:mt-0">
+                              View
+                            </Button>
+                          </Link>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <Link to={createPageUrl('AdvancedChecklists')}>
+                    <Button className="mt-4 bg-orange-600 hover:bg-orange-700 text-white">
+                      View All Checklists
+                    </Button>
+                  </Link>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Alerts */}
         {(lowStockItems > 0 || openTickets > 0) && (
