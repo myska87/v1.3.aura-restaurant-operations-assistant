@@ -57,19 +57,9 @@ const navigationItems = [
     icon: MessageCircle,
   },
   {
-    title: "Checklist Templates",
-    url: createPageUrl("ChecklistTemplates"),
+    title: "Checklists",
+    url: createPageUrl("AdvancedChecklists"),
     icon: ClipboardList,
-  },
-  {
-    title: "My Checklists",
-    url: createPageUrl("MyChecklists"),
-    icon: ListChecks,
-  },
-  {
-    title: "Checklist Monitor",
-    url: createPageUrl("ChecklistMonitor"),
-    icon: ClipboardCheck,
   },
   {
     title: "Compliance",

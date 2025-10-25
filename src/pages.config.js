@@ -33,6 +33,7 @@ import TeamChat from './pages/TeamChat';
 import Announcements from './pages/Announcements';
 import SuggestionBox from './pages/SuggestionBox';
 import TeamDirectory from './pages/TeamDirectory';
+import AdvancedChecklists from './pages/AdvancedChecklists';
 import Layout from './Layout.jsx';
 
 
@@ -72,6 +73,7 @@ export const PAGES = {
     "Announcements": Announcements,
     "SuggestionBox": SuggestionBox,
     "TeamDirectory": TeamDirectory,
+    "AdvancedChecklists": AdvancedChecklists,
 }
 
 export const pagesConfig = {

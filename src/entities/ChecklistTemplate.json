@@ -15,7 +15,8 @@
       "enum": [
         "daily",
         "weekly",
-        "monthly"
+        "monthly",
+        "yearly"
       ],
       "description": "How often checklist should be completed"
     },
