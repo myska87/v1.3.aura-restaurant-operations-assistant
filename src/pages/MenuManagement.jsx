@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -21,13 +22,17 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Plus, Pencil, Trash2, ChefHat, Camera, Image as ImageIcon, Folder } from "lucide-react";
+import { Plus, Pencil, Trash2, ChefHat, Camera, Image as ImageIcon, Folder, Calculator, ShoppingCart } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export default function MenuManagement() {
   const queryClient = useQueryClient();
   const [showItemForm, setShowItemForm] = useState(false);
   const [showCategoryForm, setShowCategoryForm] = useState(false);
+  const [showProfitCalculator, setShowProfitCalculator] = useState(false);
+  const [calculatorItem, setCalculatorItem] = useState(null);
+  const [servings, setServings] = useState(1);
+  const [wastePercentage, setWastePercentage] = useState(0);
   const [editingItem, setEditingItem] = useState(null);
   const [editingCategory, setEditingCategory] = useState(null);
   const [uploadingImage, setUploadingImage] = useState(false);
@@ -113,6 +118,14 @@ export default function MenuManagement() {
     mutationFn: (id) => base44.entities.MenuCategory.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['menuCategories'] });
+    },
+  });
+
+  const createPurchaseOrderMutation = useMutation({
+    mutationFn: (data) => base44.entities.PurchaseOrder.create(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['purchaseOrders'] });
+      alert('✅ Draft order created successfully! Check Orders page.');
     },
   });
 
@@ -268,6 +281,143 @@ export default function MenuManagement() {
     } else {
       await createCategoryMutation.mutateAsync(data);
     }
+  };
+
+  const openProfitCalculator = (item) => {
+    setCalculatorItem(item);
+    setServings(1);
+    setWastePercentage(0);
+    setShowProfitCalculator(true);
+  };
+
+  const calculateProfitMetrics = () => {
+    if (!calculatorItem) return null;
+
+    const recipe = calculatorItem.recipe || [];
+    const sellPricePerServing = parseFloat(calculatorItem.sell_price || 0);
+    
+    // Calculate cost per serving with waste
+    const costPerServing = recipe.reduce((sum, item) => {
+      // item.cost is the cost for the *defined quantity* in the recipe.
+      // ingredient.unit_cost is cost per unit.
+      // We need cost per unit * quantity for the recipe item.
+      const ingredientDetail = ingredients.find(ing => ing.id === item.ingredient_id);
+      if (!ingredientDetail) return sum;
+
+      const individualCost = ingredientDetail.unit_cost * item.quantity;
+      return sum + individualCost;
+    }, 0);
+
+    const costPerServingWithWaste = costPerServing * (1 + wastePercentage / 100);
+
+    // Calculate totals for multiple servings
+    const totalCost = costPerServingWithWaste * servings;
+    const totalRevenue = sellPricePerServing * servings;
+    const profitPerServing = sellPricePerServing - costPerServingWithWaste;
+    const totalProfit = totalRevenue - totalCost;
+    const profitMargin = sellPricePerServing > 0 
+      ? (profitPerServing / sellPricePerServing) * 100 
+      : 0;
+
+    // Calculate ingredient quantities needed for servings
+    const ingredientsNeeded = recipe.map(item => {
+      const ingredientDetail = ingredients.find(ing => ing.id === item.ingredient_id);
+      if (!ingredientDetail) return null;
+
+      const quantityNeededRaw = item.quantity * servings;
+      const quantityNeededWithWaste = quantityNeededRaw * (1 + wastePercentage / 100);
+      const totalIngredientCost = quantityNeededWithWaste * ingredientDetail.unit_cost;
+
+      return {
+        ...item,
+        ingredient_name: ingredientDetail.name, // Ensure name is available
+        unit: ingredientDetail.unit,           // Ensure unit is available
+        unit_cost: ingredientDetail.unit_cost, // Ensure unit_cost is available
+        quantity_needed: quantityNeededWithWaste,
+        total_cost: totalIngredientCost,
+      };
+    }).filter(Boolean); // Filter out any nulls if ingredient not found
+
+    return {
+      costPerServing: costPerServingWithWaste,
+      totalCost,
+      totalRevenue,
+      profitPerServing,
+      totalProfit,
+      profitMargin,
+      ingredientsNeeded,
+    };
+  };
+
+  const handleOrderIngredients = async () => {
+    const metrics = calculateProfitMetrics();
+    if (!metrics || !calculatorItem) return;
+
+    const { ingredientsNeeded } = metrics;
+
+    // Group by supplier
+    const ordersBySupplier = {};
+
+    for (const recipeItem of ingredientsNeeded) {
+      const ingredient = ingredients.find(ing => ing.id === recipeItem.ingredient_id);
+      if (!ingredient || !ingredient.supplier_id) continue; // Skip if no supplier info
+
+      const supplierId = ingredient.supplier_id;
+
+      if (!ordersBySupplier[supplierId]) {
+        ordersBySupplier[supplierId] = {
+          supplier_id: ingredient.supplier_id,
+          supplier_name: ingredient.supplier_name,
+          supplier_email: ingredient.supplier_email,
+          items: [],
+        };
+      }
+
+      ordersBySupplier[supplierId].items.push({
+        ingredient_id: ingredient.id,
+        ingredient_name: ingredient.name,
+        quantity_ordered: recipeItem.quantity_needed,
+        unit: ingredient.unit,
+        unit_cost: ingredient.unit_cost,
+        line_total: recipeItem.quantity_needed * ingredient.unit_cost,
+      });
+    }
+
+    // Create draft orders for each supplier
+    try {
+      for (const order of Object.values(ordersBySupplier)) {
+        const subtotal = order.items.reduce((sum, item) => sum + item.line_total, 0);
+        const tax = subtotal * 0.2; // Assuming 20% tax
+        const total = subtotal + tax;
+
+        await createPurchaseOrderMutation.mutateAsync({
+          order_number: `PO-MENU-${Date.now()}`,
+          supplier_id: order.supplier_id,
+          supplier_name: order.supplier_name,
+          supplier_email: order.supplier_email,
+          status: 'draft',
+          items: order.items,
+          subtotal,
+          tax,
+          total,
+          order_date: new Date().toISOString(),
+          notes: `Order for ${calculatorItem.name} (${servings} servings) - Generated from Profit Calculator`,
+        });
+      }
+      setShowProfitCalculator(false);
+    } catch (error) {
+      console.error("Failed to create purchase order(s):", error);
+      alert("Failed to create purchase order(s). Please try again.");
+    }
+  };
+
+  const metrics = calculatorItem ? calculateProfitMetrics() : null;
+
+  const getProfitColor = (margin) => {
+    if (margin >= 70) return 'border-green-300 text-green-700 bg-green-50';
+    if (margin >= 50) return 'border-blue-300 text-blue-700 bg-blue-50';
+    if (margin >= 30) return 'border-amber-300 text-amber-700 bg-amber-50';
+    return 'border-red-300 text-red-700 bg-red-50';
   };
 
   const filteredMenuItems = selectedCategory === "all" 
@@ -738,11 +888,158 @@ export default function MenuManagement() {
                   <div className="text-xs text-gray-500 mt-3 pt-3 border-t border-gray-100">
                     {item.recipe?.length || 0} ingredients • {item.prep_time_minutes || 0} min prep
                   </div>
+
+                  {/* NEW: Profit Calculator Button */}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full mt-3 bg-indigo-50 text-indigo-700 hover:bg-indigo-100"
+                    onClick={() => openProfitCalculator(item)}
+                  >
+                    <Calculator className="w-4 h-4 mr-2" />
+                    Profit Calculator
+                  </Button>
                 </CardContent>
               </Card>
             ))
           )}
         </div>
+
+        {/* Profit Calculator Dialog */}
+        <Dialog open={showProfitCalculator} onOpenChange={setShowProfitCalculator}>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Calculator className="w-5 h-5 text-indigo-600" />
+                Profit Calculator: {calculatorItem?.name}
+              </DialogTitle>
+            </DialogHeader>
+
+            {metrics && (
+              <div className="space-y-6 mt-4">
+                {/* Input Controls */}
+                <div className="grid md:grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <Label>Number of Servings</Label>
+                    <Input
+                      type="number"
+                      min="1"
+                      value={servings}
+                      onChange={(e) => setServings(parseInt(e.target.value) || 1)}
+                      className="text-lg font-semibold"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Sale Price per Serving</Label>
+                    <div className="text-2xl font-bold text-gray-900">
+                      £{parseFloat(calculatorItem?.sell_price || 0).toFixed(2)}
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Waste Factor (%)</Label>
+                    <Input
+                      type="number"
+                      min="0"
+                      max="50"
+                      value={wastePercentage}
+                      onChange={(e) => setWastePercentage(parseInt(e.target.value) || 0)}
+                    />
+                  </div>
+                </div>
+
+                {/* Profit Summary */}
+                <Card className={`border-2 ${getProfitColor(metrics.profitMargin)}`}>
+                  <CardContent className="p-6">
+                    <div className="grid md:grid-cols-4 gap-4">
+                      <div>
+                        <p className="text-sm font-medium mb-1">Cost/Serving</p>
+                        <p className="text-2xl font-bold">£{metrics.costPerServing.toFixed(2)}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium mb-1">Profit/Serving</p>
+                        <p className="text-2xl font-bold">£{metrics.profitPerServing.toFixed(2)}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium mb-1">Profit Margin</p>
+                        <p className="text-2xl font-bold">{metrics.profitMargin.toFixed(1)}%</p>
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium mb-1">Total Profit ({servings}x)</p>
+                        <p className="text-2xl font-bold">£{metrics.totalProfit.toFixed(2)}</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Ingredients Breakdown */}
+                <div>
+                  <h4 className="font-semibold text-gray-900 mb-3">Ingredients Needed ({servings} servings)</h4>
+                  <div className="space-y-2">
+                    {metrics.ingredientsNeeded.map((item, index) => (
+                      <Card key={index} className="border border-gray-200">
+                        <CardContent className="p-4">
+                          <div className="flex justify-between items-center">
+                            <div>
+                              <p className="font-medium text-gray-900">{item.ingredient_name}</p>
+                              <p className="text-sm text-gray-600">
+                                {item.quantity_needed.toFixed(2)} {item.unit} × £{item.unit_cost?.toFixed(2)}
+                                {wastePercentage > 0 && (
+                                  <span className="text-amber-600 ml-1"> (+{wastePercentage}% waste)</span>
+                                )}
+                              </p>
+                            </div>
+                            <span className="font-semibold text-gray-900">
+                              £{item.total_cost.toFixed(2)}
+                            </span>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Totals Summary */}
+                <Card className="bg-gray-50">
+                  <CardContent className="p-4 space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span className="font-medium">Total Ingredients Cost:</span>
+                      <span className="font-bold">£{metrics.totalCost.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="font-medium">Total Revenue:</span>
+                      <span className="font-bold text-green-700">£{metrics.totalRevenue.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between text-lg border-t border-gray-300 pt-2">
+                      <span className="font-semibold">Total Profit:</span>
+                      <span className="font-bold text-indigo-700">£{metrics.totalProfit.toFixed(2)}</span>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Action Buttons */}
+                <div className="flex justify-end gap-3 pt-4 border-t">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setShowProfitCalculator(false)}
+                  >
+                    Close
+                  </Button>
+                  <Button
+                    onClick={handleOrderIngredients}
+                    className="bg-green-600 hover:bg-green-700"
+                    disabled={createPurchaseOrderMutation.isPending}
+                  >
+                    <ShoppingCart className="w-4 h-4 mr-2" />
+                    {createPurchaseOrderMutation.isPending ? 'Creating Order...' : 'Order Ingredients Now'}
+                  </Button>
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );
