@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -43,7 +42,7 @@ export default function InventoryManagement() {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterCategory, setFilterCategory] = useState("all");
   const [filterSupplier, setFilterSupplier] = useState("all");
-  const [sortBy, setSortBy] = useState("name"); // New state for sorting
+  const [sortBy, setSortBy] = useState("name");
   const [cart, setCart] = useState([]);
   const [showCart, setShowCart] = useState(false);
 
@@ -99,8 +98,6 @@ export default function InventoryManagement() {
     }
 
     const existingItem = cart.find(item => item.ingredient_id === ingredient.id);
-
-    // Find the current supplier details for the ingredient
     const currentSupplier = suppliers.find(s => s.id === ingredient.supplier_id);
 
     if (existingItem) {
@@ -150,7 +147,6 @@ export default function InventoryManagement() {
     setCart(prevCart => {
       let updatedCart = [...prevCart];
       lowStockWithSuppliers.forEach(ingredient => {
-        // Calculate quantity to order (to reach par level or default to reorder point)
         const quantityToOrder = ingredient.auto_order_quantity ||
           (ingredient.par_level ? ingredient.par_level - ingredient.current_stock : 10);
 
@@ -158,14 +154,12 @@ export default function InventoryManagement() {
         const currentSupplier = suppliers.find(s => s.id === ingredient.supplier_id);
 
         if (existingItemIndex !== -1) {
-          // Update existing cart item
           updatedCart = updatedCart.map((item, index) =>
             index === existingItemIndex
               ? { ...item, quantity: item.quantity + quantityToOrder, line_total: (item.quantity + quantityToOrder) * ingredient.unit_cost }
               : item
           );
         } else {
-          // Add new item to cart
           updatedCart.push({
             ingredient_id: ingredient.id,
             ingredient_name: ingredient.name,
@@ -212,11 +206,10 @@ export default function InventoryManagement() {
       return;
     }
 
-    // Group cart items by supplier
     const ordersBySupplier = {};
 
     cart.forEach(item => {
-      if (!item.supplier_id) return; // Should not happen if check in addToCart works
+      if (!item.supplier_id) return;
 
       if (!ordersBySupplier[item.supplier_id]) {
         ordersBySupplier[item.supplier_id] = {
@@ -238,15 +231,14 @@ export default function InventoryManagement() {
     });
 
     let ordersCreatedCount = 0;
-    // Create draft orders
     for (const order of Object.values(ordersBySupplier)) {
       const subtotal = order.items.reduce((sum, item) => sum + item.line_total, 0);
-      const taxRate = 0.20; // 20% VAT
+      const taxRate = 0.20;
       const tax = subtotal * taxRate;
       const total = subtotal + tax;
 
       await createPurchaseOrderMutation.mutateAsync({
-        order_number: `PO-CART-${Date.now()}-${order.supplier_id.substring(0, 4)}`, // Unique order number
+        order_number: `PO-CART-${Date.now()}-${order.supplier_id.substring(0, 4)}`,
         supplier_id: order.supplier_id,
         supplier_name: order.supplier_name,
         supplier_email: order.supplier_email,
@@ -255,7 +247,7 @@ export default function InventoryManagement() {
         subtotal: parseFloat(subtotal.toFixed(2)),
         tax: parseFloat(tax.toFixed(2)),
         total: parseFloat(total.toFixed(2)),
-        order_date: new Date().toISOString().split('T')[0], // YYYY-MM-DD
+        order_date: new Date().toISOString().split('T')[0],
         notes: 'Created from shopping cart',
       });
       ordersCreatedCount++;
@@ -363,16 +355,16 @@ export default function InventoryManagement() {
     const orderQuantity = ingredient.auto_order_quantity || (ingredient.par_level - ingredient.current_stock) || 10;
     const lineTotal = orderQuantity * ingredient.unit_cost;
     const subtotal = lineTotal;
-    const taxRate = 0.20; // 20% VAT
+    const taxRate = 0.20;
     const tax = subtotal * taxRate;
     const total = subtotal + tax;
 
     const poData = {
-      order_number: `PO-AUTO-${Date.now()}-${ingredient.id.substring(0, 4)}`, // Unique order number
+      order_number: `PO-AUTO-${Date.now()}-${ingredient.id.substring(0, 4)}`,
       supplier_id: supplier.id,
       supplier_name: supplier.name,
       supplier_email: supplier.email,
-      status: "pending", // Auto orders can be pending for approval
+      status: "pending",
       order_date: new Date().toISOString().split('T')[0],
       items: [{
         ingredient_id: ingredient.id,
@@ -412,6 +404,11 @@ export default function InventoryManagement() {
     alert(`Initiated auto-orders for ${lowStockItemsForAutoOrder.length} items.`);
   };
 
+  const lowStockItems = ingredients.filter(ing => ing.current_stock <= (ing.reorder_point || 0));
+  const totalValue = ingredients.reduce((sum, ing) => sum + (ing.current_stock * ing.unit_cost), 0);
+  const categories = [...new Set(ingredients.map(ing => ing.category))];
+  const itemsWithoutSupplier = ingredients.filter(ing => !ing.supplier_id).length;
+
   const filteredIngredients = ingredients
     .filter(ing => {
       const matchesSearch = ing.name.toLowerCase().includes(searchTerm.toLowerCase());
@@ -422,15 +419,12 @@ export default function InventoryManagement() {
     .sort((a, b) => {
       switch (sortBy) {
         case 'low_stock':
-          // Items with reorder point and below it come first
           const aBelowReorder = a.reorder_point !== null && a.reorder_point !== undefined && a.reorder_point > 0 && a.current_stock <= a.reorder_point;
           const bBelowReorder = b.reorder_point !== null && b.reorder_point !== undefined && b.reorder_point > 0 && b.current_stock <= b.reorder_point;
 
           if (aBelowReorder && !bBelowReorder) return -1;
           if (!aBelowReorder && bBelowReorder) return 1;
 
-          // If both are below reorder point or both are not, sort by urgency ratio
-          // Lower ratio means more urgent. Handle reorder_point === 0 carefully.
           const aUrgency = (a.reorder_point !== null && a.reorder_point !== undefined && a.reorder_point > 0) ? (a.current_stock / a.reorder_point) : (a.current_stock <= 0 ? -1 : 9999);
           const bUrgency = (b.reorder_point !== null && b.reorder_point !== undefined && b.reorder_point > 0) ? (b.current_stock / b.reorder_point) : (b.current_stock <= 0 ? -1 : 9999);
 
@@ -456,7 +450,6 @@ export default function InventoryManagement() {
           return aVal - bVal;
 
         case 'no_supplier':
-          // Items without suppliers first
           if (!a.supplier_id && b.supplier_id) return -1;
           if (a.supplier_id && !b.supplier_id) return 1;
           return 0;
@@ -465,11 +458,6 @@ export default function InventoryManagement() {
           return a.name.localeCompare(b.name);
       }
     });
-
-  const lowStockItems = ingredients.filter(ing => ing.current_stock <= (ing.reorder_point || 0));
-  const totalValue = ingredients.reduce((sum, ing) => sum + (ing.current_stock * ing.unit_cost), 0);
-  const categories = [...new Set(ingredients.map(ing => ing.category))];
-  const itemsWithoutSupplier = ingredients.filter(ing => !ing.supplier_id).length;
 
   return (
     <div className="p-6 md:p-8 bg-gray-50 min-h-screen">
@@ -519,7 +507,6 @@ export default function InventoryManagement() {
           </div>
         </div>
 
-        {/* Alert for items without supplier */}
         {itemsWithoutSupplier > 0 && (
           <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-6">
             <div className="flex items-start gap-3">
@@ -534,7 +521,6 @@ export default function InventoryManagement() {
           </div>
         )}
 
-        {/* Stats Grid */}
         <div className="grid md:grid-cols-4 gap-6 mb-8">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -590,7 +576,6 @@ export default function InventoryManagement() {
         <Card>
           <CardHeader>
             <div className="flex flex-col gap-4">
-              {/* Search and Sort Row */}
               <div className="flex flex-col md:flex-row gap-4 justify-between">
                 <div className="flex-1">
                   <Input
@@ -642,7 +627,6 @@ export default function InventoryManagement() {
                 </div>
               </div>
 
-              {/* Active Filters Display */}
               {(searchTerm || filterCategory !== 'all' || filterSupplier !== 'all' || sortBy !== 'name') && (
                 <div className="flex gap-2 flex-wrap items-center text-sm">
                   <span className="text-gray-600 font-medium">Active filters:</span>
@@ -682,7 +666,6 @@ export default function InventoryManagement() {
                 </div>
               )}
 
-              {/* Results Count */}
               <div className="text-sm text-gray-600">
                 Showing {filteredIngredients.length} of {ingredients.length} items
               </div>
@@ -775,7 +758,7 @@ export default function InventoryManagement() {
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() => addToCart(ingredient, 10)} // Default to 10 units for quick add
+                              onClick={() => addToCart(ingredient, 10)}
                               className="bg-blue-50 hover:bg-blue-100"
                             >
                               <ShoppingBasket className="w-4 h-4" />
@@ -885,7 +868,6 @@ export default function InventoryManagement() {
                 </div>
               </div>
 
-              {/* ENHANCED SUPPLIER SELECTION */}
               <div className="border-2 border-blue-200 rounded-lg p-4 bg-blue-50">
                 <div className="flex items-center gap-2 mb-3">
                   <ShoppingCart className="w-5 h-5 text-blue-600" />
@@ -990,7 +972,6 @@ export default function InventoryManagement() {
           </DialogContent>
         </Dialog>
 
-        {/* Shopping Cart Dialog */}
         <Dialog open={showCart} onOpenChange={setShowCart}>
           <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
