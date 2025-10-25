@@ -4,11 +4,10 @@ import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select,
   SelectContent,
@@ -23,32 +22,20 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
-  Users,
-  FileText,
-  Target,
-  Plus,
-  Edit,
-  Trash2,
-  Upload,
-  CheckCircle,
-  XCircle,
-  AlertTriangle,
-  Calendar,
-  Phone,
-  Mail,
-  Home,
-  ArrowLeft,
-  Search,
-  Filter,
-  Download,
-} from "lucide-react";
-import { Link } from "react-router-dom";
-import { createPageUrl } from "@/utils";
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Users, FileText, Target, Plus, Edit, Trash2, Upload, CheckCircle, AlertTriangle, Calendar, Phone, Mail, Home, ArrowLeft, Search, Filter, Download, MoreVertical, UserPlus, Clock, AlertCircle, TrendingUp, Award, Eye, Bell, Settings } from "lucide-react";
 import { format } from "date-fns";
+import { Link, useNavigate } from "react-router-dom";
+import { createPageUrl } from "@/utils";
 import { motion } from "framer-motion";
 
 export default function ManagerDashboard() {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("team");
   const [searchQuery, setSearchQuery] = useState("");
   const [filterDepartment, setFilterDepartment] = useState("all");
@@ -58,6 +45,10 @@ export default function ManagerDashboard() {
   const [showAddResponsibilityDialog, setShowAddResponsibilityDialog] = useState(false);
   const [selectedMember, setSelectedMember] = useState(null);
   const [selectedRole, setSelectedRole] = useState(null);
+  const [viewMode, setViewMode] = useState("grid"); // 'grid' or 'table'
+  const [showProfileModal, setShowProfileModal] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [memberToDelete, setMemberToDelete] = useState(null);
 
   const { data: user } = useQuery({
     queryKey: ['currentUser'],
@@ -91,14 +82,14 @@ export default function ManagerDashboard() {
   const activeMembers = teamMembers.filter(m => m.status === 'active').length;
   const onLeave = teamMembers.filter(m => m.status === 'on_leave').length;
   const onProbation = teamMembers.filter(m => m.status === 'probation').length;
-  
+
   // Calculate documents needing attention
   const documentsExpiring = hrDocuments.filter(doc => {
     if (!doc.expiry_date) return false;
     const daysUntilExpiry = Math.ceil((new Date(doc.expiry_date) - new Date()) / (1000 * 60 * 60 * 24));
     return daysUntilExpiry <= 30 && daysUntilExpiry > 0;
   }).length;
-  
+
   const documentsExpired = hrDocuments.filter(doc => doc.status === 'expired').length;
   const documentsPending = hrDocuments.filter(doc => doc.status === 'pending_review').length;
   const totalDocumentAlerts = documentsExpiring + documentsExpired + documentsPending;
@@ -115,6 +106,38 @@ export default function ManagerDashboard() {
     return acc;
   }, {});
 
+  // Additional calculations for enhanced stats
+  const { data: todayAttendance = [] } = useQuery({
+    queryKey: ['todayAttendance'],
+    queryFn: async () => {
+      const today = new Date().toISOString().split('T')[0];
+      return await base44.entities.ClockEvent.filter({
+        timestamp: { $gte: `${today}T00:00:00Z` }
+      });
+    },
+  });
+
+  const { data: trainingRecords = [] } = useQuery({
+    queryKey: ['trainingRecords'],
+    queryFn: () => base44.entities.TrainingRecord.list(),
+  });
+
+  const { data: coachingSessions = [] } = useQuery({
+    queryKey: ['coachingSessions'],
+    queryFn: () => base44.entities.CoachingSession.list('-session_date'),
+  });
+
+  const attendanceToday = new Set(todayAttendance.map(a => a.user_email)).size;
+  const trainingCompleted = trainingRecords.filter(t => t.status === 'completed').length;
+  const totalTraining = trainingRecords.length;
+  const trainingPercentage = totalTraining > 0 ? Math.round((trainingCompleted / totalTraining) * 100) : 0;
+
+  const thisMonth = new Date().toISOString().slice(0, 7);
+  const feedbackThisMonth = coachingSessions.filter(s =>
+    s.session_date?.startsWith(thisMonth) && s.status === 'completed'
+  ).length;
+
+  const pendingHRActions = documentsPending + documentsExpiring;
 
   // Filtered team members
   const filteredTeamMembers = teamMembers.filter(member => {
@@ -151,6 +174,22 @@ export default function ManagerDashboard() {
     setShowAddResponsibilityDialog(true);
   };
 
+  // Delete member mutation
+  const deleteMemberMutation = useMutation({
+    mutationFn: (id) => base44.entities.TeamMember.update(id, { status: 'inactive' }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['teamMembers'] });
+      setShowDeleteConfirm(false);
+      setMemberToDelete(null);
+    },
+  });
+
+  const handleDeleteMember = async () => {
+    if (memberToDelete) {
+      await deleteMemberMutation.mutateAsync(memberToDelete.id);
+    }
+  };
+
   if (!isManager) {
     return (
       <div className="p-6 md:p-8">
@@ -174,7 +213,7 @@ export default function ManagerDashboard() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6 md:p-8">
       <div className="max-w-7xl mx-auto">
-        {/* Header */}
+        {/* Enhanced Header with Profile, Notifications, Settings */}
         <div className="flex gap-3 mb-6">
           <Link to={createPageUrl("PerformanceGrowth")}>
             <Button variant="outline" size="sm">
@@ -188,6 +227,47 @@ export default function ManagerDashboard() {
               Dashboard
             </Button>
           </Link>
+
+          {/* Right side icons */}
+          <div className="ml-auto flex items-center gap-3">
+            {/* Notifications */}
+            <Button variant="outline" size="icon" className="relative">
+              <Bell className="w-5 h-5" />
+              {pendingHRActions > 0 && (
+                <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
+                  {pendingHRActions}
+                </span>
+              )}
+            </Button>
+
+            {/* Settings */}
+            <Button variant="outline" size="icon">
+              <Settings className="w-5 h-5" />
+            </Button>
+
+            {/* Profile Avatar */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="flex items-center gap-2 px-3">
+                  <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-indigo-500 rounded-full flex items-center justify-center text-white font-semibold">
+                    {user?.full_name?.charAt(0)?.toUpperCase() || "M"}
+                  </div>
+                  <span className="hidden md:inline text-sm font-medium">{user?.full_name}</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => navigate(createPageUrl("PerformanceGrowth"))}>
+                  My Profile
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate(createPageUrl("Dashboard"))}>
+                  Dashboard
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => base44.auth.logout()}>
+                  Logout
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
 
         <div className="mb-8">
@@ -200,55 +280,77 @@ export default function ManagerDashboard() {
           </p>
         </div>
 
-        {/* Stats Grid */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-          <Card className="bg-white border-l-4 border-l-blue-500">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <Users className="w-8 h-8 text-blue-600" />
-                <div>
-                  <p className="text-2xl font-bold text-gray-900">{totalTeam}</p>
-                  <p className="text-xs text-gray-600">Total Team</p>
+        {/* Enhanced Stats Grid - 5 Widgets */}
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
+            <Card className="bg-white border-l-4 border-l-blue-500 hover:shadow-lg transition-shadow cursor-pointer">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <Users className="w-8 h-8 text-blue-600" />
+                  <Badge variant="outline" className="text-xs">Total</Badge>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
+                <p className="text-3xl font-bold text-gray-900">{totalTeam}</p>
+                <p className="text-xs text-gray-600 mt-1">Total Staff</p>
+                <p className="text-xs text-green-600 mt-1">↑ {activeMembers} active</p>
+              </CardContent>
+            </Card>
+          </motion.div>
 
-          <Card className="bg-white border-l-4 border-l-green-500">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <CheckCircle className="w-8 h-8 text-green-600" />
-                <div>
-                  <p className="text-2xl font-bold text-gray-900">{activeMembers}</p>
-                  <p className="text-xs text-gray-600">Active</p>
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
+            <Card className="bg-white border-l-4 border-l-green-500 hover:shadow-lg transition-shadow cursor-pointer">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <CheckCircle className="w-8 h-8 text-green-600" />
+                  <Badge variant="outline" className="text-xs">Today</Badge>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
+                <p className="text-3xl font-bold text-gray-900">{attendanceToday}</p>
+                <p className="text-xs text-gray-600 mt-1">Attendance Today</p>
+                <p className="text-xs text-gray-500 mt-1">Out of {activeMembers}</p>
+              </CardContent>
+            </Card>
+          </motion.div>
 
-          <Card className="bg-white border-l-4 border-l-yellow-500">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <Calendar className="w-8 h-8 text-yellow-600" />
-                <div>
-                  <p className="text-2xl font-bold text-gray-900">{onLeave + onProbation}</p>
-                  <p className="text-xs text-gray-600">On Leave/Probation</p>
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+            <Card className="bg-white border-l-4 border-l-purple-500 hover:shadow-lg transition-shadow cursor-pointer">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <Award className="w-8 h-8 text-purple-600" />
+                  <Badge variant="outline" className="text-xs">Progress</Badge>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
+                <p className="text-3xl font-bold text-gray-900">{trainingPercentage}%</p>
+                <p className="text-xs text-gray-600 mt-1">Training Completed</p>
+                <p className="text-xs text-gray-500 mt-1">{trainingCompleted}/{totalTraining} courses</p>
+              </CardContent>
+            </Card>
+          </motion.div>
 
-          <Card className="bg-white border-l-4 border-l-red-500">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <AlertTriangle className="w-8 h-8 text-red-600" />
-                <div>
-                  <p className="text-2xl font-bold text-gray-900">{totalDocumentAlerts}</p>
-                  <p className="text-xs text-gray-600">Docs Alert</p>
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
+            <Card className="bg-white border-l-4 border-l-indigo-500 hover:shadow-lg transition-shadow cursor-pointer">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <TrendingUp className="w-8 h-8 text-indigo-600" />
+                  <Badge variant="outline" className="text-xs">This Month</Badge>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
+                <p className="text-3xl font-bold text-gray-900">{feedbackThisMonth}</p>
+                <p className="text-xs text-gray-600 mt-1">Feedback Sessions</p>
+                <p className="text-xs text-gray-500 mt-1">Coaching completed</p>
+              </CardContent>
+            </Card>
+          </motion.div>
+
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}>
+            <Card className="bg-white border-l-4 border-l-red-500 hover:shadow-lg transition-shadow cursor-pointer">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <AlertCircle className="w-8 h-8 text-red-600" />
+                  <Badge variant="outline" className="text-xs">Urgent</Badge>
+                </div>
+                <p className="text-3xl font-bold text-gray-900">{pendingHRActions}</p>
+                <p className="text-xs text-gray-600 mt-1">Pending HR Actions</p>
+                <p className="text-xs text-red-600 mt-1">Requires attention</p>
+              </CardContent>
+            </Card>
+          </motion.div>
         </div>
 
         {/* Additional Stats Row */}
@@ -306,16 +408,38 @@ export default function ManagerDashboard() {
             </TabsTrigger>
           </TabsList>
 
-          {/* Team Management Tab */}
+          {/* Enhanced Team Management Tab */}
           <TabsContent value="team" className="space-y-6">
             <Card>
               <CardHeader>
-                <div className="flex justify-between items-center">
+                <div className="flex flex-wrap justify-between items-center gap-4">
                   <CardTitle>Team Members</CardTitle>
-                  <Button onClick={() => setShowAddMemberDialog(true)} className="bg-blue-600">
-                    <Plus className="w-4 h-4 mr-2" />
-                    Add Member
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    {/* View Toggle */}
+                    <div className="flex border rounded-lg overflow-hidden">
+                      <Button
+                        variant={viewMode === 'grid' ? 'default' : 'ghost'}
+                        size="sm"
+                        onClick={() => setViewMode('grid')}
+                        className="rounded-none"
+                      >
+                        Grid
+                      </Button>
+                      <Button
+                        variant={viewMode === 'table' ? 'default' : 'ghost'}
+                        size="sm"
+                        onClick={() => setViewMode('table')}
+                        className="rounded-none"
+                      >
+                        Table
+                      </Button>
+                    </div>
+
+                    <Button onClick={() => setShowAddMemberDialog(true)} className="bg-blue-600">
+                      <UserPlus className="w-4 h-4 mr-2" />
+                      Add Member
+                    </Button>
+                  </div>
                 </div>
               </CardHeader>
               <CardContent>
@@ -360,73 +484,184 @@ export default function ManagerDashboard() {
                   </Select>
                 </div>
 
-                {/* Team List */}
-                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {filteredTeamMembers.map((member, index) => (
-                    <motion.div
-                      key={member.id}
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: index * 0.05 }}
-                    >
-                      <Card className="hover:shadow-lg transition-shadow">
-                        <CardContent className="p-4">
-                          <div className="flex items-start gap-3 mb-3">
-                            <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-green-500 rounded-full flex items-center justify-center text-white text-lg font-bold flex-shrink-0">
-                              {member.staff_name?.charAt(0)?.toUpperCase()}
+                {/* Grid View */}
+                {viewMode === 'grid' && (
+                  <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {filteredTeamMembers.map((member, index) => (
+                      <motion.div
+                        key={member.id}
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: index * 0.05 }}
+                      >
+                        <Card className="hover:shadow-lg transition-shadow">
+                          <CardContent className="p-4">
+                            <div className="flex items-start gap-3 mb-3">
+                              <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-green-500 rounded-full flex items-center justify-center text-white text-lg font-bold flex-shrink-0">
+                                {member.staff_name?.charAt(0)?.toUpperCase()}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <h4 className="font-semibold text-gray-900 truncate">{member.staff_name}</h4>
+                                <p className="text-sm text-gray-600 capitalize">{member.position?.replace('_', ' ')}</p>
+                                <Badge className={`${getStatusColor(member.status)} mt-1 text-[10px]`}>
+                                  {member.status}
+                                </Badge>
+                              </div>
+
+                              {/* Actions Dropdown */}
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button variant="ghost" size="icon" className="h-8 w-8">
+                                    <MoreVertical className="w-4 h-4" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  <DropdownMenuItem onClick={() => {
+                                    setSelectedMember(member);
+                                    setShowProfileModal(true);
+                                  }}>
+                                    <Eye className="w-4 h-4 mr-2" />
+                                    View Profile
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => {
+                                    setSelectedMember(member);
+                                    setShowAddMemberDialog(true);
+                                  }}>
+                                    <Edit className="w-4 h-4 mr-2" />
+                                    Edit Member
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    className="text-red-600"
+                                    onClick={() => {
+                                      setMemberToDelete(member);
+                                      setShowDeleteConfirm(true);
+                                    }}
+                                  >
+                                    <Trash2 className="w-4 h-4 mr-2" />
+                                    Remove
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
                             </div>
-                            <div className="flex-1 min-w-0">
-                              <h4 className="font-semibold text-gray-900 truncate">{member.staff_name}</h4>
-                              <p className="text-sm text-gray-600 capitalize">{member.position?.replace('_', ' ')}</p>
-                              <Badge className={`${getStatusColor(member.status)} mt-1 text-[10px]`}>
+
+                            <div className="space-y-1 text-xs text-gray-600 mb-3">
+                              {member.staff_email && (
+                                <p className="truncate">📧 {member.staff_email}</p>
+                              )}
+                              {member.phone && (
+                                <p>📞 {member.phone}</p>
+                              )}
+                              {member.shift_start && member.shift_end && (
+                                <p>⏰ {member.shift_start} - {member.shift_end}</p>
+                              )}
+                            </div>
+
+                            <div className="flex gap-2">
+                              <Link to={createPageUrl(`ViewCoachingSession?staff_email=${member.staff_email}`)} className="flex-1">
+                                <Button variant="outline" size="sm" className="w-full text-xs">
+                                  View Profile
+                                </Button>
+                              </Link>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </motion.div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Table View */}
+                {viewMode === 'table' && (
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead>
+                        <tr className="border-b">
+                          <th className="text-left p-3 text-sm font-semibold text-gray-700">Photo</th>
+                          <th className="text-left p-3 text-sm font-semibold text-gray-700">Name</th>
+                          <th className="text-left p-3 text-sm font-semibold text-gray-700">Role</th>
+                          <th className="text-left p-3 text-sm font-semibold text-gray-700">Department</th>
+                          <th className="text-left p-3 text-sm font-semibold text-gray-700">Status</th>
+                          <th className="text-left p-3 text-sm font-semibold text-gray-700">Next Shift</th>
+                          <th className="text-right p-3 text-sm font-semibold text-gray-700">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filteredTeamMembers.map((member) => (
+                          <tr key={member.id} className="border-b hover:bg-gray-50 transition-colors">
+                            <td className="p-3">
+                              <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-green-500 rounded-full flex items-center justify-center text-white font-bold">
+                                {member.staff_name?.charAt(0)?.toUpperCase()}
+                              </div>
+                            </td>
+                            <td className="p-3">
+                              <div>
+                                <p className="font-medium text-gray-900">{member.staff_name}</p>
+                                <p className="text-xs text-gray-500">{member.staff_email}</p>
+                              </div>
+                            </td>
+                            <td className="p-3">
+                              <p className="text-sm capitalize">{member.position?.replace('_', ' ')}</p>
+                            </td>
+                            <td className="p-3">
+                              <p className="text-sm capitalize">{member.department?.replace('_', ' ')}</p>
+                            </td>
+                            <td className="p-3">
+                              <Badge className={`${getStatusColor(member.status)} text-[10px]`}>
                                 {member.status}
                               </Badge>
-                            </div>
-                          </div>
-
-                          <div className="space-y-1 text-xs text-gray-600 mb-3">
-                            <div className="flex items-center gap-2">
-                              <Mail className="w-3 h-3" />
-                              <span className="truncate">{member.staff_email}</span>
-                            </div>
-                            {member.phone && (
-                              <div className="flex items-center gap-2">
-                                <Phone className="w-3 h-3" />
-                                <span>{member.phone}</span>
+                            </td>
+                            <td className="p-3">
+                              {member.shift_start && member.shift_end ? (
+                                <p className="text-sm text-gray-700">
+                                  {member.shift_start} - {member.shift_end}
+                                </p>
+                              ) : (
+                                <p className="text-xs text-gray-400">Not set</p>
+                              )}
+                            </td>
+                            <td className="p-3">
+                              <div className="flex items-center justify-end gap-2">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8"
+                                  onClick={() => {
+                                    setSelectedMember(member);
+                                    setShowProfileModal(true);
+                                  }}
+                                >
+                                  <Eye className="w-4 h-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8"
+                                  onClick={() => {
+                                    setSelectedMember(member);
+                                    setShowAddMemberDialog(true);
+                                  }}
+                                >
+                                  <Edit className="w-4 h-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
+                                  onClick={() => {
+                                    setMemberToDelete(member);
+                                    setShowDeleteConfirm(true);
+                                  }}
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </Button>
                               </div>
-                            )}
-                            {member.shift_start && member.shift_end && (
-                              <div className="flex items-center gap-2">
-                                <Calendar className="w-3 h-3" />
-                                <span>{member.shift_start} - {member.shift_end}</span>
-                              </div>
-                            )}
-                          </div>
-
-                          <div className="flex gap-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="flex-1"
-                              onClick={() => {
-                                setSelectedMember(member);
-                                setShowAddMemberDialog(true);
-                              }}
-                            >
-                              <Edit className="w-3 h-3 mr-1" />
-                              Edit
-                            </Button>
-                            <Link to={createPageUrl(`ViewCoachingSession?staff_email=${member.staff_email}`)} className="flex-1">
-                              <Button variant="outline" size="sm" className="w-full">
-                                View Profile
-                              </Button>
-                            </Link>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    </motion.div>
-                  ))}
-                </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
 
                 {filteredTeamMembers.length === 0 && (
                   <div className="text-center py-12 text-gray-500">
@@ -665,6 +900,111 @@ export default function ManagerDashboard() {
             </Card>
           </TabsContent>
         </Tabs>
+
+        {/* Profile View Modal */}
+        {selectedMember && showProfileModal && (
+          <Dialog open={showProfileModal} onOpenChange={setShowProfileModal}>
+            <DialogContent className="max-w-2xl">
+              <DialogHeader>
+                <DialogTitle>Staff Profile</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-6 mt-4">
+                <div className="flex items-center gap-4">
+                  <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-green-500 rounded-full flex items-center justify-center text-white text-3xl font-bold">
+                    {selectedMember.staff_name?.charAt(0)?.toUpperCase()}
+                  </div>
+                  <div>
+                    <h3 className="text-2xl font-bold text-gray-900">{selectedMember.staff_name}</h3>
+                    <p className="text-gray-600 capitalize">{selectedMember.position?.replace('_', ' ')}</p>
+                    <Badge className={`${getStatusColor(selectedMember.status)} mt-1`}>
+                      {selectedMember.status}
+                    </Badge>
+                  </div>
+                </div>
+
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-xs text-gray-500">Email</Label>
+                    <p className="text-sm font-medium">{selectedMember.staff_email}</p>
+                  </div>
+                  <div>
+                    <Label className="text-xs text-gray-500">Phone</Label>
+                    <p className="text-sm font-medium">{selectedMember.phone || 'Not provided'}</p>
+                  </div>
+                  <div>
+                    <Label className="text-xs text-gray-500">Department</Label>
+                    <p className="text-sm font-medium capitalize">{selectedMember.department?.replace('_', ' ')}</p>
+                  </div>
+                  <div>
+                    <Label className="text-xs text-gray-500">Shift</Label>
+                    <p className="text-sm font-medium">
+                      {selectedMember.shift_start && selectedMember.shift_end
+                        ? `${selectedMember.shift_start} - ${selectedMember.shift_end}`
+                        : 'Not set'}
+                    </p>
+                  </div>
+                  {selectedMember.hire_date && (
+                    <div>
+                      <Label className="text-xs text-gray-500">Hire Date</Label>
+                      <p className="text-sm font-medium">{format(new Date(selectedMember.hire_date), 'PPP')}</p>
+                    </div>
+                  )}
+                  {selectedMember.emergency_contact && (
+                    <div>
+                      <Label className="text-xs text-gray-500">Emergency Contact</Label>
+                      <p className="text-sm font-medium">{selectedMember.emergency_contact}</p>
+                    </div>
+                  )}
+                </div>
+
+                {selectedMember.notes && (
+                  <div>
+                    <Label className="text-xs text-gray-500">Notes</Label>
+                    <p className="text-sm text-gray-700 mt-1">{selectedMember.notes}</p>
+                  </div>
+                )}
+
+                <div className="flex justify-end gap-3 pt-4 border-t">
+                  <Button variant="outline" onClick={() => setShowProfileModal(false)}>
+                    Close
+                  </Button>
+                  <Link to={createPageUrl(`ViewCoachingSession?staff_email=${selectedMember.staff_email}`)}>
+                    <Button className="bg-blue-600">
+                      View Full Profile
+                    </Button>
+                  </Link>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
+        )}
+
+        {/* Delete Confirmation Dialog */}
+        <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Confirm Removal</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 mt-4">
+              <p className="text-gray-700">
+                Are you sure you want to remove <strong>{memberToDelete?.staff_name}</strong> from the team?
+                This will set their status to inactive.
+              </p>
+              <div className="flex justify-end gap-3">
+                <Button variant="outline" onClick={() => setShowDeleteConfirm(false)}>
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleDeleteMember}
+                  disabled={deleteMemberMutation.isPending}
+                  className="bg-red-600 hover:bg-red-700"
+                >
+                  {deleteMemberMutation.isPending ? 'Removing...' : 'Remove Member'}
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );
