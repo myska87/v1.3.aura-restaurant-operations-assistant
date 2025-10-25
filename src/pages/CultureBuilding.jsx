@@ -22,7 +22,7 @@ import {
   DialogTitle,
 }
  from "@/components/ui/dialog";
-import { Heart, Plus, Video, CheckCircle, Trophy, ArrowLeft, Home } from "lucide-react";
+import { Heart, Plus, Video, CheckCircle, Trophy, ArrowLeft, Home, Pencil, Trash2 } from "lucide-react";
 import { format } from "date-fns";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -71,6 +71,21 @@ export default function CultureBuilding() {
     },
   });
 
+  const updateContentMutation = useMutation({
+    mutationFn: ({ id, data }) => base44.entities.CultureContent.update(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['cultureContent'] });
+      resetForm();
+    },
+  });
+
+  const deleteContentMutation = useMutation({
+    mutationFn: (id) => base44.entities.CultureContent.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['cultureContent'] });
+    },
+  });
+
   const createAcknowledgementMutation = useMutation({
     mutationFn: (data) => base44.entities.CultureAcknowledgement.create(data),
     onSuccess: () => {
@@ -96,14 +111,40 @@ export default function CultureBuilding() {
     });
   };
 
+  const handleEdit = (content) => {
+    setEditingContent(content);
+    setFormData({
+      content_type: content.content_type,
+      title: content.title,
+      content: content.content,
+      media_url: content.media_url || "",
+      order_sequence: content.order_sequence,
+      requires_acknowledgement: content.requires_acknowledgement || false,
+      quiz_questions: content.quiz_questions || [],
+    });
+    setShowForm(true);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    await createContentMutation.mutateAsync({
+    const data = {
       ...formData,
       created_by: user?.email,
       effective_date: new Date().toISOString().split('T')[0],
       is_active: true,
-    });
+    };
+
+    if (editingContent) {
+      await updateContentMutation.mutateAsync({ id: editingContent.id, data });
+    } else {
+      await createContentMutation.mutateAsync(data);
+    }
+  };
+
+  const handleDelete = async (id) => {
+    if (window.confirm('Are you sure you want to delete this content? This action cannot be undone.')) {
+      await deleteContentMutation.mutateAsync(id);
+    }
   };
 
   const handleAcknowledge = async (content) => {
@@ -214,6 +255,7 @@ export default function CultureBuilding() {
     : 0;
 
   const dailyQuote = cultureContent.find(c => c.content_type === 'daily_quote');
+  const mission = cultureContent.find(c => c.content_type === 'mission');
   const ravingFans = cultureContent.find(c => c.content_type === 'philosophy');
   const companyValues = cultureContent.filter(c => c.content_type === 'company_value');
 
@@ -275,24 +317,99 @@ export default function CultureBuilding() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
           >
-            <Card className="bg-blue-50 border-blue-200 mb-8">
+            <Card className="bg-blue-50 border-blue-200 mb-8 relative">
               <CardContent className="p-6 text-center">
                 <p className="text-sm text-blue-600 font-semibold mb-2">💡 DAILY INSPIRATION</p>
                 <p className="text-2xl font-bold text-gray-900 italic">"{dailyQuote.content}"</p>
+                {user?.role === 'admin' && (
+                  <div className="absolute top-4 right-4 flex gap-2">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleEdit(dailyQuote)}
+                      className="bg-white/80 hover:bg-white"
+                    >
+                      <Pencil className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleDelete(dailyQuote.id)}
+                      className="bg-white/80 hover:bg-white text-red-600"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </motion.div>
         )}
 
+        {/* Mission Statement */}
+        {mission && (
+          <Card className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white border-none shadow-xl mb-8 relative">
+            <CardContent className="p-8 text-center">
+              <h2 className="text-3xl font-bold mb-4">🎯 {mission.title} 🎯</h2>
+              <p className="text-xl leading-relaxed">{mission.content}</p>
+              {mission.media_url && (
+                <div className="mt-6">
+                  <video src={mission.media_url} controls className="w-full max-w-2xl mx-auto rounded-lg" />
+                </div>
+              )}
+              {user?.role === 'admin' && (
+                <div className="absolute top-4 right-4 flex gap-2">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => handleEdit(mission)}
+                    className="bg-white/20 hover:bg-white/30 text-white"
+                  >
+                    <Pencil className="w-4 h-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => handleDelete(mission.id)}
+                    className="bg-white/20 hover:bg-white/30 text-white"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
         {/* Raving Fans Philosophy */}
         {ravingFans && (
-          <Card className="bg-gradient-to-r from-purple-600 to-pink-600 text-white border-none shadow-xl mb-8">
+          <Card className="bg-gradient-to-r from-purple-600 to-pink-600 text-white border-none shadow-xl mb-8 relative">
             <CardContent className="p-8 text-center">
               <h2 className="text-3xl font-bold mb-4">🌟 {ravingFans.title} 🌟</h2>
               <p className="text-xl leading-relaxed">{ravingFans.content}</p>
               {ravingFans.media_url && (
                 <div className="mt-6">
                   <video src={ravingFans.media_url} controls className="w-full max-w-2xl mx-auto rounded-lg" />
+                </div>
+              )}
+              {user?.role === 'admin' && (
+                <div className="absolute top-4 right-4 flex gap-2">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => handleEdit(ravingFans)}
+                    className="bg-white/20 hover:bg-white/30 text-white"
+                  >
+                    <Pencil className="w-4 h-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => handleDelete(ravingFans.id)}
+                    className="bg-white/20 hover:bg-white/30 text-white"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
                 </div>
               )}
             </CardContent>
@@ -305,13 +422,34 @@ export default function CultureBuilding() {
             <h2 className="text-2xl font-bold text-gray-900 mb-4">Our Core Values</h2>
             <div className="grid md:grid-cols-2 gap-6">
               {companyValues.map(value => (
-                <Card key={value.id} className="bg-white border-none shadow-sm">
+                <Card key={value.id} className="bg-white border-none shadow-sm relative">
                   <CardHeader>
                     <CardTitle className="flex items-center justify-between">
                       <span>{value.title}</span>
-                      {isAcknowledged(value.id) && (
-                        <CheckCircle className="w-5 h-5 text-green-600" />
-                      )}
+                      <div className="flex items-center gap-2">
+                        {isAcknowledged(value.id) && (
+                          <CheckCircle className="w-5 h-5 text-green-600" />
+                        )}
+                        {user?.role === 'admin' && (
+                          <div className="flex gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleEdit(value)}
+                            >
+                              <Pencil className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleDelete(value.id)}
+                              className="text-red-600"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        )}
+                      </div>
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
@@ -345,12 +483,38 @@ export default function CultureBuilding() {
 
         {/* All Culture Content */}
         <div className="space-y-6">
-          {cultureContent.filter(c => c.content_type !== 'company_value' && c.content_type !== 'daily_quote' && c.content_type !== 'philosophy').map(content => (
-            <Card key={content.id} className="bg-white border-none shadow-sm">
+          {cultureContent.filter(c => 
+            c.content_type !== 'company_value' && 
+            c.content_type !== 'daily_quote' && 
+            c.content_type !== 'philosophy' &&
+            c.content_type !== 'mission'
+          ).map(content => (
+            <Card key={content.id} className="bg-white border-none shadow-sm relative">
               <CardHeader>
                 <CardTitle className="flex items-center justify-between">
                   <span>{content.title}</span>
-                  <Badge variant="outline">{content.content_type.replace(/_/g, ' ')}</Badge>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline">{content.content_type.replace(/_/g, ' ')}</Badge>
+                    {user?.role === 'admin' && (
+                      <div className="flex gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleEdit(content)}
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleDelete(content.id)}
+                          className="text-red-600"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    )}
+                  </div>
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -374,7 +538,7 @@ export default function CultureBuilding() {
           <Dialog open={showForm} onOpenChange={setShowForm}>
             <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
-                <DialogTitle>Add Culture Content</DialogTitle>
+                <DialogTitle>{editingContent ? 'Edit Culture Content' : 'Add Culture Content'}</DialogTitle>
               </DialogHeader>
               <form onSubmit={handleSubmit} className="space-y-4 mt-4">
                 <div>
@@ -387,8 +551,8 @@ export default function CultureBuilding() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
+                      <SelectItem value="mission">Mission Statement</SelectItem>
                       <SelectItem value="company_value">Company Value</SelectItem>
-                      <SelectItem value="mission">Mission</SelectItem>
                       <SelectItem value="code_of_conduct">Code of Conduct</SelectItem>
                       <SelectItem value="daily_quote">Daily Quote</SelectItem>
                       <SelectItem value="philosophy">Philosophy</SelectItem>
@@ -440,7 +604,7 @@ export default function CultureBuilding() {
                     Cancel
                   </Button>
                   <Button type="submit" className="bg-orange-600 hover:bg-orange-700">
-                    Create Content
+                    {editingContent ? 'Update Content' : 'Create Content'}
                   </Button>
                 </div>
               </form>
