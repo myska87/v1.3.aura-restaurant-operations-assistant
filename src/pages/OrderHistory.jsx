@@ -20,7 +20,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { FileText, Package, CheckCircle, XCircle, Clock, Camera, ArrowLeft, Home } from "lucide-react";
+import { FileText, Package, CheckCircle, XCircle, Clock, Camera, ArrowLeft, Home, Truck } from "lucide-react";
 import { format } from "date-fns";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -109,6 +109,7 @@ export default function OrderHistory() {
           delivery_photo_urls: [verificationData.photo_url],
           delivery_notes: verificationData.notes,
           verified_by: user?.email,
+          verified_by_name: user?.full_name,
           verified_at: new Date().toISOString(),
         }
       });
@@ -128,7 +129,7 @@ export default function OrderHistory() {
         }
       }
 
-      alert(`✅ Delivery verified successfully!\n\nStock levels have been updated automatically.`);
+      alert(`✅ Delivery verified successfully by ${user?.full_name}!\n\nStock levels have been updated automatically.`);
       setShowVerificationDialog(false);
       setVerifyingOrder(null);
       
@@ -138,11 +139,37 @@ export default function OrderHistory() {
     }
   };
 
-  const handleStatusChange = async (orderId, newStatus) => {
-    await updateOrderMutation.mutateAsync({
-      id: orderId,
-      data: { status: newStatus }
-    });
+  const handleStatusChange = async (order, newStatus) => {
+    const updateData = {
+      status: newStatus,
+    };
+
+    // Add timestamps and user tracking based on status
+    switch (newStatus) {
+      case 'pending_approval':
+        updateData.sent_at = new Date().toISOString();
+        break;
+      case 'in_delivery':
+        updateData.in_delivery_at = new Date().toISOString();
+        break;
+      case 'delivered_awaiting_check':
+        updateData.delivered_at = new Date().toISOString();
+        updateData.received_by = user?.email;
+        updateData.received_by_name = user?.full_name;
+        break;
+    }
+
+    try {
+      await updateOrderMutation.mutateAsync({
+        id: order.id,
+        data: updateData
+      });
+
+      alert(`✅ Order status updated to "${newStatus.replace(/_/g, ' ')}" by ${user?.full_name}`);
+    } catch (error) {
+      console.error("Error updating status:", error);
+      alert("Failed to update status. Please try again.");
+    }
   };
 
   const filteredOrders = filterStatus === 'all' 
@@ -245,14 +272,24 @@ export default function OrderHistory() {
                         Order #{order.order_number}
                       </CardTitle>
                       <p className="text-sm text-gray-600 mt-1">{order.supplier_name}</p>
-                      <p className="text-xs text-gray-500 mt-1">
-                        Ordered: {format(new Date(order.order_date), "PPP")}
-                      </p>
-                      {order.verified_at && (
-                        <p className="text-xs text-green-600 mt-1">
-                          Verified: {format(new Date(order.verified_at), "PPP")} by {order.verified_by}
-                        </p>
-                      )}
+                      <div className="text-xs text-gray-500 mt-2 space-y-1">
+                        <p>📅 Ordered: {format(new Date(order.order_date), "PPP")}</p>
+                        {order.sent_at && (
+                          <p>✉️ Sent: {format(new Date(order.sent_at), "PPP p")}</p>
+                        )}
+                        {order.in_delivery_at && (
+                          <p>🚚 In Delivery: {format(new Date(order.in_delivery_at), "PPP p")}</p>
+                        )}
+                        {order.delivered_at && (
+                          <p>📦 Delivered: {format(new Date(order.delivered_at), "PPP p")}</p>
+                        )}
+                        {order.received_by_name && (
+                          <p>👤 Received by: {order.received_by_name}</p>
+                        )}
+                        {order.verified_at && (
+                          <p className="text-green-600">✅ Verified: {format(new Date(order.verified_at), "PPP p")} by {order.verified_by_name}</p>
+                        )}
+                      </div>
                     </div>
                     <Badge className={getStatusColor(order.status)}>
                       {order.status.replace(/_/g, ' ')}
@@ -315,7 +352,45 @@ export default function OrderHistory() {
                     </div>
                   )}
 
-                  {/* Actions */}
+                  {/* Status Actions */}
+                  {order.status === 'pending_approval' && (
+                    <div className="mt-4 bg-amber-50 border border-amber-200 rounded-lg p-4">
+                      <p className="text-sm text-amber-800 mb-3">⏳ Awaiting supplier confirmation</p>
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          onClick={() => handleStatusChange(order, 'in_delivery')}
+                          className="bg-blue-600 hover:bg-blue-700"
+                        >
+                          <Truck className="w-4 h-4 mr-2" />
+                          Mark as In Delivery
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleStatusChange(order, 'cancelled')}
+                          className="border-red-300 text-red-700 hover:bg-red-50"
+                        >
+                          Cancel Order
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+
+                  {order.status === 'in_delivery' && (
+                    <div className="mt-4 bg-blue-50 border border-blue-200 rounded-lg p-4">
+                      <p className="text-sm text-blue-800 mb-3">🚚 Order is on the way</p>
+                      <Button
+                        size="sm"
+                        onClick={() => handleStatusChange(order, 'delivered_awaiting_check')}
+                        className="bg-purple-600 hover:bg-purple-700"
+                      >
+                        <Package className="w-4 h-4 mr-2" />
+                        Mark as Delivered - Needs Check
+                      </Button>
+                    </div>
+                  )}
+
                   {order.status === 'delivered_awaiting_check' && (
                     <div className="mt-4">
                       <Button
@@ -325,25 +400,6 @@ export default function OrderHistory() {
                         <CheckCircle className="w-4 h-4 mr-2" />
                         Complete Delivery Verification
                       </Button>
-                    </div>
-                  )}
-
-                  {order.status === 'pending_approval' && (
-                    <div className="mt-4">
-                      <Select
-                        value={order.status}
-                        onValueChange={(value) => handleStatusChange(order.id, value)}
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="pending_approval">Pending Approval</SelectItem>
-                          <SelectItem value="in_delivery">In Delivery</SelectItem>
-                          <SelectItem value="delivered_awaiting_check">Delivered - Awaiting Check</SelectItem>
-                          <SelectItem value="cancelled">Cancelled</SelectItem>
-                        </SelectContent>
-                      </Select>
                     </div>
                   )}
                 </CardContent>
@@ -429,6 +485,16 @@ export default function OrderHistory() {
                     ☑ All items verified and received in good condition
                   </label>
                 </div>
+              </div>
+
+              {/* User Info */}
+              <div className="p-3 bg-indigo-50 border border-indigo-200 rounded-lg">
+                <p className="text-sm text-indigo-800">
+                  👤 Signing as: <strong>{user?.full_name}</strong> ({user?.email})
+                </p>
+                <p className="text-xs text-indigo-600 mt-1">
+                  🕐 Timestamp: {format(new Date(), "PPP p")}
+                </p>
               </div>
 
               {/* Order Summary */}

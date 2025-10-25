@@ -20,10 +20,10 @@
       "type": "string",
       "enum": [
         "draft",
-        "sent",
-        "confirmed",
-        "partially_received",
-        "received",
+        "pending_approval",
+        "in_delivery",
+        "delivered_awaiting_check",
+        "approved_received",
         "cancelled"
       ],
       "default": "draft"
@@ -90,12 +90,59 @@
     },
     "received_by": {
       "type": "string",
-      "description": "Staff who checked in delivery"
+      "description": "User email who received delivery"
+    },
+    "received_by_name": {
+      "type": "string",
+      "description": "User full name who received delivery"
+    },
+    "verified_by": {
+      "type": "string",
+      "description": "User email who verified delivery"
+    },
+    "verified_by_name": {
+      "type": "string",
+      "description": "User full name who verified delivery"
+    },
+    "verified_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "sent_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When order was sent to supplier"
+    },
+    "confirmed_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When supplier confirmed order"
+    },
+    "in_delivery_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When order entered delivery"
+    },
+    "delivered_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When goods arrived"
+    },
+    "email_sent_at": {
+      "type": "string",
+      "format": "date-time"
     },
     "created_by": {
       "type": "string"
     },
     "notes": {
+      "type": "string"
+    },
+    "linked_production_plan_id": {
+      "type": "string",
+      "description": "If created from production plan"
+    },
+    "linked_production_plan_name": {
       "type": "string"
     }
   },
