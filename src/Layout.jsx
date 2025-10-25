@@ -21,7 +21,7 @@ import {
   ListChecks,
   ClipboardList,
   GraduationCap,
-  MessageCircle, // Added MessageCircle import
+  MessageCircle,
 } from "lucide-react";
 import WelcomeNewHire from "./components/WelcomeNewHire";
 
