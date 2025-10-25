@@ -230,52 +230,67 @@ export default function OnboardingTraining() {
 
   const handleCompleteStep = async (step) => {
     const progress = getStepProgress(step.id);
-    
     if (!progress) return;
 
-    await updateProgressMutation.mutateAsync({
-      id: progress.id,
-      data: {
-        status: 'completed',
-        completed_at: new Date().toISOString(),
+    try {
+      // Update progress status
+      await updateProgressMutation.mutateAsync({
+        id: progress.id,
+        data: {
+          status: 'completed',
+          completed_at: new Date().toISOString(),
+        }
+      });
+
+      // Small delay before generating certificate to avoid rate limit
+      await new Promise(resolve => setTimeout(resolve, 300));
+
+      // Generate certificate
+      await generateCertificate(step, false);
+
+      // Check if there's a next step and unlock it
+      const nextStep = onboardingSteps.find(s => s.step_number === step.step_number + 1);
+      if (nextStep) {
+        const nextProgress = getStepProgress(nextStep.id);
+        if (nextProgress && nextProgress.status === 'locked') {
+          await new Promise(resolve => setTimeout(resolve, 300));
+          await updateProgressMutation.mutateAsync({
+            id: nextProgress.id,
+            data: { status: 'in_progress' }
+          });
+        }
       }
-    });
 
-    // Generate certificate for this step
-    await generateCertificate(step, false);
+      setSelectedStep(null);
 
-    // Unlock next step
-    const nextStep = onboardingSteps.find(s => s.step_number === step.step_number + 1);
-    if (nextStep) {
-      const nextProgress = getStepProgress(nextStep.id);
-      if (nextProgress && nextProgress.status === 'locked') {
-        await updateProgressMutation.mutateAsync({
-          id: nextProgress.id,
-          data: { status: 'in_progress' }
+      // Refresh data
+      await queryClient.invalidateQueries({ queryKey: ['onboardingProgress'] });
+      
+      // Small delay before checking completion
+      await new Promise(resolve => setTimeout(resolve, 300));
+
+      // Check if all steps are completed
+      const updatedMyProgress = await queryClient.fetchQuery({ 
+        queryKey: ['onboardingProgress', user?.email], 
+        queryFn: () => base44.entities.OnboardingProgress.filter({ staff_email: user?.email }) 
+      });
+
+      const allCompleted = updatedMyProgress.filter(p => p.status === 'completed').length === onboardingSteps.length;
+
+      if (allCompleted) {
+        await new Promise(resolve => setTimeout(resolve, 300));
+        await generateCertificate(step, true);
+        setShowCelebration(true);
+        
+        await new Promise(resolve => setTimeout(resolve, 300));
+        await base44.auth.updateMe({
+          onboarding_completed: true,
+          onboarding_completed_date: new Date().toISOString(),
         });
       }
-    }
-
-    setSelectedStep(null);
-
-    // Check if all steps completed
-    // Need to re-evaluate `myProgress` after update for accurate `allCompleted` check
-    // Invalidate and refetch myProgress to ensure we have the latest state
-    await queryClient.invalidateQueries({ queryKey: ['onboardingProgress'] });
-    const updatedMyProgress = await queryClient.fetchQuery({ queryKey: ['onboardingProgress', user?.email], queryFn: () => base44.entities.OnboardingProgress.filter({ staff_email: user?.email }) });
-
-    const allCompleted = updatedMyProgress.filter(p => p.status === 'completed').length === onboardingSteps.length;
-    if (allCompleted) {
-      // Generate master certificate
-      await generateCertificate(step, true); // Pass the last completed step for context
-      
-      setShowCelebration(true);
-      
-      // Update user profile
-      await base44.auth.updateMe({
-        onboarding_completed: true,
-        onboarding_completed_date: new Date().toISOString(),
-      });
+    } catch (error) {
+      console.error("Error completing step:", error);
+      alert("An error occurred while completing the step. Please try again.");
     }
   };
 
@@ -329,7 +344,7 @@ export default function OnboardingTraining() {
 
     if (passed) {
       setTimeout(() => {
-        handleCompleteStep(step);
+        handleCompleteStep(selectedStep); // Use selectedStep here as it's the current one
       }, 2000);
     }
   };
