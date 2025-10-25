@@ -263,14 +263,8 @@ export default function OnboardingTraining() {
     const progress = getStepProgress(step.id);
     if (!progress) return;
 
-    await updateProgressMutation.mutateAsync({
-      id: progress.id,
-      data: {
-        acknowledged: true,
-        acknowledged_at: new Date().toISOString(),
-      }
-    });
-
+    // The checkbox's onCheckedChange now handles setting acknowledged status.
+    // This function will primarily be called to mark the step complete.
     handleCompleteStep(step);
   };
 
@@ -564,16 +558,29 @@ export default function OnboardingTraining() {
                     <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg mb-4">
                       <p className="text-gray-800">{selectedStep.acknowledgement_text}</p>
                     </div>
-                    <div className="flex items-start gap-3 p-4 bg-white border border-gray-200 rounded-lg">
+                    <label 
+                      htmlFor="acknowledge-checkbox"
+                      className="flex items-start gap-3 p-4 bg-white border-2 border-gray-200 rounded-lg cursor-pointer hover:border-blue-300 hover:bg-blue-50 transition-all"
+                    >
                       <Checkbox
-                        id="acknowledge"
-                        checked={getStepProgress(selectedStep.id)?.acknowledged}
+                        id="acknowledge-checkbox"
+                        checked={getStepProgress(selectedStep.id)?.acknowledged || false}
+                        onCheckedChange={(checked) => {
+                          const progress = getStepProgress(selectedStep.id);
+                          if (progress && !progress.acknowledged) { // Only allow changing if not already acknowledged
+                            updateProgressMutation.mutate({
+                              id: progress.id,
+                              data: { acknowledged: checked }
+                            });
+                          }
+                        }}
                         disabled={getStepProgress(selectedStep.id)?.acknowledged}
+                        className="mt-1 cursor-pointer"
                       />
-                      <Label htmlFor="acknowledge" className="cursor-pointer">
+                      <span className="flex-1 text-gray-800 cursor-pointer leading-relaxed">
                         I have read and understood the above information and agree to comply with these requirements.
-                      </Label>
-                    </div>
+                      </span>
+                    </label>
                   </div>
                 )}
 
