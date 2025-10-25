@@ -24,9 +24,9 @@ import {
 } from "@/components/ui/dialog";
 import {
   DropdownMenu,
-  DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuContent,
 } from "@/components/ui/dropdown-menu";
 import { Plus, Calendar, CheckCircle, Clock, AlertCircle, AlertTriangle, ArrowLeft, Home, Users, TrendingUp, Award, Edit, Trash2, Upload, Eye, Bell, Settings, MoreVertical, UserPlus, FileText, Target, Search, Filter, Download, ChevronUp, ChevronDown, Mail, Phone, X, DollarSign } from "lucide-react";
 import { format } from "date-fns";
@@ -66,7 +66,7 @@ export default function ManagerDashboard() {
   // Inline task editing states
   const [editingTaskId, setEditingTaskId] = useState(null);
   const [editingTaskValue, setEditingTaskValue] = useState("");
-  const [editingTaskType, setEditingTaskType] = useState("");
+  const [editingTaskType, setEditingTaskType] = "";
 
 
   const { data: user } = useQuery({
@@ -661,6 +661,45 @@ export default function ManagerDashboard() {
           </Card>
         </div>
 
+        {/* Document Management Card */}
+        <Card className="mb-8 border-none shadow-lg hover:shadow-xl transition-all">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <FileText className="w-5 h-5 text-[#014D40]" />
+              Document Management
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-gray-600 mb-4">
+              Upload policies, training materials, and track staff acknowledgments
+            </p>
+            <div className="space-y-2 mb-4">
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-600">Total Documents</span>
+                <span className="font-semibold">{hrDocuments.length}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-600">Mandatory Policies</span>
+                <span className="font-semibold text-[#E0B037]">
+                  {hrDocuments.filter(d => d.is_mandatory).length}
+                </span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-600">Pending Reviews</span>
+                <span className="font-semibold text-orange-600">
+                  {documentsPending}
+                </span>
+              </div>
+            </div>
+            <Link to={createPageUrl("DocumentManagement")} className="block">
+              <Button className="w-full bg-gradient-to-r from-[#014D40] to-emerald-600 hover:from-[#013d33] hover:to-emerald-700">
+                <FileText className="w-4 h-4 mr-2" />
+                Manage Documents
+              </Button>
+            </Link>
+          </CardContent>
+        </Card>
+
         {/* Task Matrix View - Quick Overview */}
         <Card className="mb-6">
           <CardHeader>
@@ -1101,7 +1140,7 @@ export default function ManagerDashboard() {
                                         <div className="flex-1 flex gap-2 items-center">
                                           <Input
                                             value={editingTaskValue}
-                                            onChange={(e) => setNewRoleDailyTasks(e.target.value)}
+                                            onChange={(e) => setEditingTaskValue(e.target.value)}
                                             className="h-7 text-sm"
                                             autoFocus
                                             onKeyPress={(e) => {
