@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
@@ -57,7 +58,11 @@ export default function WeeklyPayrollReport() {
       const allRecords = await base44.entities.AttendanceRecord.list('-shift_date');
       
       return allRecords.filter(record => {
+        // Ensure shift_date is a valid string before parsing
+        if (!record.shift_date || typeof record.shift_date !== 'string') return false;
         const recordDate = parseISO(record.shift_date);
+        // Check for Invalid Date
+        if (isNaN(recordDate.getTime())) return false; 
         return recordDate >= currentWeekStart && recordDate <= weekEnd;
       });
     },
@@ -110,9 +115,9 @@ export default function WeeklyPayrollReport() {
 
       const staffData = staffMap.get(record.staff_email);
       
-      // Add hours
-      const totalHours = record.total_hours || 0;
-      const overtimeHours = record.overtime_hours || 0;
+      // Add hours, ensuring numeric types
+      const totalHours = Number(record.total_hours) || 0;
+      const overtimeHours = Number(record.overtime_hours) || 0;
       const regularHours = totalHours - overtimeHours;
       
       staffData.total_hours += totalHours;
@@ -120,18 +125,25 @@ export default function WeeklyPayrollReport() {
       staffData.overtime_hours += overtimeHours;
       staffData.total_shifts += 1;
       
-      if (record.lateness_minutes > 5) staffData.late_count += 1;
-      if (record.early_departure_minutes > 5) staffData.early_departure_count += 1;
-      if (record.lateness_minutes <= 5 && record.early_departure_minutes <= 5) {
+      // Ensure lateness_minutes and early_departure_minutes are numbers for comparison
+      const latenessMinutes = Number(record.lateness_minutes) || 0;
+      const earlyDepartureMinutes = Number(record.early_departure_minutes) || 0;
+
+      if (latenessMinutes > 5) staffData.late_count += 1;
+      if (earlyDepartureMinutes > 5) staffData.early_departure_count += 1;
+      if (latenessMinutes <= 5 && earlyDepartureMinutes <= 5) {
         staffData.perfect_attendance += 1;
       }
 
       // Daily breakdown
-      const day = format(parseISO(record.shift_date), 'EEE');
-      if (!staffData.daily_breakdown[day]) {
-        staffData.daily_breakdown[day] = 0;
+      // Ensure shift_date is a valid string before parsing
+      if (record.shift_date && typeof record.shift_date === 'string') {
+        const day = format(parseISO(record.shift_date), 'EEE');
+        if (!staffData.daily_breakdown[day]) {
+          staffData.daily_breakdown[day] = 0;
+        }
+        staffData.daily_breakdown[day] += totalHours;
       }
-      staffData.daily_breakdown[day] += totalHours;
     });
 
     return Array.from(staffMap.values()).sort((a, b) => b.total_hours - a.total_hours);
@@ -228,6 +240,7 @@ export default function WeeklyPayrollReport() {
       '',
       '',
       totals.totalPay.toFixed(2),
+      ...Array(weekDates.length).fill('') // Fill daily breakdown columns for totals row
     ]);
 
     const csvContent = [
@@ -476,7 +489,6 @@ export default function WeeklyPayrollReport() {
                       const regularPay = staff.regular_hours * staff.hourly_rate;
                       const overtimePay = staff.overtime_hours * staff.hourly_rate * overtimeRate;
                       const totalPay = regularPay + overtimePay;
-                      const hasPerfectAttendance = staff.late_count === 0 && staff.early_departure_count === 0;
 
                       return (
                         <motion.tr
