@@ -63,8 +63,7 @@ export default function ClockInOut() {
 
   // Clock In Mutation
   const clockInMutation = useMutation({
-    mutationFn: async () => {
-      setIsProcessing(true);
+    mutationFn: async ({ location: loc }) => {
       const clockInTime = new Date().toISOString();
       
       // Calculate lateness
@@ -77,10 +76,10 @@ export default function ClockInOut() {
       if (attendanceRecord) {
         await base44.entities.AttendanceRecord.update(attendanceRecord.id, {
           actual_clock_in: clockInTime,
-          clock_in_location: location ? {
-            latitude: location.latitude,
-            longitude: location.longitude,
-            name: location.name || 'Current Location'
+          clock_in_location: loc ? {
+            latitude: loc.latitude,
+            longitude: loc.longitude,
+            name: loc.name || 'Current Location'
           } : null,
           lateness_minutes: latenessMinutes,
           status: status
@@ -100,10 +99,10 @@ export default function ClockInOut() {
           scheduled_end: nextShift.end_time,
           scheduled_hours: scheduledHours,
           actual_clock_in: clockInTime,
-          clock_in_location: location ? {
-            latitude: location.latitude,
-            longitude: location.longitude,
-            name: location.name || 'Current Location'
+          clock_in_location: loc ? {
+            latitude: loc.latitude,
+            longitude: loc.longitude,
+            name: loc.name || 'Current Location'
           } : null,
           lateness_minutes: latenessMinutes,
           status: status
@@ -123,9 +122,9 @@ export default function ClockInOut() {
         shift_id: nextShift.id,
         event_type: 'clock_in',
         timestamp: clockInTime,
-        location_lat: location?.latitude,
-        location_lng: location?.longitude,
-        location_name: location?.name || 'Unknown',
+        location_lat: loc?.latitude,
+        location_lng: loc?.longitude,
+        location_name: loc?.name || 'Unknown',
       });
 
       // Trigger task generation on clock-in
@@ -135,23 +134,22 @@ export default function ClockInOut() {
       } catch (error) {
         console.log('Task automation not available:', error);
       }
-
-      setIsProcessing(false);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['myShifts'] });
       queryClient.invalidateQueries({ queryKey: ['attendanceRecord'] });
       queryClient.invalidateQueries({ queryKey: ['checklistExecutions'] });
+      alert('✅ Clocked in successfully!');
     },
-    onError: () => {
-      setIsProcessing(false);
+    onError: (error) => {
+      console.error('Clock in mutation error:', error);
+      // setIsProcessing(false) is handled by performClockIn's finally
     }
   });
 
   // Clock Out Mutation
   const clockOutMutation = useMutation({
-    mutationFn: async () => {
-      setIsProcessing(true);
+    mutationFn: async ({ location: loc }) => {
       const clockOutTime = new Date().toISOString();
       
       if (!attendanceRecord) {
@@ -173,10 +171,10 @@ export default function ClockInOut() {
       // Update attendance record
       await base44.entities.AttendanceRecord.update(attendanceRecord.id, {
         actual_clock_out: clockOutTime,
-        clock_out_location: location ? {
-          latitude: location.latitude,
-          longitude: location.longitude,
-          name: location.name || 'Current Location'
+        clock_out_location: loc ? {
+          latitude: loc.latitude,
+          longitude: loc.longitude,
+          name: loc.name || 'Current Location'
         } : null,
         total_hours: parseFloat(totalHours.toFixed(2)),
         overtime_hours: parseFloat(overtimeHours.toFixed(2)),
@@ -197,26 +195,144 @@ export default function ClockInOut() {
         shift_id: activeShift.id,
         event_type: 'clock_out',
         timestamp: clockOutTime,
-        location_lat: location?.latitude,
-        location_lng: location?.longitude,
-        location_name: location?.name || 'Unknown',
+        location_lat: loc?.latitude,
+        location_lng: loc?.longitude,
+        location_name: loc?.name || 'Unknown',
       });
 
       // Celebrate if on time!
       if (isOnTime) {
         celebrateShiftComplete();
       }
-
-      setIsProcessing(false);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['myShifts'] });
       queryClient.invalidateQueries({ queryKey: ['attendanceRecord'] });
+      alert('✅ Clocked out successfully!');
     },
-    onError: () => {
-      setIsProcessing(false);
+    onError: (error) => {
+      console.error('Clock out mutation error:', error);
+      // setIsProcessing(false) is handled by performClockOut's finally
     }
   });
+
+  const performClockIn = async (loc) => {
+    setIsProcessing(true);
+    try {
+      await clockInMutation.mutateAsync({ location: loc });
+    } catch (error) {
+      console.error('Clock in error:', error);
+      alert('Failed to clock in: ' + error.message);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const performClockOut = async (loc) => {
+    setIsProcessing(true);
+    try {
+      await clockOutMutation.mutateAsync({ location: loc });
+    } catch (error) {
+      console.error('Clock out error:', error);
+      alert('Failed to clock out: ' + error.message);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleClockIn = async () => {
+    if (isProcessing) return;
+    
+    if (!nextShift) {
+      alert('No scheduled shift found for today');
+      return;
+    }
+
+    if (!canClockIn) {
+      alert('You can only clock in 15 minutes before or after your shift start time');
+      return;
+    }
+
+    // Get location if not already captured
+    if (!location) {
+      setGettingLocation(true);
+      navigator.geolocation.getCurrentPosition(
+        async (position) => {
+          const loc = {
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+            name: 'Current Location',
+          };
+          setLocation(loc); // Update state for UI
+          setGettingLocation(false);
+          
+          // Now clock in with location
+          await performClockIn(loc);
+        },
+        (error) => {
+          console.error('Error getting location:', error);
+          setGettingLocation(false);
+          
+          // Clock in without location
+          if (confirm('Unable to get location. Clock in without location tracking?')) {
+            performClockIn(null); // Use performClockIn, not async
+          }
+        }
+      );
+    } else {
+      // Already have location
+      await performClockIn(location);
+    }
+  };
+
+  const handleClockOut = async () => {
+    if (isProcessing) return;
+    
+    if (!activeShift) {
+      alert('No active shift to clock out from');
+      return;
+    }
+
+    if (!canClockOut) {
+      alert('You can only clock out during or after your shift');
+      return;
+    }
+
+    if (!confirm('Are you sure you want to clock out?')) {
+      return;
+    }
+
+    // Get location if not already captured
+    if (!location) {
+      setGettingLocation(true);
+      navigator.geolocation.getCurrentPosition(
+        async (position) => {
+          const loc = {
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+            name: 'Current Location',
+          };
+          setLocation(loc); // Update state for UI
+          setGettingLocation(false);
+          
+          // Now clock out with location
+          await performClockOut(loc);
+        },
+        (error) => {
+          console.error('Error getting location:', error);
+          setGettingLocation(false);
+          
+          // Clock out without location
+          if (confirm('Unable to get location. Clock out without location tracking?')) {
+            performClockOut(null); // Use performClockOut, not async
+          }
+        }
+      );
+    } else {
+      // Already have location
+      await performClockOut(location);
+    }
+  };
 
   // Update current time every second
   useEffect(() => {
@@ -288,49 +404,7 @@ export default function ClockInOut() {
       }
     );
   };
-
-  const handleClockIn = async () => {
-    if (isProcessing) return;
-    
-    if (!nextShift) {
-      alert('No scheduled shift found for today');
-      return;
-    }
-
-    if (!location) {
-      getLocation();
-      setTimeout(() => {
-        if (location) {
-          clockInMutation.mutate();
-        }
-      }, 1000);
-    } else {
-      await clockInMutation.mutateAsync();
-    }
-  };
-
-  const handleClockOut = async () => {
-    if (isProcessing) return;
-    
-    if (!activeShift) {
-      alert('No active shift to clock out from');
-      return;
-    }
-
-    if (!location) {
-      getLocation();
-      setTimeout(() => {
-        if (location) {
-          clockOutMutation.mutate();
-        }
-      }, 1000);
-    } else {
-      if (confirm('Are you sure you want to clock out?')) {
-        await clockOutMutation.mutateAsync();
-      }
-    }
-  };
-
+  
   const getShiftDuration = () => {
     if (!activeShift?.clock_in_time || !attendanceRecord?.actual_clock_in) return null;
     
@@ -585,7 +659,7 @@ export default function ClockInOut() {
             >
               <Button
                 onClick={handleClockIn}
-                disabled={!canClockIn || isProcessing || (!location && !gettingLocation)}
+                disabled={!canClockIn || isProcessing || (!location && gettingLocation)}
                 className="w-full h-32 text-2xl font-bold shadow-2xl disabled:opacity-50 relative overflow-hidden"
                 style={{
                   background: 'linear-gradient(135deg, #014D40 0%, #10b981 100%)',
@@ -601,9 +675,9 @@ export default function ClockInOut() {
               </Button>
               {!canClockIn && (
                 <p className="text-center text-sm text-gray-600 mt-4">
-                  {timeUntilShift > 15 
+                  {timeUntilShift !== null && timeUntilShift > 15 
                     ? `Clock-in opens in ${timeUntilShift - 15} minutes`
-                    : 'Clock-in window closed'}
+                    : 'Clock-in window closed or not yet active'}
                 </p>
               )}
             </motion.div>
