@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -135,60 +134,6 @@ export default function TeamChat() {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
-
-  // Confetti animation for announcement messages
-  useEffect(() => {
-    const announcementMessages = messages.filter(
-      m => m.message_type === 'announcement' &&
-      m.sender_email === 'system' &&
-      (m.message_content.includes('certificate') || m.message_content.includes('badge') || m.message_content.includes('new hire'))
-    );
-
-    if (announcementMessages.length > 0) {
-      const latestAnnouncement = announcementMessages[announcementMessages.length - 1];
-      const isRecent = new Date(latestAnnouncement.created_date) > new Date(Date.now() - 5000); // Trigger if message is less than 5 seconds old
-
-      if (isRecent) {
-        triggerConfettiInChat();
-      }
-    }
-  }, [messages]);
-
-  const triggerConfettiInChat = () => {
-    const celebrationEl = document.createElement('div');
-    celebrationEl.innerHTML = '🎉🎊✨🌟💫⭐🏆';
-    celebrationEl.style.cssText = `
-      position: fixed;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      font-size: 60px;
-      animation: celebrateChat 2s ease-out forwards;
-      z-index: 9999;
-      pointer-events: none;
-    `;
-
-    const style = document.createElement('style');
-    style.textContent = `
-      @keyframes celebrateChat {
-        0% { opacity: 1; transform: translate(-50%, -50%) scale(0) rotate(0deg); }
-        50% { opacity: 1; transform: translate(-50%, -50%) scale(1.5) rotate(180deg); }
-        100% { opacity: 0; transform: translate(-50%, -50%) scale(2) rotate(360deg); }
-      }
-    `;
-
-    document.head.appendChild(style);
-    document.body.appendChild(celebrationEl);
-
-    setTimeout(() => {
-      if (document.body.contains(celebrationEl)) {
-        document.body.removeChild(celebrationEl);
-      }
-      if (document.head.contains(style)) {
-        document.head.removeChild(style);
-      }
-    }, 2000);
-  };
 
   const handleSendMessage = async () => {
     if (!messageInput.trim() || !selectedRoom) return;
