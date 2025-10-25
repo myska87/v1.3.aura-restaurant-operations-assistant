@@ -35,11 +35,8 @@ import {
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
-import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
-import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable } from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
+import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 
-// Field Type Icons Map
 const fieldIcons = {
   text: Type,
   textarea: AlignLeft,
@@ -56,115 +53,98 @@ const fieldIcons = {
   section_header: AlignLeft,
 };
 
-// Sortable Field Item
-function SortableField({ field, onUpdate, onRemove }) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-  } = useSortable({ id: field.field_id });
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-  };
-
+function FieldItem({ field, index, onUpdate, onRemove }) {
   const FieldIcon = fieldIcons[field.field_type] || Type;
 
   return (
-    <div ref={setNodeRef} style={style} className="mb-3">
-      <Card className="bg-white border-2 border-gray-200 hover:border-blue-400 transition-all">
-        <CardContent className="p-4">
-          <div className="flex items-start gap-3">
-            {/* Drag Handle */}
-            <button
-              {...attributes}
-              {...listeners}
-              className="cursor-grab active:cursor-grabbing mt-2"
-            >
-              <GripVertical className="w-5 h-5 text-gray-400" />
-            </button>
+    <Draggable draggableId={field.field_id} index={index}>
+      {(provided, snapshot) => (
+        <div
+          ref={provided.innerRef}
+          {...provided.draggableProps}
+          className="mb-3"
+        >
+          <Card className={`bg-white border-2 transition-all ${snapshot.isDragging ? 'border-blue-400 shadow-lg' : 'border-gray-200'}`}>
+            <CardContent className="p-4">
+              <div className="flex items-start gap-3">
+                <div {...provided.dragHandleProps} className="cursor-grab active:cursor-grabbing mt-2">
+                  <GripVertical className="w-5 h-5 text-gray-400" />
+                </div>
 
-            {/* Field Icon */}
-            <div className="p-2 bg-blue-50 rounded-lg mt-1">
-              <FieldIcon className="w-5 h-5 text-blue-600" />
-            </div>
+                <div className="p-2 bg-blue-50 rounded-lg mt-1">
+                  <FieldIcon className="w-5 h-5 text-blue-600" />
+                </div>
 
-            {/* Field Content */}
-            <div className="flex-1">
-              <Input
-                value={field.field_label}
-                onChange={(e) => onUpdate(field.field_id, { field_label: e.target.value })}
-                placeholder="Field label..."
-                className="font-medium mb-2"
-              />
-
-              <Input
-                value={field.field_hint || ""}
-                onChange={(e) => onUpdate(field.field_id, { field_hint: e.target.value })}
-                placeholder="Hint text (optional)"
-                className="text-sm text-gray-600 mb-2"
-              />
-
-              {/* Options for dropdown/radio/checkbox */}
-              {(field.field_type === 'dropdown' || field.field_type === 'radio' || field.field_type === 'checkbox') && (
-                <div className="mt-2">
-                  <Label className="text-xs text-gray-600">Options (comma-separated)</Label>
+                <div className="flex-1">
                   <Input
-                    value={field.options?.join(', ') || ''}
-                    onChange={(e) => onUpdate(field.field_id, {
-                      options: e.target.value.split(',').map(opt => opt.trim()).filter(Boolean)
-                    })}
-                    placeholder="Option 1, Option 2, Option 3"
-                    className="text-sm"
+                    value={field.field_label}
+                    onChange={(e) => onUpdate(field.field_id, { field_label: e.target.value })}
+                    placeholder="Field label..."
+                    className="font-medium mb-2"
                   />
-                </div>
-              )}
 
-              {/* Yes/No Auto-Notify Manager Option */}
-              {field.field_type === 'yesno' && (
-                <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
-                  <div className="flex items-center justify-between mb-2">
-                    <Label className="text-sm font-semibold text-amber-900">⚠️ Auto-Notify Manager on "No"</Label>
-                    <Switch
-                      checked={field.notify_manager_on_no || false}
-                      onCheckedChange={(checked) => onUpdate(field.field_id, { notify_manager_on_no: checked })}
-                    />
-                  </div>
-                  {field.notify_manager_on_no && (
-                    <p className="text-xs text-amber-700">
-                      Manager will be automatically notified if user answers "No"
-                    </p>
+                  <Input
+                    value={field.field_hint || ""}
+                    onChange={(e) => onUpdate(field.field_id, { field_hint: e.target.value })}
+                    placeholder="Hint text (optional)"
+                    className="text-sm text-gray-600 mb-2"
+                  />
+
+                  {(field.field_type === 'dropdown' || field.field_type === 'radio' || field.field_type === 'checkbox') && (
+                    <div className="mt-2">
+                      <Label className="text-xs text-gray-600">Options (comma-separated)</Label>
+                      <Input
+                        value={field.options?.join(', ') || ''}
+                        onChange={(e) => onUpdate(field.field_id, {
+                          options: e.target.value.split(',').map(opt => opt.trim()).filter(Boolean)
+                        })}
+                        placeholder="Option 1, Option 2, Option 3"
+                        className="text-sm"
+                      />
+                    </div>
                   )}
+
+                  {field.field_type === 'yesno' && (
+                    <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                      <div className="flex items-center justify-between mb-2">
+                        <Label className="text-sm font-semibold text-amber-900">⚠️ Auto-Notify Manager on "No"</Label>
+                        <Switch
+                          checked={field.notify_manager_on_no || false}
+                          onCheckedChange={(checked) => onUpdate(field.field_id, { notify_manager_on_no: checked })}
+                        />
+                      </div>
+                      {field.notify_manager_on_no && (
+                        <p className="text-xs text-amber-700">
+                          Manager will be automatically notified if user answers "No"
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  <div className="flex items-center gap-2 mt-3">
+                    <Switch
+                      checked={field.required}
+                      onCheckedChange={(checked) => onUpdate(field.field_id, { required: checked })}
+                    />
+                    <Label className="text-sm">Required field</Label>
+                    <Badge variant="outline" className="ml-auto">{field.field_type}</Badge>
+                  </div>
                 </div>
-              )}
 
-              {/* Required Toggle */}
-              <div className="flex items-center gap-2 mt-3">
-                <Switch
-                  checked={field.required}
-                  onCheckedChange={(checked) => onUpdate(field.field_id, { required: checked })}
-                />
-                <Label className="text-sm">Required field</Label>
-                <Badge variant="outline" className="ml-auto">{field.field_type}</Badge>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => onRemove(field.field_id)}
+                  className="text-red-500 hover:bg-red-50"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </Button>
               </div>
-            </div>
-
-            {/* Remove Button */}
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => onRemove(field.field_id)}
-              className="text-red-500 hover:bg-red-50"
-            >
-              <Trash2 className="w-4 h-4" />
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-    </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+    </Draggable>
   );
 }
 
@@ -189,13 +169,6 @@ export default function FormBuilder() {
   });
 
   const [showPreview, setShowPreview] = useState(false);
-
-  const sensors = useSensors(
-    useSensor(PointerSensor),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    })
-  );
 
   const { data: existingForm } = useQuery({
     queryKey: ['formTemplate', editId],
@@ -260,21 +233,17 @@ export default function FormBuilder() {
     });
   };
 
-  const handleDragEnd = (event) => {
-    const { active, over } = event;
+  const handleDragEnd = (result) => {
+    if (!result.destination) return;
 
-    if (active.id !== over.id) {
-      setFormData(prev => {
-        const oldIndex = prev.fields.findIndex(f => f.field_id === active.id);
-        const newIndex = prev.fields.findIndex(f => f.field_id === over.id);
-        const reordered = arrayMove(prev.fields, oldIndex, newIndex);
-        
-        return {
-          ...prev,
-          fields: reordered.map((f, idx) => ({ ...f, order_index: idx })),
-        };
-      });
-    }
+    const items = Array.from(formData.fields);
+    const [reorderedItem] = items.splice(result.source.index, 1);
+    items.splice(result.destination.index, 0, reorderedItem);
+
+    setFormData({
+      ...formData,
+      fields: items.map((f, idx) => ({ ...f, order_index: idx })),
+    });
   };
 
   const handleSave = () => {
@@ -305,7 +274,6 @@ export default function FormBuilder() {
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-7xl mx-auto">
-        {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-4">
             <Link to={createPageUrl('FormLibrary')}>
@@ -339,9 +307,7 @@ export default function FormBuilder() {
           </div>
         </div>
 
-        {/* Builder Layout */}
         <div className="grid lg:grid-cols-[300px_1fr_300px] gap-6">
-          {/* Toolbox */}
           <div className="space-y-4">
             <Card className="bg-white sticky top-6">
               <CardHeader>
@@ -366,7 +332,6 @@ export default function FormBuilder() {
             </Card>
           </div>
 
-          {/* Canvas */}
           <div>
             <Card className="bg-white">
               <CardHeader>
@@ -424,28 +389,26 @@ export default function FormBuilder() {
                     <p className="text-gray-500">No fields yet. Add fields from the toolbox.</p>
                   </div>
                 ) : (
-                  <DndContext
-                    sensors={sensors}
-                    collisionDetection={closestCenter}
-                    onDragEnd={handleDragEnd}
-                  >
-                    <SortableContext
-                      items={formData.fields.map(f => f.field_id)}
-                      strategy={verticalListSortingStrategy}
-                    >
-                      {formData.fields.map(field => (
-                        <SortableField
-                          key={field.field_id}
-                          field={field}
-                          onUpdate={updateField}
-                          onRemove={removeField}
-                        />
-                      ))}
-                    </SortableContext>
-                  </DndContext>
+                  <DragDropContext onDragEnd={handleDragEnd}>
+                    <Droppable droppableId="fields">
+                      {(provided) => (
+                        <div {...provided.droppableProps} ref={provided.innerRef}>
+                          {formData.fields.map((field, index) => (
+                            <FieldItem
+                              key={field.field_id}
+                              field={field}
+                              index={index}
+                              onUpdate={updateField}
+                              onRemove={removeField}
+                            />
+                          ))}
+                          {provided.placeholder}
+                        </div>
+                      )}
+                    </Droppable>
+                  </DragDropContext>
                 )}
 
-                {/* Submit Button Preview */}
                 {formData.fields.length > 0 && (
                   <div className="mt-6 p-4 bg-green-50 border-2 border-green-200 rounded-lg text-center">
                     <Button className="bg-green-600 hover:bg-green-700 w-full md:w-auto" disabled>
@@ -461,13 +424,10 @@ export default function FormBuilder() {
             </Card>
           </div>
 
-          {/* Settings */}
           <div className="space-y-4">
             <Card className="bg-white sticky top-6">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  Settings
-                </CardTitle>
+                <CardTitle>Settings</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="flex items-center justify-between">
@@ -512,7 +472,6 @@ export default function FormBuilder() {
           </div>
         </div>
 
-        {/* Preview Dialog */}
         <Dialog open={showPreview} onOpenChange={setShowPreview}>
           <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
@@ -570,7 +529,6 @@ export default function FormBuilder() {
                 </div>
               ))}
 
-              {/* Submit Button in Preview */}
               <div className="p-4 bg-gray-50 rounded-lg text-center">
                 <Button className="bg-green-600 hover:bg-green-700 w-full" disabled>
                   <Save className="w-4 h-4 mr-2" />
