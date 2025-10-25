@@ -307,7 +307,7 @@ export default function AdvancedChecklists() {
         },
         {
           task_id: "handling_6",
-          description: "Are staff handling food as little as possible (e.g. using tongs)?",
+          description: "Are staff handling food as little as possible (e.g., using tongs)?",
           requires_photo: false,
           requires_temperature: false,
           order: 20,
@@ -1023,7 +1023,7 @@ export default function AdvancedChecklists() {
               <TemplatesView
                 templates={filterByFrequency(templates, 'weekly')}
                 showForm={showTemplateForm}
-                setShowForm={setShowForm}
+                setShowForm={setShowTemplateForm}
                 formData={formData}
                 setFormData={setFormData}
                 newTask={newTask}
@@ -1066,7 +1066,7 @@ export default function AdvancedChecklists() {
               <TemplatesView
                 templates={filterByFrequency(templates, 'monthly')}
                 showForm={showTemplateForm}
-                setShowForm={setShowForm}
+                setShowForm={setShowTemplateForm}
                 formData={formData}
                 setFormData={setFormData}
                 newTask={newTask}
@@ -1109,7 +1109,7 @@ export default function AdvancedChecklists() {
               <TemplatesView
                 templates={filterByFrequency(templates, 'six_monthly')}
                 showForm={showTemplateForm}
-                setShowForm={setShowForm}
+                setShowForm={setShowTemplateForm}
                 formData={formData}
                 setFormData={setFormData}
                 newTask={newTask}
@@ -1152,7 +1152,7 @@ export default function AdvancedChecklists() {
               <TemplatesView
                 templates={filterByFrequency(templates, 'yearly')}
                 showForm={showTemplateForm}
-                setShowForm={setShowForm}
+                setShowForm={setShowTemplateForm}
                 formData={formData}
                 setFormData={setFormData}
                 newTask={newTask}
@@ -1285,12 +1285,10 @@ function TemplatesView({
     <div>
       <div className="flex justify-end mb-6">
         <Dialog open={showForm} onOpenChange={(open) => {
-          if (!open) {
+          if (!open) { // Dialog is closing
             resetForm();
-            setShowForm(false); // Explicitly set showForm to false when dialog closes
-          } else {
-            setShowForm(true);
           }
+          setShowForm(open); // Update the state based on dialog's open status
         }}>
           <DialogTrigger asChild>
             <Button className="bg-blue-600 hover:bg-blue-700">
