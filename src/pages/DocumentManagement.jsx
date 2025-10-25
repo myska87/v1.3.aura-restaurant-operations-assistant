@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -370,7 +371,7 @@ export default function DocumentManagement() {
   const totalDocuments = documents.filter(d => d.is_active).length;
   const mandatoryDocs = documents.filter(d => d.is_active && d.is_mandatory).length;
   const pendingTasks = documentTasks.filter(t => t.status === 'pending').length;
-  const overdueeTasks = documentTasks.filter(t => {
+  const overdueTasks = documentTasks.filter(t => {
     if (t.status !== 'pending') return false;
     const due = new Date(t.due_date);
     return due < new Date();
