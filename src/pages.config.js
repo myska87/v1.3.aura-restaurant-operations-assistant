@@ -25,6 +25,9 @@ import InventoryManagement from './pages/InventoryManagement';
 import StaffModel from './pages/StaffModel';
 import CultureBuilding from './pages/CultureBuilding';
 import OnboardingTraining from './pages/OnboardingTraining';
+import PerformanceGrowth from './pages/PerformanceGrowth';
+import CoachingDashboard from './pages/CoachingDashboard';
+import StartCoachingSession from './pages/StartCoachingSession';
 import Layout from './Layout.jsx';
 
 
@@ -56,6 +59,9 @@ export const PAGES = {
     "StaffModel": StaffModel,
     "CultureBuilding": CultureBuilding,
     "OnboardingTraining": OnboardingTraining,
+    "PerformanceGrowth": PerformanceGrowth,
+    "CoachingDashboard": CoachingDashboard,
+    "StartCoachingSession": StartCoachingSession,
 }
 
 export const pagesConfig = {
