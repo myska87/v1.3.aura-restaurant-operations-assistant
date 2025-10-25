@@ -11,7 +11,11 @@ import {
   TrendingUp,
   GraduationCap,
   Calendar,
-  Sparkles
+  Sparkles,
+  Zap, // New import for Quick Actions icon
+  LogIn, // New import for Clock In icon
+  LogOut, // New import for Clock Out icon
+  CheckCircle // New import for View My Tasks icon
 } from "lucide-react";
 import StatCard from "../components/dashboard/StatCard";
 import ComplianceChart from "../components/dashboard/ComplianceChart";
@@ -19,7 +23,7 @@ import RecentActivity from "../components/dashboard/RecentActivity";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"; // Added CardHeader, CardTitle
 import { Button } from "@/components/ui/button";
 import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
@@ -66,6 +70,22 @@ export default function Dashboard() {
     queryKey: ['currentUser'],
     queryFn: () => base44.auth.me(),
   });
+
+  // Get today's shifts for current user
+  const today = new Date().toISOString().split('T')[0];
+  const { data: myShifts = [], isLoading: loadingMyShifts } = useQuery({
+    queryKey: ['myTodayShifts', user?.email, today],
+    queryFn: () => base44.entities.Shift.filter({
+      staff_email: user?.email,
+      shift_date: today
+    }),
+    enabled: !!user?.email,
+  });
+
+  // Find active shift
+  const activeShift = myShifts.find(s => s.status === 'in_progress');
+  // Find next scheduled shift if no active shift
+  const nextShift = !activeShift ? myShifts.find(s => s.status === 'scheduled') : undefined;
 
   const { data: upcomingChecklists = [] } = useQuery({
     queryKey: ['upcomingChecklists', user?.email],
@@ -171,9 +191,9 @@ export default function Dashboard() {
   const pendingTasks = staffTasks.filter(t => t.status === "pending" || t.status === "in_progress").length;
 
   // Chart data
-  const today = new Date();
+  const todayDate = new Date();
   const last7Days = Array.from({ length: 7 }, (_, i) => {
-    const date = new Date(today);
+    const date = new Date(todayDate);
     date.setDate(date.getDate() - (6 - i));
     return date;
   });
@@ -338,8 +358,103 @@ export default function Dashboard() {
           </Alert>
         )}
 
+        {/* Quick Actions */}
+        <Card className="bg-white border-none shadow-sm hover:shadow-md transition-shadow">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <Zap className="w-5 h-5 text-yellow-600" />
+              Quick Actions
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-6">
+            {loadingMyShifts ? (
+              <div className="space-y-4">
+                <div className="h-20 bg-gray-100 rounded-lg animate-pulse"></div>
+                <div className="h-10 bg-gray-100 rounded animate-pulse"></div>
+                <div className="h-10 bg-gray-100 rounded animate-pulse"></div>
+              </div>
+            ) : activeShift ? (
+              // User has active shift - show clock out
+              <div className="space-y-4">
+                <div className="p-4 bg-blue-50 rounded-lg border-2 border-blue-200">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-3 h-3 rounded-full bg-green-500 animate-pulse" />
+                    <p className="font-semibold text-blue-900">Currently Clocked In</p>
+                  </div>
+                  <p className="text-sm text-blue-700">
+                    {activeShift.role} • Started at {activeShift.clock_in_time ? format(new Date(activeShift.clock_in_time), 'h:mm a') : activeShift.start_time}
+                  </p>
+                </div>
+                
+                <Link to={createPageUrl('ClockInOut')} className="block">
+                  <Button className="w-full bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white shadow-lg hover:shadow-xl transition-all">
+                    <LogOut className="w-5 h-5 mr-2" />
+                    Clock Out
+                  </Button>
+                </Link>
+
+                <Link to={createPageUrl('MyTasks')} className="block">
+                  <Button variant="outline" className="w-full">
+                    <CheckCircle className="w-4 h-4 mr-2" />
+                    View My Tasks
+                  </Button>
+                </Link>
+              </div>
+            ) : nextShift ? (
+              // User has scheduled shift - show clock in
+              <div className="space-y-4">
+                <div className="p-4 bg-green-50 rounded-lg border-2 border-green-200">
+                  <p className="font-semibold text-green-900 mb-1">Next Shift</p>
+                  <p className="text-sm text-green-700">
+                    {nextShift.role}
+                  </p>
+                  <p className="text-sm text-green-700">
+                    {nextShift.start_time} - {nextShift.end_time}
+                  </p>
+                </div>
+                
+                <Link to={createPageUrl('ClockInOut')} className="block">
+                  <Button className="w-full bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white shadow-lg hover:shadow-xl transition-all">
+                    <LogIn className="w-5 h-5 mr-2" />
+                    Clock In
+                  </Button>
+                </Link>
+
+                <Link to={createPageUrl('MyShifts')} className="block">
+                  <Button variant="outline" className="w-full">
+                    <Calendar className="w-4 h-4 mr-2" />
+                    View My Schedule
+                  </Button>
+                </Link>
+              </div>
+            ) : (
+              // No shifts today
+              <div className="space-y-4">
+                <div className="p-4 bg-gray-50 rounded-lg border-2 border-gray-200 text-center">
+                  <Calendar className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                  <p className="text-sm text-gray-600">No shifts scheduled today</p>
+                </div>
+
+                <Link to={createPageUrl('MyShifts')} className="block">
+                  <Button variant="outline" className="w-full">
+                    <Calendar className="w-4 h-4 mr-2" />
+                    View My Schedule
+                  </Button>
+                </Link>
+
+                <Link to={createPageUrl('MyTasks')} className="block">
+                  <Button variant="outline" className="w-full">
+                    <CheckCircle className="w-4 h-4 mr-2" />
+                    View My Tasks
+                  </Button>
+                </Link>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
         {/* Quick Access Cards */}
-        <div className="grid md:grid-cols-2 gap-6">
+        <div className="grid md:grid-cols-2 gap-6 mt-6">
           <Link to={createPageUrl("StaffModel")}>
             <Card className="bg-gradient-to-br from-blue-500 to-indigo-600 text-white border-none shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer group">
               <CardContent className="p-6">
@@ -404,7 +519,7 @@ export default function Dashboard() {
         )}
 
         {/* Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mt-6">
           <StatCard
             title="Compliance Rate"
             value={`${complianceRate}%`}
