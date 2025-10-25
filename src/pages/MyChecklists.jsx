@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -7,9 +6,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Clock, CheckCircle, AlertTriangle, Play } from "lucide-react";
-import { format, isToday } from "date-fns";
-import { useNavigate } from "react-router-dom";
+import { Clock, CheckCircle, AlertTriangle, Play, Home } from "lucide-react";
+import { format } from "date-fns";
+import { Link, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 
 export default function MyChecklists() {
@@ -36,11 +35,10 @@ export default function MyChecklists() {
     queryFn: async () => {
       if (!user?.email) return [];
       try {
-        const today = format(new Date(), 'yyyy-MM-dd');
+        // Get all checklists assigned to this user (not just today)
         return await base44.entities.ChecklistExecution.filter({
-          assigned_to_email: user.email,
-          execution_date: today
-        }, '-created_date');
+          assigned_to_email: user.email
+        }, '-execution_date');
       } catch (error) {
         console.error("Error fetching checklists:", error);
         return [];
@@ -83,6 +81,8 @@ export default function MyChecklists() {
         return 'bg-blue-500';
       case 'closing':
         return 'bg-purple-500';
+      case 'any':
+        return 'bg-indigo-500';
       default:
         return 'bg-gray-500';
     }
@@ -96,9 +96,19 @@ export default function MyChecklists() {
   return (
     <div className="p-6 md:p-8 bg-gray-50 min-h-screen">
       <div className="max-w-7xl mx-auto">
+        {/* Back Button */}
+        <div className="mb-6">
+          <Link to={createPageUrl("Dashboard")}>
+            <Button variant="outline" size="sm">
+              <Home className="w-4 h-4 mr-2" />
+              Dashboard
+            </Button>
+          </Link>
+        </div>
+
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">My Checklists</h1>
-          <p className="text-gray-600">Complete your shift-based tasks</p>
+          <p className="text-gray-600">Complete your assigned checklists</p>
         </div>
 
         {/* Current Shift Info */}
@@ -157,6 +167,8 @@ export default function MyChecklists() {
                     key={checklist.id}
                     checklist={checklist}
                     progress={getChecklistProgress(checklist)}
+                    getStatusColor={getStatusColor}
+                    getShiftTypeColor={getShiftTypeColor}
                     onStart={() => navigate(createPageUrl(`ExecuteChecklist?id=${checklist.id}`))}
                   />
                 ))}
@@ -177,6 +189,8 @@ export default function MyChecklists() {
                     key={checklist.id}
                     checklist={checklist}
                     progress={getChecklistProgress(checklist)}
+                    getStatusColor={getStatusColor}
+                    getShiftTypeColor={getShiftTypeColor}
                     onStart={() => navigate(createPageUrl(`ExecuteChecklist?id=${checklist.id}`))}
                   />
                 ))}
@@ -197,6 +211,8 @@ export default function MyChecklists() {
                     key={checklist.id}
                     checklist={checklist}
                     progress={0}
+                    getStatusColor={getStatusColor}
+                    getShiftTypeColor={getShiftTypeColor}
                     onStart={() => navigate(createPageUrl(`ExecuteChecklist?id=${checklist.id}`))}
                   />
                 ))}
@@ -209,7 +225,7 @@ export default function MyChecklists() {
             <div>
               <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
                 <CheckCircle className="w-5 h-5 text-green-600" />
-                Completed Today
+                Completed
               </h2>
               <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {completedChecklists.map(checklist => (
@@ -217,6 +233,8 @@ export default function MyChecklists() {
                     key={checklist.id}
                     checklist={checklist}
                     progress={100}
+                    getStatusColor={getStatusColor}
+                    getShiftTypeColor={getShiftTypeColor}
                     onStart={() => navigate(createPageUrl(`ExecuteChecklist?id=${checklist.id}`))}
                   />
                 ))}
@@ -227,7 +245,8 @@ export default function MyChecklists() {
           {myChecklists.length === 0 && !isLoading && (
             <Card className="bg-white">
               <CardContent className="p-12 text-center">
-                <p className="text-gray-500">No checklists assigned for today</p>
+                <p className="text-gray-500">No checklists assigned to you yet</p>
+                <p className="text-sm text-gray-400 mt-2">Ask your manager to assign checklists</p>
               </CardContent>
             </Card>
           )}
@@ -237,33 +256,7 @@ export default function MyChecklists() {
   );
 }
 
-function ChecklistCard({ checklist, progress, onStart }) {
-  const getShiftTypeColor = (shiftType) => {
-    switch (shiftType) {
-      case 'opening':
-        return 'bg-green-100 text-green-800 border-green-200';
-      case 'mid_shift':
-        return 'bg-blue-100 text-blue-800 border-blue-200';
-      case 'closing':
-        return 'bg-purple-100 text-purple-800 border-purple-200';
-      default:
-        return 'bg-gray-100 text-gray-800 border-gray-200';
-    }
-  };
-
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'completed':
-        return 'bg-green-100 text-green-800 border-green-200';
-      case 'in_progress':
-        return 'bg-blue-100 text-blue-800 border-blue-200';
-      case 'overdue':
-        return 'bg-red-100 text-red-800 border-red-200';
-      default:
-        return 'bg-gray-100 text-gray-800 border-gray-200';
-    }
-  };
-
+function ChecklistCard({ checklist, progress, getStatusColor, getShiftTypeColor, onStart }) {
   return (
     <Card className="bg-white border-none shadow-sm hover:shadow-md transition-all duration-200">
       <CardHeader className="pb-3">
@@ -276,11 +269,11 @@ function ChecklistCard({ checklist, progress, onStart }) {
           )}
         </div>
         <div className="flex flex-wrap gap-2">
-          <Badge className={getShiftTypeColor(checklist.shift_type)}>
-            {checklist.shift_type.replace(/_/g, ' ')}
+          <Badge className={`${getShiftTypeColor(checklist.shift_type)} text-white border-none`}>
+            {checklist.shift_type?.replace(/_/g, ' ')}
           </Badge>
           <Badge className={getStatusColor(checklist.status)}>
-            {checklist.status.replace(/_/g, ' ')}
+            {checklist.status?.replace(/_/g, ' ')}
           </Badge>
         </div>
       </CardHeader>
@@ -295,7 +288,8 @@ function ChecklistCard({ checklist, progress, onStart }) {
           </div>
 
           <div className="text-sm text-gray-600">
-            <p>{checklist.tasks?.length || 0} tasks</p>
+            <p className="font-medium">Due: {format(new Date(checklist.execution_date), 'PPP')}</p>
+            <p className="mt-1">{checklist.tasks?.length || 0} tasks</p>
             {checklist.started_at && (
               <p className="text-xs mt-1">
                 Started: {format(new Date(checklist.started_at), 'h:mm a')}
@@ -313,7 +307,7 @@ function ChecklistCard({ checklist, progress, onStart }) {
             className="w-full"
             variant={checklist.status === 'completed' ? 'outline' : 'default'}
           >
-            {checklist.status === 'completed' ? 'View' : progress > 0 ? 'Continue' : 'Start Checklist'}
+            {checklist.status === 'completed' ? 'View Checklist' : progress > 0 ? 'Continue Checklist' : 'Start Checklist'}
           </Button>
         </div>
       </CardContent>

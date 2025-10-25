@@ -339,7 +339,7 @@ export default function AdvancedChecklists() {
             category: "Food Handling Practices"
           },
           {
-    task_id: "handling_10",
+            task_id: "handling_10",
             description: "Are vegetables/fruit/salads trimmed and washed thoroughly before use unless labelled as 'ready-to-eat'?",
             requires_photo: false,
             requires_temperature: false,
@@ -1287,6 +1287,58 @@ function TemplatesView({
   resetForm,
   frequency
 }) {
+  const queryClient = useQueryClient();
+  const [assignDialogOpen, setAssignDialogOpen] = useState(false);
+  const [selectedTemplate, setSelectedTemplate] = useState(null);
+  const [assignDate, setAssignDate] = useState(format(new Date(), 'yyyy-MM-dd'));
+  const [selectedUser, setSelectedUser] = useState('');
+
+  const { data: users = [] } = useQuery({
+    queryKey: ['allUsers'],
+    queryFn: () => base44.entities.User.list(),
+  });
+
+  const createExecutionMutation = useMutation({
+    mutationFn: (data) => base44.entities.ChecklistExecution.create(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['myChecklistExecutions'] });
+      queryClient.invalidateQueries({ queryKey: ['allChecklistExecutions'] });
+      setAssignDialogOpen(false);
+      setSelectedTemplate(null);
+      setSelectedUser('');
+      alert('✅ Checklist assigned successfully!');
+    },
+  });
+
+  const handleAssignChecklist = async () => {
+    if (!selectedTemplate || !selectedUser) {
+      alert('Please select a user');
+      return;
+    }
+
+    const userToAssign = users.find(u => u.email === selectedUser);
+    if (!userToAssign) {
+        alert('Selected user not found.');
+        return;
+    }
+    
+    const execution = {
+      template_id: selectedTemplate.id,
+      template_name: selectedTemplate.name,
+      shift_type: selectedTemplate.shift_type,
+      execution_date: assignDate,
+      assigned_to_email: userToAssign.email,
+      assigned_to_name: userToAssign.full_name,
+      status: 'not_started',
+      tasks: selectedTemplate.tasks.map(t => ({
+        ...t,
+        status: 'pending'
+      })),
+    };
+
+    await createExecutionMutation.mutateAsync(execution);
+  };
+
   return (
     <div>
       <div className="flex justify-end mb-6">
@@ -1536,15 +1588,15 @@ function TemplatesView({
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="space-y-2 text-sm">
+                <div className="space-y-3">
                   {template.description && (
-                    <p className="text-gray-600">{template.description}</p>
+                    <p className="text-sm text-gray-600">{template.description}</p>
                   )}
-                  <div className="pt-2 border-t border-gray-100">
+                  <div className="pt-2 border-t border-gray-100 space-y-1 text-sm">
                     <p className="text-gray-600">
                       <span className="font-medium text-gray-900">{template.tasks?.length || 0}</span> tasks
                     </p>
-                    <p className="text-gray-600 text-xs mt-1">
+                    <p className="text-gray-600 text-xs">
                       Reminder: {template.reminder_minutes || 15} min after shift start
                     </p>
                     {template.advance_notice_days > 0 && (
@@ -1553,12 +1605,83 @@ function TemplatesView({
                       </p>
                     )}
                   </div>
+                  
+                  {/* ASSIGN CHECKLIST BUTTON */}
+                  <Button
+                    onClick={() => {
+                      setSelectedTemplate(template);
+                      setAssignDialogOpen(true);
+                    }}
+                    className="w-full mt-3 bg-green-600 hover:bg-green-700"
+                    size="sm"
+                  >
+                    <Play className="w-4 h-4 mr-2" />
+                    Assign to User
+                  </Button>
                 </div>
               </CardContent>
             </Card>
           ))
         )}
       </div>
+
+      {/* Assign Checklist Dialog */}
+      <Dialog open={assignDialogOpen} onOpenChange={setAssignDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Assign Checklist</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 mt-4">
+            <div>
+              <Label>Template</Label>
+              <Input value={selectedTemplate?.name || ''} disabled />
+            </div>
+            
+            <div>
+              <Label htmlFor="assign-user">Assign to User</Label>
+              <Select value={selectedUser} onValueChange={setSelectedUser}>
+                <SelectTrigger id="assign-user">
+                  <SelectValue placeholder="Select user..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {users.map((user) => (
+                    <SelectItem key={user.email} value={user.email}>
+                      {user.full_name} ({user.email}) - {user.position}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label htmlFor="assign-date">Due Date</Label>
+              <Input
+                id="assign-date"
+                type="date"
+                value={assignDate}
+                onChange={(e) => setAssignDate(e.target.value)}
+              />
+            </div>
+
+            <div className="bg-blue-50 p-3 rounded-lg text-sm text-blue-800">
+              <p><strong>This will create a checklist execution that the user can start filling out.</strong></p>
+              <p className="mt-1">The checklist will appear in their "My Checklists" page.</p>
+            </div>
+
+            <div className="flex justify-end gap-3">
+              <Button variant="outline" onClick={() => setAssignDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button 
+                onClick={handleAssignChecklist}
+                disabled={!selectedUser || createExecutionMutation.isPending}
+              >
+                {createExecutionMutation.isPending ? 'Assigning...' : 'Assign Checklist'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
