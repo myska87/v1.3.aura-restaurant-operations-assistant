@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -31,6 +32,8 @@ import {
   Star,
   AlignLeft,
   Copy,
+  Check, // Added for Yes/No buttons
+  X,     // Added for Yes/No buttons
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -122,6 +125,24 @@ function SortableField({ field, onUpdate, onRemove }) {
                 </div>
               )}
 
+              {/* Yes/No Auto-Notify Manager Option */}
+              {field.field_type === 'yesno' && (
+                <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                  <div className="flex items-center justify-between mb-2">
+                    <Label className="text-sm font-semibold text-amber-900">⚠️ Auto-Notify Manager on "No"</Label>
+                    <Switch
+                      checked={field.notify_manager_on_no || false}
+                      onCheckedChange={(checked) => onUpdate(field.field_id, { notify_manager_on_no: checked })}
+                    />
+                  </div>
+                  {field.notify_manager_on_no && (
+                    <p className="text-xs text-amber-700">
+                      Manager will be automatically notified if user answers "No"
+                    </p>
+                  )}
+                </div>
+              )}
+
               {/* Required Toggle */}
               <div className="flex items-center gap-2 mt-3">
                 <Switch
@@ -170,7 +191,6 @@ export default function FormBuilder() {
   });
 
   const [showPreview, setShowPreview] = useState(false);
-  const [showToolbox, setShowToolbox] = useState(true);
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -215,6 +235,7 @@ export default function FormBuilder() {
       field_hint: "",
       options: fieldType === 'dropdown' || fieldType === 'radio' || fieldType === 'checkbox' ? [] : undefined,
       required: false,
+      notify_manager_on_no: fieldType === 'yesno' ? false : undefined,
       order_index: formData.fields.length,
     };
 
@@ -249,7 +270,6 @@ export default function FormBuilder() {
         const newIndex = prev.fields.findIndex(f => f.field_id === over.id);
         const reordered = arrayMove(prev.fields, oldIndex, newIndex);
         
-        // Update order_index
         return {
           ...prev,
           fields: reordered.map((f, idx) => ({ ...f, order_index: idx })),
@@ -268,8 +288,8 @@ export default function FormBuilder() {
   };
 
   const fieldTypes = [
-    { type: 'text', label: 'Text Input', icon: Type },
-    { type: 'textarea', label: 'Long Text', icon: AlignLeft },
+    { type: 'text', label: 'Short Text', icon: Type },
+    { type: 'textarea', label: 'Long Text / Paragraph', icon: AlignLeft },
     { type: 'number', label: 'Number', icon: Hash },
     { type: 'dropdown', label: 'Dropdown', icon: List },
     { type: 'checkbox', label: 'Checkbox', icon: CheckSquare },
@@ -425,6 +445,19 @@ export default function FormBuilder() {
                     </SortableContext>
                   </DndContext>
                 )}
+
+                {/* Submit Button Preview */}
+                {formData.fields.length > 0 && (
+                  <div className="mt-6 p-4 bg-green-50 border-2 border-green-200 rounded-lg text-center">
+                    <Button className="bg-green-600 hover:bg-green-700 w-full md:w-auto" disabled>
+                      <Save className="w-4 h-4 mr-2" />
+                      Submit Form
+                    </Button>
+                    <p className="text-xs text-green-700 mt-2">
+                      ✓ Submit button will appear at the end of the form
+                    </p>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>
@@ -496,9 +529,14 @@ export default function FormBuilder() {
                   {field.field_hint && (
                     <p className="text-sm text-gray-600 mt-1">{field.field_hint}</p>
                   )}
+                  {field.notify_manager_on_no && (
+                    <Badge className="mt-1 bg-amber-100 text-amber-800">
+                      ⚠️ Manager notified if "No"
+                    </Badge>
+                  )}
                   <div className="mt-2">
                     {field.field_type === 'text' && <Input placeholder="Text input" disabled />}
-                    {field.field_type === 'textarea' && <Textarea placeholder="Long text" disabled rows={3} />}
+                    {field.field_type === 'textarea' && <Textarea placeholder="Long text / paragraph" disabled rows={4} />}
                     {field.field_type === 'number' && <Input type="number" placeholder="Number" disabled />}
                     {field.field_type === 'dropdown' && (
                       <Select disabled>
@@ -509,8 +547,12 @@ export default function FormBuilder() {
                     )}
                     {field.field_type === 'yesno' && (
                       <div className="flex gap-4">
-                        <Button variant="outline" size="sm" disabled>Yes</Button>
-                        <Button variant="outline" size="sm" disabled>No</Button>
+                        <Button variant="outline" size="sm" disabled className="flex-1 bg-green-50">
+                          <Check className="w-4 h-4 mr-1" /> Yes
+                        </Button>
+                        <Button variant="outline" size="sm" disabled className="flex-1 bg-red-50">
+                          <X className="w-4 h-4 mr-1" /> No
+                        </Button>
                       </div>
                     )}
                     {field.field_type === 'photo' && (
@@ -528,6 +570,14 @@ export default function FormBuilder() {
                   </div>
                 </div>
               ))}
+
+              {/* Submit Button in Preview */}
+              <div className="p-4 bg-gray-50 rounded-lg text-center">
+                <Button className="bg-green-600 hover:bg-green-700 w-full" disabled>
+                  <Save className="w-4 h-4 mr-2" />
+                  Submit Form
+                </Button>
+              </div>
             </div>
           </DialogContent>
         </Dialog>
