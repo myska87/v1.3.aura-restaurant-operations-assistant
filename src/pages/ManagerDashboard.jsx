@@ -20,6 +20,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
 } from "@/components/ui/dialog";
 import {
   DropdownMenu,
@@ -44,11 +45,22 @@ export default function ManagerDashboard() {
   const [showAddDocumentDialog, setShowAddDocumentDialog] = useState(false);
   const [showAddResponsibilityDialog, setShowAddResponsibilityDialog] = useState(false);
   const [selectedMember, setSelectedMember] = useState(null);
-  const [selectedRole, setSelectedRole] = useState(null);
+  const [selectedRole, setSelectedRole] = useState(null); // This is for editing responsibilities
   const [viewMode, setViewMode] = useState("grid"); // 'grid' or 'table'
   const [showProfileModal, setShowProfileModal] = useState(false);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false); // For team members
   const [memberToDelete, setMemberToDelete] = useState(null);
+
+  // New states for Responsibility Form
+  const [newRolePosition, setNewRolePosition] = useState("");
+  const [newRoleDepartment, setNewRoleDepartment] = useState("");
+  const [newRoleDailyTasks, setNewRoleDailyTasks] = useState("");
+  const [newRoleWeeklyTasks, setNewRoleWeeklyTasks] = useState("");
+  const [newRoleSkills, setNewRoleSkills] = useState("");
+
+  // New states for Delete Responsibility Confirmation
+  const [showDeleteResponsibilityConfirm, setShowDeleteResponsibilityConfirm] = useState(false);
+  const [roleToDelete, setRoleToDelete] = useState(null);
 
   const { data: user } = useQuery({
     queryKey: ['currentUser'],
@@ -171,7 +183,91 @@ export default function ManagerDashboard() {
   // Function to handle editing responsibility
   const handleEditResponsibility = (roleToEdit) => {
     setSelectedRole(roleToEdit); // Set the selected role here
+    setNewRolePosition(roleToEdit.position);
+    setNewRoleDepartment(roleToEdit.department);
+    setNewRoleDailyTasks(roleToEdit.daily_tasks?.join(', ') || '');
+    setNewRoleWeeklyTasks(roleToEdit.weekly_tasks?.join(', ') || '');
+    setNewRoleSkills(roleToEdit.key_skills_required?.join(', ') || '');
     setShowAddResponsibilityDialog(true);
+  };
+
+  // Function to handle adding new responsibility (opens empty form)
+  const handleAddResponsibility = () => {
+    setSelectedRole(null); // Clear selected role for "add" mode
+    setNewRolePosition("");
+    setNewRoleDepartment("");
+    setNewRoleDailyTasks("");
+    setNewRoleWeeklyTasks("");
+    setNewRoleSkills("");
+    setShowAddResponsibilityDialog(true);
+  };
+
+  // Function to close responsibility dialog and reset form
+  const closeResponsibilityDialog = () => {
+    setShowAddResponsibilityDialog(false);
+    setSelectedRole(null);
+    setNewRolePosition("");
+    setNewRoleDepartment("");
+    setNewRoleDailyTasks("");
+    setNewRoleWeeklyTasks("");
+    setNewRoleSkills("");
+  };
+
+  // Function to prepare array strings from textarea input
+  const parseCommaSeparatedString = (str) =>
+    str.split(',').map(s => s.trim()).filter(s => s.length > 0);
+
+  // Mutations for Role Responsibilities
+  const addResponsibilityMutation = useMutation({
+    mutationFn: (newRole) => base44.entities.RoleResponsibility.create(newRole),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['responsibilities'] });
+      closeResponsibilityDialog();
+    },
+  });
+
+  const updateResponsibilityMutation = useMutation({
+    mutationFn: ({ id, updatedRole }) => base44.entities.RoleResponsibility.update(id, updatedRole),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['responsibilities'] });
+      closeResponsibilityDialog();
+    },
+  });
+
+  const deleteResponsibilityMutation = useMutation({
+    mutationFn: (id) => base44.entities.RoleResponsibility.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['responsibilities'] });
+      setShowDeleteResponsibilityConfirm(false);
+      setRoleToDelete(null);
+    },
+  });
+
+  const handleSubmitResponsibility = async () => {
+    const roleData = {
+      position: newRolePosition,
+      department: newRoleDepartment,
+      daily_tasks: parseCommaSeparatedString(newRoleDailyTasks),
+      weekly_tasks: parseCommaSeparatedString(newRoleWeeklyTasks),
+      key_skills_required: parseCommaSeparatedString(newRoleSkills),
+    };
+
+    if (selectedRole) {
+      await updateResponsibilityMutation.mutateAsync({ id: selectedRole.id, updatedRole: roleData });
+    } else {
+      await addResponsibilityMutation.mutateAsync(roleData);
+    }
+  };
+
+  const handleDeleteResponsibility = (roleId) => {
+    setRoleToDelete(roleId);
+    setShowDeleteResponsibilityConfirm(true);
+  };
+
+  const confirmDeleteResponsibility = async () => {
+    if (roleToDelete) {
+      await deleteResponsibilityMutation.mutateAsync(roleToDelete);
+    }
   };
 
   // Delete member mutation
@@ -209,6 +305,36 @@ export default function ManagerDashboard() {
       </div>
     );
   }
+
+  // Pre-defined lists for selects
+  const availableDepartments = [
+    { value: "kitchen", label: "Kitchen" },
+    { value: "front_of_house", label: "Front of House" },
+    { value: "bar", label: "Bar" },
+    { value: "management", label: "Management" },
+    { value: "cleaning", label: "Cleaning" },
+    { value: "maintenance", label: "Maintenance" },
+    { value: "other", label: "Other" },
+  ];
+
+  const availablePositions = [
+    { value: "manager", label: "Manager" },
+    { value: "assistant_manager", label: "Assistant Manager" },
+    { value: "chef", label: "Chef" },
+    { value: "sous_chef", label: "Sous Chef" },
+    { value: "line_cook", label: "Line Cook" },
+    { value: "dishwasher", label: "Dishwasher" },
+    { value: "waiter", label: "Waiter" },
+    { value: "bartender", label: "Bartender" },
+    { value: "host", label: "Host" },
+    { value: "cleaner", label: "Cleaner" },
+    { value: "maintenance_worker", label: "Maintenance Worker" },
+    { value: "owner", label: "Owner" },
+    { value: "admin", label: "Admin" },
+    { value: "hr", label: "HR" },
+    { value: "security", label: "Security" },
+    { value: "cashier", label: "Cashier" },
+  ];
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6 md:p-8">
@@ -518,12 +644,9 @@ export default function ManagerDashboard() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All Departments</SelectItem>
-                      <SelectItem value="kitchen">Kitchen</SelectItem>
-                      <SelectItem value="front_of_house">Front of House</SelectItem>
-                      <SelectItem value="bar">Bar</SelectItem>
-                      <SelectItem value="management">Management</SelectItem>
-                      <SelectItem value="cleaning">Cleaning</SelectItem>
-                      <SelectItem value="maintenance">Maintenance</SelectItem>
+                      {availableDepartments.map(dep => (
+                        <SelectItem key={dep.value} value={dep.value}>{dep.label}</SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                   <Select value={filterStatus} onValueChange={setFilterStatus}>
@@ -890,7 +1013,7 @@ export default function ManagerDashboard() {
                         View Checklists
                       </Button>
                     </Link>
-                    <Button onClick={() => setShowAddResponsibilityDialog(true)} className="bg-purple-600">
+                    <Button onClick={handleAddResponsibility} className="bg-purple-600">
                       <Plus className="w-4 h-4 mr-2" />
                       Add Role
                     </Button>
@@ -913,17 +1036,27 @@ export default function ManagerDashboard() {
                               <h3 className="text-lg font-bold text-gray-900 capitalize mb-1">
                                 {role.position?.replace('_', ' ')}
                               </h3>
-                              <Badge variant="outline" className="text-xs">
-                                {role.department}
+                              <Badge variant="outline" className="text-xs capitalize">
+                                {role.department?.replace('_', ' ')}
                               </Badge>
                             </div>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleEditResponsibility(role)}
-                            >
-                              <Edit className="w-4 h-4" />
-                            </Button>
+                            <div className="flex gap-1">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleEditResponsibility(role)}
+                              >
+                                <Edit className="w-4 h-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleDeleteResponsibility(role.id)}
+                                className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </div>
                           </div>
 
                           {/* Daily Tasks */}
@@ -972,6 +1105,11 @@ export default function ManagerDashboard() {
                                     {skill}
                                   </Badge>
                                 ))}
+                                {role.key_skills_required.length > 3 && (
+                                  <Badge variant="outline" className="text-[10px]">
+                                    +{role.key_skills_required.length - 3} more
+                                  </Badge>
+                                )}
                               </div>
                             </div>
                           )}
@@ -1055,7 +1193,7 @@ export default function ManagerDashboard() {
                   </div>
                 )}
 
-                <div className="flex justify-end gap-3 pt-4 border-t">
+                <DialogFooter className="mt-4">
                   <Button variant="outline" onClick={() => setShowProfileModal(false)}>
                     Close
                   </Button>
@@ -1064,13 +1202,13 @@ export default function ManagerDashboard() {
                       View Full Profile
                     </Button>
                   </Link>
-                </div>
+                </DialogFooter>
               </div>
             </DialogContent>
           </Dialog>
         )}
 
-        {/* Delete Confirmation Dialog */}
+        {/* Delete Member Confirmation Dialog */}
         <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
           <DialogContent>
             <DialogHeader>
@@ -1081,7 +1219,7 @@ export default function ManagerDashboard() {
                 Are you sure you want to remove <strong>{memberToDelete?.staff_name}</strong> from the team?
                 This will set their status to inactive.
               </p>
-              <div className="flex justify-end gap-3">
+              <DialogFooter className="mt-4">
                 <Button variant="outline" onClick={() => setShowDeleteConfirm(false)}>
                   Cancel
                 </Button>
@@ -1092,7 +1230,127 @@ export default function ManagerDashboard() {
                 >
                   {deleteMemberMutation.isPending ? 'Removing...' : 'Remove Member'}
                 </Button>
+              </DialogFooter>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Add/Edit Responsibility Dialog */}
+        <Dialog open={showAddResponsibilityDialog} onOpenChange={closeResponsibilityDialog}>
+          <DialogContent className="max-w-xl">
+            <DialogHeader>
+              <DialogTitle>{selectedRole ? "Edit Role Responsibility" : "Add New Role Responsibility"}</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="rolePosition" className="text-right">
+                  Position
+                </Label>
+                <Select value={newRolePosition} onValueChange={setNewRolePosition}>
+                  <SelectTrigger className="col-span-3">
+                    <SelectValue placeholder="Select a position" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availablePositions.map(pos => (
+                      <SelectItem key={pos.value} value={pos.value}>{pos.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
+
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="roleDepartment" className="text-right">
+                  Department
+                </Label>
+                <Select value={newRoleDepartment} onValueChange={setNewRoleDepartment}>
+                  <SelectTrigger className="col-span-3">
+                    <SelectValue placeholder="Select a department" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableDepartments.map(dep => (
+                      <SelectItem key={dep.value} value={dep.value}>{dep.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="dailyTasks" className="text-right">
+                  Daily Tasks
+                </Label>
+                <Textarea
+                  id="dailyTasks"
+                  value={newRoleDailyTasks}
+                  onChange={(e) => setNewRoleDailyTasks(e.target.value)}
+                  placeholder="Task 1, Task 2, Task 3 (comma-separated)"
+                  className="col-span-3"
+                />
+              </div>
+
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="weeklyTasks" className="text-right">
+                  Weekly Tasks
+                </Label>
+                <Textarea
+                  id="weeklyTasks"
+                  value={newRoleWeeklyTasks}
+                  onChange={(e) => setNewRoleWeeklyTasks(e.target.value)}
+                  placeholder="Weekly Task 1, Weekly Task 2 (comma-separated)"
+                  className="col-span-3"
+                />
+              </div>
+
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="keySkills" className="text-right">
+                  Key Skills
+                </Label>
+                <Textarea
+                  id="keySkills"
+                  value={newRoleSkills}
+                  onChange={(e) => setNewRoleSkills(e.target.value)}
+                  placeholder="Skill 1, Skill 2, Skill 3 (comma-separated)"
+                  className="col-span-3"
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={closeResponsibilityDialog}>
+                Cancel
+              </Button>
+              <Button
+                onClick={handleSubmitResponsibility}
+                disabled={addResponsibilityMutation.isPending || updateResponsibilityMutation.isPending}
+              >
+                {selectedRole
+                  ? (updateResponsibilityMutation.isPending ? 'Saving...' : 'Save Changes')
+                  : (addResponsibilityMutation.isPending ? 'Adding...' : 'Add Role')}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Delete Responsibility Confirmation Dialog */}
+        <Dialog open={showDeleteResponsibilityConfirm} onOpenChange={setShowDeleteResponsibilityConfirm}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Confirm Role Deletion</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 mt-4">
+              <p className="text-gray-700">
+                Are you sure you want to delete this role responsibility? This action cannot be undone.
+              </p>
+              <DialogFooter className="mt-4">
+                <Button variant="outline" onClick={() => setShowDeleteResponsibilityConfirm(false)}>
+                  Cancel
+                </Button>
+                <Button
+                  onClick={confirmDeleteResponsibility}
+                  disabled={deleteResponsibilityMutation.isPending}
+                  className="bg-red-600 hover:bg-red-700"
+                >
+                  {deleteResponsibilityMutation.isPending ? 'Deleting...' : 'Delete Role'}
+                </Button>
+              </DialogFooter>
             </div>
           </DialogContent>
         </Dialog>
