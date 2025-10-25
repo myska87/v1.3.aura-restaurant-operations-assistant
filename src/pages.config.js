@@ -42,6 +42,7 @@ import StaffProfile from './pages/StaffProfile';
 import MyTasks from './pages/MyTasks';
 import TaskReports from './pages/TaskReports';
 import SmartScheduler from './pages/SmartScheduler';
+import AttendanceReports from './pages/AttendanceReports';
 import Layout from './Layout.jsx';
 
 
@@ -90,6 +91,7 @@ export const PAGES = {
     "MyTasks": MyTasks,
     "TaskReports": TaskReports,
     "SmartScheduler": SmartScheduler,
+    "AttendanceReports": AttendanceReports,
 }
 
 export const pagesConfig = {
