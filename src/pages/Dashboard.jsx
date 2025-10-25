@@ -21,8 +21,8 @@ import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { format } from "date-fns"; // Added for date formatting
-import { Badge } from "@/components/ui/badge"; // Added for badges
+import { format } from "date-fns";
+import { Badge } from "@/components/ui/badge";
 
 // Placeholder for SmartAlerts component - will likely fetch and display dynamic alerts
 const SmartAlerts = () => {
@@ -378,6 +378,30 @@ export default function Dashboard() {
             </Card>
           </Link>
         </div>
+
+        {/* Smart Scheduler Quick Access for Managers */}
+        {(user?.position === 'manager' || user?.position === 'owner' || user?.role === 'admin') && (
+          <div className="mt-6">
+            <Link to={createPageUrl("SmartScheduler")}>
+              <Card className="bg-gradient-to-br from-purple-500 to-pink-600 text-white border-none shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer group">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="flex items-center gap-3 mb-2">
+                        <Sparkles className="w-8 h-8" />
+                        <h3 className="text-2xl font-bold">🤖 Smart Gantt Scheduler</h3>
+                      </div>
+                      <p className="text-purple-100">Visual week planner with automatic task assignment</p>
+                    </div>
+                    <div className="text-white group-hover:translate-x-2 transition-transform">
+                      →
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </Link>
+          </div>
+        )}
 
         {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">

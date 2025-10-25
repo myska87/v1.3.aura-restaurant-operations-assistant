@@ -1,3 +1,4 @@
+
 import React from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
@@ -47,6 +48,16 @@ export default function StaffRota() {
       bgColor: "bg-purple-50",
       iconColor: "text-purple-600",
       accessLevel: "all",
+    },
+    {
+      title: "🤖 Smart Gantt Scheduler",
+      description: "Visual week planner with auto task assignment",
+      icon: Calendar,
+      url: createPageUrl("SmartScheduler"),
+      color: "from-indigo-500 to-indigo-600",
+      bgColor: "bg-indigo-50",
+      iconColor: "text-indigo-600",
+      accessLevel: "management", // Admin/Manager only
     },
     {
       title: "Weekly Rota Schedule",
