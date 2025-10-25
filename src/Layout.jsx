@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -14,14 +13,13 @@ import {
   Menu,
   X,
   LogOut,
-  // ChefHat, // ChefHat is no longer used after removing "Weekly Rota Schedule"
   Calculator,
   ShoppingCart,
   FileText,
   Truck,
   ListChecks,
   ClipboardList,
-  GraduationCap, // Added GraduationCap icon for Staff Model
+  GraduationCap,
 } from "lucide-react";
 
 const navigationItems = [
@@ -45,11 +43,10 @@ const navigationItems = [
     url: createPageUrl("StaffRota"),
     icon: Users,
   },
-  // The "Weekly Rota Schedule" item has been removed as per the outline.
   {
-    title: "Staff Model", // New navigation item
-    url: createPageUrl("StaffModel"), // URL for Staff Model
-    icon: GraduationCap, // Icon for Staff Model
+    title: "Staff Model",
+    url: createPageUrl("StaffModel"),
+    icon: GraduationCap,
   },
   {
     title: "Checklist Templates",
@@ -119,7 +116,7 @@ export default function Layout({ children, currentPageName }) {
             <img 
               src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/68fbb8d31770834f6bea4e9b/404b389b2_image.png" 
               alt="AURA One Pro"
-              className="h-8"
+              className="h-8 w-auto"
             />
           </div>
           <div className="flex items-center gap-2">
@@ -137,16 +134,18 @@ export default function Layout({ children, currentPageName }) {
         } lg:translate-x-0 w-64`}
       >
         <div className="flex flex-col h-full">
-          {/* Logo */}
+          {/* Logo Section */}
           <div className="p-6 border-b border-slate-200">
-            <img 
-              src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/68fbb8d31770834f6bea4e9b/404b389b2_image.png" 
-              alt="AURA One Pro"
-              className="w-full h-auto mb-2"
-            />
-            <p className="text-xs text-slate-600 mt-2">
-              Restaurant Operations Assistant
-            </p>
+            <div className="flex flex-col items-center justify-center">
+              <img 
+                src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/68fbb8d31770834f6bea4e9b/404b389b2_image.png" 
+                alt="AURA One Pro"
+                className="w-48 h-auto mb-3"
+              />
+              <p className="text-xs text-center text-slate-600 font-medium">
+                Restaurant Operations Assistant
+              </p>
+            </div>
           </div>
 
           {/* Navigation */}
