@@ -20,6 +20,11 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
   Calendar,
   ChevronLeft,
   ChevronRight,
@@ -38,6 +43,9 @@ import {
   Trash2,
   Eye,
   RefreshCw,
+  MapPin,
+  Phone,
+  Mail,
 } from "lucide-react";
 import { format, startOfWeek, addDays, addWeeks, subWeeks, getWeek, parseISO, isSameDay } from "date-fns";
 import { Link } from "react-router-dom";
@@ -45,15 +53,171 @@ import { createPageUrl } from "@/utils";
 import { motion, AnimatePresence } from "framer-motion";
 
 const POSITIONS = [
-  { name: "Manager", color: "bg-pink-100", textColor: "text-pink-900", borderColor: "border-pink-500" },
-  { name: "Chef", color: "bg-amber-100", textColor: "text-amber-900", borderColor: "border-amber-500" },
-  { name: "Barista", color: "bg-green-100", textColor: "text-green-900", borderColor: "border-green-500" },
-  { name: "Front of House", color: "bg-blue-100", textColor: "text-blue-900", borderColor: "border-blue-500" },
-  { name: "Server", color: "bg-purple-100", textColor: "text-purple-900", borderColor: "border-purple-500" },
-  { name: "Line Cook", color: "bg-orange-100", textColor: "text-orange-900", borderColor: "border-orange-500" },
-  { name: "Bartender", color: "bg-indigo-100", textColor: "text-indigo-900", borderColor: "border-indigo-500" },
-  { name: "Cleaner", color: "bg-gray-100", textColor: "text-gray-900", borderColor: "border-gray-500" },
+  { 
+    name: "Manager", 
+    color: "bg-red-100", 
+    darkColor: "bg-red-500",
+    textColor: "text-red-900", 
+    borderColor: "border-red-500",
+    hoverColor: "hover:bg-red-200"
+  },
+  { 
+    name: "Chef", 
+    color: "bg-orange-100", 
+    darkColor: "bg-orange-500",
+    textColor: "text-orange-900", 
+    borderColor: "border-orange-500",
+    hoverColor: "hover:bg-orange-200"
+  },
+  { 
+    name: "Barista", 
+    color: "bg-green-100", 
+    darkColor: "bg-green-500",
+    textColor: "text-green-900", 
+    borderColor: "border-green-500",
+    hoverColor: "hover:bg-green-200"
+  },
+  { 
+    name: "Front of House", 
+    color: "bg-blue-100", 
+    darkColor: "bg-blue-500",
+    textColor: "text-blue-900", 
+    borderColor: "border-blue-500",
+    hoverColor: "hover:bg-blue-200"
+  },
+  { 
+    name: "Server", 
+    color: "bg-purple-100", 
+    darkColor: "bg-purple-500",
+    textColor: "text-purple-900", 
+    borderColor: "border-purple-500",
+    hoverColor: "hover:bg-purple-200"
+  },
+  { 
+    name: "Line Cook", 
+    color: "bg-amber-100", 
+    darkColor: "bg-amber-500",
+    textColor: "text-amber-900", 
+    borderColor: "border-amber-500",
+    hoverColor: "hover:bg-amber-200"
+  },
+  { 
+    name: "Bartender", 
+    color: "bg-indigo-100", 
+    darkColor: "bg-indigo-500",
+    textColor: "text-indigo-900", 
+    borderColor: "border-indigo-500",
+    hoverColor: "hover:bg-indigo-200"
+  },
+  { 
+    name: "Cleaner", 
+    color: "bg-gray-100", 
+    darkColor: "bg-gray-500",
+    textColor: "text-gray-900", 
+    borderColor: "border-gray-500",
+    hoverColor: "hover:bg-gray-200"
+  },
 ];
+
+// Shift Details Popup Component
+function ShiftDetailsPopup({ shift, position, onEdit, onDelete, onGenerateTasks, onPreviewTasks }) {
+  return (
+    <div className="space-y-3 min-w-[300px]">
+      {/* Header */}
+      <div className="flex items-start justify-between">
+        <div>
+          <h3 className="font-bold text-lg text-gray-900">{shift.staff_name}</h3>
+          <p className="text-sm text-gray-600">{shift.role}</p>
+        </div>
+        <Badge className={position.color + " " + position.textColor}>
+          {position.name}
+        </Badge>
+      </div>
+
+      {/* Shift Details */}
+      <div className="space-y-2 border-t pt-3">
+        <div className="flex items-center gap-2 text-sm">
+          <Clock className="w-4 h-4 text-gray-500" />
+          <span className="font-semibold">
+            {shift.start_time} - {shift.end_time}
+          </span>
+        </div>
+        <div className="flex items-center gap-2 text-sm">
+          <Calendar className="w-4 h-4 text-gray-500" />
+          <span>{format(parseISO(shift.shift_date), 'EEEE, MMMM d, yyyy')}</span>
+        </div>
+        {shift.location && (
+          <div className="flex items-center gap-2 text-sm">
+            <MapPin className="w-4 h-4 text-gray-500" />
+            <span>{shift.location}</span>
+          </div>
+        )}
+        <div className="flex items-center gap-2 text-sm">
+          <Mail className="w-4 h-4 text-gray-500" />
+          <span className="truncate">{shift.staff_email}</span>
+        </div>
+      </div>
+
+      {/* Task Status */}
+      <div className="border-t pt-3">
+        {shift.auto_generated_tasks ? (
+          <div className="flex items-center gap-2 p-2 bg-green-50 rounded-lg">
+            <CheckCircle className="w-4 h-4 text-green-600" />
+            <span className="text-sm font-medium text-green-900">Tasks Generated</span>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2 p-2 bg-yellow-50 rounded-lg">
+            <AlertCircle className="w-4 h-4 text-yellow-600" />
+            <span className="text-sm font-medium text-yellow-900">No Tasks Yet</span>
+          </div>
+        )}
+      </div>
+
+      {/* Actions */}
+      <div className="flex gap-2 pt-2">
+        {!shift.auto_generated_tasks && (
+          <Button
+            onClick={onGenerateTasks}
+            size="sm"
+            className="flex-1 bg-green-600 hover:bg-green-700"
+          >
+            <Zap className="w-3 h-3 mr-1" />
+            Generate Tasks
+          </Button>
+        )}
+        <Button
+          onClick={onPreviewTasks}
+          size="sm"
+          variant="outline"
+          className="flex-1"
+        >
+          <Eye className="w-3 h-3 mr-1" />
+          Preview
+        </Button>
+      </div>
+      <div className="flex gap-2">
+        <Button
+          onClick={onEdit}
+          size="sm"
+          variant="outline"
+          className="flex-1"
+        >
+          <Edit className="w-3 h-3 mr-1" />
+          Edit
+        </Button>
+        <Button
+          onClick={onDelete}
+          size="sm"
+          variant="outline"
+          className="flex-1 text-red-600 hover:bg-red-50"
+        >
+          <Trash2 className="w-3 h-3 mr-1" />
+          Delete
+        </Button>
+      </div>
+    </div>
+  );
+}
 
 export default function SmartScheduler() {
   const queryClient = useQueryClient();
@@ -63,6 +227,7 @@ export default function SmartScheduler() {
   const [showTaskPreview, setShowTaskPreview] = useState(false);
   const [previewShift, setPreviewShift] = useState(null);
   const [generatingTasks, setGeneratingTasks] = useState(false);
+  const [hoveredShift, setHoveredShift] = useState(null);
 
   const [shiftForm, setShiftForm] = useState({
     staff_email: "",
@@ -137,7 +302,6 @@ export default function SmartScheduler() {
 
   const generateTasksMutation = useMutation({
     mutationFn: async (shift) => {
-      // Find responsibilities for this role
       const roleResponsibilities = responsibilities.find(
         r => r.position === shift.role && r.is_active && r.auto_assign_enabled
       );
@@ -150,9 +314,8 @@ export default function SmartScheduler() {
       const shiftDate = shift.shift_date;
       const dayOfWeek = format(parseISO(shiftDate), 'EEEE').toLowerCase();
 
-      // Generate daily tasks
       if (roleResponsibilities.daily_tasks) {
-        roleResponsibilities.daily_tasks.forEach((task, index) => {
+        roleResponsibilities.daily_tasks.forEach((task) => {
           const dueTime = calculateDueTime(shift.end_time, task.estimated_minutes || 30);
           
           tasksToCreate.push({
@@ -177,7 +340,6 @@ export default function SmartScheduler() {
         });
       }
 
-      // Generate weekly tasks if today matches
       if (roleResponsibilities.weekly_tasks) {
         roleResponsibilities.weekly_tasks.forEach((task) => {
           if (task.day_of_week === dayOfWeek) {
@@ -206,17 +368,14 @@ export default function SmartScheduler() {
         });
       }
 
-      // Bulk create tasks
       if (tasksToCreate.length > 0) {
         await base44.entities.AutoGeneratedTask.bulkCreate(tasksToCreate);
         
-        // Update shift to mark tasks as generated
         await base44.entities.Shift.update(shift.id, {
           auto_generated_tasks: true,
           tasks_generated_at: new Date().toISOString(),
         });
 
-        // Send notification to staff
         await base44.entities.TaskNotification.create({
           notification_type: "shift_tasks_ready",
           recipient_email: shift.staff_email,
@@ -291,7 +450,6 @@ export default function SmartScheduler() {
     } else {
       const newShift = await createShiftMutation.mutateAsync(data);
       
-      // Auto-generate tasks if role has responsibilities
       const hasResponsibilities = responsibilities.some(
         r => r.position === data.role && r.is_active && r.auto_assign_enabled
       );
@@ -309,7 +467,6 @@ export default function SmartScheduler() {
       setGeneratingTasks(false);
     } else {
       if (confirm("Tasks already generated. Regenerate and replace existing tasks?")) {
-        // Delete existing tasks for this shift
         const existingTasks = tasks.filter(t => t.shift_id === shift.id);
         for (const task of existingTasks) {
           await base44.entities.AutoGeneratedTask.delete(task.id);
@@ -366,7 +523,6 @@ export default function SmartScheduler() {
 
   const handleDeleteShift = async (shiftId) => {
     if (confirm("Are you sure you want to delete this shift? This will also delete all auto-generated tasks.")) {
-      // Delete associated tasks
       const shiftTasks = tasks.filter(t => t.shift_id === shiftId);
       for (const task of shiftTasks) {
         await base44.entities.AutoGeneratedTask.delete(task.id);
@@ -393,6 +549,9 @@ export default function SmartScheduler() {
   const positionsWithShifts = POSITIONS.filter(pos => 
     shifts.some(shift => shift.role === pos.name)
   );
+
+  // Show all positions if no shifts exist
+  const displayPositions = positionsWithShifts.length > 0 ? positionsWithShifts : POSITIONS;
 
   return (
     <div className="p-6 md:p-8 bg-gray-50 min-h-screen">
@@ -487,8 +646,8 @@ export default function SmartScheduler() {
         <Card className="bg-white border-none shadow-lg overflow-hidden">
           <CardContent className="p-0">
             {/* Table Header */}
-            <div className="grid grid-cols-8 border-b-2 border-gray-300 bg-gradient-to-r from-blue-50 to-blue-100">
-              <div className="p-4 font-bold text-gray-900 border-r border-gray-300">
+            <div className="grid grid-cols-8 border-b-2 border-gray-300 bg-gradient-to-r from-slate-700 to-slate-800">
+              <div className="p-4 font-bold text-white border-r border-gray-600">
                 Position
               </div>
               {weekDates.map((date, index) => {
@@ -496,13 +655,13 @@ export default function SmartScheduler() {
                 return (
                   <div 
                     key={index}
-                    className={`p-4 text-center border-r border-gray-300 ${isToday ? 'bg-yellow-100' : ''}`}
+                    className={`p-4 text-center border-r border-gray-600 ${isToday ? 'bg-yellow-400' : ''}`}
                   >
-                    <div className={`font-bold ${isToday ? 'text-blue-600' : 'text-gray-900'}`}>
-                      {format(date, 'EEE dd')}
+                    <div className={`font-bold ${isToday ? 'text-slate-900' : 'text-white'}`}>
+                      {format(date, 'EEE')}
                     </div>
-                    <div className="text-xs text-gray-500 mt-1">
-                      {format(date, 'MMM')}
+                    <div className={`text-xs mt-1 ${isToday ? 'text-slate-700' : 'text-gray-300'}`}>
+                      {format(date, 'dd MMM')}
                     </div>
                   </div>
                 );
@@ -515,121 +674,107 @@ export default function SmartScheduler() {
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4" />
                 <p className="text-gray-500">Loading schedule...</p>
               </div>
-            ) : positionsWithShifts.length === 0 ? (
-              <div className="p-12 text-center text-gray-500">
-                <Calendar className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                <p className="text-lg font-semibold mb-2">No Shifts Scheduled</p>
-                <p className="text-sm mb-4">Click "Add Shift" to start planning</p>
-                <Button onClick={() => setShowAddShiftDialog(true)} className="bg-blue-600">
-                  <Plus className="w-4 h-4 mr-2" />
-                  Add First Shift
-                </Button>
-              </div>
             ) : (
               <AnimatePresence>
-                {positionsWithShifts.map((position, posIndex) => (
-                  <motion.div
-                    key={posIndex}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: posIndex * 0.05 }}
-                    className={`grid grid-cols-8 border-b border-gray-200 ${position.color}`}
-                  >
-                    {/* Position Label */}
-                    <div className={`p-4 font-semibold ${position.textColor} border-r border-gray-200 flex items-center`}>
-                      {position.name}
-                    </div>
-
-                    {/* Days */}
-                    {weekDates.map((date, dayIndex) => {
-                      const dayShifts = getShiftsByPositionAndDate(position.name, date);
-                      const isToday = isSameDay(date, new Date());
-                      
-                      return (
-                        <div 
-                          key={dayIndex}
-                          className={`p-2 border-r border-gray-200 min-h-[100px] relative ${isToday ? 'bg-yellow-50/30' : ''}`}
-                        >
-                          {dayShifts.map((shift, shiftIndex) => (
-                            <motion.div
-                              key={shiftIndex}
-                              initial={{ scale: 0.8, opacity: 0 }}
-                              animate={{ scale: 1, opacity: 1 }}
-                              transition={{ delay: shiftIndex * 0.1 }}
-                              className={`bg-white rounded-lg shadow-sm p-2 mb-2 border-l-4 ${position.borderColor} hover:shadow-md transition-all cursor-pointer relative group`}
-                            >
-                              <div className="flex items-start gap-2">
-                                <div className={`w-8 h-8 rounded-full ${position.color} flex items-center justify-center flex-shrink-0`}>
-                                  <span className="text-xs font-bold">{shift.staff_name?.charAt(0) || '?'}</span>
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-xs font-semibold text-gray-900 truncate">
-                                    {shift.staff_name || shift.staff_email}
-                                  </p>
-                                  <p className="text-xs text-gray-600">
-                                    {shift.start_time} - {shift.end_time}
-                                  </p>
-                                  <div className="flex items-center gap-1 mt-1 flex-wrap">
-                                    {shift.auto_generated_tasks ? (
-                                      <Badge className="bg-green-100 text-green-800 text-[10px] px-1 py-0">
-                                        <CheckCircle className="w-2 h-2 mr-1" />
-                                        Tasks Ready
-                                      </Badge>
-                                    ) : (
-                                      <Badge className="bg-yellow-100 text-yellow-800 text-[10px] px-1 py-0">
-                                        <AlertCircle className="w-2 h-2 mr-1" />
-                                        No Tasks
-                                      </Badge>
-                                    )}
-                                    {shift.status === 'in_progress' && (
-                                      <Badge className="bg-blue-100 text-blue-800 text-[10px] px-1 py-0">
-                                        Live
-                                      </Badge>
-                                    )}
-                                  </div>
-                                </div>
-                              </div>
-
-                              {/* Hover Actions */}
-                              <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
-                                {!shift.auto_generated_tasks && (
-                                  <button
-                                    onClick={() => handleGenerateTasks(shift)}
-                                    className="p-1 bg-green-600 text-white rounded hover:bg-green-700"
-                                    title="Auto-generate tasks"
-                                  >
-                                    <Zap className="w-3 h-3" />
-                                  </button>
-                                )}
-                                <button
-                                  onClick={() => handlePreviewTasks(shift)}
-                                  className="p-1 bg-blue-600 text-white rounded hover:bg-blue-700"
-                                  title="Preview tasks"
-                                >
-                                  <Eye className="w-3 h-3" />
-                                </button>
-                                <button
-                                  onClick={() => handleEditShift(shift)}
-                                  className="p-1 bg-gray-600 text-white rounded hover:bg-gray-700"
-                                  title="Edit shift"
-                                >
-                                  <Edit className="w-3 h-3" />
-                                </button>
-                                <button
-                                  onClick={() => handleDeleteShift(shift.id)}
-                                  className="p-1 bg-red-600 text-white rounded hover:bg-red-700"
-                                  title="Delete shift"
-                                >
-                                  <Trash2 className="w-3 h-3" />
-                                </button>
-                              </div>
-                            </motion.div>
-                          ))}
+                {displayPositions.map((position, posIndex) => {
+                  const positionShifts = shifts.filter(s => s.role === position.name);
+                  const hasShifts = positionShifts.length > 0;
+                  
+                  return (
+                    <motion.div
+                      key={posIndex}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: posIndex * 0.05 }}
+                      className={`grid grid-cols-8 border-b border-gray-200 ${hasShifts ? position.color : 'bg-white'}`}
+                    >
+                      {/* Position Label with Color Bar */}
+                      <div className="p-4 border-r border-gray-200 flex items-center gap-3">
+                        <div className={`w-1 h-12 rounded ${position.darkColor}`} />
+                        <div>
+                          <p className={`font-bold ${position.textColor}`}>
+                            {position.name}
+                          </p>
+                          {hasShifts && (
+                            <p className="text-xs text-gray-600 mt-0.5">
+                              {positionShifts.length} shift{positionShifts.length !== 1 ? 's' : ''}
+                            </p>
+                          )}
                         </div>
-                      );
-                    })}
-                  </motion.div>
-                ))}
+                      </div>
+
+                      {/* Days */}
+                      {weekDates.map((date, dayIndex) => {
+                        const dayShifts = getShiftsByPositionAndDate(position.name, date);
+                        const isToday = isSameDay(date, new Date());
+                        
+                        return (
+                          <div 
+                            key={dayIndex}
+                            className={`p-2 border-r border-gray-200 min-h-[100px] relative ${isToday ? 'bg-yellow-50/50' : ''} ${!hasShifts ? 'bg-gray-50/30' : ''}`}
+                          >
+                            {dayShifts.length === 0 ? (
+                              <div className="flex items-center justify-center h-full text-xs text-gray-400">
+                                {hasShifts ? 'Empty Slot' : ''}
+                              </div>
+                            ) : (
+                              dayShifts.map((shift, shiftIndex) => (
+                                <Popover key={shiftIndex}>
+                                  <PopoverTrigger asChild>
+                                    <motion.div
+                                      initial={{ scale: 0.8, opacity: 0 }}
+                                      animate={{ scale: 1, opacity: 1 }}
+                                      transition={{ delay: shiftIndex * 0.1 }}
+                                      className={`${position.darkColor} text-white rounded-lg shadow-md p-3 mb-2 cursor-pointer transition-all hover:shadow-lg hover:scale-105`}
+                                    >
+                                      <div className="flex items-center gap-2 mb-2">
+                                        <div className="w-7 h-7 bg-white/20 rounded-full flex items-center justify-center flex-shrink-0 backdrop-blur-sm">
+                                          <span className="text-xs font-bold">{shift.staff_name?.charAt(0) || '?'}</span>
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                          <p className="text-xs font-bold truncate">
+                                            {shift.staff_name || shift.staff_email}
+                                          </p>
+                                        </div>
+                                      </div>
+                                      <p className="text-xs font-semibold mb-1 flex items-center gap-1">
+                                        <Clock className="w-3 h-3" />
+                                        {shift.start_time} - {shift.end_time}
+                                      </p>
+                                      <div className="flex items-center gap-1">
+                                        {shift.auto_generated_tasks ? (
+                                          <Badge className="bg-white/30 text-white text-[10px] px-1.5 py-0.5 backdrop-blur-sm">
+                                            <CheckCircle className="w-2.5 h-2.5 mr-0.5" />
+                                            Tasks Ready
+                                          </Badge>
+                                        ) : (
+                                          <Badge className="bg-yellow-400 text-yellow-900 text-[10px] px-1.5 py-0.5">
+                                            <AlertCircle className="w-2.5 h-2.5 mr-0.5" />
+                                            No Tasks
+                                          </Badge>
+                                        )}
+                                      </div>
+                                    </motion.div>
+                                  </PopoverTrigger>
+                                  <PopoverContent className="w-auto p-4" side="top">
+                                    <ShiftDetailsPopup
+                                      shift={shift}
+                                      position={position}
+                                      onEdit={() => handleEditShift(shift)}
+                                      onDelete={() => handleDeleteShift(shift.id)}
+                                      onGenerateTasks={() => handleGenerateTasks(shift)}
+                                      onPreviewTasks={() => handlePreviewTasks(shift)}
+                                    />
+                                  </PopoverContent>
+                                </Popover>
+                              ))
+                            )}
+                          </div>
+                        );
+                      })}
+                    </motion.div>
+                  );
+                })}
               </AnimatePresence>
             )}
           </CardContent>
@@ -638,25 +783,42 @@ export default function SmartScheduler() {
         {/* Legend */}
         <Card className="mt-6">
           <CardContent className="p-4">
+            <div className="flex flex-wrap gap-6 items-center">
+              <p className="font-semibold text-gray-900">Color Guide:</p>
+              {POSITIONS.map((pos, index) => (
+                <div key={index} className="flex items-center gap-2">
+                  <div className={`w-4 h-4 rounded ${pos.darkColor}`} />
+                  <span className="text-sm text-gray-700">{pos.name}</span>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Quick Actions Legend */}
+        <Card className="mt-4">
+          <CardContent className="p-4">
             <div className="flex flex-wrap gap-4 items-center">
-              <p className="font-semibold text-gray-900">Legend:</p>
-              <Badge className="bg-green-100 text-green-800">
-                <CheckCircle className="w-3 h-3 mr-1" />
-                Tasks Generated
-              </Badge>
-              <Badge className="bg-yellow-100 text-yellow-800">
-                <AlertCircle className="w-3 h-3 mr-1" />
-                No Tasks Yet
-              </Badge>
-              <Badge className="bg-blue-100 text-blue-800">Live Shift</Badge>
-              <Button variant="ghost" size="sm" className="ml-auto">
-                <Zap className="w-4 h-4 mr-2 text-green-600" />
-                Auto-Generate Tasks
-              </Button>
-              <Button variant="ghost" size="sm">
-                <Eye className="w-4 h-4 mr-2 text-blue-600" />
-                Preview Tasks
-              </Button>
+              <p className="font-semibold text-gray-900">Quick Actions:</p>
+              <div className="flex items-center gap-2 text-sm text-gray-600">
+                <Zap className="w-4 h-4 text-green-600" />
+                <span>Auto-Generate Tasks</span>
+              </div>
+              <div className="flex items-center gap-2 text-sm text-gray-600">
+                <Eye className="w-4 h-4 text-blue-600" />
+                <span>Preview Tasks</span>
+              </div>
+              <div className="flex items-center gap-2 text-sm text-gray-600">
+                <Edit className="w-4 h-4 text-gray-600" />
+                <span>Edit Shift</span>
+              </div>
+              <div className="flex items-center gap-2 text-sm text-gray-600">
+                <Trash2 className="w-4 h-4 text-red-600" />
+                <span>Delete Shift</span>
+              </div>
+              <div className="ml-auto text-sm text-gray-500 italic">
+                💡 Hover over any shift for detailed options
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -783,7 +945,7 @@ export default function SmartScheduler() {
 
       {/* Task Preview Dialog */}
       <Dialog open={showTaskPreview} onOpenChange={setShowTaskPreview}>
-        <DialogContent className="max-w-3xl">
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Task Preview: {previewShift?.staff_name}</DialogTitle>
           </DialogHeader>
