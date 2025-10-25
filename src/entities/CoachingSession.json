@@ -1,0 +1,157 @@
+{
+  "name": "CoachingSession",
+  "type": "object",
+  "properties": {
+    "staff_email": {
+      "type": "string",
+      "description": "Staff member email being coached"
+    },
+    "staff_name": {
+      "type": "string",
+      "description": "Staff member name"
+    },
+    "manager_email": {
+      "type": "string",
+      "description": "Manager conducting the session"
+    },
+    "manager_name": {
+      "type": "string",
+      "description": "Manager name"
+    },
+    "session_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Date of coaching session"
+    },
+    "period": {
+      "type": "string",
+      "description": "Time period covered (e.g., 'Week 1 Jan 2024', 'Q1 2024')"
+    },
+    "self_reflection": {
+      "type": "object",
+      "properties": {
+        "what_went_well": {
+          "type": "string",
+          "description": "Staff's positive achievements"
+        },
+        "challenges_faced": {
+          "type": "string",
+          "description": "Difficulties encountered"
+        },
+        "areas_for_improvement": {
+          "type": "string",
+          "description": "What staff wants to improve"
+        },
+        "support_needed": {
+          "type": "string",
+          "description": "Help needed from manager"
+        }
+      },
+      "description": "Staff member's self-reflection responses"
+    },
+    "manager_feedback": {
+      "type": "object",
+      "properties": {
+        "strengths_observed": {
+          "type": "string",
+          "description": "Positive behaviors manager noticed"
+        },
+        "areas_to_develop": {
+          "type": "string",
+          "description": "Skills to work on"
+        },
+        "specific_examples": {
+          "type": "string",
+          "description": "Concrete examples of performance"
+        },
+        "action_items": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Specific actions to take"
+        }
+      },
+      "description": "Manager's feedback and observations"
+    },
+    "goals_set": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "goal": {
+            "type": "string"
+          },
+          "deadline": {
+            "type": "string",
+            "format": "date"
+          },
+          "measurement": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "not_started",
+              "in_progress",
+              "achieved",
+              "missed"
+            ],
+            "default": "not_started"
+          }
+        }
+      },
+      "description": "Goals set during this session"
+    },
+    "follow_up_date": {
+      "type": "string",
+      "format": "date",
+      "description": "When to check progress next"
+    },
+    "attachments": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "File URLs for supporting documents"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "scheduled",
+        "self_reflection_pending",
+        "manager_review_pending",
+        "completed",
+        "cancelled"
+      ],
+      "default": "scheduled",
+      "description": "Current status of coaching session"
+    },
+    "overall_score": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 10,
+      "description": "Manager's overall rating (0-10)"
+    },
+    "session_notes": {
+      "type": "string",
+      "description": "Additional notes from the session"
+    },
+    "previous_session_id": {
+      "type": "string",
+      "description": "Link to previous coaching session for tracking progress"
+    },
+    "completed_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When session was completed"
+    }
+  },
+  "required": [
+    "staff_email",
+    "manager_email",
+    "session_date",
+    "period",
+    "status"
+  ]
+}

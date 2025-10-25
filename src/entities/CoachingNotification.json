@@ -1,0 +1,84 @@
+{
+  "name": "CoachingNotification",
+  "type": "object",
+  "properties": {
+    "staff_email": {
+      "type": "string",
+      "description": "Recipient staff member email"
+    },
+    "staff_name": {
+      "type": "string",
+      "description": "Recipient staff member name"
+    },
+    "notification_type": {
+      "type": "string",
+      "enum": [
+        "reminder",
+        "session_scheduled",
+        "self_reflection_due",
+        "feedback_received",
+        "goal_due",
+        "badge_earned",
+        "completed"
+      ],
+      "description": "Type of notification"
+    },
+    "message": {
+      "type": "string",
+      "description": "Notification message content"
+    },
+    "title": {
+      "type": "string",
+      "description": "Notification title/subject"
+    },
+    "coaching_session_id": {
+      "type": "string",
+      "description": "Related coaching session if applicable"
+    },
+    "action_url": {
+      "type": "string",
+      "description": "Link to take action (e.g., complete self-reflection)"
+    },
+    "priority": {
+      "type": "string",
+      "enum": [
+        "low",
+        "normal",
+        "high",
+        "urgent"
+      ],
+      "default": "normal",
+      "description": "Notification priority"
+    },
+    "date_sent": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When notification was sent"
+    },
+    "read_status": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether notification has been read"
+    },
+    "read_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When notification was read"
+    },
+    "due_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Deadline for action if applicable"
+    },
+    "metadata": {
+      "type": "object",
+      "description": "Additional context data"
+    }
+  },
+  "required": [
+    "staff_email",
+    "notification_type",
+    "message",
+    "date_sent"
+  ]
+}

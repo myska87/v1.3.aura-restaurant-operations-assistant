@@ -1,0 +1,74 @@
+{
+  "name": "CoachingBadge",
+  "type": "object",
+  "properties": {
+    "staff_email": {
+      "type": "string",
+      "description": "Staff member who earned the badge"
+    },
+    "staff_name": {
+      "type": "string",
+      "description": "Staff member name"
+    },
+    "badge_name": {
+      "type": "string",
+      "description": "Name of the badge earned"
+    },
+    "badge_icon": {
+      "type": "string",
+      "description": "Emoji or icon for the badge"
+    },
+    "badge_type": {
+      "type": "string",
+      "enum": [
+        "performance",
+        "consistency",
+        "improvement",
+        "milestone",
+        "leadership"
+      ],
+      "description": "Category of badge"
+    },
+    "description": {
+      "type": "string",
+      "description": "What this badge represents"
+    },
+    "criteria_met": {
+      "type": "string",
+      "description": "What achievement unlocked this badge"
+    },
+    "date_awarded": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When badge was earned"
+    },
+    "awarded_by": {
+      "type": "string",
+      "description": "Manager who awarded it"
+    },
+    "points_value": {
+      "type": "number",
+      "default": 0,
+      "description": "Performance points associated with badge"
+    },
+    "coaching_session_id": {
+      "type": "string",
+      "description": "Link to coaching session where badge was earned"
+    },
+    "is_public": {
+      "type": "boolean",
+      "default": true,
+      "description": "Display on public recognition board"
+    },
+    "celebration_message": {
+      "type": "string",
+      "description": "Custom message celebrating this achievement"
+    }
+  },
+  "required": [
+    "staff_email",
+    "badge_name",
+    "description",
+    "date_awarded"
+  ]
+}
