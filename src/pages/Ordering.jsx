@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -21,11 +22,8 @@ export default function Ordering() {
     queryFn: () => base44.entities.PurchaseOrder.list('-order_date'),
   });
 
-  // Separate orders by status
+  // Separate orders by status. Only draft orders are displayed in the main view
   const draftOrders = allOrders.filter(o => o.status === 'draft');
-  const pendingOrders = allOrders.filter(o => o.status === 'pending_approval');
-  const inDeliveryOrders = allOrders.filter(o => o.status === 'in_delivery');
-  const awaitingCheckOrders = allOrders.filter(o => o.status === 'delivered_awaiting_check');
 
   const updateOrderMutation = useMutation({
     mutationFn: ({ id, data }) => base44.entities.PurchaseOrder.update(id, data),
@@ -41,55 +39,97 @@ export default function Ordering() {
     },
   });
 
-  const handleSendOrder = async (order) => {
-    setSendingOrder(order.id);
-    const deliveryDate = deliveryDates[order.id] || null;
+  const generateEmailContent = (order, deliveryDate) => {
+    const subject = `Purchase Order ${order.order_number} from AURA Restaurant`;
+    
+    const body = `Dear ${order.supplier_name},
 
-    try {
-      // Send email
-      const emailBody = `
-Dear ${order.supplier_name},
+Please find our purchase order details below:
 
-Purchase Order: ${order.order_number}
-Date: ${format(new Date(), "PPP")}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📋 PURCHASE ORDER: ${order.order_number}
+📅 Date: ${format(new Date(), "PPP")}
+🏪 From: AURA Restaurant Management System
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-ITEMS:
-${order.items.map(item => 
-  `• ${item.ingredient_name}: ${item.quantity_ordered} ${item.unit} @ £${item.unit_cost.toFixed(2)} = £${item.line_total.toFixed(2)}`
-).join('\n')}
+ITEMS ORDERED:
+${order.items.map((item, index) => 
+  `${index + 1}. ${item.ingredient_name}
+   Quantity: ${item.quantity_ordered} ${item.unit}
+   Unit Price: £${item.unit_cost.toFixed(2)}
+   Line Total: £${item.line_total.toFixed(2)}`
+).join('\n\n')}
 
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+TOTALS:
 Subtotal: £${order.subtotal.toFixed(2)}
 VAT (20%): £${order.tax.toFixed(2)}
-TOTAL: £${order.total.toFixed(2)}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+GRAND TOTAL: £${order.total.toFixed(2)}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Expected Delivery: ${deliveryDate ? format(new Date(deliveryDate), "PPP") : 'TBD'}
+${deliveryDate ? `📦 Expected Delivery Date: ${format(new Date(deliveryDate), 'PPP')}` : '📦 Expected Delivery Date: Please confirm'}
 
-Please confirm receipt of this order.
+Please confirm receipt of this order and provide:
+1. Order confirmation
+2. Expected delivery date (if not specified above)
+3. Any changes to pricing or availability
 
-Thank you,
-AURA Restaurant Management
-      `;
+If you have any questions, please contact us immediately.
 
-      await base44.integrations.Core.SendEmail({
-        to: order.supplier_email,
-        subject: `Purchase Order ${order.order_number}`,
-        body: emailBody,
-      });
+Thank you for your continued service.
 
-      await updateOrderMutation.mutateAsync({
-        id: order.id,
-        data: {
-          status: 'pending_approval',
-          expected_delivery_date: deliveryDate,
-          email_sent_at: new Date().toISOString(),
+Best regards,
+AURA Restaurant Management Team`;
+
+    return { subject, body };
+  };
+
+  const handleSendOrder = async (order) => {
+    const deliveryDate = deliveryDates[order.id];
+
+    if (!deliveryDate) {
+      if (!confirm('⚠️ No delivery date specified. Send order anyway?')) {
+        return;
+      }
+    }
+
+    setSendingOrder(order.id);
+
+    try {
+      // Generate email content
+      const { subject, body } = generateEmailContent(order, deliveryDate);
+
+      // Create mailto: link
+      const mailtoLink = `mailto:${order.supplier_email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+
+      // Open email client
+      window.location.href = mailtoLink;
+
+      // Wait a moment for email to open, then update status
+      setTimeout(async () => {
+        try {
+          await updateOrderMutation.mutateAsync({
+            id: order.id,
+            data: {
+              status: 'pending_approval',
+              expected_delivery_date: deliveryDate || null,
+              email_sent_at: new Date().toISOString(),
+            }
+          });
+
+          alert(`✅ Email opened! Order ${order.order_number} moved to Pending Approval.\n\nPlease send the email from your email program.`);
+        } catch (error) {
+          console.error("Error updating order:", error);
+          alert("⚠️ Email opened but failed to update order status. Please try again.");
+        } finally {
+          setSendingOrder(null);
         }
-      });
+      }, 1000);
 
-      alert(`✅ Order ${order.order_number} sent successfully to ${order.supplier_name}!`);
     } catch (error) {
       console.error("Error sending order:", error);
-      alert("Failed to send order. Please try again.");
-    } finally {
+      alert("Failed to open email. Please try again.");
       setSendingOrder(null);
     }
   };
@@ -156,27 +196,6 @@ AURA Restaurant Management
     });
   };
 
-  const getStatusBadge = (status) => {
-    const styles = {
-      draft: 'bg-gray-100 text-gray-800',
-      pending_approval: 'bg-amber-100 text-amber-800',
-      in_delivery: 'bg-blue-100 text-blue-800',
-      delivered_awaiting_check: 'bg-purple-100 text-purple-800',
-      approved_received: 'bg-green-100 text-green-800',
-      cancelled: 'bg-red-100 text-red-800',
-    };
-    return styles[status] || 'bg-gray-100 text-gray-800';
-  };
-
-  const getStatusIcon = (status) => {
-    switch(status) {
-      case 'pending_approval': return <Mail className="w-4 h-4" />;
-      case 'in_delivery': return <Truck className="w-4 h-4" />;
-      case 'delivered_awaiting_check': return <Clock className="w-4 h-4" />;
-      default: return <ShoppingCart className="w-4 h-4" />;
-    }
-  };
-
   const OrderCard = ({ order, showActions = true }) => (
     <Card className="bg-white border-none shadow-sm">
       <CardHeader className="border-b border-gray-100">
@@ -191,15 +210,19 @@ AURA Restaurant Management
               <p className="text-xs text-gray-500 mt-1 italic">{order.notes}</p>
             )}
             {order.email_sent_at && (
-              <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
-                <Mail className="w-3 h-3" />
-                Email sent: {format(new Date(order.email_sent_at), 'PPP p')}
+              <p className="text-xs text-green-600 mt-1">
+                ✉️ Email sent: {format(new Date(order.email_sent_at), 'PPP p')}
               </p>
             )}
           </div>
           <div className="flex items-center gap-2">
-            {getStatusIcon(order.status)}
-            <Badge className={getStatusBadge(order.status)}>
+            <Badge className={
+              order.status === 'sent' || order.status === 'pending_approval' ? 'bg-amber-100 text-amber-800' :
+              order.status === 'confirmed' ? 'bg-blue-100 text-blue-800' :
+              order.status === 'partially_received' ? 'bg-purple-100 text-purple-800' :
+              order.status === 'draft' ? 'bg-gray-100 text-gray-800' :
+              'bg-gray-100 text-gray-800' // Default or other statuses
+            }>
               {order.status.replace(/_/g, ' ')}
             </Badge>
             {order.status === 'draft' && (
@@ -293,11 +316,11 @@ AURA Restaurant Management
                 className="bg-green-600 hover:bg-green-700"
               >
                 {sendingOrder === order.id ? (
-                  <>Sending...</>
+                  <>Opening Email...</>
                 ) : (
                   <>
                     <Send className="w-4 h-4 mr-2" />
-                    Send Order
+                    Open Email & Send Order
                   </>
                 )}
               </Button>
@@ -305,35 +328,46 @@ AURA Restaurant Management
           </div>
         )}
 
-        {showActions && ['pending_approval', 'in_delivery', 'delivered_awaiting_check'].includes(order.status) && (
-          <div className="mt-6 flex gap-3">
-            {order.status === 'pending_approval' && (
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => handleStatusChange(order.id, 'in_delivery')}
-              >
-                <Truck className="w-4 h-4 mr-2" />
-                Mark as In Delivery
+        {showActions && order.status === 'pending_approval' && (
+          <div className="mt-6 bg-amber-50 border border-amber-200 rounded-lg p-4">
+            <p className="text-sm text-amber-800 mb-3">
+              ⏳ Awaiting supplier confirmation. Once confirmed, mark as:
+            </p>
+            <Button
+              size="sm"
+              onClick={() => handleStatusChange(order.id, 'confirmed')}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              ✓ Mark as Confirmed
+            </Button>
+          </div>
+        )}
+
+        {showActions && order.status === 'confirmed' && (
+          <div className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <p className="text-sm text-blue-800 mb-3">
+              📦 Order confirmed by supplier. Waiting for delivery.
+            </p>
+            <Button
+              size="sm"
+              onClick={() => handleStatusChange(order.id, 'partially_received')}
+              className="bg-purple-600 hover:bg-purple-700"
+            >
+              Mark as Delivered
+            </Button>
+          </div>
+        )}
+
+        {showActions && order.status === 'partially_received' && (
+          <div className="mt-6 bg-purple-50 border border-purple-200 rounded-lg p-4">
+            <p className="text-sm text-purple-800 mb-3">
+              📋 Delivery received. Go to Order History to verify and complete.
+            </p>
+            <Link to={createPageUrl('OrderHistory')}>
+              <Button size="sm" className="bg-green-600 hover:bg-green-700">
+                Go to Order History →
               </Button>
-            )}
-            {order.status === 'in_delivery' && (
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => handleStatusChange(order.id, 'delivered_awaiting_check')}
-              >
-                <Clock className="w-4 h-4 mr-2" />
-                Mark as Delivered
-              </Button>
-            )}
-            {order.status === 'delivered_awaiting_check' && (
-              <Link to={createPageUrl('OrderHistory')}>
-                <Button size="sm" className="bg-purple-600 hover:bg-purple-700">
-                  Complete Delivery Check
-                </Button>
-              </Link>
-            )}
+            </Link>
           </div>
         )}
       </CardContent>
@@ -373,73 +407,32 @@ AURA Restaurant Management
               </div>
             </CardContent>
           </Card>
+        ) : draftOrders.length === 0 ? (
+          <Card className="bg-white">
+            <CardContent className="p-12 text-center">
+              <ShoppingCart className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+              <p className="text-gray-500 mb-4">No draft orders yet</p>
+              <p className="text-sm text-gray-400 mb-6">
+                Add items to cart from Inventory Management or create orders from Production Planning
+              </p>
+              <div className="flex gap-3 justify-center">
+                <Link to={createPageUrl("InventoryManagement")}>
+                  <Button variant="outline">Go to Inventory</Button>
+                </Link>
+                <Link to={createPageUrl("ProductionPlanning")}>
+                  <Button className="bg-green-600 hover:bg-green-700">Production Planning</Button>
+                </Link>
+              </div>
+            </CardContent>
+          </Card>
         ) : (
-          <div className="space-y-8">
-            {/* Draft Orders */}
-            {draftOrders.length > 0 && (
-              <div>
-                <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
-                  <ShoppingCart className="w-5 h-5" />
-                  Draft Orders ({draftOrders.length})
-                </h2>
-                <div className="space-y-4">
-                  {draftOrders.map(order => <OrderCard key={order.id} order={order} />)}
-                </div>
-              </div>
-            )}
-
-            {/* Pending Approval */}
-            {pendingOrders.length > 0 && (
-              <div>
-                <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
-                  <Mail className="w-5 h-5 text-amber-600" />
-                  Pending Approval ({pendingOrders.length})
-                </h2>
-                <div className="space-y-4">
-                  {pendingOrders.map(order => <OrderCard key={order.id} order={order} />)}
-                </div>
-              </div>
-            )}
-
-            {/* In Delivery */}
-            {inDeliveryOrders.length > 0 && (
-              <div>
-                <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
-                  <Truck className="w-5 h-5 text-blue-600" />
-                  In Delivery ({inDeliveryOrders.length})
-                </h2>
-                <div className="space-y-4">
-                  {inDeliveryOrders.map(order => <OrderCard key={order.id} order={order} />)}
-                </div>
-              </div>
-            )}
-
-            {/* Awaiting Check */}
-            {awaitingCheckOrders.length > 0 && (
-              <div>
-                <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
-                  <Clock className="w-5 h-5 text-purple-600" />
-                  Awaiting Check ({awaitingCheckOrders.length})
-                </h2>
-                <div className="space-y-4">
-                  {awaitingCheckOrders.map(order => <OrderCard key={order.id} order={order} />)}
-                </div>
-              </div>
-            )}
-
-            {allOrders.length === 0 && (
-              <Card className="bg-white">
-                <CardContent className="p-12 text-center">
-                  <ShoppingCart className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                  <p className="text-gray-500 mb-4">No orders yet</p>
-                  <Link to={createPageUrl("ProductionPlanning")}>
-                    <Button className="bg-green-600 hover:bg-green-700">
-                      Create Production Plan
-                    </Button>
-                  </Link>
-                </CardContent>
-              </Card>
-            )}
+          <div className="space-y-6">
+            <h2 className="text-2xl font-bold text-gray-900 mb-4">
+              Draft Orders ({draftOrders.length})
+            </h2>
+            {draftOrders.map(order => (
+              <OrderCard key={order.id} order={order} />
+            ))}
           </div>
         )}
       </div>
