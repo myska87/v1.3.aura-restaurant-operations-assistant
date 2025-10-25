@@ -30,6 +30,9 @@ import CoachingDashboard from './pages/CoachingDashboard';
 import StartCoachingSession from './pages/StartCoachingSession';
 import CommunicationFeedback from './pages/CommunicationFeedback';
 import TeamChat from './pages/TeamChat';
+import Announcements from './pages/Announcements';
+import SuggestionBox from './pages/SuggestionBox';
+import TeamDirectory from './pages/TeamDirectory';
 import Layout from './Layout.jsx';
 
 
@@ -66,6 +69,9 @@ export const PAGES = {
     "StartCoachingSession": StartCoachingSession,
     "CommunicationFeedback": CommunicationFeedback,
     "TeamChat": TeamChat,
+    "Announcements": Announcements,
+    "SuggestionBox": SuggestionBox,
+    "TeamDirectory": TeamDirectory,
 }
 
 export const pagesConfig = {
