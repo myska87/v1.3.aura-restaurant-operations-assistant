@@ -57,6 +57,9 @@ import {
   RotateCw,
   Check,
   Ban,
+  ChevronUp, // New import
+  ChevronDown, // New import
+  PenTool, // New import
 } from "lucide-react";
 import { format } from "date-fns";
 import { Link, useNavigate, useLocation } from "react-router-dom";
@@ -81,12 +84,7 @@ export default function AdvancedChecklists() {
     advance_notice_days: 14, // New field for advance notice
     tasks: [],
   });
-  const [newTask, setNewTask] = useState({
-    description: "",
-    requires_photo: false,
-    requires_signature: false,
-    requires_temperature: false,
-  });
+  const [newTask, setNewTask] = useState(""); // Changed from object to string
 
   const { data: user } = useQuery({
     queryKey: ['currentUser'],
@@ -598,12 +596,7 @@ export default function AdvancedChecklists() {
       advance_notice_days: 14, // Reset this new field
       tasks: [],
     });
-    setNewTask({
-      description: "",
-      requires_photo: false,
-      requires_signature: false,
-      requires_temperature: false,
-    });
+    setNewTask(""); // Changed from object to string
   };
 
   const handleEdit = (template) => {
@@ -622,14 +615,14 @@ export default function AdvancedChecklists() {
   };
 
   const handleAddTask = () => {
-    if (!newTask.description.trim()) return;
+    if (!newTask.trim()) return;
     
     const task = {
       task_id: `task_${Date.now()}`,
-      description: newTask.description,
-      requires_photo: newTask.requires_photo,
-      requires_signature: newTask.requires_signature,
-      requires_temperature: newTask.requires_temperature,
+      description: newTask.trim(),
+      requires_photo: false, // Default to false, editable per task
+      requires_signature: false, // Default to false, editable per task
+      requires_temperature: false, // Default to false, editable per task
       order: formData.tasks.length,
     };
 
@@ -638,12 +631,7 @@ export default function AdvancedChecklists() {
       tasks: [...formData.tasks, task]
     });
 
-    setNewTask({
-      description: "",
-      requires_photo: false,
-      requires_signature: false,
-      requires_temperature: false,
-    });
+    setNewTask(""); // Clear new task input
   };
 
   const handleRemoveTask = (taskId) => {
@@ -655,6 +643,16 @@ export default function AdvancedChecklists() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    if (!formData.name.trim()) {
+      alert("Template Name is required.");
+      return;
+    }
+    if (formData.tasks.length === 0) {
+      alert("At least one task is required.");
+      return;
+    }
+
     const data = {
       ...formData,
       is_active: true,
@@ -799,7 +797,7 @@ export default function AdvancedChecklists() {
                   <AlertTriangle className="w-5 h-5 text-red-600" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold text-gray-900">{stats.overdue}</p>
+                  <p className="2xl font-bold text-gray-900">{stats.overdue}</p>
                   <p className="text-xs text-gray-600">Overdue</p>
                 </div>
               </div>
@@ -890,7 +888,7 @@ export default function AdvancedChecklists() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="text-lg font-semibold text-green-900 mb-1">
+                  <h3 className="lg font-semibold text-green-900 mb-1">
                     🧼 Quick Setup: 6-Monthly Hygiene Inspection
                   </h3>
                   <p className="text-sm text-green-700">
@@ -1476,24 +1474,24 @@ function TemplatesView({
             <form onSubmit={handleSubmit} className="space-y-6 mt-4">
               <div className="grid md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="name">Template Name</Label>
+                  <Label htmlFor="name">Template Name *</Label>
                   <Input
                     id="name"
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    placeholder="e.g., Opening Kitchen Routine"
+                    placeholder="e.g., Opening Kitchen Checklist"
                     required
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="shift_type">Shift Phase</Label>
+                  <Label htmlFor="shift_type">Shift Phase *</Label>
                   <Select
                     value={formData.shift_type}
                     onValueChange={(value) => setFormData({ ...formData, shift_type: value })}
                   >
                     <SelectTrigger>
-                      <SelectValue />
+                      <SelectValue placeholder="Select shift phase" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="opening">Opening Shift</SelectItem>
@@ -1503,26 +1501,6 @@ function TemplatesView({
                     </SelectContent>
                   </Select>
                 </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="reminder_minutes">Reminder (minutes after shift start)</Label>
-                  <Input
-                    id="reminder_minutes"
-                    type="number"
-                    value={formData.reminder_minutes}
-                    onChange={(e) => setFormData({ ...formData, reminder_minutes: parseInt(e.target.value) })}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="advance_notice_days">Advance Notice (days before due)</Label>
-                  <Input
-                    id="advance_notice_days"
-                    type="number"
-                    value={formData.advance_notice_days}
-                    onChange={(e) => setFormData({ ...formData, advance_notice_days: parseInt(e.target.value) })}
-                  />
-                </div>
               </div>
 
               <div className="space-y-2">
@@ -1531,101 +1509,196 @@ function TemplatesView({
                   id="description"
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  placeholder="What is this checklist for?"
                   rows={2}
                 />
               </div>
 
-              {/* Tasks Section */}
-              <div className="space-y-4">
-                <div className="flex justify-between items-center">
-                  <Label className="text-lg font-semibold">Tasks</Label>
-                  <span className="text-sm text-gray-500">{formData.tasks.length} tasks</span>
+              <div className="grid md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="reminder_minutes">Reminder (minutes after shift start)</Label>
+                  <Input
+                    id="reminder_minutes"
+                    type="number"
+                    value={formData.reminder_minutes}
+                    onChange={(e) => setFormData({ ...formData, reminder_minutes: parseInt(e.target.value) || 15 })}
+                    min="0"
+                  />
                 </div>
 
-                {/* Add Task Form */}
+                <div className="space-y-2">
+                  <Label htmlFor="advance_notice">Advance Notice (days before due)</Label>
+                  <Input
+                    id="advance_notice"
+                    type="number"
+                    value={formData.advance_notice_days}
+                    onChange={(e) => setFormData({ ...formData, advance_notice_days: parseInt(e.target.value) || 14 })}
+                    min="0"
+                  />
+                </div>
+              </div>
+
+              {/* Task Builder */}
+              <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <Label className="text-lg font-semibold">Checklist Tasks *</Label>
+                  <Badge variant="outline">{formData.tasks.length} tasks</Badge>
+                </div>
+
+                {/* Add Task Section */}
                 <Card className="bg-gray-50">
-                  <CardContent className="p-4 space-y-3">
-                    <Input
-                      placeholder="Task description..."
-                      value={newTask.description}
-                      onChange={(e) => setNewTask({ ...newTask, description: e.target.value })}
-                      onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddTask())}
-                    />
-                    <div className="flex flex-wrap gap-4">
-                      <div className="flex items-center gap-2">
-                        <Checkbox
-                          id="requires_photo"
-                          checked={newTask.requires_photo}
-                          onCheckedChange={(checked) => setNewTask({ ...newTask, requires_photo: checked })}
-                        />
-                        <Label htmlFor="requires_photo" className="text-sm cursor-pointer">
-                          Requires Photo
-                        </Label>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Checkbox
-                          id="requires_temperature"
-                          checked={newTask.requires_temperature}
-                          onCheckedChange={(checked) => setNewTask({ ...newTask, requires_temperature: checked })}
-                        />
-                        <Label htmlFor="requires_temperature" className="text-sm cursor-pointer">
-                          Requires Temperature
-                        </Label>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Checkbox
-                          id="requires_signature"
-                          checked={newTask.requires_signature}
-                          onCheckedChange={(checked) => setNewTask({ ...newTask, requires_signature: checked })}
-                        />
-                        <Label htmlFor="requires_signature" className="text-sm cursor-pointer">
-                          Requires Signature
-                        </Label>
+                  <CardContent className="p-4">
+                    <div className="space-y-3">
+                      <Input
+                        placeholder="Enter task description..."
+                        value={newTask}
+                        onChange={(e) => setNewTask(e.target.value)}
+                        onKeyPress={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            handleAddTask();
+                          }
+                        }}
+                      />
+                      <div className="flex gap-2">
+                        <Button
+                          type="button"
+                          onClick={handleAddTask}
+                          disabled={!newTask.trim()}
+                          size="sm"
+                          className="flex-1"
+                        >
+                          <Plus className="w-4 h-4 mr-2" />
+                          Add Task
+                        </Button>
                       </div>
                     </div>
-                    <Button type="button" onClick={handleAddTask} size="sm" className="w-full">
-                      <Plus className="w-4 h-4 mr-2" />
-                      Add Task
-                    </Button>
                   </CardContent>
                 </Card>
 
                 {/* Tasks List */}
-                {formData.tasks.length > 0 && (
+                {formData.tasks.length === 0 ? (
+                  <div className="text-center py-8 text-gray-500 border-2 border-dashed border-gray-200 rounded-lg">
+                    <p>No tasks added yet. Add tasks above to build your checklist.</p>
+                  </div>
+                ) : (
                   <div className="space-y-2">
                     {formData.tasks.map((task, index) => (
                       <Card key={task.task_id} className="border border-gray-200">
                         <CardContent className="p-4">
-                          <div className="flex items-start gap-3">
-                            <div className="mt-1">
-                              <GripVertical className="w-5 h-5 text-gray-400" />
+                          <div className="flex gap-3">
+                            <div className="flex flex-col gap-1 items-center">
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => {
+                                  if (index > 0) {
+                                    const newTasks = [...formData.tasks];
+                                    [newTasks[index], newTasks[index - 1]] = [newTasks[index - 1], newTasks[index]];
+                                    setFormData({ ...formData, tasks: newTasks });
+                                  }
+                                }}
+                                disabled={index === 0}
+                                className="h-6 w-6"
+                              >
+                                <ChevronUp className="w-3 h-3" />
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => {
+                                  if (index < formData.tasks.length - 1) {
+                                    const newTasks = [...formData.tasks];
+                                    [newTasks[index], newTasks[index + 1]] = [newTasks[index + 1], newTasks[index]];
+                                    setFormData({ ...formData, tasks: newTasks });
+                                  }
+                                }}
+                                disabled={index === formData.tasks.length - 1}
+                                className="h-6 w-6"
+                              >
+                                <ChevronDown className="w-3 h-3" />
+                              </Button>
                             </div>
-                            <div className="flex-1">
-                              <div className="flex justify-between items-start">
-                                <div>
-                                  <p className="font-medium text-gray-900">{index + 1}. {task.description}</p>
-                                  <div className="flex gap-2 mt-1">
-                                    {task.requires_photo && (
-                                      <Badge variant="outline" className="text-xs">📸 Photo</Badge>
-                                    )}
-                                    {task.requires_temperature && (
-                                      <Badge variant="outline" className="text-xs">🌡️ Temp</Badge>
-                                    )}
-                                    {task.requires_signature && (
-                                      <Badge variant="outline" className="text-xs">✍️ Sign</Badge>
-                                    )}
-                                  </div>
-                                </div>
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="icon"
-                                  onClick={() => handleRemoveTask(task.task_id)}
-                                >
-                                  <Trash2 className="w-4 h-4 text-red-500" />
-                                </Button>
+
+                            <div className="flex-1 space-y-2">
+                              <div className="flex items-start gap-2">
+                                <span className="font-semibold text-gray-500 text-sm mt-1">#{index + 1}</span>
+                                <Input
+                                  value={task.description}
+                                  onChange={(e) => {
+                                    const updatedTasks = formData.tasks.map(t =>
+                                      t.task_id === task.task_id
+                                        ? { ...t, description: e.target.value }
+                                        : t
+                                    );
+                                    setFormData({ ...formData, tasks: updatedTasks });
+                                  }}
+                                  className="flex-1"
+                                  placeholder="Task description"
+                                />
+                              </div>
+
+                              <div className="flex flex-wrap gap-2">
+                                <label className="flex items-center gap-2 text-sm">
+                                  <Checkbox
+                                    checked={task.requires_photo}
+                                    onCheckedChange={(checked) => {
+                                      const updatedTasks = formData.tasks.map(t =>
+                                        t.task_id === task.task_id
+                                          ? { ...t, requires_photo: checked }
+                                          : t
+                                      );
+                                      setFormData({ ...formData, tasks: updatedTasks });
+                                    }}
+                                  />
+                                  <Camera className="w-3 h-3" />
+                                  Photo
+                                </label>
+
+                                <label className="flex items-center gap-2 text-sm">
+                                  <Checkbox
+                                    checked={task.requires_temperature}
+                                    onCheckedChange={(checked) => {
+                                      const updatedTasks = formData.tasks.map(t =>
+                                        t.task_id === task.task_id
+                                          ? { ...t, requires_temperature: checked }
+                                          : t
+                                      );
+                                      setFormData({ ...formData, tasks: updatedTasks });
+                                    }}
+                                  />
+                                  <Thermometer className="w-3 h-3" />
+                                  Temperature
+                                </label>
+
+                                <label className="flex items-center gap-2 text-sm">
+                                  <Checkbox
+                                    checked={task.requires_signature}
+                                    onCheckedChange={(checked) => {
+                                      const updatedTasks = formData.tasks.map(t =>
+                                        t.task_id === task.task_id
+                                          ? { ...t, requires_signature: checked }
+                                          : t
+                                      );
+                                      setFormData({ ...formData, tasks: updatedTasks });
+                                    }}
+                                  />
+                                  <PenTool className="w-3 h-3" />
+                                  Signature
+                                </label>
                               </div>
                             </div>
+
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleRemoveTask(task.task_id)}
+                            >
+                              <Trash2 className="w-4 h-4 text-red-500" />
+                            </Button>
                           </div>
                         </CardContent>
                       </Card>
@@ -1634,13 +1707,18 @@ function TemplatesView({
                 )}
               </div>
 
-              <div className="flex justify-end gap-3 pt-4">
-                <Button type="button" variant="outline" onClick={resetForm}>
+              {/* Form Actions */}
+              <div className="flex justify-end gap-3 pt-4 border-t">
+                <Button type="button" variant="outline" onClick={() => {
+                  setShowForm(false);
+                  resetForm();
+                }}>
                   Cancel
                 </Button>
                 <Button 
                   type="submit" 
-                  disabled={formData.tasks.length === 0}
+                  disabled={!formData.name || formData.tasks.length === 0}
+                  className="bg-blue-600 hover:bg-blue-700"
                 >
                   {editingTemplate ? 'Update Template' : 'Create Template'}
                 </Button>
@@ -2105,7 +2183,7 @@ export function ExecuteChecklistPage() {
                   <CardContent className="p-5 space-y-4">
                     <div className="flex items-start">
                       <div className="flex-shrink-0 mr-3 mt-1">
-                        {task.status === 'pass' && <CheckCircle className="w-5 h-5 text-green-500" />}
+                        {task.status === 'pass' && <Check className="w-5 h-5 text-green-500" />}
                         {task.status === 'fail' && <X className="w-5 h-5 text-red-500" />}
                         {task.status === 'na' && <Ban className="w-5 h-5 text-gray-500" />}
                         {!task.status || task.status === 'pending' && <Clock className="w-5 h-5 text-gray-400" />}
