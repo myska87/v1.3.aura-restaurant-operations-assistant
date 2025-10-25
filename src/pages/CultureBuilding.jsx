@@ -428,13 +428,21 @@ export default function CultureBuilding() {
                 </div>
 
                 {showQuiz.quiz_questions?.map((q, index) => (
-                  <div key={index} className="space-y-3 p-4 bg-gray-50 rounded-lg">
-                    <Label className="text-base font-semibold text-gray-900">
+                  <div key={index} className="space-y-3 p-4 bg-gray-50 rounded-lg border border-gray-200">
+                    <Label className="text-base font-semibold text-gray-900 block mb-3">
                       {index + 1}. {q.question}
                     </Label>
-                    <div className="space-y-2 pl-2">
+                    <div className="space-y-2">
                       {q.options.map((option, optIndex) => (
-                        <div key={optIndex} className="flex items-center gap-3 p-2 hover:bg-gray-100 rounded transition-colors">
+                        <label
+                          key={optIndex}
+                          htmlFor={`q${index}-opt${optIndex}`}
+                          className={`flex items-center gap-3 p-3 rounded-lg border-2 cursor-pointer transition-all ${
+                            quizAnswers[index] === optIndex
+                              ? 'border-blue-500 bg-blue-50'
+                              : 'border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50'
+                          }`}
+                        >
                           <input
                             type="radio"
                             id={`q${index}-opt${optIndex}`}
@@ -442,12 +450,12 @@ export default function CultureBuilding() {
                             value={optIndex}
                             checked={quizAnswers[index] === optIndex}
                             onChange={(e) => setQuizAnswers({ ...quizAnswers, [index]: parseInt(e.target.value) })}
-                            className="w-4 h-4"
+                            className="w-5 h-5 cursor-pointer"
                           />
-                          <Label htmlFor={`q${index}-opt${optIndex}`} className="cursor-pointer flex-1">
+                          <span className="flex-1 text-gray-900 cursor-pointer">
                             {option}
-                          </Label>
-                        </div>
+                          </span>
+                        </label>
                       ))}
                     </div>
                   </div>
@@ -463,7 +471,7 @@ export default function CultureBuilding() {
                   <Button 
                     onClick={() => handleQuizSubmit(showQuiz)} 
                     className="bg-green-600 hover:bg-green-700"
-                    disabled={Object.keys(quizAnswers).length !== showQuiz.quiz_questions?.length || showQuiz.quiz_questions?.length === 0}
+                    disabled={Object.keys(quizAnswers).length !== showQuiz.quiz_questions?.length}
                   >
                     Submit Quiz
                   </Button>
