@@ -21,7 +21,6 @@ import { format } from "date-fns";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { motion } from "framer-motion";
-import confetti from 'canvas-confetti';
 
 export default function OnboardingTraining() {
   const queryClient = useQueryClient();
@@ -114,31 +113,36 @@ export default function OnboardingTraining() {
   }, [onboardingSteps, myProgress, user, createProgressMutation]);
 
   const triggerConfetti = () => {
-    const duration = 3000;
-    const animationEnd = Date.now() + duration;
-    const defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 9999 };
-
-    function randomInRange(min, max) {
-      return Math.random() * (max - min) + min;
-    }
-
-    const interval = setInterval(function() {
-      const timeLeft = animationEnd - Date.now();
-
-      if (timeLeft <= 0) {
-        return clearInterval(interval);
+    // Simple celebration animation without external library
+    const celebrationEl = document.createElement('div');
+    celebrationEl.innerHTML = '🎉🎊✨🌟💫⭐';
+    celebrationEl.style.cssText = `
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 80px;
+      animation: celebrate 2s ease-out forwards;
+      z-index: 9999;
+      pointer-events: none;
+    `;
+    
+    const style = document.createElement('style');
+    style.textContent = `
+      @keyframes celebrate {
+        0% { opacity: 1; transform: translate(-50%, -50%) scale(0) rotate(0deg); }
+        50% { opacity: 1; transform: translate(-50%, -50%) scale(1.5) rotate(180deg); }
+        100% { opacity: 0; transform: translate(-50%, -50%) scale(2) rotate(360deg); }
       }
-
-      const particleCount = 50 * (timeLeft / duration);
-      confetti(Object.assign({}, defaults, {
-        particleCount,
-        origin: { x: randomInRange(0.1, 0.3), y: Math.random() - 0.2 }
-      }));
-      confetti(Object.assign({}, defaults, {
-        particleCount,
-        origin: { x: randomInRange(0.7, 0.9), y: Math.random() - 0.2 }
-      }));
-    }, 250);
+    `;
+    
+    document.head.appendChild(style);
+    document.body.appendChild(celebrationEl);
+    
+    setTimeout(() => {
+      document.body.removeChild(celebrationEl);
+      document.head.removeChild(style);
+    }, 2000);
   };
 
   const generateCertificate = async (step, isMasterCertificate = false) => {
