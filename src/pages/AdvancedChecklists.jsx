@@ -85,6 +85,7 @@ export default function AdvancedChecklists() {
     tasks: [],
   });
   const [newTask, setNewTask] = useState(""); // Changed from object to string
+  const [statusFilterFromStats, setStatusFilterFromStats] = useState('all'); // New state for filtering from stats cards
 
   const { data: user } = useQuery({
     queryKey: ['currentUser'],
@@ -714,6 +715,8 @@ export default function AdvancedChecklists() {
     });
   };
 
+  const today = new Date();
+  today.setHours(0,0,0,0);
   const stats = {
     total: myExecutions.length,
     completed: myExecutions.filter(e => e.status === 'completed').length,
@@ -721,8 +724,6 @@ export default function AdvancedChecklists() {
     overdue: myExecutions.filter(e => {
       const execDate = new Date(e.execution_date);
       execDate.setHours(0,0,0,0);
-      const today = new Date();
-      today.setHours(0,0,0,0);
       return execDate < today && e.status !== 'completed';
     }).length,
   };
@@ -748,7 +749,13 @@ export default function AdvancedChecklists() {
 
         {/* Stats Cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-          <Card className="bg-white">
+          <Card 
+            className="bg-white cursor-pointer hover:shadow-lg transition-all duration-200 border-l-4 border-l-gray-500"
+            onClick={() => {
+              setViewMode('my-checklists');
+              setStatusFilterFromStats('all');
+            }}
+          >
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-gray-100 rounded-lg">
@@ -762,7 +769,13 @@ export default function AdvancedChecklists() {
             </CardContent>
           </Card>
 
-          <Card className="bg-white">
+          <Card 
+            className="bg-white cursor-pointer hover:shadow-lg transition-all duration-200 border-l-4 border-l-green-500"
+            onClick={() => {
+              setViewMode('my-checklists');
+              setStatusFilterFromStats('completed');
+            }}
+          >
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-green-100 rounded-lg">
@@ -776,7 +789,13 @@ export default function AdvancedChecklists() {
             </CardContent>
           </Card>
 
-          <Card className="bg-white">
+          <Card 
+            className="bg-white cursor-pointer hover:shadow-lg transition-all duration-200 border-l-4 border-l-blue-500"
+            onClick={() => {
+              setViewMode('my-checklists');
+              setStatusFilterFromStats('in_progress');
+            }}
+          >
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-blue-100 rounded-lg">
@@ -790,14 +809,20 @@ export default function AdvancedChecklists() {
             </CardContent>
           </Card>
 
-          <Card className="bg-white">
+          <Card 
+            className="bg-white cursor-pointer hover:shadow-lg transition-all duration-200 border-l-4 border-l-red-500"
+            onClick={() => {
+              setViewMode('my-checklists');
+              setStatusFilterFromStats('overdue');
+            }}
+          >
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-red-100 rounded-lg">
                   <AlertTriangle className="w-5 h-5 text-red-600" />
                 </div>
                 <div>
-                  <p className="2xl font-bold text-gray-900">{stats.overdue}</p>
+                  <p className="text-2xl font-bold text-gray-900">{stats.overdue}</p>
                   <p className="text-xs text-gray-600">Overdue</p>
                 </div>
               </div>
@@ -988,6 +1013,8 @@ export default function AdvancedChecklists() {
                 getStatusColor={getStatusColor}
                 getShiftTypeColor={getShiftTypeColor}
                 navigate={navigate}
+                statusFilterProp={statusFilterFromStats}
+                setStatusFilterProp={setStatusFilterFromStats}
               />
             )}
 
@@ -1031,6 +1058,8 @@ export default function AdvancedChecklists() {
                 getStatusColor={getStatusColor}
                 getShiftTypeColor={getShiftTypeColor}
                 navigate={navigate}
+                statusFilterProp={statusFilterFromStats}
+                setStatusFilterProp={setStatusFilterFromStats}
               />
             )}
 
@@ -1074,6 +1103,8 @@ export default function AdvancedChecklists() {
                 getStatusColor={getStatusColor}
                 getShiftTypeColor={getShiftTypeColor}
                 navigate={navigate}
+                statusFilterProp={statusFilterFromStats}
+                setStatusFilterProp={setStatusFilterFromStats}
               />
             )}
 
@@ -1117,6 +1148,8 @@ export default function AdvancedChecklists() {
                 getStatusColor={getStatusColor}
                 getShiftTypeColor={getShiftTypeColor}
                 navigate={navigate}
+                statusFilterProp={statusFilterFromStats}
+                setStatusFilterProp={setStatusFilterFromStats}
               />
             )}
 
@@ -1160,6 +1193,8 @@ export default function AdvancedChecklists() {
                 getStatusColor={getStatusColor}
                 getShiftTypeColor={getShiftTypeColor}
                 navigate={navigate}
+                statusFilterProp={statusFilterFromStats}
+                setStatusFilterProp={setStatusFilterFromStats}
               />
             )}
 
@@ -1200,8 +1235,11 @@ export default function AdvancedChecklists() {
 }
 
 // My Checklists View Component
-function MyChecklistsView({ executions, getProgress, getStatusColor, getShiftTypeColor, navigate }) {
+function MyChecklistsView({ executions, getProgress, getStatusColor, getShiftTypeColor, navigate, statusFilterProp, setStatusFilterProp }) {
   const [dateFilter, setDateFilter] = useState('all'); // 'today', 'week', 'all'
+  // Use props for statusFilter, allowing parent to control it
+  const statusFilter = statusFilterProp;
+  const setStatusFilter = setStatusFilterProp;
   
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -1210,14 +1248,28 @@ function MyChecklistsView({ executions, getProgress, getStatusColor, getShiftTyp
     const execDate = new Date(exec.execution_date);
     execDate.setHours(0, 0, 0, 0);
     
+    // Date filtering
+    let dateMatch = true;
     if (dateFilter === 'today') {
-      return execDate.getTime() === today.getTime();
+      dateMatch = execDate.getTime() === today.getTime();
     } else if (dateFilter === 'week') {
       const weekFromNow = new Date(today);
-      weekFromNow.setDate(weekFromNow.getDate() + 7); // Covers today + next 6 days
-      return execDate >= today && execDate <= weekFromNow;
+      weekFromNow.setDate(weekFromNow.getDate() + 7);
+      dateMatch = execDate >= today && execDate <= weekFromNow;
     }
-    return true; // 'all'
+    
+    // Status filtering
+    let statusMatch = true;
+    if (statusFilter !== 'all') {
+      if (statusFilter === 'overdue') {
+        const isOverdue = execDate < today && exec.status !== 'completed';
+        statusMatch = isOverdue;
+      } else {
+        statusMatch = exec.status === statusFilter;
+      }
+    }
+    
+    return dateMatch && statusMatch;
   }).sort((a, b) => {
     // Sort by execution date, then status
     const dateA = new Date(a.execution_date).getTime();
@@ -1227,6 +1279,19 @@ function MyChecklistsView({ executions, getProgress, getStatusColor, getShiftTyp
     const statusOrder = { 'overdue': 0, 'not_started': 1, 'in_progress': 2, 'completed': 3 };
     return statusOrder[a.status] - statusOrder[b.status];
   });
+
+  // Count stats for current filter (based on all executions for the active tab)
+  const counts = {
+    all: executions.length,
+    completed: executions.filter(e => e.status === 'completed').length,
+    in_progress: executions.filter(e => e.status === 'in_progress').length,
+    not_started: executions.filter(e => e.status === 'not_started').length,
+    overdue: executions.filter(e => {
+      const d = new Date(e.execution_date);
+      d.setHours(0, 0, 0, 0);
+      return d < today && e.status !== 'completed';
+    }).length,
+  };
 
   if (executions.length === 0) {
     return (
@@ -1242,39 +1307,98 @@ function MyChecklistsView({ executions, getProgress, getStatusColor, getShiftTyp
 
   return (
     <div className="space-y-4">
-      {/* Date Filter */}
-      <div className="flex gap-2 mb-4">
-        <Button
-          variant={dateFilter === 'today' ? 'default' : 'outline'}
-          size="sm"
-          onClick={() => setDateFilter('today')}
-        >
-          Today ({executions.filter(e => {
-            const d = new Date(e.execution_date);
-            d.setHours(0, 0, 0, 0);
-            return d.getTime() === today.getTime();
-          }).length})
-        </Button>
-        <Button
-          variant={dateFilter === 'week' ? 'default' : 'outline'}
-          size="sm"
-          onClick={() => setDateFilter('week')}
-        >
-          This Week
-        </Button>
-        <Button
-          variant={dateFilter === 'all' ? 'default' : 'outline'}
-          size="sm"
-          onClick={() => setDateFilter('all')}
-        >
-          All ({executions.length})
-        </Button>
+      {/* Filter Chips */}
+      <div className="flex flex-wrap gap-2 mb-4">
+        <div className="flex gap-2 items-center">
+          <span className="text-sm font-medium text-gray-700">Date:</span>
+          <Button
+            variant={dateFilter === 'today' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setDateFilter('today')}
+          >
+            Today ({executions.filter(e => {
+              const d = new Date(e.execution_date);
+              d.setHours(0, 0, 0, 0);
+              return d.getTime() === today.getTime();
+            }).length})
+          </Button>
+          <Button
+            variant={dateFilter === 'week' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setDateFilter('week')}
+          >
+            This Week
+          </Button>
+          <Button
+            variant={dateFilter === 'all' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setDateFilter('all')}
+          >
+            All
+          </Button>
+        </div>
+
+        <div className="w-px h-8 bg-gray-300" />
+
+        <div className="flex gap-2 items-center">
+          <span className="text-sm font-medium text-gray-700">Status:</span>
+          <Button
+            variant={statusFilter === 'all' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setStatusFilter('all')}
+          >
+            All ({counts.all})
+          </Button>
+          <Button
+            variant={statusFilter === 'not_started' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setStatusFilter('not_started')}
+            className={statusFilter === 'not_started' ? '' : 'border-gray-400 text-gray-700'}
+          >
+            Not Started ({counts.not_started})
+          </Button>
+          <Button
+            variant={statusFilter === 'in_progress' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setStatusFilter('in_progress')}
+            className={statusFilter === 'in_progress' ? 'bg-blue-600' : 'border-blue-400 text-blue-700'}
+          >
+            In Progress ({counts.in_progress})
+          </Button>
+          <Button
+            variant={statusFilter === 'completed' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setStatusFilter('completed')}
+            className={statusFilter === 'completed' ? 'bg-green-600' : 'border-green-400 text-green-700'}
+          >
+            Completed ({counts.completed})
+          </Button>
+          <Button
+            variant={statusFilter === 'overdue' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setStatusFilter('overdue')}
+            className={statusFilter === 'overdue' ? 'bg-red-600' : 'border-red-400 text-red-700'}
+          >
+            Overdue ({counts.overdue})
+          </Button>
+        </div>
       </div>
 
       {filteredExecutions.length === 0 ? (
         <Card className="bg-white">
           <CardContent className="p-12 text-center">
-            <p className="text-gray-500">No checklists for this time period</p>
+            <p className="text-gray-500">No checklists match your filters</p>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => {
+                setDateFilter('all');
+                setStatusFilter('all');
+              }}
+              className="mt-4"
+            >
+              Clear Filters
+            </Button>
           </CardContent>
         </Card>
       ) : (
@@ -1296,12 +1420,11 @@ function MyChecklistsView({ executions, getProgress, getStatusColor, getShiftTyp
                       <CardTitle className="text-lg font-semibold text-gray-900">
                         {execution.template_name}
                       </CardTitle>
-                      {(execution.status === 'completed' || isOverdue) && (
-                        execution.status === 'completed' ? (
-                          <CheckCircle className="w-5 h-5 text-green-600" />
-                        ) : (
-                          <AlertTriangle className="w-5 h-5 text-red-600" />
-                        )
+                      {execution.status === 'completed' && (
+                        <CheckCircle className="w-5 h-5 text-green-600" />
+                      )}
+                      {isOverdue && (
+                        <AlertTriangle className="w-5 h-5 text-red-600" />
                       )}
                     </div>
                     <div className="flex flex-wrap gap-2">
