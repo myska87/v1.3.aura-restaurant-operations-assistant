@@ -38,6 +38,7 @@ import RestaurantRoutines from './pages/RestaurantRoutines';
 import FormBuilder from './pages/FormBuilder';
 import FormLibrary from './pages/FormLibrary';
 import ManagerDashboard from './pages/ManagerDashboard';
+import StaffProfile from './pages/StaffProfile';
 import Layout from './Layout.jsx';
 
 
@@ -82,6 +83,7 @@ export const PAGES = {
     "FormBuilder": FormBuilder,
     "FormLibrary": FormLibrary,
     "ManagerDashboard": ManagerDashboard,
+    "StaffProfile": StaffProfile,
 }
 
 export const pagesConfig = {

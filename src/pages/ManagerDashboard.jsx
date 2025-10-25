@@ -689,17 +689,15 @@ export default function ManagerDashboard() {
                             </td>
                             <td className="p-3">
                               <div className="flex items-center justify-end gap-2">
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-8 w-8"
-                                  onClick={() => {
-                                    setSelectedMember(member);
-                                    setShowProfileModal(true);
-                                  }}
-                                >
-                                  <Eye className="w-4 h-4" />
-                                </Button>
+                                <Link to={createPageUrl(`StaffProfile?staff_email=${member.staff_email}`)}>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8"
+                                  >
+                                    <Eye className="w-4 h-4" />
+                                  </Button>
+                                </Link>
                                 <Button
                                   variant="ghost"
                                   size="icon"
