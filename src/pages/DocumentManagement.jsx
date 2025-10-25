@@ -19,6 +19,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
 } from "@/components/ui/dialog";
 import {
   DropdownMenu,
@@ -26,6 +27,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Progress } from "@/components/ui/progress";
 import {
   Upload,
   FileText,
@@ -39,11 +41,20 @@ import {
   Shield,
   BookOpen,
   ClipboardCheck,
+  History,
+  Edit,
+  Trash2,
+  Download,
+  Send,
+  ArrowLeft,
+  Home,
+  Filter,
+  PenTool,
 } from "lucide-react";
 import { format } from "date-fns";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 
 export default function DocumentManagement() {
   const queryClient = useQueryClient();
@@ -54,8 +65,10 @@ export default function DocumentManagement() {
   const [filterDepartment, setFilterDepartment] = useState("all");
   const [showUploadDialog, setShowUploadDialog] = useState(false);
   const [showAssignDialog, setShowAssignDialog] = useState(false);
+  const [showVersionDialog, setShowVersionDialog] = useState(false);
   const [selectedDocument, setSelectedDocument] = useState(null);
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
 
   const [uploadForm, setUploadForm] = useState({
     title: "",
@@ -66,6 +79,7 @@ export default function DocumentManagement() {
     is_mandatory: false,
     requires_signature: false,
     tags: "",
+    review_frequency: "none",
   });
 
   const [assignForm, setAssignForm] = useState({
@@ -74,6 +88,10 @@ export default function DocumentManagement() {
     department: "",
     due_date: "",
     priority: "normal",
+  });
+
+  const [versionForm, setVersionForm] = useState({
+    changelog: "",
   });
 
   const { data: user } = useQuery({
@@ -93,6 +111,11 @@ export default function DocumentManagement() {
     queryFn: () => base44.entities.DocumentTask.list('-assigned_at'),
   });
 
+  const { data: documentReviews = [] } = useQuery({
+    queryKey: ['documentReviews'],
+    queryFn: () => base44.entities.DocumentReview.list('-opened_at'),
+  });
+
   const { data: allStaff = [] } = useQuery({
     queryKey: ['allStaff'],
     queryFn: () => base44.entities.User.list(),
@@ -100,12 +123,17 @@ export default function DocumentManagement() {
 
   const uploadDocumentMutation = useMutation({
     mutationFn: async ({ file, metadata }) => {
+      setUploadProgress(30);
       const { file_url } = await base44.integrations.Core.UploadFile({ file });
       
+      setUploadProgress(70);
       const documentData = {
         ...metadata,
         file_url,
-        file_type: file.type.includes('pdf') ? 'pdf' : file.type.includes('image') ? 'image' : 'other',
+        file_type: file.type.includes('pdf') ? 'pdf' : 
+                   file.type.includes('image') ? 'image' : 
+                   file.type.includes('video') ? 'video' :
+                   file.type.includes('word') || file.type.includes('docx') ? 'docx' : 'other',
         file_size: file.size,
         uploaded_by: user.email,
         uploaded_by_name: user.full_name,
@@ -115,37 +143,168 @@ export default function DocumentManagement() {
       };
 
       const document = await base44.entities.Document.create(documentData);
+      
+      // Create initial version record
+      await base44.entities.DocumentVersion.create({
+        document_id: document.id,
+        document_title: document.title,
+        version_number: 1,
+        file_url: document.file_url,
+        file_size: document.file_size,
+        changelog: "Initial upload",
+        updated_by: user.email,
+        updated_by_name: user.full_name,
+        is_current: true,
+      });
+
+      setUploadProgress(100);
       return document;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['documents'] });
-      setShowUploadDialog(false);
-      setUploadForm({
-        title: "",
-        description: "",
-        category: "policy",
-        department: "all",
-        confidentiality_level: "internal",
-        is_mandatory: false,
-        requires_signature: false,
-        tags: "",
+      setTimeout(() => {
+        setShowUploadDialog(false);
+        setUploadProgress(0);
+        setUploadForm({
+          title: "",
+          description: "",
+          category: "policy",
+          department: "all",
+          confidentiality_level: "internal",
+          is_mandatory: false,
+          requires_signature: false,
+          tags: "",
+          review_frequency: "none",
+        });
+      }, 500);
+    },
+  });
+
+  const updateDocumentVersionMutation = useMutation({
+    mutationFn: async ({ documentId, file, changelog }) => {
+      const document = documents.find(d => d.id === documentId);
+      const newVersionNumber = (document.version_number || 1) + 1;
+
+      const { file_url } = await base44.integrations.Core.UploadFile({ file });
+
+      // Update document
+      await base44.entities.Document.update(documentId, {
+        file_url,
+        version_number: newVersionNumber,
+        file_size: file.size,
+        last_updated: new Date().toISOString(),
       });
+
+      // Mark previous version as not current
+      const previousVersions = await base44.entities.DocumentVersion.filter({
+        document_id: documentId,
+        is_current: true,
+      });
+      
+      for (const v of previousVersions) {
+        await base44.entities.DocumentVersion.update(v.id, { is_current: false });
+      }
+
+      // Create new version record
+      await base44.entities.DocumentVersion.create({
+        document_id: documentId,
+        document_title: document.title,
+        version_number: newVersionNumber,
+        file_url,
+        file_size: file.size,
+        changelog: changelog || `Updated to version ${newVersionNumber}`,
+        updated_by: user.email,
+        updated_by_name: user.full_name,
+        replaced_version: document.version_number,
+        is_current: true,
+      });
+
+      // Create tasks for staff who haven't acknowledged latest version
+      const staffToNotify = allStaff.filter(s => {
+        const hasAcknowledged = documentReviews.some(
+          r => r.document_id === documentId && 
+               r.staff_email === s.email && 
+               r.acknowledged && 
+               r.version_viewed === newVersionNumber
+        );
+        return !hasAcknowledged;
+      });
+
+      for (const staff of staffToNotify) {
+        await base44.entities.DocumentTask.create({
+          document_id: documentId,
+          document_title: document.title,
+          document_category: document.category,
+          assigned_to_email: staff.email,
+          assigned_to_name: staff.full_name,
+          due_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+          priority: 'high',
+          status: 'pending',
+          assigned_by: user.email,
+          assigned_at: new Date().toISOString(),
+        });
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['documents'] });
+      queryClient.invalidateQueries({ queryKey: ['documentTasks'] });
+      setShowVersionDialog(false);
+      setSelectedDocument(null);
     },
   });
 
   const assignDocumentMutation = useMutation({
-    mutationFn: async (assignments) => {
+    mutationFn: async () => {
+      const dueDate = assignForm.due_date || 
+        new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+      let staffToAssign = [];
+
+      if (assignForm.assign_to === 'all') {
+        staffToAssign = allStaff;
+      } else if (assignForm.assign_to === 'role') {
+        staffToAssign = allStaff.filter(s => s.position === assignForm.role);
+      } else if (assignForm.assign_to === 'department') {
+        staffToAssign = allStaff.filter(s => s.department === assignForm.department);
+      }
+
       const tasks = await Promise.all(
-        assignments.map(assignment =>
-          base44.entities.DocumentTask.create(assignment)
+        staffToAssign.map(staff =>
+          base44.entities.DocumentTask.create({
+            document_id: selectedDocument.id,
+            document_title: selectedDocument.title,
+            document_category: selectedDocument.category,
+            assigned_to_email: staff.email,
+            assigned_to_name: staff.full_name,
+            due_date: dueDate,
+            priority: assignForm.priority,
+            status: 'pending',
+            assigned_by: user.email,
+            assigned_at: new Date().toISOString(),
+          })
         )
       );
+
       return tasks;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['documentTasks'] });
       setShowAssignDialog(false);
       setSelectedDocument(null);
+      setAssignForm({
+        assign_to: "all",
+        role: "",
+        department: "",
+        due_date: "",
+        priority: "normal",
+      });
+    },
+  });
+
+  const deleteDocumentMutation = useMutation({
+    mutationFn: (id) => base44.entities.Document.update(id, { is_active: false }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['documents'] });
     },
   });
 
@@ -159,6 +318,8 @@ export default function DocumentManagement() {
     }
 
     setUploading(true);
+    setUploadProgress(10);
+
     try {
       await uploadDocumentMutation.mutateAsync({
         file,
@@ -167,56 +328,53 @@ export default function DocumentManagement() {
     } catch (error) {
       console.error('Error uploading document:', error);
       alert('Failed to upload document');
+      setUploadProgress(0);
+    } finally {
+      setUploading(false);
     }
-    setUploading(false);
   };
 
-  const handleAssignDocument = async () => {
-    if (!selectedDocument) return;
+  const handleVersionUpdate = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file || !selectedDocument) return;
 
-    const assignments = [];
-    const dueDate = assignForm.due_date;
-
-    if (assignForm.assign_to === 'all') {
-      allStaff.forEach(staff => {
-        assignments.push({
-          document_id: selectedDocument.id,
-          document_title: selectedDocument.title,
-          document_category: selectedDocument.category,
-          assigned_to_email: staff.email,
-          assigned_to_name: staff.full_name,
-          assigned_to_role: staff.position,
-          assigned_to_department: staff.department || 'all',
-          due_date: dueDate,
-          priority: assignForm.priority,
-          assigned_by: user.email,
-          assigned_at: new Date().toISOString(),
-          status: 'pending',
-        });
+    try {
+      await updateDocumentVersionMutation.mutateAsync({
+        documentId: selectedDocument.id,
+        file,
+        changelog: versionForm.changelog,
       });
-    } else if (assignForm.assign_to === 'role') {
-      allStaff
-        .filter(staff => staff.position === assignForm.role)
-        .forEach(staff => {
-          assignments.push({
-            document_id: selectedDocument.id,
-            document_title: selectedDocument.title,
-            document_category: selectedDocument.category,
-            assigned_to_email: staff.email,
-            assigned_to_name: staff.full_name,
-            assigned_to_role: staff.position,
-            assigned_to_department: staff.department || 'all',
-            due_date: dueDate,
-            priority: assignForm.priority,
-            assigned_by: user.email,
-            assigned_at: new Date().toISOString(),
-            status: 'pending',
-          });
-        });
+    } catch (error) {
+      console.error('Error updating version:', error);
+      alert('Failed to update document version');
     }
-
-    await assignDocumentMutation.mutateAsync(assignments);
   };
+
+  // Filter documents
+  const filteredDocuments = documents.filter(doc => {
+    if (!doc.is_active) return false;
+    
+    const matchesSearch = doc.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         doc.description?.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesCategory = filterCategory === 'all' || doc.category === filterCategory;
+    const matchesDepartment = filterDepartment === 'all' || doc.department === filterDepartment;
+    
+    if (activeTab === 'policies') {
+      return matchesSearch && matchesCategory && matchesDepartment && doc.is_mandatory;
+    }
+    
+    return matchesSearch && matchesCategory && matchesDepartment;
+  });
+
+  // Calculate statistics
+  const totalDocuments = documents.filter(d => d.is_active).length;
+  const mandatoryDocs = documents.filter(d => d.is_active && d.is_mandatory).length;
+  const pendingTasks = documentTasks.filter(t => t.status === 'pending').length;
+  const overdueeTasks = documentTasks.filter(t => {
+    if (t.status !== 'pending') return false;
+    const due = new Date(t.due_date);
+    return due < new Date();
+  }).length;
 
   const getCategoryIcon = (category) => {
     switch (category) {
@@ -231,360 +389,370 @@ export default function DocumentManagement() {
 
   const getCategoryColor = (category) => {
     switch (category) {
-      case 'policy': return 'bg-red-100 text-red-800 border-red-200';
-      case 'training': return 'bg-blue-100 text-blue-800 border-blue-200';
-      case 'hr': return 'bg-purple-100 text-purple-800 border-purple-200';
-      case 'compliance': return 'bg-orange-100 text-orange-800 border-orange-200';
-      case 'safety': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-      default: return 'bg-gray-100 text-gray-800 border-gray-200';
+      case 'policy': return 'from-emerald-500 to-emerald-600';
+      case 'training': return 'from-blue-500 to-blue-600';
+      case 'hr': return 'from-purple-500 to-purple-600';
+      case 'compliance': return 'from-orange-500 to-orange-600';
+      case 'safety': return 'from-red-500 to-red-600';
+      default: return 'from-gray-500 to-gray-600';
     }
   };
 
-  const getConfidentialityColor = (level) => {
-    switch (level) {
-      case 'restricted': return 'bg-red-500 text-white';
-      case 'confidential': return 'bg-orange-500 text-white';
-      case 'internal': return 'bg-blue-500 text-white';
-      default: return 'bg-gray-500 text-white';
-    }
+  const getConfidentialityBadge = (level) => {
+    const colors = {
+      public: 'bg-green-100 text-green-800',
+      internal: 'bg-blue-100 text-blue-800',
+      confidential: 'bg-yellow-100 text-yellow-800',
+      restricted: 'bg-red-100 text-red-800',
+    };
+    return colors[level] || colors.internal;
   };
 
-  const filteredDocuments = documents.filter(doc => {
-    const matchesSearch = doc.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         doc.description?.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCategory = filterCategory === 'all' || doc.category === filterCategory;
-    const matchesDepartment = filterDepartment === 'all' || doc.department === filterDepartment;
-    
-    if (activeTab === 'policies') {
-      return matchesSearch && matchesCategory && matchesDepartment && doc.is_mandatory;
-    }
-    
-    return matchesSearch && matchesCategory && matchesDepartment && doc.is_active;
-  });
-
-  const totalDocuments = documents.filter(d => d.is_active).length;
-  const totalPolicies = documents.filter(d => d.is_mandatory && d.is_active).length;
-  const pendingTasks = documentTasks.filter(t => t.status === 'pending').length;
-  const acknowledgedTasks = documentTasks.filter(t => t.status === 'acknowledged').length;
+  if (!isManager) {
+    return (
+      <div className="p-6 md:p-8 bg-gradient-to-br from-gray-50 to-gray-100 min-h-screen">
+        <div className="max-w-4xl mx-auto">
+          <Card className="border-[#014D40] border-2">
+            <CardContent className="p-8 text-center">
+              <Shield className="w-16 h-16 text-[#014D40] mx-auto mb-4" />
+              <h3 className="text-2xl font-bold text-gray-900 mb-2">Document Management</h3>
+              <p className="text-gray-600 mb-6">This area is restricted to managers and administrators.</p>
+              <div className="flex gap-3 justify-center">
+                <Link to={createPageUrl("Dashboard")}>
+                  <Button variant="outline">
+                    <Home className="w-4 h-4 mr-2" />
+                    Go to Dashboard
+                  </Button>
+                </Link>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-6">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-6 md:p-8">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
+        <div className="flex gap-3 mb-6">
+          <Link to={createPageUrl("Dashboard")}>
+            <Button variant="outline" size="sm">
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back
+            </Button>
+          </Link>
+          <Link to={createPageUrl("Dashboard")}>
+            <Button variant="outline" size="sm">
+              <Home className="w-4 h-4 mr-2" />
+              Dashboard
+            </Button>
+          </Link>
+        </div>
+
         <div className="mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">📚 Document Management</h1>
-          <p className="text-gray-600">Secure document storage, policy tracking & staff acknowledgments</p>
-        </div>
-
-        {/* Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-600">Total Documents</p>
-                  <p className="text-3xl font-bold text-gray-900">{totalDocuments}</p>
-                </div>
-                <FileText className="w-10 h-10 text-blue-600" />
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-gradient-to-br from-[#014D40] to-emerald-700 rounded-xl">
+                <FileText className="w-10 h-10 text-white" />
               </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-600">Active Policies</p>
-                  <p className="text-3xl font-bold text-gray-900">{totalPolicies}</p>
-                </div>
-                <Shield className="w-10 h-10 text-red-600" />
+              <div>
+                <h1 className="text-4xl font-bold text-gray-900">Document Management</h1>
+                <p className="text-lg text-gray-600">Secure storage, version control & policy acknowledgment</p>
               </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-600">Pending Tasks</p>
-                  <p className="text-3xl font-bold text-gray-900">{pendingTasks}</p>
-                </div>
-                <Clock className="w-10 h-10 text-orange-600" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-600">Acknowledged</p>
-                  <p className="text-3xl font-bold text-gray-900">{acknowledgedTasks}</p>
-                </div>
-                <CheckCircle className="w-10 h-10 text-green-600" />
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Tabs */}
-        <div className="flex gap-2 mb-6 flex-wrap">
-          <Button
-            variant={activeTab === 'all' ? 'default' : 'outline'}
-            onClick={() => setActiveTab('all')}
-          >
-            📂 All Documents
-          </Button>
-          <Button
-            variant={activeTab === 'policies' ? 'default' : 'outline'}
-            onClick={() => setActiveTab('policies')}
-          >
-            📜 Policies & Compliance
-          </Button>
-          <Button
-            variant={activeTab === 'tracking' ? 'default' : 'outline'}
-            onClick={() => setActiveTab('tracking')}
-          >
-            👁 Review Tracking
-          </Button>
-          {isManager && (
-            <Button
+            </div>
+            <Button 
               onClick={() => setShowUploadDialog(true)}
-              className="ml-auto bg-gradient-to-r from-blue-600 to-green-600"
+              className="bg-gradient-to-r from-[#014D40] to-emerald-600 hover:from-[#013d33] hover:to-emerald-700 text-white shadow-lg"
             >
-              <Upload className="w-4 h-4 mr-2" />
+              <Upload className="w-5 h-5 mr-2" />
               Upload Document
             </Button>
-          )}
+          </div>
         </div>
 
-        {/* Filters */}
-        {(activeTab === 'all' || activeTab === 'policies') && (
-          <Card className="mb-6">
-            <CardContent className="p-4">
-              <div className="flex gap-4 flex-wrap">
-                <div className="flex-1 min-w-[200px]">
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                    <Input
-                      placeholder="Search documents..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className="pl-10"
-                    />
-                  </div>
+        {/* Statistics Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
+            <Card className="border-none shadow-sm bg-white">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between mb-2">
+                  <FileText className="w-8 h-8 text-[#014D40]" />
+                  <Badge variant="outline" className="text-xs">Total</Badge>
                 </div>
+                <p className="text-3xl font-bold text-gray-900">{totalDocuments}</p>
+                <p className="text-sm text-gray-600 mt-1">All Documents</p>
+              </CardContent>
+            </Card>
+          </motion.div>
 
-                <Select value={filterCategory} onValueChange={setFilterCategory}>
-                  <SelectTrigger className="w-[180px]">
-                    <SelectValue placeholder="Category" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Categories</SelectItem>
-                    <SelectItem value="policy">Policy</SelectItem>
-                    <SelectItem value="training">Training</SelectItem>
-                    <SelectItem value="hr">HR</SelectItem>
-                    <SelectItem value="compliance">Compliance</SelectItem>
-                    <SelectItem value="safety">Safety</SelectItem>
-                    <SelectItem value="menu">Menu</SelectItem>
-                  </SelectContent>
-                </Select>
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
+            <Card className="border-none shadow-sm bg-white">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between mb-2">
+                  <Shield className="w-8 h-8 text-[#E0B037]" />
+                  <Badge variant="outline" className="text-xs">Policies</Badge>
+                </div>
+                <p className="text-3xl font-bold text-gray-900">{mandatoryDocs}</p>
+                <p className="text-sm text-gray-600 mt-1">Mandatory Docs</p>
+              </CardContent>
+            </Card>
+          </motion.div>
 
-                <Select value={filterDepartment} onValueChange={setFilterDepartment}>
-                  <SelectTrigger className="w-[180px]">
-                    <SelectValue placeholder="Department" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Departments</SelectItem>
-                    <SelectItem value="kitchen">Kitchen</SelectItem>
-                    <SelectItem value="front_of_house">Front of House</SelectItem>
-                    <SelectItem value="bar">Bar</SelectItem>
-                    <SelectItem value="management">Management</SelectItem>
-                  </SelectContent>
-                </Select>
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+            <Card className="border-none shadow-sm bg-white">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between mb-2">
+                  <Clock className="w-8 h-8 text-orange-600" />
+                  <Badge variant="outline" className="text-xs">Pending</Badge>
+                </div>
+                <p className="text-3xl font-bold text-gray-900">{pendingTasks}</p>
+                <p className="text-sm text-gray-600 mt-1">Pending Reviews</p>
+              </CardContent>
+            </Card>
+          </motion.div>
+
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
+            <Card className="border-none shadow-sm bg-white">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between mb-2">
+                  <AlertTriangle className="w-8 h-8 text-red-600" />
+                  <Badge variant="outline" className="text-xs">Urgent</Badge>
+                </div>
+                <p className="text-3xl font-bold text-gray-900">{overdueTasks}</p>
+                <p className="text-sm text-gray-600 mt-1">Overdue Tasks</p>
+              </CardContent>
+            </Card>
+          </motion.div>
+        </div>
+
+        {/* Filters & Search */}
+        <Card className="mb-6 border-none shadow-sm">
+          <CardContent className="p-6">
+            <div className="flex flex-col md:flex-row gap-4">
+              <div className="flex-1">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  <Input
+                    placeholder="Search documents..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
               </div>
-            </CardContent>
-          </Card>
-        )}
+              <Select value={filterCategory} onValueChange={setFilterCategory}>
+                <SelectTrigger className="w-full md:w-48">
+                  <SelectValue placeholder="Category" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Categories</SelectItem>
+                  <SelectItem value="policy">Policy</SelectItem>
+                  <SelectItem value="training">Training</SelectItem>
+                  <SelectItem value="hr">HR</SelectItem>
+                  <SelectItem value="compliance">Compliance</SelectItem>
+                  <SelectItem value="safety">Safety</SelectItem>
+                  <SelectItem value="procedure">Procedure</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={filterDepartment} onValueChange={setFilterDepartment}>
+                <SelectTrigger className="w-full md:w-48">
+                  <SelectValue placeholder="Department" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Departments</SelectItem>
+                  <SelectItem value="kitchen">Kitchen</SelectItem>
+                  <SelectItem value="front_of_house">Front of House</SelectItem>
+                  <SelectItem value="bar">Bar</SelectItem>
+                  <SelectItem value="management">Management</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Tabs */}
+        <div className="flex gap-2 mb-6">
+          <Button
+            onClick={() => setActiveTab("all")}
+            variant={activeTab === "all" ? "default" : "outline"}
+            className={activeTab === "all" ? "bg-[#014D40]" : ""}
+          >
+            <FileText className="w-4 h-4 mr-2" />
+            All Documents
+          </Button>
+          <Button
+            onClick={() => setActiveTab("policies")}
+            variant={activeTab === "policies" ? "default" : "outline"}
+            className={activeTab === "policies" ? "bg-[#014D40]" : ""}
+          >
+            <Shield className="w-4 h-4 mr-2" />
+            Policies & Compliance
+          </Button>
+        </div>
 
         {/* Documents Grid */}
-        {(activeTab === 'all' || activeTab === 'policies') && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredDocuments.map((doc) => {
-              const CategoryIcon = getCategoryIcon(doc.category);
-              const tasksForDoc = documentTasks.filter(t => t.document_id === doc.id);
-              const completedTasks = tasksForDoc.filter(t => t.status === 'acknowledged').length;
-              const totalTasks = tasksForDoc.length;
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <AnimatePresence>
+            {filteredDocuments.map((doc, index) => {
+              const Icon = getCategoryIcon(doc.category);
+              const categoryColor = getCategoryColor(doc.category);
+              
+              const docTasks = documentTasks.filter(t => t.document_id === doc.id);
+              const acknowledgedCount = docTasks.filter(t => t.status === 'acknowledged').length;
+              const totalAssigned = docTasks.length;
+              const acknowledgmentRate = totalAssigned > 0 ? Math.round((acknowledgedCount / totalAssigned) * 100) : 0;
 
               return (
                 <motion.div
                   key={doc.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.9 }}
+                  transition={{ delay: index * 0.05 }}
                 >
-                  <Card className="hover:shadow-lg transition-all group">
-                    <CardHeader className="pb-3">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-2">
-                            <CategoryIcon className="w-5 h-5 text-gray-600" />
-                            <Badge className={getCategoryColor(doc.category)}>
-                              {doc.category}
-                            </Badge>
-                            {doc.is_mandatory && (
-                              <Badge className="bg-red-500 text-white">
-                                Mandatory
-                              </Badge>
-                            )}
+                  <Card className="border-none shadow-lg hover:shadow-xl transition-all duration-300 group overflow-hidden relative">
+                    <div className={`absolute top-0 left-0 right-0 h-2 bg-gradient-to-r ${categoryColor}`} />
+                    
+                    <CardContent className="p-6">
+                      <div className="flex items-start justify-between mb-4">
+                        <div className={`p-3 bg-gradient-to-br ${categoryColor} rounded-xl`}>
+                          <Icon className="w-6 h-6 text-white" />
+                        </div>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="opacity-0 group-hover:opacity-100 transition-opacity">
+                              <MoreVertical className="w-4 h-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => window.open(doc.file_url, '_blank')}>
+                              <Eye className="w-4 h-4 mr-2" />
+                              View Document
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => {
+                              setSelectedDocument(doc);
+                              setShowAssignDialog(true);
+                            }}>
+                              <Send className="w-4 h-4 mr-2" />
+                              Assign to Staff
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => {
+                              setSelectedDocument(doc);
+                              setShowVersionDialog(true);
+                            }}>
+                              <Upload className="w-4 h-4 mr-2" />
+                              Update Version
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => navigate(createPageUrl(`DocumentHistory?id=${doc.id}`))}>
+                              <History className="w-4 h-4 mr-2" />
+                              Version History
+                            </DropdownMenuItem>
+                            <DropdownMenuItem 
+                              onClick={() => {
+                                if (confirm('Delete this document?')) {
+                                  deleteDocumentMutation.mutate(doc.id);
+                                }
+                              }}
+                              className="text-red-600"
+                            >
+                              <Trash2 className="w-4 h-4 mr-2" />
+                              Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+
+                      <h3 className="font-bold text-lg text-gray-900 mb-2 line-clamp-2">
+                        {doc.title}
+                      </h3>
+                      
+                      {doc.description && (
+                        <p className="text-sm text-gray-600 mb-4 line-clamp-2">
+                          {doc.description}
+                        </p>
+                      )}
+
+                      <div className="flex flex-wrap gap-2 mb-4">
+                        <Badge className={getConfidentialityBadge(doc.confidentiality_level)}>
+                          {doc.confidentiality_level}
+                        </Badge>
+                        {doc.is_mandatory && (
+                          <Badge className="bg-[#E0B037] text-gray-900">
+                            <PenTool className="w-3 h-3 mr-1" />
+                            Requires Signature
+                          </Badge>
+                        )}
+                        <Badge variant="outline" className="capitalize">
+                          v{doc.version_number}
+                        </Badge>
+                      </div>
+
+                      {totalAssigned > 0 && (
+                        <div className="space-y-2">
+                          <div className="flex justify-between text-xs text-gray-600">
+                            <span>Acknowledgment Rate</span>
+                            <span className="font-medium">{acknowledgmentRate}%</span>
                           </div>
-                          <CardTitle className="text-lg">{doc.title}</CardTitle>
-                          <p className="text-sm text-gray-600 mt-1">
-                            {doc.description || 'No description'}
+                          <Progress value={acknowledgmentRate} className="h-2" />
+                          <p className="text-xs text-gray-500">
+                            {acknowledgedCount} / {totalAssigned} staff acknowledged
                           </p>
                         </div>
+                      )}
 
-                        {isManager && (
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon" className="h-8 w-8">
-                                <MoreVertical className="w-4 h-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem onClick={() => window.open(doc.file_url, '_blank')}>
-                                <Eye className="w-4 h-4 mr-2" />
-                                View Document
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => {
-                                setSelectedDocument(doc);
-                                setShowAssignDialog(true);
-                              }}>
-                                <Users className="w-4 h-4 mr-2" />
-                                Assign to Staff
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        )}
-                      </div>
-                    </CardHeader>
-
-                    <CardContent>
-                      <div className="space-y-3">
-                        <div className="flex items-center justify-between text-sm">
-                          <span className="text-gray-600">Department</span>
-                          <Badge variant="outline">{doc.department}</Badge>
-                        </div>
-
-                        <div className="flex items-center justify-between text-sm">
-                          <span className="text-gray-600">Confidentiality</span>
-                          <Badge className={getConfidentialityColor(doc.confidentiality_level)}>
-                            {doc.confidentiality_level}
-                          </Badge>
-                        </div>
-
-                        {totalTasks > 0 && (
-                          <div className="mt-3 pt-3 border-t">
-                            <div className="flex items-center justify-between text-sm mb-2">
-                              <span className="text-gray-600">Staff Completion</span>
-                              <span className="font-bold">
-                                {completedTasks}/{totalTasks}
-                              </span>
-                            </div>
-                            <div className="w-full bg-gray-200 rounded-full h-2">
-                              <div
-                                className="bg-green-600 h-2 rounded-full transition-all"
-                                style={{ width: `${(completedTasks / totalTasks) * 100}%` }}
-                              />
-                            </div>
-                          </div>
-                        )}
-
-                        <div className="flex items-center justify-between text-xs text-gray-500 pt-2 border-t">
-                          <span>v{doc.version_number}</span>
-                          <span>{format(new Date(doc.created_date), 'MMM d, yyyy')}</span>
-                        </div>
-
-                        <Button
-                          className="w-full"
-                          variant="outline"
-                          onClick={() => window.open(doc.file_url, '_blank')}
-                        >
-                          <Eye className="w-4 h-4 mr-2" />
-                          View Document
-                        </Button>
+                      <div className="mt-4 pt-4 border-t border-gray-200 flex items-center justify-between text-xs text-gray-500">
+                        <span>By {doc.uploaded_by_name}</span>
+                        <span>{format(new Date(doc.created_date), 'MMM d, yyyy')}</span>
                       </div>
                     </CardContent>
                   </Card>
                 </motion.div>
               );
             })}
-          </div>
-        )}
+          </AnimatePresence>
+        </div>
 
-        {/* Tracking Tab */}
-        {activeTab === 'tracking' && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Document Review Tracking</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {documents.filter(d => d.is_mandatory).map(doc => {
-                  const tasks = documentTasks.filter(t => t.document_id === doc.id);
-                  const completed = tasks.filter(t => t.status === 'acknowledged').length;
-                  const pending = tasks.filter(t => t.status === 'pending').length;
-                  const overdue = tasks.filter(t => t.status === 'overdue').length;
-
-                  return (
-                    <div key={doc.id} className="p-4 border rounded-lg">
-                      <div className="flex items-center justify-between mb-3">
-                        <div>
-                          <h3 className="font-bold">{doc.title}</h3>
-                          <p className="text-sm text-gray-600">{doc.category}</p>
-                        </div>
-                        <Badge className={getCategoryColor(doc.category)}>
-                          {tasks.length} assigned
-                        </Badge>
-                      </div>
-
-                      <div className="grid grid-cols-3 gap-4">
-                        <div className="text-center p-3 bg-green-50 rounded-lg">
-                          <CheckCircle className="w-6 h-6 text-green-600 mx-auto mb-1" />
-                          <p className="text-2xl font-bold text-green-600">{completed}</p>
-                          <p className="text-xs text-gray-600">Completed</p>
-                        </div>
-
-                        <div className="text-center p-3 bg-orange-50 rounded-lg">
-                          <Clock className="w-6 h-6 text-orange-600 mx-auto mb-1" />
-                          <p className="text-2xl font-bold text-orange-600">{pending}</p>
-                          <p className="text-xs text-gray-600">Pending</p>
-                        </div>
-
-                        <div className="text-center p-3 bg-red-50 rounded-lg">
-                          <AlertTriangle className="w-6 h-6 text-red-600 mx-auto mb-1" />
-                          <p className="text-2xl font-bold text-red-600">{overdue}</p>
-                          <p className="text-xs text-gray-600">Overdue</p>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+        {filteredDocuments.length === 0 && (
+          <Card className="border-none shadow-sm">
+            <CardContent className="p-12 text-center">
+              <FileText className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+              <h3 className="text-xl font-semibold text-gray-900 mb-2">No Documents Found</h3>
+              <p className="text-gray-600 mb-6">
+                {searchQuery || filterCategory !== 'all' || filterDepartment !== 'all'
+                  ? 'Try adjusting your filters'
+                  : 'Upload your first document to get started'}
+              </p>
+              {!searchQuery && filterCategory === 'all' && filterDepartment === 'all' && (
+                <Button 
+                  onClick={() => setShowUploadDialog(true)}
+                  className="bg-[#014D40] hover:bg-[#013d33]"
+                >
+                  <Upload className="w-4 h-4 mr-2" />
+                  Upload Document
+                </Button>
+              )}
             </CardContent>
           </Card>
         )}
       </div>
 
       {/* Upload Dialog */}
-      <Dialog open={showUploadDialog} onOpenChange={setShowUploadDialog}>
+      <Dialog open={showUploadDialog} onOpenChange={(open) => {
+        if (!uploading) setShowUploadDialog(open);
+      }}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Upload New Document</DialogTitle>
+            <DialogTitle className="flex items-center gap-2 text-2xl">
+              <Upload className="w-6 h-6 text-[#014D40]" />
+              Upload New Document
+            </DialogTitle>
           </DialogHeader>
 
-          <div className="space-y-4">
+          <div className="space-y-4 mt-4">
             <div>
-              <Label>Title *</Label>
+              <Label>Document Title *</Label>
               <Input
                 value={uploadForm.title}
                 onChange={(e) => setUploadForm({ ...uploadForm, title: e.target.value })}
@@ -597,7 +765,7 @@ export default function DocumentManagement() {
               <Textarea
                 value={uploadForm.description}
                 onChange={(e) => setUploadForm({ ...uploadForm, description: e.target.value })}
-                placeholder="Brief description of the document..."
+                placeholder="Brief description of this document..."
                 rows={3}
               />
             </div>
@@ -620,12 +788,13 @@ export default function DocumentManagement() {
                     <SelectItem value="safety">Safety</SelectItem>
                     <SelectItem value="menu">Menu</SelectItem>
                     <SelectItem value="procedure">Procedure</SelectItem>
+                    <SelectItem value="other">Other</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
               <div>
-                <Label>Department *</Label>
+                <Label>Department</Label>
                 <Select
                   value={uploadForm.department}
                   onValueChange={(value) => setUploadForm({ ...uploadForm, department: value })}
@@ -666,68 +835,125 @@ export default function DocumentManagement() {
               </div>
 
               <div>
-                <Label>Tags (comma separated)</Label>
-                <Input
-                  value={uploadForm.tags}
-                  onChange={(e) => setUploadForm({ ...uploadForm, tags: e.target.value })}
-                  placeholder="e.g., hygiene, training, 2024"
-                />
+                <Label>Review Frequency</Label>
+                <Select
+                  value={uploadForm.review_frequency}
+                  onValueChange={(value) => setUploadForm({ ...uploadForm, review_frequency: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">None</SelectItem>
+                    <SelectItem value="monthly">Monthly</SelectItem>
+                    <SelectItem value="quarterly">Quarterly</SelectItem>
+                    <SelectItem value="yearly">Yearly</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
 
-            <div className="flex gap-4">
-              <label className="flex items-center gap-2">
+            <div>
+              <Label>Tags (comma separated)</Label>
+              <Input
+                value={uploadForm.tags}
+                onChange={(e) => setUploadForm({ ...uploadForm, tags: e.target.value })}
+                placeholder="e.g., hygiene, safety, certification"
+              />
+            </div>
+
+            <div className="space-y-3 bg-gray-50 p-4 rounded-lg">
+              <div className="flex items-center gap-2">
                 <input
                   type="checkbox"
+                  id="is_mandatory"
                   checked={uploadForm.is_mandatory}
                   onChange={(e) => setUploadForm({ ...uploadForm, is_mandatory: e.target.checked })}
                   className="rounded"
                 />
-                <span className="text-sm">Mandatory (requires acknowledgment)</span>
-              </label>
+                <Label htmlFor="is_mandatory" className="cursor-pointer">
+                  📋 Mandatory Document (requires staff acknowledgment)
+                </Label>
+              </div>
 
-              <label className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={uploadForm.requires_signature}
-                  onChange={(e) => setUploadForm({ ...uploadForm, requires_signature: e.target.checked })}
-                  className="rounded"
-                />
-                <span className="text-sm">Requires digital signature</span>
-              </label>
+              {uploadForm.is_mandatory && (
+                <div className="flex items-center gap-2 ml-6">
+                  <input
+                    type="checkbox"
+                    id="requires_signature"
+                    checked={uploadForm.requires_signature}
+                    onChange={(e) => setUploadForm({ ...uploadForm, requires_signature: e.target.checked })}
+                    className="rounded"
+                  />
+                  <Label htmlFor="requires_signature" className="cursor-pointer">
+                    ✍️ Requires Digital Signature
+                  </Label>
+                </div>
+              )}
             </div>
 
             <div>
-              <Label>Upload File *</Label>
-              <Input
+              <Label>Select File *</Label>
+              <input
                 type="file"
+                id="document-upload"
+                className="hidden"
+                accept=".pdf,.doc,.docx,.png,.jpg,.jpeg,.mp4"
                 onChange={handleFileUpload}
-                accept=".pdf,.docx,.png,.jpg,.jpeg,.mp4"
                 disabled={uploading}
               />
-              <p className="text-xs text-gray-500 mt-1">
-                Supported: PDF, DOCX, Images, Videos (Max 50MB)
+              <Button
+                variant="outline"
+                className="w-full mt-2"
+                onClick={() => document.getElementById('document-upload').click()}
+                disabled={uploading || !uploadForm.title}
+              >
+                <Upload className="w-4 h-4 mr-2" />
+                {uploading ? 'Uploading...' : 'Choose File'}
+              </Button>
+              <p className="text-xs text-gray-500 mt-2">
+                Supported: PDF, Word, Images, Videos (Max 50MB)
               </p>
             </div>
 
             {uploading && (
-              <div className="text-center py-4">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
-                <p className="text-sm text-gray-600">Uploading document...</p>
-              </div>
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="space-y-2"
+              >
+                <div className="flex justify-between text-sm text-gray-600">
+                  <span>Uploading...</span>
+                  <span className="font-medium">{uploadProgress}%</span>
+                </div>
+                <Progress value={uploadProgress} className="h-2" />
+              </motion.div>
             )}
           </div>
+
+          <DialogFooter className="mt-6">
+            <Button 
+              variant="outline" 
+              onClick={() => setShowUploadDialog(false)}
+              disabled={uploading}
+            >
+              Cancel
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Assign Dialog */}
+      {/* Assign Document Dialog */}
       <Dialog open={showAssignDialog} onOpenChange={setShowAssignDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Assign Document to Staff</DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
+              <Send className="w-5 h-5 text-[#014D40]" />
+              Assign Document to Staff
+            </DialogTitle>
           </DialogHeader>
 
-          <div className="space-y-4">
+          <div className="space-y-4 mt-4">
             <div>
               <Label>Assign To</Label>
               <Select
@@ -739,8 +965,8 @@ export default function DocumentManagement() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Staff</SelectItem>
-                  <SelectItem value="role">Specific Role</SelectItem>
-                  <SelectItem value="department">Specific Department</SelectItem>
+                  <SelectItem value="role">By Role</SelectItem>
+                  <SelectItem value="department">By Department</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -753,13 +979,15 @@ export default function DocumentManagement() {
                   onValueChange={(value) => setAssignForm({ ...assignForm, role: value })}
                 >
                   <SelectTrigger>
-                    <SelectValue />
+                    <SelectValue placeholder="Choose role" />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="manager">Manager</SelectItem>
                     <SelectItem value="chef">Chef</SelectItem>
                     <SelectItem value="line_cook">Line Cook</SelectItem>
                     <SelectItem value="server">Server</SelectItem>
                     <SelectItem value="bartender">Bartender</SelectItem>
+                    <SelectItem value="cleaner">Cleaner</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -773,12 +1001,15 @@ export default function DocumentManagement() {
                   onValueChange={(value) => setAssignForm({ ...assignForm, department: value })}
                 >
                   <SelectTrigger>
-                    <SelectValue />
+                    <SelectValue placeholder="Choose department" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="kitchen">Kitchen</SelectItem>
                     <SelectItem value="front_of_house">Front of House</SelectItem>
                     <SelectItem value="bar">Bar</SelectItem>
+                    <SelectItem value="management">Management</SelectItem>
+                    <SelectItem value="cleaning">Cleaning</SelectItem>
+                    <SelectItem value="maintenance">Maintenance</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -790,7 +1021,9 @@ export default function DocumentManagement() {
                 type="date"
                 value={assignForm.due_date}
                 onChange={(e) => setAssignForm({ ...assignForm, due_date: e.target.value })}
+                min={new Date().toISOString().split('T')[0]}
               />
+              <p className="text-xs text-gray-500 mt-1">Default: 14 days from now</p>
             </div>
 
             <div>
@@ -810,15 +1043,78 @@ export default function DocumentManagement() {
                 </SelectContent>
               </Select>
             </div>
-
-            <Button
-              className="w-full"
-              onClick={handleAssignDocument}
-              disabled={!assignForm.due_date}
-            >
-              Assign Document
-            </Button>
           </div>
+
+          <DialogFooter className="mt-6">
+            <Button variant="outline" onClick={() => setShowAssignDialog(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => assignDocumentMutation.mutate()}
+              disabled={assignDocumentMutation.isPending}
+              className="bg-[#014D40] hover:bg-[#013d33]"
+            >
+              {assignDocumentMutation.isPending ? 'Assigning...' : 'Assign Document'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Update Version Dialog */}
+      <Dialog open={showVersionDialog} onOpenChange={setShowVersionDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <History className="w-5 h-5 text-[#014D40]" />
+              Update Document Version
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4 mt-4">
+            <div className="bg-blue-50 p-4 rounded-lg">
+              <p className="text-sm text-blue-900 font-medium">
+                Current Version: v{selectedDocument?.version_number}
+              </p>
+              <p className="text-xs text-blue-700 mt-1">
+                Updating will create v{(selectedDocument?.version_number || 0) + 1} and notify all staff
+              </p>
+            </div>
+
+            <div>
+              <Label>Changelog / What Changed?</Label>
+              <Textarea
+                value={versionForm.changelog}
+                onChange={(e) => setVersionForm({ ...versionForm, changelog: e.target.value })}
+                placeholder="e.g., Updated safety procedures based on new regulations"
+                rows={4}
+              />
+            </div>
+
+            <div>
+              <Label>Upload New File *</Label>
+              <input
+                type="file"
+                id="version-upload"
+                className="hidden"
+                accept=".pdf,.doc,.docx,.png,.jpg,.jpeg,.mp4"
+                onChange={handleVersionUpdate}
+              />
+              <Button
+                variant="outline"
+                className="w-full mt-2"
+                onClick={() => document.getElementById('version-upload').click()}
+              >
+                <Upload className="w-4 h-4 mr-2" />
+                Choose File
+              </Button>
+            </div>
+          </div>
+
+          <DialogFooter className="mt-6">
+            <Button variant="outline" onClick={() => setShowVersionDialog(false)}>
+              Cancel
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
