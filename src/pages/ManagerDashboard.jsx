@@ -491,6 +491,16 @@ export default function ManagerDashboard() {
           </p>
         </div>
 
+        {/* Navigation to Wages Report */}
+        <div className="mb-6">
+          <Link to={createPageUrl("StaffWagesReport")}>
+            <Button className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white shadow-lg">
+              <DollarSign className="w-5 h-5 mr-2" />
+              Staff Wages & Payroll
+            </Button>
+          </Link>
+        </div>
+
         {/* Quick Access Buttons */}
         <div className="grid md:grid-cols-4 gap-4 mb-8">
           <Link to={createPageUrl("WeeklyPayrollReport")}>
@@ -1081,7 +1091,7 @@ export default function ManagerDashboard() {
                                         <div className="flex-1 flex gap-2 items-center">
                                           <Input
                                             value={editingTaskValue}
-                                            onChange={(e) => setEditingTaskValue(e.target.value)} // Fixed here
+                                            onChange={(e) => setNewEditingTaskValue(e.target.value)} // Fixed here
                                             className="h-7 text-sm"
                                             autoFocus
                                             onKeyPress={(e) => {
@@ -1250,7 +1260,7 @@ export default function ManagerDashboard() {
                                         <div className="flex-1 flex gap-2 items-center">
                                           <Input
                                             value={editingTaskValue}
-                                            onChange={(e) => setEditingTaskValue(e.target.value)} // Fixed here
+                                            onChange={(e) => setNewEditingTaskValue(e.target.value)} // Fixed here
                                             className="h-7 text-sm"
                                             autoFocus
                                             onKeyPress={(e) => {
