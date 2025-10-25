@@ -13,7 +13,13 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Plus, Calculator, ShoppingCart, TrendingUp, ArrowLeft, Home, Send } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Plus, Calculator, ShoppingCart, ArrowLeft, Home, Send, MoreVertical, Edit, Trash2, CheckCircle, ChefHat, AlertTriangle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { Link } from "react-router-dom";
@@ -23,10 +29,12 @@ export default function ProductionPlanning() {
   const queryClient = useQueryClient();
   const [showForm, setShowForm] = useState(false);
   const [creatingOrders, setCreatingOrders] = useState(false);
+  const [editingPlan, setEditingPlan] = useState(null); // New state for editing
   const [formData, setFormData] = useState({
     name: "",
     date: format(new Date(), 'yyyy-MM-dd'),
     menu_items: [],
+    status: "planning", // New default status
   });
   const [selectedMenuItem, setSelectedMenuItem] = useState("");
   const [portions, setPortions] = useState("");
@@ -53,21 +61,38 @@ export default function ProductionPlanning() {
       setShowForm(false);
       setFormData({
         name: "",
-        date: format(new Date(), 'yyyy-MM-dd'),
+        date: format(new Date(), 'yyyy-MM-dd'), // Reset to current date
         menu_items: [],
+        status: "planning",
       });
     },
   });
 
-  const createPurchaseOrderMutation = useMutation({
+  const createOrderMutation = useMutation({ // Renamed from createPurchaseOrderMutation
     mutationFn: (data) => base44.entities.PurchaseOrder.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['purchaseOrders'] });
+      queryClient.invalidateQueries({ queryKey: ['productionPlans'] }); // Also invalidate production plans
     },
   });
 
   const updatePlanMutation = useMutation({
     mutationFn: ({ id, data }) => base44.entities.ProductionPlan.update(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['productionPlans'] });
+      setShowForm(false);
+      setEditingPlan(null); // Clear editing state
+      setFormData({
+        name: "",
+        date: format(new Date(), 'yyyy-MM-dd'), // Reset to current date
+        menu_items: [],
+        status: "planning",
+      });
+    },
+  });
+
+  const deletePlanMutation = useMutation({
+    mutationFn: (id) => base44.entities.ProductionPlan.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['productionPlans'] });
     },
@@ -96,74 +121,112 @@ export default function ProductionPlanning() {
     setPortions("");
   };
 
+  // Helper function to calculate totals and ingredients needed for display and submission
   const calculatePlanTotals = () => {
     const totalPortions = formData.menu_items.reduce((sum, item) => sum + item.portions_needed, 0);
     const totalRevenue = formData.menu_items.reduce((sum, item) => sum + (item.sell_price * item.portions_needed), 0);
     const totalCost = formData.menu_items.reduce((sum, item) => sum + (item.cost_per_portion * item.portions_needed), 0);
     const projectedProfit = totalRevenue - totalCost;
 
-    // Calculate ingredients needed
-    const ingredientsMap = {};
-    
-    formData.menu_items.forEach(item => {
-      const menuItem = menuItems.find(m => m.id === item.menu_item_id);
-      if (menuItem?.recipe) {
-        menuItem.recipe.forEach(recipeItem => {
-          const totalNeeded = recipeItem.quantity * item.portions_needed;
-          
-          if (ingredientsMap[recipeItem.ingredient_id]) {
-            ingredientsMap[recipeItem.ingredient_id].quantity_needed += totalNeeded;
-          } else {
-            const ingredient = ingredients.find(ing => ing.id === recipeItem.ingredient_id);
-            ingredientsMap[recipeItem.ingredient_id] = {
-              ingredient_id: recipeItem.ingredient_id,
-              ingredient_name: recipeItem.ingredient_name,
-              quantity_needed: totalNeeded,
-              unit: recipeItem.unit,
-              current_stock: ingredient?.current_stock || 0,
-              to_order: Math.max(0, totalNeeded - (ingredient?.current_stock || 0)),
-              supplier_id: ingredient?.supplier_id,
-              supplier_name: ingredient?.supplier_name,
-              supplier_email: ingredient?.supplier_email,
-              unit_cost: ingredient?.unit_cost || 0,
-            };
-          }
-        });
-      }
+    const ingredientsMap = new Map(); // Using Map for efficient lookup
+
+    formData.menu_items.forEach(planItem => {
+      const menuItem = menuItems.find(m => m.id === planItem.menu_item_id);
+      if (!menuItem?.recipe) return; // Skip if no recipe
+
+      menuItem.recipe.forEach(recipeItem => {
+        const quantityNeeded = recipeItem.quantity * planItem.portions_needed;
+        const existingIngredient = ingredientsMap.get(recipeItem.ingredient_id);
+
+        if (existingIngredient) {
+          existingIngredient.quantity_needed += quantityNeeded;
+        } else {
+          const inventoryItem = ingredients.find(i => i.id === recipeItem.ingredient_id);
+          ingredientsMap.set(recipeItem.ingredient_id, {
+            ingredient_id: recipeItem.ingredient_id,
+            ingredient_name: recipeItem.ingredient_name,
+            quantity_needed: quantityNeeded,
+            unit: recipeItem.unit,
+            current_stock: inventoryItem?.current_stock || 0, // Get current stock from inventory
+            to_order: Math.max(0, quantityNeeded - (inventoryItem?.current_stock || 0)), // Calculate amount to order
+          });
+        }
+      });
     });
 
-    const ingredientsNeeded = Object.values(ingredientsMap);
+    const ingredientsNeeded = Array.from(ingredientsMap.values());
 
     return { totalPortions, totalRevenue, totalCost, projectedProfit, ingredientsNeeded };
   };
 
+  const handleEdit = (plan) => {
+    setEditingPlan(plan);
+    setFormData({
+      name: plan.name,
+      date: plan.date,
+      menu_items: plan.menu_items || [],
+      status: plan.status,
+    });
+    setShowForm(true);
+  };
+
+  const handleCancelPlan = async (planId) => {
+    if (confirm('⚠️ Are you sure you want to cancel this production plan?\n\nThis will remove the plan and any associated orders.')) {
+      await deletePlanMutation.mutateAsync(planId);
+    }
+  };
+
+  const handleUpdateStatus = async (planId, newStatus) => {
+    await updatePlanMutation.mutateAsync({
+      id: planId,
+      data: { status: newStatus }
+    });
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+
     const { totalPortions, totalRevenue, totalCost, projectedProfit, ingredientsNeeded } = calculatePlanTotals();
 
-    const data = {
-      name: formData.name,
-      date: formData.date,
-      menu_items: formData.menu_items,
+    const planData = {
+      ...formData,
       total_portions: totalPortions,
       total_revenue: totalRevenue,
       total_cost: totalCost,
       projected_profit: projectedProfit,
       ingredients_needed: ingredientsNeeded,
-      status: "planning",
     };
 
-    await createPlanMutation.mutateAsync(data);
+    if (editingPlan) {
+      await updatePlanMutation.mutateAsync({
+        id: editingPlan.id,
+        data: planData
+      });
+    } else {
+      await createPlanMutation.mutateAsync(planData);
+    }
   };
 
-  const handleCreatePurchaseOrders = async (plan) => {
+  const handleOrderIngredients = async (plan) => { // Renamed from handleCreatePurchaseOrders
     setCreatingOrders(true);
     
     try {
       const ingredientsNeeded = plan.ingredients_needed || [];
       
-      // Check for missing suppliers
-      const missingSuppliers = ingredientsNeeded.filter(ing => ing.to_order > 0 && !ing.supplier_id);
+      // Check for missing suppliers and zero quantities to order
+      const ingredientsToOrder = ingredientsNeeded.filter(ing => ing.to_order > 0);
+
+      if (ingredientsToOrder.length === 0) {
+        alert('✅ All required ingredients are already in stock for this plan! No orders needed.');
+        setCreatingOrders(false);
+        return;
+      }
+
+      const missingSuppliers = ingredientsToOrder.filter(ing => {
+        const inventoryIngredient = ingredients.find(i => i.id === ing.ingredient_id);
+        return !inventoryIngredient?.supplier_id;
+      });
+
       if (missingSuppliers.length > 0) {
         alert(`⚠️ Cannot create orders. ${missingSuppliers.length} ingredient(s) missing suppliers:\n${missingSuppliers.map(i => i.ingredient_name).join(', ')}\n\nPlease assign suppliers in Inventory Management.`);
         setCreatingOrders(false);
@@ -173,33 +236,28 @@ export default function ProductionPlanning() {
       // Group by supplier
       const ordersBySupplier = {};
       
-      ingredientsNeeded.forEach(ing => {
-        if (ing.to_order > 0) {
-          if (!ordersBySupplier[ing.supplier_id]) {
-            ordersBySupplier[ing.supplier_id] = {
-              supplier_id: ing.supplier_id,
-              supplier_name: ing.supplier_name,
-              supplier_email: ing.supplier_email,
+      ingredientsToOrder.forEach(ing => {
+        const inventoryIngredient = ingredients.find(i => i.id === ing.ingredient_id);
+        if (inventoryIngredient) {
+          if (!ordersBySupplier[inventoryIngredient.supplier_id]) {
+            ordersBySupplier[inventoryIngredient.supplier_id] = {
+              supplier_id: inventoryIngredient.supplier_id,
+              supplier_name: inventoryIngredient.supplier_name,
+              supplier_email: inventoryIngredient.supplier_email,
               items: []
             };
           }
           
-          ordersBySupplier[ing.supplier_id].items.push({
+          ordersBySupplier[inventoryIngredient.supplier_id].items.push({
             ingredient_id: ing.ingredient_id,
             ingredient_name: ing.ingredient_name,
             quantity_ordered: ing.to_order,
             unit: ing.unit,
-            unit_cost: ing.unit_cost,
-            line_total: ing.to_order * ing.unit_cost,
+            unit_cost: inventoryIngredient.unit_cost || 0,
+            line_total: ing.to_order * (inventoryIngredient.unit_cost || 0),
           });
         }
       });
-
-      if (Object.keys(ordersBySupplier).length === 0) {
-        alert('✅ All ingredients are already in stock! No orders needed.');
-        setCreatingOrders(false);
-        return;
-      }
 
       // Create POs and send emails
       let ordersCreated = 0;
@@ -211,7 +269,7 @@ export default function ProductionPlanning() {
         const poNumber = `PO-${Date.now()}-${supplierId.substring(0, 4)}`;
 
         // Create PO
-        await createPurchaseOrderMutation.mutateAsync({
+        await createOrderMutation.mutateAsync({ // Using createOrderMutation
           order_number: poNumber,
           supplier_id: order.supplier_id,
           supplier_name: order.supplier_name,
@@ -263,11 +321,19 @@ AURA Restaurant Management
         ordersCreated++;
       }
 
-      // Update plan status
-      await updatePlanMutation.mutateAsync({
-        id: plan.id,
-        data: { status: 'approved', orders_created: true }
-      });
+      // Update plan status to 'approved' if orders were created, or just refresh if no orders needed
+      if (plan.status === 'planning') { // Only auto-approve if it was in planning
+        await updatePlanMutation.mutateAsync({
+          id: plan.id,
+          data: { status: 'approved', orders_created: true }
+        });
+      } else {
+        // If plan was already approved, just ensure orders_created flag is set and invalidate queries
+        await updatePlanMutation.mutateAsync({
+          id: plan.id,
+          data: { orders_created: true }
+        });
+      }
 
       alert(`✅ Successfully created and emailed ${ordersCreated} purchase order(s)!\n\nCheck the Ordering page to track status.`);
       
@@ -305,7 +371,20 @@ AURA Restaurant Management
             <h1 className="text-3xl font-bold text-gray-900 mb-2">Production Planning</h1>
             <p className="text-gray-600">Plan portions and automatically generate purchase orders</p>
           </div>
-          <Dialog open={showForm} onOpenChange={setShowForm}>
+          <Dialog open={showForm} onOpenChange={(isOpen) => {
+            setShowForm(isOpen);
+            if (!isOpen) { // Reset form when closing
+              setEditingPlan(null);
+              setFormData({
+                name: "",
+                date: format(new Date(), 'yyyy-MM-dd'),
+                menu_items: [],
+                status: "planning",
+              });
+              setSelectedMenuItem("");
+              setPortions("");
+            }
+          }}>
             <DialogTrigger asChild>
               <Button className="bg-green-600 hover:bg-green-700">
                 <Plus className="w-4 h-4 mr-2" />
@@ -314,7 +393,7 @@ AURA Restaurant Management
             </DialogTrigger>
             <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
-                <DialogTitle>Create Production Plan</DialogTitle>
+                <DialogTitle>{editingPlan ? 'Edit Production Plan' : 'Create Production Plan'}</DialogTitle>
               </DialogHeader>
               <form onSubmit={handleSubmit} className="space-y-6 mt-4">
                 <div className="grid md:grid-cols-2 gap-4">
@@ -477,10 +556,10 @@ AURA Restaurant Management
                   </Button>
                   <Button 
                     type="submit" 
-                    disabled={createPlanMutation.isPending || formData.menu_items.length === 0}
+                    disabled={createPlanMutation.isPending || updatePlanMutation.isPending || formData.menu_items.length === 0}
                     className="bg-green-600 hover:bg-green-700"
                   >
-                    Create Plan
+                    {editingPlan ? 'Update Plan' : 'Create Plan'}
                   </Button>
                 </div>
               </form>
@@ -508,79 +587,154 @@ AURA Restaurant Management
               </CardContent>
             </Card>
           ) : (
-            plans.map((plan) => (
-              <Card key={plan.id} className="bg-white border-none shadow-sm hover:shadow-md transition-shadow">
-                <CardContent className="p-6">
-                  <div className="flex justify-between items-start mb-4">
-                    <div>
-                      <h3 className="text-xl font-bold text-gray-900 mb-1">{plan.name}</h3>
-                      <p className="text-sm text-gray-600">{format(new Date(plan.date), "PPP")}</p>
-                    </div>
-                    <Badge className={
-                      plan.status === 'completed' ? 'bg-green-100 text-green-800' :
-                      plan.status === 'approved' ? 'bg-blue-100 text-blue-800' :
-                      plan.status === 'in_production' ? 'bg-purple-100 text-purple-800' :
-                      'bg-gray-100 text-gray-800'
-                    }>
-                      {plan.status}
-                    </Badge>
-                  </div>
+            plans.map((plan) => {
+              const profitMargin = plan.total_revenue > 0 
+                ? ((plan.projected_profit / plan.total_revenue) * 100).toFixed(1)
+                : 0;
 
-                  <div className="grid md:grid-cols-4 gap-4 mb-4">
-                    <div className="bg-gray-50 p-3 rounded-lg">
-                      <p className="text-xs text-gray-600 mb-1">Total Portions</p>
-                      <p className="text-xl font-bold text-gray-900">{plan.total_portions}</p>
+              return (
+                <Card key={plan.id} className="bg-white border-none shadow-sm hover:shadow-md transition-shadow">
+                  <CardContent className="p-6">
+                    <div className="flex justify-between items-start mb-4">
+                      <div className="flex-1">
+                        <h3 className="text-xl font-bold text-gray-900 mb-2">{plan.name}</h3>
+                        <div className="flex items-center gap-3 mb-3">
+                          <Badge className="bg-blue-100 text-blue-800 border-blue-200">
+                            {format(new Date(plan.date), "MMM d, yyyy")}
+                          </Badge>
+                          <Badge className={
+                            plan.status === 'planning' ? 'bg-gray-100 text-gray-800' :
+                            plan.status === 'approved' ? 'bg-green-100 text-green-800' :
+                            plan.status === 'in_production' ? 'bg-blue-100 text-blue-800' :
+                            'bg-purple-100 text-purple-800'
+                          }>
+                            {plan.status.replace(/_/g, ' ')}
+                          </Badge>
+                        </div>
+                      </div>
+                      
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon">
+                            <MoreVertical className="w-4 h-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => handleEdit(plan)}>
+                            <Edit className="w-4 h-4 mr-2" />
+                            Amend Plan
+                          </DropdownMenuItem>
+                          
+                          {plan.status === 'planning' && (
+                            <DropdownMenuItem onClick={() => handleUpdateStatus(plan.id, 'approved')}>
+                              <CheckCircle className="w-4 h-4 mr-2 text-green-600" />
+                              Approve Plan
+                            </DropdownMenuItem>
+                          )}
+                          
+                          {plan.status === 'approved' && (
+                            <DropdownMenuItem onClick={() => handleUpdateStatus(plan.id, 'in_production')}>
+                              <ChefHat className="w-4 h-4 mr-2 text-blue-600" />
+                              Start Production
+                            </DropdownMenuItem>
+                          )}
+                          
+                          {plan.status === 'in_production' && (
+                            <DropdownMenuItem onClick={() => handleUpdateStatus(plan.id, 'completed')}>
+                              <CheckCircle className="w-4 h-4 mr-2 text-purple-600" />
+                              Mark Complete
+                            </DropdownMenuItem>
+                          )}
+                          
+                          <DropdownMenuItem 
+                            onClick={() => handleCancelPlan(plan.id)}
+                            className="text-red-600"
+                          >
+                            <Trash2 className="w-4 h-4 mr-2" />
+                            Cancel Plan
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </div>
-                    <div className="bg-green-50 p-3 rounded-lg">
-                      <p className="text-xs text-gray-600 mb-1">Revenue</p>
-                      <p className="text-xl font-bold text-green-700">£{plan.total_revenue?.toFixed(2)}</p>
-                    </div>
-                    <div className="bg-amber-50 p-3 rounded-lg">
-                      <p className="text-xs text-gray-600 mb-1">Cost</p>
-                      <p className="text-xl font-bold text-amber-700">£{plan.total_cost?.toFixed(2)}</p>
-                    </div>
-                    <div className="bg-blue-50 p-3 rounded-lg">
-                      <p className="text-xs text-gray-600 mb-1">Profit</p>
-                      <p className={`text-xl font-bold ${plan.projected_profit > 0 ? 'text-blue-700' : 'text-red-700'}`}>
-                        £{plan.projected_profit?.toFixed(2)}
-                      </p>
-                    </div>
-                  </div>
 
-                  {plan.orders_created && (
-                    <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg flex items-center gap-2">
-                      <Send className="w-4 h-4 text-green-600" />
-                      <span className="text-sm text-green-800 font-medium">
-                        Purchase orders created and emailed to suppliers
-                      </span>
+                    {/* Menu Items */}
+                    <div className="space-y-2 mb-4">
+                      <p className="text-sm font-semibold text-gray-700">Menu Items:</p>
+                      {plan.menu_items?.map((item, index) => (
+                        <div key={index} className="flex justify-between items-center p-2 bg-gray-50 rounded text-sm">
+                          <span className="text-gray-900">{item.menu_item_name}</span>
+                          <span className="text-gray-600">{item.portions_needed} portions</span>
+                        </div>
+                      ))}
                     </div>
-                  )}
 
-                  <div className="flex gap-2">
-                    {!plan.orders_created && (
-                      <Button
-                        size="sm"
-                        className="bg-green-600 hover:bg-green-700"
-                        onClick={() => handleCreatePurchaseOrders(plan)}
-                        disabled={creatingOrders}
-                      >
-                        <ShoppingCart className="w-4 h-4 mr-2" />
-                        {creatingOrders ? 'Creating Orders...' : 'Create & Email Purchase Orders'}
-                      </Button>
-                    )}
-                    {plan.orders_created && (
-                      <Link to={createPageUrl('Ordering')}>
-                        <Button size="sm" variant="outline">
+                    {/* Financial Summary */}
+                    <div className="grid grid-cols-2 gap-4 mb-4 p-4 bg-gradient-to-br from-emerald-50 to-blue-50 rounded-lg">
+                      <div>
+                        <p className="text-xs text-gray-600">Total Portions</p>
+                        <p className="text-lg font-bold text-gray-900">{plan.total_portions}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-600">Revenue</p>
+                        <p className="text-lg font-bold text-green-700">£{plan.total_revenue?.toFixed(2)}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-600">Cost</p>
+                        <p className="text-lg font-bold text-gray-900">£{plan.total_cost?.toFixed(2)}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-600">Profit ({profitMargin}%)</p>
+                        <p className="text-lg font-bold text-emerald-700">£{plan.projected_profit?.toFixed(2)}</p>
+                      </div>
+                    </div>
+
+                    {/* Action Buttons */}
+                    <div className="flex gap-2">
+                      {plan.status === 'approved' && !plan.orders_created && (
+                        <Button
+                          onClick={() => handleOrderIngredients(plan)}
+                          className="flex-1 bg-green-600 hover:bg-green-700"
+                          disabled={creatingOrders}
+                        >
                           <ShoppingCart className="w-4 h-4 mr-2" />
-                          View Orders
+                          {creatingOrders ? 'Creating Orders...' : 'Order Ingredients'}
                         </Button>
-                      </Link>
+                      )}
+                      {plan.orders_created && (
+                        <Link to={createPageUrl('Ordering')} className="flex-1">
+                          <Button size="sm" variant="outline" className="w-full">
+                            <ShoppingCart className="w-4 h-4 mr-2" />
+                            View Orders
+                          </Button>
+                        </Link>
+                      )}
+                      {(plan.status === 'planning' || plan.status === 'approved') && (
+                        <Button
+                          variant="outline"
+                          onClick={() => handleEdit(plan)}
+                          className="flex-1"
+                        >
+                          <Edit className="w-4 h-4 mr-2" />
+                          Amend
+                        </Button>
+                      )}
+                    </div>
+
+                    {/* Low Stock Warning */}
+                    {plan.ingredients_needed?.some(ing => ing.to_order > 0) && (
+                      <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                        <p className="text-sm text-amber-800 flex items-center gap-2">
+                          <AlertTriangle className="w-4 h-4" />
+                          <span className="font-semibold">
+                            {plan.ingredients_needed.filter(ing => ing.to_order > 0).length} ingredient(s) need ordering
+                          </span>
+                        </p>
+                      </div>
                     )}
-                  </div>
-                </CardContent>
-              </Card>
-            ))
-          )}
+                  </CardContent>
+                </Card>
+              );
+            })}
         </div>
       </div>
     </div>
