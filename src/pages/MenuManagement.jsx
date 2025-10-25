@@ -125,7 +125,7 @@ export default function MenuManagement() {
     mutationFn: (data) => base44.entities.PurchaseOrder.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['purchaseOrders'] });
-      alert('✅ Draft order created successfully! Check Orders page.');
+      // alert('✅ Draft order created successfully! Check Orders page.'); // Old alert, replaced below.
     },
   });
 
@@ -356,26 +356,40 @@ export default function MenuManagement() {
     const { ingredientsNeeded } = metrics;
 
     if (ingredientsNeeded.length === 0) {
-      alert('No ingredients found to order!');
+      alert('⚠️ No ingredients found to order!');
       return;
     }
 
-    // Group by supplier
+    // Check which ingredients are missing suppliers
+    const ingredientsWithoutSuppliers = [];
     const ordersBySupplier = {};
 
     for (const recipeItem of ingredientsNeeded) {
-      if (!recipeItem.supplier_id) {
-        console.warn(`Ingredient ${recipeItem.ingredient_name} has no supplier_id assigned and will not be ordered.`);
+      const ingredient = ingredients.find(ing => ing.id === recipeItem.ingredient_id);
+      
+      if (!ingredient) {
+        ingredientsWithoutSuppliers.push({
+          name: recipeItem.ingredient_name,
+          reason: 'Ingredient not found in inventory'
+        });
         continue;
       }
 
-      const supplierId = recipeItem.supplier_id;
+      if (!ingredient.supplier_id) {
+        ingredientsWithoutSuppliers.push({
+          name: recipeItem.ingredient_name,
+          reason: 'No supplier assigned'
+        });
+        continue;
+      }
+
+      const supplierId = ingredient.supplier_id;
 
       if (!ordersBySupplier[supplierId]) {
         ordersBySupplier[supplierId] = {
-          supplier_id: recipeItem.supplier_id,
-          supplier_name: recipeItem.supplier_name,
-          supplier_email: recipeItem.supplier_email,
+          supplier_id: ingredient.supplier_id,
+          supplier_name: ingredient.supplier_name,
+          supplier_email: ingredient.supplier_email,
           items: [],
         };
       }
@@ -390,16 +404,27 @@ export default function MenuManagement() {
       });
     }
 
+    // Show detailed error if ingredients missing suppliers
+    if (ingredientsWithoutSuppliers.length > 0) {
+      const errorMessage = `⚠️ Cannot create order. The following ingredients need suppliers:\n\n${
+        ingredientsWithoutSuppliers.map(item => `• ${item.name} - ${item.reason}`).join('\n')
+      }\n\nPlease go to Inventory Management and assign suppliers to these ingredients.`;
+      
+      alert(errorMessage);
+      return;
+    }
+
     if (Object.keys(ordersBySupplier).length === 0) {
-      alert('⚠️ No suppliers assigned to ingredients found in this recipe. Please ensure all recipe ingredients are linked to inventory items, and those inventory items have an assigned supplier.');
+      alert('⚠️ No valid ingredients to order. Please check supplier assignments.');
       return;
     }
 
     // Create draft orders for each supplier
     try {
+      let ordersCreated = 0;
       for (const order of Object.values(ordersBySupplier)) {
         const subtotal = order.items.reduce((sum, item) => sum + item.line_total, 0);
-        const tax = subtotal * 0.2; // Assuming 20% tax
+        const tax = subtotal * 0.2;
         const total = subtotal + tax;
 
         await createPurchaseOrderMutation.mutateAsync({
@@ -415,11 +440,14 @@ export default function MenuManagement() {
           order_date: new Date().toISOString(),
           notes: `Order for ${calculatorItem.name} (${servings} servings) - Generated from Profit Calculator`,
         });
+        ordersCreated++;
       }
+      
+      alert(`✅ ${ordersCreated} draft order(s) created successfully! Check the Ordering page.`);
       setShowProfitCalculator(false);
     } catch (error) {
       console.error("Failed to create purchase order(s):", error);
-      alert("Failed to create purchase order(s). Please try again.");
+      alert("❌ Failed to create purchase order(s). Please try again.");
     }
   };
 
@@ -1026,35 +1054,51 @@ export default function MenuManagement() {
                   {metrics.ingredientsNeeded.length === 0 ? (
                     <Card className="bg-amber-50 border-amber-200">
                       <CardContent className="p-4 text-center">
-                        <p className="text-amber-800">⚠️ No ingredients found or no ingredients linked to suppliers.</p>
-                        <p className="text-amber-700 text-sm mt-2">Ensure all recipe ingredients are linked to inventory items, and those inventory items have an assigned supplier.</p>
+                        <p className="text-amber-800">⚠️ No ingredients found in recipe</p>
                       </CardContent>
                     </Card>
                   ) : (
                     <div className="space-y-2">
-                      {metrics.ingredientsNeeded.map((item, index) => (
-                        <Card key={index} className="border border-gray-200">
-                          <CardContent className="p-4">
-                            <div className="flex justify-between items-center">
-                              <div>
-                                <p className="font-medium text-gray-900">{item.ingredient_name}</p>
-                                <p className="text-sm text-gray-600">
-                                  {item.quantity_needed.toFixed(2)} {item.unit} × £{item.unit_cost?.toFixed(2)}
-                                  {wastePercentage > 0 && (
-                                    <span className="text-amber-600 ml-1"> (+{wastePercentage}% waste)</span>
+                      {metrics.ingredientsNeeded.map((item, index) => {
+                        const ingredient = ingredients.find(ing => ing.id === item.ingredient_id);
+                        const hasSupplier = ingredient?.supplier_id;
+                        
+                        return (
+                          <Card key={index} className={`border ${hasSupplier ? 'border-gray-200' : 'border-red-200 bg-red-50'}`}>
+                            <CardContent className="p-4">
+                              <div className="flex justify-between items-center">
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-2">
+                                    <p className="font-medium text-gray-900">{item.ingredient_name}</p>
+                                    {!hasSupplier && (
+                                      <Badge className="bg-red-100 text-red-800 text-xs">
+                                        No Supplier
+                                      </Badge>
+                                    )}
+                                  </div>
+                                  <p className="text-sm text-gray-600">
+                                    {item.quantity_needed.toFixed(2)} {item.unit} × £{item.unit_cost?.toFixed(2)}
+                                    {wastePercentage > 0 && (
+                                      <span className="text-amber-600 ml-1"> (+{wastePercentage}% waste)</span>
+                                    )}
+                                  </p>
+                                  {ingredient?.supplier_name && (
+                                    <p className="text-xs text-gray-500">Supplier: {ingredient.supplier_name}</p>
                                   )}
-                                </p>
-                                {item.supplier_name && (
-                                  <p className="text-xs text-gray-500">Supplier: {item.supplier_name}</p>
-                                )}
+                                  {!hasSupplier && (
+                                    <p className="text-xs text-red-600 mt-1">
+                                      ⚠️ Please assign a supplier in Inventory Management
+                                    </p>
+                                  )}
+                                </div>
+                                <span className="font-semibold text-gray-900">
+                                  £{item.total_cost.toFixed(2)}
+                                </span>
                               </div>
-                              <span className="font-semibold text-gray-900">
-                                £{item.total_cost.toFixed(2)}
-                              </span>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      ))}
+                            </CardContent>
+                          </Card>
+                        );
+                      })}
                     </div>
                   )}
                 </div>
