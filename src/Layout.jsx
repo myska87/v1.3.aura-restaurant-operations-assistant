@@ -22,7 +22,11 @@ import {
   ClipboardList,
   GraduationCap,
   MessageCircle,
-  CheckCircle, // Added CheckCircle import
+  CheckCircle, 
+  Calendar, // Added from outline
+  TrendingUp, // Added from outline
+  UserCircle, // Added from outline
+  ChevronRight, // Added from outline
 } from "lucide-react";
 import WelcomeNewHire from "./components/WelcomeNewHire";
 import ChecklistAutomation from "./components/ChecklistAutomation";
