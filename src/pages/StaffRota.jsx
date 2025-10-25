@@ -40,16 +40,6 @@ export default function StaffRota() {
       accessLevel: "all",
     },
     {
-      title: "My Availability",
-      description: "Set your weekly availability and time-off requests",
-      icon: Users,
-      url: createPageUrl("ManageAvailability"),
-      color: "from-purple-500 to-purple-600",
-      bgColor: "bg-purple-50",
-      iconColor: "text-purple-600",
-      accessLevel: "all",
-    },
-    {
       title: "🤖 Smart Gantt Scheduler",
       description: "Visual week planner with auto task assignment",
       icon: Calendar,
