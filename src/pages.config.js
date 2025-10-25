@@ -22,7 +22,6 @@ import ManageAvailability from './pages/ManageAvailability';
 import WeeklyRota from './pages/WeeklyRota';
 import WeeklyRotaSchedule from './pages/WeeklyRotaSchedule';
 import MenuSetup from './pages/MenuSetup';
-import PageNotFound from './pages/PageNotFound';
 import Layout from './Layout.jsx';
 
 
@@ -51,7 +50,6 @@ export const PAGES = {
     "WeeklyRota": WeeklyRota,
     "WeeklyRotaSchedule": WeeklyRotaSchedule,
     "MenuSetup": MenuSetup,
-    "PageNotFound": PageNotFound,
 }
 
 export const pagesConfig = {

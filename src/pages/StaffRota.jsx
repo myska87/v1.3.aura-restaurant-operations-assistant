@@ -1,14 +1,24 @@
 import React from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Calendar, Clock, Users, BarChart3, ListChecks, ArrowRight, Home } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Calendar, UserCog, CalendarCheck, Clock, BarChart3, CalendarDays, Home } from "lucide-react";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { motion } from "framer-motion";
 
 const rotaModules = [
   {
+    title: "Weekly Rota Schedule",
+    description: "Gantt chart view of weekly shift schedules by position",
+    icon: CalendarDays,
+    url: createPageUrl("WeeklyRotaSchedule"),
+    color: "from-emerald-500 to-emerald-600",
+    bgColor: "bg-emerald-50",
+    iconColor: "text-emerald-600",
+  },
+  {
     title: "My Shifts",
-    description: "View your upcoming and past shifts with status and timing",
+    description: "View your upcoming and past shifts with status tracking",
     icon: Calendar,
     url: createPageUrl("MyShifts"),
     color: "from-blue-500 to-blue-600",
@@ -16,37 +26,37 @@ const rotaModules = [
     iconColor: "text-blue-600",
   },
   {
-    title: "Clock In / Out",
-    description: "Record your shift hours with location and time tracking",
-    icon: Clock,
-    url: createPageUrl("ClockInOut"),
-    color: "from-green-500 to-green-600",
-    bgColor: "bg-green-50",
-    iconColor: "text-green-600",
-  },
-  {
-    title: "Manage Availability",
-    description: "Set your available days and preferred shift times",
-    icon: ListChecks,
-    url: createPageUrl("ManageAvailability"),
+    title: "Change Role",
+    description: "Switch your assigned role for specific shifts",
+    icon: UserCog,
+    url: createPageUrl("ChangeRole"),
     color: "from-purple-500 to-purple-600",
     bgColor: "bg-purple-50",
     iconColor: "text-purple-600",
   },
   {
-    title: "Weekly Rota Schedule",
-    description: "View the complete weekly schedule with all staff assignments",
-    icon: Users,
-    url: createPageUrl("WeeklyRotaSchedule"),
+    title: "Availability",
+    description: "Manage your available days and preferred shift times",
+    icon: CalendarCheck,
+    url: createPageUrl("ManageAvailability"),
+    color: "from-green-500 to-green-600",
+    bgColor: "bg-green-50",
+    iconColor: "text-green-600",
+  },
+  {
+    title: "Clock In / Out",
+    description: "Active shift timer with automatic logging",
+    icon: Clock,
+    url: createPageUrl("ClockInOut"),
     color: "from-amber-500 to-amber-600",
     bgColor: "bg-amber-50",
     iconColor: "text-amber-600",
   },
   {
-    title: "Attendance Reports",
-    description: "Track hours worked, lateness, and compliance summaries",
+    title: "Reports & Attendance",
+    description: "View shift history, hours worked, and attendance records",
     icon: BarChart3,
-    url: createPageUrl("Reports"),
+    url: createPageUrl("AttendanceReports"),
     color: "from-red-500 to-red-600",
     bgColor: "bg-red-50",
     iconColor: "text-red-600",
@@ -60,10 +70,10 @@ export default function StaffRota() {
         {/* Back Button */}
         <div className="mb-6">
           <Link to={createPageUrl("Dashboard")}>
-            <button className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors">
-              <Home className="w-4 h-4" />
-              <span className="text-sm">Dashboard</span>
-            </button>
+            <Button variant="outline" size="sm">
+              <Home className="w-4 h-4 mr-2" />
+              Dashboard
+            </Button>
           </Link>
         </div>
 
@@ -73,7 +83,7 @@ export default function StaffRota() {
             Shift & Rota Management
           </h1>
           <p className="text-lg text-gray-600">
-            Comprehensive staff scheduling, clock-in/out, and attendance tracking
+            Clock-In & Clock-Out System
           </p>
         </div>
 
@@ -90,23 +100,17 @@ export default function StaffRota() {
               >
                 <Link to={module.url}>
                   <Card className="bg-white border-none shadow-lg hover:shadow-xl transition-all duration-300 group overflow-hidden relative h-full">
-                    {/* Gradient Background */}
                     <div className={`absolute inset-0 bg-gradient-to-br ${module.color} opacity-0 group-hover:opacity-5 transition-opacity duration-300`} />
                     
-                    <CardHeader className="pb-4">
-                      <div className="flex items-start justify-between">
-                        <div className={`p-4 ${module.bgColor} rounded-xl group-hover:scale-110 transition-transform duration-300`}>
-                          <Icon className={`w-8 h-8 ${module.iconColor}`} />
-                        </div>
-                        <ArrowRight className="w-5 h-5 text-gray-400 group-hover:text-gray-600 group-hover:translate-x-1 transition-all duration-300" />
+                    <CardContent className="p-6">
+                      <div className={`p-4 ${module.bgColor} rounded-xl group-hover:scale-110 transition-transform duration-300 w-fit mb-4`}>
+                        <Icon className={`w-8 h-8 ${module.iconColor}`} />
                       </div>
-                    </CardHeader>
-
-                    <CardContent>
-                      <CardTitle className="text-2xl font-bold text-gray-900 mb-2 group-hover:text-blue-600 transition-colors">
+                      
+                      <h3 className="text-xl font-bold text-gray-900 mb-2 group-hover:text-gray-800">
                         {module.title}
-                      </CardTitle>
-                      <p className="text-gray-600 leading-relaxed">
+                      </h3>
+                      <p className="text-gray-600 text-sm leading-relaxed">
                         {module.description}
                       </p>
                     </CardContent>
@@ -116,6 +120,25 @@ export default function StaffRota() {
             );
           })}
         </div>
+
+        {/* Info Card */}
+        <Card className="mt-8 bg-blue-50 border-blue-200">
+          <CardContent className="p-6">
+            <div className="flex items-start gap-4">
+              <div className="p-3 bg-blue-100 rounded-lg">
+                <Clock className="w-6 h-6 text-blue-600" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-gray-900 mb-2">Automated Shift Management</h3>
+                <p className="text-gray-700 leading-relaxed">
+                  Complete shift scheduling system with real-time clock-in/out tracking, automatic checklist assignment, 
+                  GPS verification, and comprehensive attendance reporting. Stay on top of your team's performance with 
+                  automated notifications and seamless integration with hygiene compliance tasks.
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );

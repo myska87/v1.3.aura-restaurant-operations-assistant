@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -13,9 +14,11 @@ import {
   Menu,
   X,
   LogOut,
+  // ChefHat, // ChefHat is no longer used after removing "Weekly Rota Schedule"
   Calculator,
   ShoppingCart,
   FileText,
+  Truck,
   ListChecks,
   ClipboardList,
 } from "lucide-react";
@@ -51,6 +54,7 @@ const navigationItems = [
     url: createPageUrl("StaffRota"),
     icon: Users,
   },
+  // The "Weekly Rota Schedule" item has been removed as per the outline.
   {
     title: "Checklist Templates",
     url: createPageUrl("ChecklistTemplates"),
