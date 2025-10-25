@@ -22,6 +22,9 @@ import ManageAvailability from './pages/ManageAvailability';
 import WeeklyRota from './pages/WeeklyRota';
 import WeeklyRotaSchedule from './pages/WeeklyRotaSchedule';
 import InventoryManagement from './pages/InventoryManagement';
+import StaffModel from './pages/StaffModel';
+import CultureBuilding from './pages/CultureBuilding';
+import OnboardingTraining from './pages/OnboardingTraining';
 import Layout from './Layout.jsx';
 
 
@@ -50,6 +53,9 @@ export const PAGES = {
     "WeeklyRota": WeeklyRota,
     "WeeklyRotaSchedule": WeeklyRotaSchedule,
     "InventoryManagement": InventoryManagement,
+    "StaffModel": StaffModel,
+    "CultureBuilding": CultureBuilding,
+    "OnboardingTraining": OnboardingTraining,
 }
 
 export const pagesConfig = {

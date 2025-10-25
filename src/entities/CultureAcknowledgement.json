@@ -1,0 +1,45 @@
+{
+  "name": "CultureAcknowledgement",
+  "type": "object",
+  "properties": {
+    "staff_email": {
+      "type": "string"
+    },
+    "staff_name": {
+      "type": "string"
+    },
+    "culture_content_id": {
+      "type": "string",
+      "description": "Reference to CultureContent"
+    },
+    "content_title": {
+      "type": "string",
+      "description": "Cached title"
+    },
+    "acknowledged_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "quiz_taken": {
+      "type": "boolean",
+      "default": false
+    },
+    "quiz_score": {
+      "type": "number",
+      "description": "Score if quiz was taken"
+    },
+    "quiz_passed": {
+      "type": "boolean",
+      "default": false
+    },
+    "comments": {
+      "type": "string",
+      "description": "Optional staff feedback"
+    }
+  },
+  "required": [
+    "staff_email",
+    "culture_content_id",
+    "acknowledged_at"
+  ]
+}

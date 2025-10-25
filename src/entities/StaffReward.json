@@ -1,0 +1,67 @@
+{
+  "name": "StaffReward",
+  "type": "object",
+  "properties": {
+    "staff_email": {
+      "type": "string"
+    },
+    "staff_name": {
+      "type": "string"
+    },
+    "reward_type": {
+      "type": "string",
+      "enum": [
+        "points",
+        "badge",
+        "staff_of_month",
+        "peer_recognition",
+        "certificate",
+        "bonus"
+      ],
+      "description": "Type of reward"
+    },
+    "points_earned": {
+      "type": "number",
+      "default": 0,
+      "description": "Points for this reward"
+    },
+    "badge_name": {
+      "type": "string",
+      "description": "Badge title if applicable"
+    },
+    "badge_icon": {
+      "type": "string",
+      "description": "Emoji or icon for badge"
+    },
+    "reason": {
+      "type": "string",
+      "description": "Why reward was given"
+    },
+    "awarded_by": {
+      "type": "string",
+      "description": "Manager or system"
+    },
+    "nominated_by": {
+      "type": "string",
+      "description": "Peer who nominated (if applicable)"
+    },
+    "awarded_date": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "is_public": {
+      "type": "boolean",
+      "default": true,
+      "description": "Show on Wall of Fame"
+    },
+    "linked_achievement": {
+      "type": "string",
+      "description": "Related training, performance, etc."
+    }
+  },
+  "required": [
+    "staff_email",
+    "reward_type",
+    "reason"
+  ]
+}
