@@ -970,7 +970,7 @@ export default function AdvancedChecklists() {
 
             {viewMode === 'monitor' && isAdmin && (
               <MonitorView
-                executions={filterExeclistsByFrequency(allExecutions, 'weekly')}
+                executions={filterExecutionsByFrequency(allExecutions, 'weekly')}
                 getProgress={getProgress}
                 getStatusColor={getStatusColor}
                 getShiftTypeColor={getShiftTypeColor}
