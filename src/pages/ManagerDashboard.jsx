@@ -391,33 +391,54 @@ export default function ManagerDashboard() {
           </Card>
         </div>
 
-        {/* Tab Navigation - Replace Tabs with Buttons */}
+        {/* Tab Navigation with Indicators */}
         <Card className="mb-6">
           <CardContent className="p-4">
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap">
               <Button
                 onClick={() => setActiveTab("team")}
                 variant={activeTab === "team" ? "default" : "outline"}
-                className="flex items-center gap-2"
+                className="flex items-center gap-2 relative"
               >
                 <Users className="w-4 h-4" />
                 Team Management
+                <Badge className={`ml-2 ${activeTab === "team" ? "bg-white text-blue-600" : "bg-blue-100 text-blue-800"}`}>
+                  {totalTeam}
+                </Badge>
+                {onLeave + onProbation > 0 && (
+                  <span className="absolute -top-1 -right-1 w-5 h-5 bg-yellow-500 text-white text-xs rounded-full flex items-center justify-center">
+                    {onLeave + onProbation}
+                  </span>
+                )}
               </Button>
+
               <Button
                 onClick={() => setActiveTab("hr")}
                 variant={activeTab === "hr" ? "default" : "outline"}
-                className="flex items-center gap-2"
+                className="flex items-center gap-2 relative"
               >
                 <FileText className="w-4 h-4" />
                 HR Tools
+                <Badge className={`ml-2 ${activeTab === "hr" ? "bg-white text-green-600" : "bg-green-100 text-green-800"}`}>
+                  {hrDocuments.length}
+                </Badge>
+                {totalDocumentAlerts > 0 && (
+                  <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
+                    {totalDocumentAlerts}
+                  </span>
+                )}
               </Button>
+
               <Button
                 onClick={() => setActiveTab("responsibilities")}
                 variant={activeTab === "responsibilities" ? "default" : "outline"}
-                className="flex items-center gap-2"
+                className="flex items-center gap-2 relative"
               >
                 <Target className="w-4 h-4" />
                 Responsibilities
+                <Badge className={`ml-2 ${activeTab === "responsibilities" ? "bg-white text-purple-600" : "bg-purple-100 text-purple-800"}`}>
+                  {responsibilities.length}
+                </Badge>
               </Button>
             </div>
           </CardContent>
@@ -429,8 +450,27 @@ export default function ManagerDashboard() {
             <Card>
               <CardHeader>
                 <div className="flex flex-wrap justify-between items-center gap-4">
-                  <CardTitle>Team Members</CardTitle>
+                  <div>
+                    <CardTitle>Team Members</CardTitle>
+                    <p className="text-sm text-gray-600 mt-1">
+                      {activeMembers} active • {onProbation} on probation • {onLeave} on leave
+                    </p>
+                  </div>
                   <div className="flex items-center gap-2">
+                    {/* Quick Links */}
+                    <Link to={createPageUrl("CoachingDashboard")}>
+                      <Button variant="outline" size="sm" className="text-xs">
+                        <Award className="w-3 h-3 mr-1" />
+                        Coaching
+                      </Button>
+                    </Link>
+                    <Link to={createPageUrl("WeeklyRotaSchedule")}>
+                      <Button variant="outline" size="sm" className="text-xs">
+                        <Calendar className="w-3 h-3 mr-1" />
+                        Schedule
+                      </Button>
+                    </Link>
+
                     {/* View Toggle */}
                     <div className="flex border rounded-lg overflow-hidden">
                       <Button
@@ -545,6 +585,18 @@ export default function ManagerDashboard() {
                                   }}>
                                     <Edit className="w-4 h-4 mr-2" />
                                     Edit Member
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onClick={() => navigate(createPageUrl(`StartCoachingSession?staff_email=${member.staff_email}`))}
+                                  >
+                                    <Award className="w-4 h-4 mr-2" />
+                                    Start Coaching
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onClick={() => navigate(createPageUrl(`WeeklyRotaSchedule?staff_email=${member.staff_email}`))}
+                                  >
+                                    <Calendar className="w-4 h-4 mr-2" />
+                                    View Schedule
                                   </DropdownMenuItem>
                                   <DropdownMenuItem
                                     className="text-red-600"
@@ -696,11 +748,22 @@ export default function ManagerDashboard() {
             <Card>
               <CardHeader>
                 <div className="flex justify-between items-center">
-                  <CardTitle>HR Documents</CardTitle>
-                  <Button onClick={() => setShowAddDocumentDialog(true)} className="bg-green-600">
-                    <Plus className="w-4 h-4 mr-2" />
-                    Add Document
-                  </Button>
+                  <div>
+                    <CardTitle>HR Documents</CardTitle>
+                    <p className="text-sm text-gray-600 mt-1">
+                      {documentsExpired} expired • {documentsExpiring} expiring soon • {documentsPending} pending review
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button variant="outline" size="sm" className="text-xs" onClick={() => setActiveTab("team")}>
+                      <Users className="w-3 h-3 mr-1" />
+                      View Team
+                    </Button>
+                    <Button onClick={() => setShowAddDocumentDialog(true)} className="bg-green-600">
+                      <Plus className="w-4 h-4 mr-2" />
+                      Add Document
+                    </Button>
+                  </div>
                 </div>
               </CardHeader>
               <CardContent>
@@ -816,11 +879,24 @@ export default function ManagerDashboard() {
             <Card>
               <CardHeader>
                 <div className="flex justify-between items-center">
-                  <CardTitle>Role Responsibilities</CardTitle>
-                  <Button onClick={() => setShowAddResponsibilityDialog(true)} className="bg-purple-600">
-                    <Plus className="w-4 h-4 mr-2" />
-                    Add Role
-                  </Button>
+                  <div>
+                    <CardTitle>Role Responsibilities</CardTitle>
+                    <p className="text-sm text-gray-600 mt-1">
+                      {responsibilities.length} roles defined across all departments
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Link to={createPageUrl("AdvancedChecklists")}>
+                      <Button variant="outline" size="sm" className="text-xs">
+                        <FileText className="w-3 h-3 mr-1" />
+                        View Checklists
+                      </Button>
+                    </Link>
+                    <Button onClick={() => setShowAddResponsibilityDialog(true)} className="bg-purple-600">
+                      <Plus className="w-4 h-4 mr-2" />
+                      Add Role
+                    </Button>
+                  </div>
                 </div>
               </CardHeader>
               <CardContent>
