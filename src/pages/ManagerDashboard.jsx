@@ -145,6 +145,12 @@ export default function ManagerDashboard() {
     }
   };
 
+  // Function to handle editing responsibility
+  const handleEditResponsibility = (roleToEdit) => {
+    // selectedRole is already set in the onClick handler before this function is called
+    setShowAddResponsibilityDialog(true);
+  };
+
   if (!isManager) {
     return (
       <div className="p-6 md:p-8">
@@ -587,7 +593,7 @@ export default function ManagerDashboard() {
                               size="icon"
                               onClick={() => {
                                 setSelectedRole(role);
-                                setShowAddResponsibilityDialog(true);
+                                handleEditResponsibility(role);
                               }}
                             >
                               <Edit className="w-4 h-4" />
