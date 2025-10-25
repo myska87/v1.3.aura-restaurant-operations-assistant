@@ -21,6 +21,7 @@ import {
   Truck,
   ListChecks,
   ClipboardList,
+  GraduationCap, // Added GraduationCap icon for Staff Model
 } from "lucide-react";
 
 const navigationItems = [
@@ -45,6 +46,11 @@ const navigationItems = [
     icon: Users,
   },
   // The "Weekly Rota Schedule" item has been removed as per the outline.
+  {
+    title: "Staff Model", // New navigation item
+    url: createPageUrl("StaffModel"), // URL for Staff Model
+    icon: GraduationCap, // Icon for Staff Model
+  },
   {
     title: "Checklist Templates",
     url: createPageUrl("ChecklistTemplates"),

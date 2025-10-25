@@ -7,12 +7,18 @@ import {
   Wrench, 
   Users,
   AlertTriangle,
-  TrendingUp
+  TrendingUp,
+  GraduationCap,
+  Calendar
 } from "lucide-react";
 import StatCard from "../components/dashboard/StatCard";
 import ComplianceChart from "../components/dashboard/ComplianceChart";
 import RecentActivity from "../components/dashboard/RecentActivity";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Link } from "react-router-dom";
+import { createPageUrl } from "@/utils";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 
 export default function Dashboard() {
   const { data: complianceChecks = [], isLoading: loadingCompliance } = useQuery({
@@ -108,6 +114,47 @@ export default function Dashboard() {
             </AlertDescription>
           </Alert>
         )}
+
+        {/* Quick Access Cards */}
+        <div className="grid md:grid-cols-2 gap-6">
+          <Link to={createPageUrl("StaffModel")}>
+            <Card className="bg-gradient-to-br from-blue-500 to-indigo-600 text-white border-none shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer group">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="flex items-center gap-3 mb-2">
+                      <GraduationCap className="w-8 h-8" />
+                      <h3 className="text-2xl font-bold">Staff Model</h3>
+                    </div>
+                    <p className="text-blue-100">Culture, Training, Performance & Recognition</p>
+                  </div>
+                  <div className="text-white group-hover:translate-x-2 transition-transform">
+                    →
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </Link>
+
+          <Link to={createPageUrl("StaffRota")}>
+            <Card className="bg-gradient-to-br from-green-500 to-emerald-600 text-white border-none shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer group">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="flex items-center gap-3 mb-2">
+                      <Calendar className="w-8 h-8" />
+                      <h3 className="text-2xl font-bold">Shift & Rota</h3>
+                    </div>
+                    <p className="text-green-100">Scheduling, Clock-In/Out & Attendance</p>
+                  </div>
+                  <div className="text-white group-hover:translate-x-2 transition-transform">
+                    →
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </Link>
+        </div>
 
         {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
