@@ -57,9 +57,9 @@ import {
   RotateCw,
   Check,
   Ban,
-  ChevronUp, // New import
-  ChevronDown, // New import
-  PenTool, // New import
+  ChevronUp,
+  ChevronDown,
+  PenTool,
 } from "lucide-react";
 import { format } from "date-fns";
 import { Link, useNavigate, useLocation } from "react-router-dom";
@@ -92,9 +92,15 @@ export default function AdvancedChecklists() {
     queryFn: () => base44.auth.me(),
   });
 
+  // Check if user is admin or owner
+  const isAdmin = user?.role === 'admin';
+  const isOwner = user?.position === 'owner';
+  const hasFullAccess = isAdmin || isOwner;
+
   const { data: templates = [] } = useQuery({
     queryKey: ['checklistTemplates'],
     queryFn: () => base44.entities.ChecklistTemplate.list(),
+    enabled: hasFullAccess, // Only fetch if admin/owner
   });
 
   const { data: myExecutions = [] } = useQuery({
@@ -115,8 +121,6 @@ export default function AdvancedChecklists() {
     queryKey: ['allChecklistExecutions'],
     queryFn: () => base44.entities.ChecklistExecution.list('-execution_date'),
   });
-
-  const isAdmin = user?.role === 'admin';
 
   const createTemplateMutation = useMutation({
     mutationFn: (data) => base44.entities.ChecklistTemplate.create(data),
@@ -838,7 +842,7 @@ export default function AdvancedChecklists() {
           >
             My Checklists
           </Button>
-          {isAdmin && (
+          {hasFullAccess && (
             <>
               <Button
                 variant={viewMode === 'templates' ? 'default' : 'outline'}
@@ -858,7 +862,7 @@ export default function AdvancedChecklists() {
         </div>
 
         {/* Quick Test Button for Admins */}
-        {isAdmin && viewMode === 'templates' && (
+        {hasFullAccess && viewMode === 'templates' && (
           <Card className="bg-gradient-to-r from-purple-50 to-indigo-50 border-purple-200 mb-6">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
@@ -874,6 +878,7 @@ export default function AdvancedChecklists() {
                   onClick={async () => {
                     const hygieneTemplate = templates.find(t => t.name.includes('Hygiene'));
                     if (!hygieneTemplate) {
+                      alert('Please create the Hygiene template first!');
                       return;
                     }
                     
@@ -916,7 +921,7 @@ export default function AdvancedChecklists() {
         )}
 
         {/* Hygiene Template Quick Create */}
-        {isAdmin && viewMode === 'templates' && (
+        {hasFullAccess && viewMode === 'templates' && (
           <Card className="bg-gradient-to-r from-green-50 to-emerald-50 border-green-200 mb-6">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
@@ -1026,7 +1031,7 @@ export default function AdvancedChecklists() {
               />
             )}
 
-            {viewMode === 'templates' && isAdmin && (
+            {viewMode === 'templates' && hasFullAccess && (
               <TemplatesView
                 templates={filterByFrequency(templates, 'daily')}
                 showForm={showTemplateForm}
@@ -1047,13 +1052,26 @@ export default function AdvancedChecklists() {
               />
             )}
 
-            {viewMode === 'monitor' && isAdmin && (
+            {viewMode === 'monitor' && hasFullAccess && (
               <MonitorView
                 executions={filterExecutionsByFrequency(allExecutions, 'daily')}
                 getProgress={getProgress}
                 getStatusColor={getStatusColor}
                 getShiftTypeColor={getShiftTypeColor}
               />
+            )}
+
+            {/* Show access denied if trying to access restricted views */}
+            {!hasFullAccess && viewMode !== 'my-checklists' && (
+              <Card className="bg-white">
+                <CardContent className="p-12 text-center">
+                  <AlertTriangle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+                  <p className="text-lg font-semibold text-gray-800">Access Restricted</p>
+                  <p className="text-gray-600 mt-2">
+                    Only administrators and owners can access this section.
+                  </p>
+                </CardContent>
+              </Card>
             )}
           </TabsContent>
 
@@ -1071,7 +1089,7 @@ export default function AdvancedChecklists() {
               />
             )}
 
-            {viewMode === 'templates' && isAdmin && (
+            {viewMode === 'templates' && hasFullAccess && (
               <TemplatesView
                 templates={filterByFrequency(templates, 'weekly')}
                 showForm={showTemplateForm}
@@ -1092,13 +1110,25 @@ export default function AdvancedChecklists() {
               />
             )}
 
-            {viewMode === 'monitor' && isAdmin && (
+            {viewMode === 'monitor' && hasFullAccess && (
               <MonitorView
                 executions={filterExecutionsByFrequency(allExecutions, 'weekly')}
                 getProgress={getProgress}
                 getStatusColor={getStatusColor}
                 getShiftTypeColor={getShiftTypeColor}
               />
+            )}
+
+            {!hasFullAccess && viewMode !== 'my-checklists' && (
+              <Card className="bg-white">
+                <CardContent className="p-12 text-center">
+                  <AlertTriangle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+                  <p className="text-lg font-semibold text-gray-800">Access Restricted</p>
+                  <p className="text-gray-600 mt-2">
+                    Only administrators and owners can access this section.
+                  </p>
+                </CardContent>
+              </Card>
             )}
           </TabsContent>
 
@@ -1116,7 +1146,7 @@ export default function AdvancedChecklists() {
               />
             )}
 
-            {viewMode === 'templates' && isAdmin && (
+            {viewMode === 'templates' && hasFullAccess && (
               <TemplatesView
                 templates={filterByFrequency(templates, 'monthly')}
                 showForm={showTemplateForm}
@@ -1137,13 +1167,25 @@ export default function AdvancedChecklists() {
               />
             )}
 
-            {viewMode === 'monitor' && isAdmin && (
+            {viewMode === 'monitor' && hasFullAccess && (
               <MonitorView
                 executions={filterExecutionsByFrequency(allExecutions, 'monthly')}
                 getProgress={getProgress}
                 getStatusColor={getStatusColor}
                 getShiftTypeColor={getShiftTypeColor}
               />
+            )}
+
+            {!hasFullAccess && viewMode !== 'my-checklists' && (
+              <Card className="bg-white">
+                <CardContent className="p-12 text-center">
+                  <AlertTriangle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+                  <p className="text-lg font-semibold text-gray-800">Access Restricted</p>
+                  <p className="text-gray-600 mt-2">
+                    Only administrators and owners can access this section.
+                  </p>
+                </CardContent>
+              </Card>
             )}
           </TabsContent>
 
@@ -1161,7 +1203,7 @@ export default function AdvancedChecklists() {
               />
             )}
 
-            {viewMode === 'templates' && isAdmin && (
+            {viewMode === 'templates' && hasFullAccess && (
               <TemplatesView
                 templates={filterByFrequency(templates, 'six_monthly')}
                 showForm={showTemplateForm}
@@ -1182,13 +1224,25 @@ export default function AdvancedChecklists() {
               />
             )}
 
-            {viewMode === 'monitor' && isAdmin && (
+            {viewMode === 'monitor' && hasFullAccess && (
               <MonitorView
                 executions={filterExecutionsByFrequency(allExecutions, 'six_monthly')}
                 getProgress={getProgress}
                 getStatusColor={getStatusColor}
                 getShiftTypeColor={getShiftTypeColor}
               />
+            )}
+
+            {!hasFullAccess && viewMode !== 'my-checklists' && (
+              <Card className="bg-white">
+                <CardContent className="p-12 text-center">
+                  <AlertTriangle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+                  <p className="text-lg font-semibold text-gray-800">Access Restricted</p>
+                  <p className="text-gray-600 mt-2">
+                    Only administrators and owners can access this section.
+                  </p>
+                </CardContent>
+              </Card>
             )}
           </TabsContent>
 
@@ -1206,7 +1260,7 @@ export default function AdvancedChecklists() {
               />
             )}
 
-            {viewMode === 'templates' && isAdmin && (
+            {viewMode === 'templates' && hasFullAccess && (
               <TemplatesView
                 templates={filterByFrequency(templates, 'yearly')}
                 showForm={showTemplateForm}
@@ -1227,13 +1281,25 @@ export default function AdvancedChecklists() {
               />
             )}
 
-            {viewMode === 'monitor' && isAdmin && (
+            {viewMode === 'monitor' && hasFullAccess && (
               <MonitorView
                 executions={filterExecutionsByFrequency(allExecutions, 'yearly')}
                 getProgress={getProgress}
                 getStatusColor={getStatusColor}
                 getShiftTypeColor={getShiftTypeColor}
               />
+            )}
+
+            {!hasFullAccess && viewMode !== 'my-checklists' && (
+              <Card className="bg-white">
+                <CardContent className="p-12 text-center">
+                  <AlertTriangle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+                  <p className="text-lg font-semibold text-gray-800">Access Restricted</p>
+                  <p className="text-gray-600 mt-2">
+                    Only administrators and owners can access this section.
+                  </p>
+                </CardContent>
+              </Card>
             )}
           </TabsContent>
         </Tabs>
