@@ -44,6 +44,10 @@ export default function ExecuteChecklist() {
     },
   });
 
+  const createMaintenanceTicketMutation = useMutation({
+    mutationFn: (data) => base44.entities.MaintenanceTicket.create(data),
+  });
+
   useEffect(() => {
     if (checklist && checklist.status === 'not_started') {
       updateChecklistMutation.mutate({
@@ -75,6 +79,28 @@ export default function ExecuteChecklist() {
     const passCount = updatedTasks.filter(t => t.status === 'pass').length;
     const passRate = Math.round((passCount / updatedTasks.length) * 100);
 
+    // AUTO-CREATE MAINTENANCE TICKET FOR FAILED ITEMS
+    if (status === 'fail' && checklist.template_name.includes('Hygiene')) {
+      const currentTaskData = updatedTasks.find(t => t.task_id === taskId);
+      
+      await createMaintenanceTicketMutation.mutateAsync({
+        title: `🚨 URGENT: Hygiene Check Failed - ${currentTaskData.description.substring(0, 50)}...`,
+        description: `**AUTOMATIC TICKET FROM 6-MONTHLY HYGIENE INSPECTION**\n\n` +
+                    `**Failed Check:** ${currentTaskData.description}\n\n` +
+                    `**Inspector:** ${user?.full_name}\n` +
+                    `**Date:** ${format(new Date(), 'PPP')}\n\n` +
+                    `**Notes:** ${currentTaskData.notes || 'No additional notes provided'}\n\n` +
+                    `**Category:** ${currentTaskData.category || 'Food Safety'}\n\n` +
+                    `⚠️ This issue must be resolved immediately to maintain food safety compliance.`,
+        category: "hygiene",
+        location: checklist.template_name,
+        priority: "urgent",
+        status: "open",
+        reported_by: user?.full_name || user?.email,
+        photo_urls: currentTaskData.photo_url ? [currentTaskData.photo_url] : [],
+      });
+    }
+
     await updateChecklistMutation.mutateAsync({
       id: checklist.id,
       data: {
@@ -88,7 +114,7 @@ export default function ExecuteChecklist() {
     });
 
     if (allCompleted) {
-      navigate(createPageUrl('MyChecklists'));
+      navigate(createPageUrl('AdvancedChecklists')); // Changed from MyChecklists
     } else if (currentTaskIndex < checklist.tasks.length - 1) {
       setCurrentTaskIndex(currentTaskIndex + 1);
     }
@@ -130,6 +156,10 @@ export default function ExecuteChecklist() {
     t.status === 'pass' || t.status === 'fail' || t.status === 'na'
   ).length;
   const progress = Math.round((completedTasks / checklist.tasks.length) * 100);
+
+  // Group tasks by category for hygiene checklist
+  const isHygieneChecklist = checklist.template_name.includes('Hygiene');
+  const currentCategory = currentTask?.category;
 
   return (
     <div className="p-6 md:p-8 bg-gray-50 min-h-screen">
@@ -182,6 +212,11 @@ export default function ExecuteChecklist() {
         {currentTask && currentTask.status === 'pending' && (
           <Card className="bg-white border-none shadow-lg">
             <CardHeader>
+              {isHygieneChecklist && currentCategory && (
+                <Badge className="mb-2 w-fit bg-blue-100 text-blue-800">
+                  {currentCategory}
+                </Badge>
+              )}
               <CardTitle className="text-xl font-semibold text-gray-900">
                 {currentTask.description}
               </CardTitle>
@@ -258,12 +293,14 @@ export default function ExecuteChecklist() {
                 </div>
               )}
 
-              {/* Notes */}
+              {/* Notes - MANDATORY FOR FAIL */}
               <div className="space-y-2">
-                <Label htmlFor="notes">Notes (Optional)</Label>
+                <Label htmlFor="notes">
+                  Notes {isHygieneChecklist && <span className="text-red-600">(Required if answering NO)</span>}
+                </Label>
                 <Textarea
                   id="notes"
-                  placeholder="Add any observations..."
+                  placeholder={isHygieneChecklist ? "Describe the issue and corrective action needed..." : "Add any observations..."}
                   rows={3}
                   onChange={(e) => {
                     const updatedTasks = checklist.tasks.map(task =>
@@ -279,42 +316,70 @@ export default function ExecuteChecklist() {
                 />
               </div>
 
-              {/* Action Buttons */}
-              <div className="flex gap-3 pt-4">
-                <Button
-                  onClick={() => handleTaskUpdate(currentTask.task_id, 'pass', {
-                    notes: currentTask.notes,
-                    temperature_value: currentTask.temperature_value,
-                    photo_url: currentTask.photo_url,
-                  })}
-                  className="flex-1 bg-green-600 hover:bg-green-700"
-                  disabled={
-                    (currentTask.requires_photo && !currentTask.photo_url) ||
-                    (currentTask.requires_temperature && !currentTask.temperature_value)
-                  }
-                >
-                  <CheckCircle className="w-4 h-4 mr-2" />
-                  Pass
-                </Button>
-                <Button
-                  onClick={() => handleTaskUpdate(currentTask.task_id, 'fail', {
-                    notes: currentTask.notes,
-                    temperature_value: currentTask.temperature_value,
-                    photo_url: currentTask.photo_url,
-                  })}
-                  className="flex-1 bg-red-600 hover:bg-red-700"
-                >
-                  <XCircle className="w-4 h-4 mr-2" />
-                  Fail
-                </Button>
-                <Button
-                  onClick={() => handleTaskUpdate(currentTask.task_id, 'na')}
-                  variant="outline"
-                  className="flex-1"
-                >
-                  <MinusCircle className="w-4 h-4 mr-2" />
-                  N/A
-                </Button>
+              {/* Action Buttons - YES / NO / N/A */}
+              <div className="space-y-3 pt-4">
+                {isHygieneChecklist && (
+                  <div className="bg-blue-50 p-3 rounded-lg text-sm text-blue-900">
+                    <strong>Answer:</strong> YES (Pass) if compliant, NO (Fail) if action needed, or N/A if not applicable
+                  </div>
+                )}
+                
+                <div className="grid grid-cols-3 gap-3">
+                  <Button
+                    onClick={() => handleTaskUpdate(currentTask.task_id, 'pass', {
+                      notes: currentTask.notes,
+                      temperature_value: currentTask.temperature_value,
+                      photo_url: currentTask.photo_url,
+                    })}
+                    className="bg-green-600 hover:bg-green-700 h-16"
+                    disabled={
+                      (currentTask.requires_photo && !currentTask.photo_url) ||
+                      (currentTask.requires_temperature && !currentTask.temperature_value)
+                    }
+                  >
+                    <div className="text-center">
+                      <CheckCircle className="w-5 h-5 mx-auto mb-1" />
+                      <span className="text-sm">YES</span>
+                    </div>
+                  </Button>
+                  
+                  <Button
+                    onClick={() => {
+                      if (isHygieneChecklist && !currentTask.notes?.trim()) {
+                        alert('⚠️ Notes are required when answering NO. Please describe the issue.');
+                        return;
+                      }
+                      handleTaskUpdate(currentTask.task_id, 'fail', {
+                        notes: currentTask.notes,
+                        temperature_value: currentTask.temperature_value,
+                        photo_url: currentTask.photo_url,
+                      });
+                    }}
+                    className="bg-red-600 hover:bg-red-700 h-16"
+                  >
+                    <div className="text-center">
+                      <XCircle className="w-5 h-5 mx-auto mb-1" />
+                      <span className="text-sm">NO</span>
+                    </div>
+                  </Button>
+                  
+                  <Button
+                    onClick={() => handleTaskUpdate(currentTask.task_id, 'na')}
+                    variant="outline"
+                    className="h-16"
+                  >
+                    <div className="text-center">
+                      <MinusCircle className="w-5 h-5 mx-auto mb-1" />
+                      <span className="text-sm">N/A</span>
+                    </div>
+                  </Button>
+                </div>
+
+                {isHygieneChecklist && (
+                  <div className="bg-red-50 border border-red-200 p-3 rounded-lg text-xs text-red-800">
+                    <strong>⚠️ Important:</strong> Answering NO will automatically create an URGENT maintenance ticket that must be resolved immediately.
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
