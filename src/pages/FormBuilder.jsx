@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -31,9 +30,8 @@ import {
   PenTool,
   Star,
   AlignLeft,
-  Copy,
-  Check, // Added for Yes/No buttons
-  X,     // Added for Yes/No buttons
+  Check,
+  X,
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -207,15 +205,16 @@ export default function FormBuilder() {
       return forms.find(f => f.id === editId);
     },
     enabled: !!editId,
-    onSuccess: (data) => {
-      if (data) {
-        setFormData({
-          ...data,
-          fields: data.fields || [],
-        });
-      }
-    },
   });
+
+  React.useEffect(() => {
+    if (existingForm) {
+      setFormData({
+        ...existingForm,
+        fields: existingForm.fields || [],
+      });
+    }
+  }, [existingForm]);
 
   const createFormMutation = useMutation({
     mutationFn: (data) => editId 
