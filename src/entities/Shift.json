@@ -14,6 +14,10 @@
       "type": "string",
       "description": "Role during this shift"
     },
+    "department": {
+      "type": "string",
+      "description": "Department for this shift"
+    },
     "shift_date": {
       "type": "string",
       "format": "date",
@@ -53,12 +57,27 @@
     "status": {
       "type": "string",
       "enum": [
+        "draft",
         "scheduled",
         "in_progress",
         "completed",
         "missed"
       ],
-      "default": "scheduled"
+      "default": "draft"
+    },
+    "linked_checklist_id": {
+      "type": "string",
+      "description": "Reference to assigned checklist"
+    },
+    "auto_generated_tasks": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether tasks were auto-generated for this shift"
+    },
+    "tasks_generated_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When tasks were auto-generated"
     },
     "notes": {
       "type": "string",

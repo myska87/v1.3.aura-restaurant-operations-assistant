@@ -41,6 +41,7 @@ import ManagerDashboard from './pages/ManagerDashboard';
 import StaffProfile from './pages/StaffProfile';
 import MyTasks from './pages/MyTasks';
 import TaskReports from './pages/TaskReports';
+import SmartScheduler from './pages/SmartScheduler';
 import Layout from './Layout.jsx';
 
 
@@ -88,6 +89,7 @@ export const PAGES = {
     "StaffProfile": StaffProfile,
     "MyTasks": MyTasks,
     "TaskReports": TaskReports,
+    "SmartScheduler": SmartScheduler,
 }
 
 export const pagesConfig = {
