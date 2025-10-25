@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { format, startOfDay } from "date-fns";
+import { format } from "date-fns";
 
 /**
  * Background automation component for daily checklists
@@ -46,6 +46,12 @@ export default function ChecklistAutomation() {
 
   const createChecklistMutation = useMutation({
     mutationFn: async ({ type, department, shifts, templates }) => {
+      // Only create if templates exist
+      if (!templates || templates.length === 0) {
+        console.log(`No templates found for ${type} checklist in ${department}`);
+        return null;
+      }
+
       // Create checklist
       const checklist = await base44.entities.DailyChecklist.create({
         checklist_type: type,
@@ -83,6 +89,9 @@ export default function ChecklistAutomation() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['todayChecklists'] });
     },
+    onError: (error) => {
+      console.error('Error creating checklist:', error);
+    }
   });
 
   // Auto-generate checklists
