@@ -1,19 +1,19 @@
 import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Package, Truck, ChefHat, BarChart3, ArrowRight } from "lucide-react";
+import { Package, Truck, ChefHat, BarChart3, ArrowRight, Warehouse } from "lucide-react";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { motion } from "framer-motion";
 
 const inventoryModules = [
   {
-    title: "Stock Take",
-    description: "Live ingredient counts, reorder alerts, and stock management",
-    icon: Package,
-    url: createPageUrl("IngredientStock"),
-    color: "from-blue-500 to-blue-600",
-    bgColor: "bg-blue-50",
-    iconColor: "text-blue-600",
+    title: "Stock Management",
+    description: "Track inventory with automated reordering when stock runs low",
+    icon: Warehouse,
+    url: createPageUrl("InventoryManagement"),
+    color: "from-emerald-500 to-emerald-600",
+    bgColor: "bg-emerald-50",
+    iconColor: "text-emerald-600",
   },
   {
     title: "Suppliers",
@@ -48,7 +48,6 @@ export default function Inventory() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6 md:p-8">
       <div className="max-w-7xl mx-auto">
-        {/* Header */}
         <div className="mb-8">
           <h1 className="text-4xl font-bold text-gray-900 mb-3">
             Inventory Management
@@ -58,7 +57,6 @@ export default function Inventory() {
           </p>
         </div>
 
-        {/* Module Cards Grid */}
         <div className="grid md:grid-cols-2 gap-6">
           {inventoryModules.map((module, index) => {
             const Icon = module.icon;
@@ -71,7 +69,6 @@ export default function Inventory() {
               >
                 <Link to={module.url}>
                   <Card className="bg-white border-none shadow-lg hover:shadow-xl transition-all duration-300 group overflow-hidden relative">
-                    {/* Gradient Background */}
                     <div className={`absolute inset-0 bg-gradient-to-br ${module.color} opacity-0 group-hover:opacity-5 transition-opacity duration-300`} />
                     
                     <CardHeader className="pb-4">
@@ -84,7 +81,7 @@ export default function Inventory() {
                     </CardHeader>
 
                     <CardContent>
-                      <CardTitle className="text-2xl font-bold text-gray-900 mb-2 group-hover:text-gray-800">
+                      <CardTitle className="text-2xl font-bold text-gray-900 mb-2 group-hover:text-indigo-600 transition-colors">
                         {module.title}
                       </CardTitle>
                       <p className="text-gray-600 leading-relaxed">
@@ -97,55 +94,6 @@ export default function Inventory() {
             );
           })}
         </div>
-
-        {/* Quick Stats */}
-        <div className="mt-12 grid grid-cols-1 md:grid-cols-4 gap-6">
-          <Card className="bg-gradient-to-br from-blue-500 to-blue-600 text-white border-none shadow-lg">
-            <CardContent className="p-6">
-              <div className="text-3xl font-bold mb-1">-</div>
-              <div className="text-blue-100 text-sm">Ingredients</div>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-gradient-to-br from-green-500 to-green-600 text-white border-none shadow-lg">
-            <CardContent className="p-6">
-              <div className="text-3xl font-bold mb-1">-</div>
-              <div className="text-green-100 text-sm">Active Suppliers</div>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-gradient-to-br from-purple-500 to-purple-600 text-white border-none shadow-lg">
-            <CardContent className="p-6">
-              <div className="text-3xl font-bold mb-1">-</div>
-              <div className="text-purple-100 text-sm">Menu Items</div>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-gradient-to-br from-amber-500 to-amber-600 text-white border-none shadow-lg">
-            <CardContent className="p-6">
-              <div className="text-3xl font-bold mb-1">-</div>
-              <div className="text-amber-100 text-sm">Avg Food Cost %</div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Info Box */}
-        <Card className="mt-8 bg-blue-50 border-blue-200">
-          <CardContent className="p-6">
-            <div className="flex items-start gap-4">
-              <div className="p-3 bg-blue-100 rounded-lg">
-                <Package className="w-6 h-6 text-blue-600" />
-              </div>
-              <div>
-                <h3 className="font-semibold text-gray-900 mb-2">Complete Inventory Control</h3>
-                <p className="text-gray-700 leading-relaxed">
-                  Manage every aspect of your restaurant's inventory from ingredient tracking to menu profitability analysis. 
-                  Track stock levels in real-time, maintain supplier relationships, calculate recipe costs, and optimize your menu for maximum profitability.
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
       </div>
     </div>
   );

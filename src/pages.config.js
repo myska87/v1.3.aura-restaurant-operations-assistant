@@ -21,6 +21,7 @@ import ClockInOut from './pages/ClockInOut';
 import ManageAvailability from './pages/ManageAvailability';
 import WeeklyRota from './pages/WeeklyRota';
 import WeeklyRotaSchedule from './pages/WeeklyRotaSchedule';
+import InventoryManagement from './pages/InventoryManagement';
 import Layout from './Layout.jsx';
 
 
@@ -48,6 +49,7 @@ export const PAGES = {
     "ManageAvailability": ManageAvailability,
     "WeeklyRota": WeeklyRota,
     "WeeklyRotaSchedule": WeeklyRotaSchedule,
+    "InventoryManagement": InventoryManagement,
 }
 
 export const pagesConfig = {
