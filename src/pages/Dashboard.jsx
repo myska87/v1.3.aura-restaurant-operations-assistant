@@ -61,35 +61,44 @@ export default function Dashboard() {
   const { data: upcomingChecklists = [] } = useQuery({
     queryKey: ['upcomingChecklists', user?.email],
     queryFn: async () => {
-      // Fetch all checklist executions and templates
-      const allExecutions = await base44.entities.ChecklistExecution.list('-execution_date');
-      const templates = await base44.entities.ChecklistTemplate.list();
-      
-      const templatesMap = new Map(templates.map(t => [t.id, t]));
+      if (!user?.email || (user.position !== 'manager' && user.position !== 'owner')) {
+        return [];
+      }
 
-      const now = new Date();
-      now.setHours(0, 0, 0, 0); // Normalize 'now' to the start of today
-      const twoWeeksFromNow = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000);
-      twoWeeksFromNow.setHours(23, 59, 59, 999); // Normalize 'twoWeeksFromNow' to end of day
-
-      return allExecutions.filter(exec => {
-        const template = templatesMap.get(exec.template_id);
-        if (!template) return false;
-
-        const execDate = new Date(exec.execution_date);
-        execDate.setHours(0, 0, 0, 0); // Normalize 'execDate' to the start of its day
-
-        const daysUntilDue = Math.ceil((execDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+      try {
+        // Fetch all checklist executions and templates
+        const allExecutions = await base44.entities.ChecklistExecution.list('-execution_date');
+        const templates = await base44.entities.ChecklistTemplate.list();
         
-        // Filter for manager/owner-specific checklists that are due within 14 days and not completed
-        return (
-          template.applicable_roles?.includes(user?.position) &&
-          exec.status !== 'completed' &&
-          exec.assigned_to_email === user?.email &&
-          execDate >= now && // Ensure it's not overdue
-          execDate <= twoWeeksFromNow // Ensure it's within the next 14 days
-        );
-      });
+        const templatesMap = new Map(templates.map(t => [t.id, t]));
+
+        const now = new Date();
+        now.setHours(0, 0, 0, 0); // Normalize 'now' to the start of today
+        const twoWeeksFromNow = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000);
+        twoWeeksFromNow.setHours(23, 59, 59, 999); // Normalize 'twoWeeksFromNow' to end of day
+
+        return allExecutions.filter(exec => {
+          const template = templatesMap.get(exec.template_id);
+          if (!template) return false;
+
+          const execDate = new Date(exec.execution_date);
+          execDate.setHours(0, 0, 0, 0); // Normalize 'execDate' to the start of its day
+
+          const daysUntilDue = Math.ceil((execDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+          
+          // Filter for manager/owner-specific checklists that are due within 14 days and not completed
+          return (
+            template.applicable_roles?.includes(user.position) &&
+            exec.status !== 'completed' &&
+            exec.assigned_to_email === user.email &&
+            execDate >= now && // Ensure it's not overdue
+            execDate <= twoWeeksFromNow // Ensure it's within the next 14 days
+          );
+        });
+      } catch (error) {
+        console.error("Error fetching upcoming checklists:", error);
+        return [];
+      }
     },
     enabled: !!user?.email && (user?.position === 'manager' || user?.position === 'owner'),
   });

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -32,10 +33,19 @@ export default function MyChecklists() {
 
   const { data: myChecklists = [], isLoading } = useQuery({
     queryKey: ['myChecklists', user?.email],
-    queryFn: () => base44.entities.ChecklistExecution.filter({
-      assigned_to_email: user?.email,
-      execution_date: format(new Date(), 'yyyy-MM-dd')
-    }, '-created_date'),
+    queryFn: async () => {
+      if (!user?.email) return [];
+      try {
+        const today = format(new Date(), 'yyyy-MM-dd');
+        return await base44.entities.ChecklistExecution.filter({
+          assigned_to_email: user.email,
+          execution_date: today
+        }, '-created_date');
+      } catch (error) {
+        console.error("Error fetching checklists:", error);
+        return [];
+      }
+    },
     enabled: !!user?.email,
   });
 

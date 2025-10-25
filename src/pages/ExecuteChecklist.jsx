@@ -21,12 +21,14 @@ export default function ExecuteChecklist() {
   
   const [uploading, setUploading] = useState(false);
   const [currentTaskIndex, setCurrentTaskIndex] = useState(0);
+  const [hasStarted, setHasStarted] = useState(false);
 
-  const { data: checklist, isLoading } = useQuery({
+  const { data: checklist, isLoading, isError } = useQuery({
     queryKey: ['checklistExecution', checklistId],
-    queryFn: () => base44.entities.ChecklistExecution.list().then(lists => 
-      lists.find(c => c.id === checklistId)
-    ),
+    queryFn: async () => {
+      const lists = await base44.entities.ChecklistExecution.list();
+      return lists.find(c => c.id === checklistId);
+    },
     enabled: !!checklistId,
   });
 
@@ -40,15 +42,25 @@ export default function ExecuteChecklist() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['checklistExecution', checklistId] });
       queryClient.invalidateQueries({ queryKey: ['myChecklists'] });
+      queryClient.invalidateQueries({ queryKey: ['myChecklistExecutions'] });
     },
+    onError: (error) => {
+      console.error("Error updating checklist:", error);
+      alert("Failed to update checklist. Please try again.");
+    }
   });
 
   const createMaintenanceTicketMutation = useMutation({
     mutationFn: (data) => base44.entities.MaintenanceTicket.create(data),
+    onError: (error) => {
+      console.error("Error creating maintenance ticket:", error);
+    }
   });
 
+  // Auto-start checklist only once
   useEffect(() => {
-    if (checklist && checklist.status === 'not_started') {
+    if (checklist && checklist.status === 'not_started' && !hasStarted && user) {
+      setHasStarted(true);
       updateChecklistMutation.mutate({
         id: checklist.id,
         data: {
@@ -57,9 +69,11 @@ export default function ExecuteChecklist() {
         }
       });
     }
-  }, [checklist?.id]);
+  }, [checklist?.id, checklist?.status, hasStarted, user]);
 
   const handleTaskUpdate = async (taskId, status, additionalData = {}) => {
+    if (!checklist) return;
+
     const updatedTasks = checklist.tasks.map(task => 
       task.task_id === taskId
         ? {
@@ -82,22 +96,26 @@ export default function ExecuteChecklist() {
     if (status === 'fail' && checklist.template_name.includes('Hygiene')) {
       const currentTaskData = updatedTasks.find(t => t.task_id === taskId);
       
-      await createMaintenanceTicketMutation.mutateAsync({
-        title: `🚨 URGENT: Hygiene Check Failed - ${currentTaskData.description.substring(0, 50)}...`,
-        description: `**AUTOMATIC TICKET FROM 6-MONTHLY HYGIENE INSPECTION**\n\n` +
-                    `**Failed Check:** ${currentTaskData.description}\n\n` +
-                    `**Inspector:** ${user?.full_name}\n` +
-                    `**Date:** ${format(new Date(), 'PPP')}\n\n` +
-                    `**Notes:** ${currentTaskData.notes || 'No additional notes provided'}\n\n` +
-                    `**Category:** ${currentTaskData.category || 'Food Safety'}\n\n` +
-                    `⚠️ This issue must be resolved immediately to maintain food safety compliance.`,
-        category: "hygiene",
-        location: checklist.template_name,
-        priority: "urgent",
-        status: "open",
-        reported_by: user?.full_name || user?.email,
-        photo_urls: currentTaskData.photo_url ? [currentTaskData.photo_url] : [],
-      });
+      try {
+        await createMaintenanceTicketMutation.mutateAsync({
+          title: `🚨 URGENT: Hygiene Check Failed - ${currentTaskData.description.substring(0, 50)}...`,
+          description: `**AUTOMATIC TICKET FROM 6-MONTHLY HYGIENE INSPECTION**\n\n` +
+                      `**Failed Check:** ${currentTaskData.description}\n\n` +
+                      `**Inspector:** ${user?.full_name || user?.email || 'Unknown'}\n` +
+                      `**Date:** ${format(new Date(), 'PPP')}\n\n` +
+                      `**Notes:** ${currentTaskData.notes || 'No additional notes provided'}\n\n` +
+                      `**Category:** ${currentTaskData.category || 'Food Safety'}\n\n` +
+                      `⚠️ This issue must be resolved immediately to maintain food safety compliance.`,
+          category: "hygiene",
+          location: checklist.template_name,
+          priority: "urgent",
+          status: "open",
+          reported_by: user?.full_name || user?.email || 'System',
+          photo_urls: currentTaskData.photo_url ? [currentTaskData.photo_url] : [],
+        });
+      } catch (error) {
+        console.error("Failed to create maintenance ticket:", error);
+      }
     }
 
     await updateChecklistMutation.mutateAsync({
@@ -113,7 +131,9 @@ export default function ExecuteChecklist() {
     });
 
     if (allCompleted) {
-      navigate(createPageUrl('AdvancedChecklists'));
+      setTimeout(() => {
+        navigate(createPageUrl('AdvancedChecklists'));
+      }, 1000);
     } else if (currentTaskIndex < checklist.tasks.length - 1) {
       setCurrentTaskIndex(currentTaskIndex + 1);
     }
@@ -121,7 +141,7 @@ export default function ExecuteChecklist() {
 
   const handlePhotoUpload = async (e, taskId) => {
     const file = e.target.files?.[0];
-    if (!file) return;
+    if (!file || !checklist) return;
 
     setUploading(true);
     try {
@@ -138,14 +158,60 @@ export default function ExecuteChecklist() {
       });
     } catch (error) {
       console.error("Error uploading photo:", error);
+      alert("Failed to upload photo. Please try again.");
     }
     setUploading(false);
   };
 
-  if (isLoading || !checklist) {
+  if (!checklistId) {
+    return (
+      <div className="p-6 md:p-8 bg-gray-50 min-h-screen flex items-center justify-center">
+        <Card className="bg-white">
+          <CardContent className="p-12 text-center">
+            <p className="text-red-500">No checklist ID provided</p>
+            <Button onClick={() => navigate(createPageUrl('AdvancedChecklists'))} className="mt-4">
+              Go to Checklists
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (isLoading) {
     return (
       <div className="p-6 md:p-8 bg-gray-50 min-h-screen flex items-center justify-center">
         <div className="animate-pulse text-gray-500">Loading checklist...</div>
+      </div>
+    );
+  }
+
+  if (isError || !checklist) {
+    return (
+      <div className="p-6 md:p-8 bg-gray-50 min-h-screen flex items-center justify-center">
+        <Card className="bg-white">
+          <CardContent className="p-12 text-center">
+            <p className="text-red-500">Checklist not found</p>
+            <Button onClick={() => navigate(createPageUrl('AdvancedChecklists'))} className="mt-4">
+              Go to Checklists
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (!checklist.tasks || checklist.tasks.length === 0) {
+    return (
+      <div className="p-6 md:p-8 bg-gray-50 min-h-screen flex items-center justify-center">
+        <Card className="bg-white">
+          <CardContent className="p-12 text-center">
+            <p className="text-gray-500">No tasks found in this checklist</p>
+            <Button onClick={() => navigate(createPageUrl('AdvancedChecklists'))} className="mt-4">
+              Go to Checklists
+            </Button>
+          </CardContent>
+        </Card>
       </div>
     );
   }
@@ -157,8 +223,17 @@ export default function ExecuteChecklist() {
   const progress = Math.round((completedTasks / checklist.tasks.length) * 100);
 
   // Group tasks by category for hygiene checklist
-  const isHygieneChecklist = checklist.template_name.includes('Hygiene');
+  const isHygieneChecklist = checklist.template_name?.includes('Hygiene') || false;
   const currentCategory = currentTask?.category;
+
+  // All tasks completed
+  if (!currentTask || currentTask.status !== 'pending') {
+    const nextPendingIndex = checklist.tasks.findIndex(t => t.status === 'pending');
+    if (nextPendingIndex !== -1 && nextPendingIndex !== currentTaskIndex) {
+      setCurrentTaskIndex(nextPendingIndex);
+      return null;
+    }
+  }
 
   return (
     <div className="p-6 md:p-8 bg-gray-50 min-h-screen">
@@ -166,7 +241,7 @@ export default function ExecuteChecklist() {
         <div className="flex gap-3 mb-6">
           <Button
             variant="outline"
-            onClick={() => navigate(createPageUrl('MyChecklists'))}
+            onClick={() => navigate(createPageUrl('AdvancedChecklists'))}
           >
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back to Checklists
@@ -189,10 +264,10 @@ export default function ExecuteChecklist() {
                 </CardTitle>
                 <div className="flex gap-2">
                   <Badge className="bg-blue-100 text-blue-800 border-blue-200">
-                    {checklist.shift_type.replace(/_/g, ' ')}
+                    {checklist.shift_type?.replace(/_/g, ' ') || 'Any Shift'}
                   </Badge>
                   <Badge variant="outline">
-                    Task {currentTaskIndex + 1} of {checklist.tasks.length}
+                    Task {Math.min(currentTaskIndex + 1, checklist.tasks.length)} of {checklist.tasks.length}
                   </Badge>
                 </div>
               </div>
@@ -208,7 +283,7 @@ export default function ExecuteChecklist() {
         </Card>
 
         {/* Current Task */}
-        {currentTask && currentTask.status === 'pending' && (
+        {currentTask && currentTask.status === 'pending' ? (
           <Card className="bg-white border-none shadow-lg">
             <CardHeader>
               {isHygieneChecklist && currentCategory && (
@@ -277,10 +352,11 @@ export default function ExecuteChecklist() {
                     type="number"
                     step="0.1"
                     placeholder="Enter temperature reading"
+                    defaultValue={currentTask.temperature_value || ''}
                     onChange={(e) => {
                       const updatedTasks = checklist.tasks.map(task =>
                         task.task_id === currentTask.task_id
-                          ? { ...task, temperature_value: parseFloat(e.target.value) }
+                          ? { ...task, temperature_value: parseFloat(e.target.value) || null }
                           : task
                       );
                       updateChecklistMutation.mutate({
@@ -301,6 +377,7 @@ export default function ExecuteChecklist() {
                   id="notes"
                   placeholder={isHygieneChecklist ? "Describe the issue and corrective action needed..." : "Add any observations..."}
                   rows={3}
+                  defaultValue={currentTask.notes || ''}
                   onChange={(e) => {
                     const updatedTasks = checklist.tasks.map(task =>
                       task.task_id === currentTask.task_id
@@ -332,6 +409,7 @@ export default function ExecuteChecklist() {
                     })}
                     className="bg-green-600 hover:bg-green-700 h-16"
                     disabled={
+                      updateChecklistMutation.isPending ||
                       (currentTask.requires_photo && !currentTask.photo_url) ||
                       (currentTask.requires_temperature && !currentTask.temperature_value)
                     }
@@ -355,6 +433,7 @@ export default function ExecuteChecklist() {
                       });
                     }}
                     className="bg-red-600 hover:bg-red-700 h-16"
+                    disabled={updateChecklistMutation.isPending}
                   >
                     <div className="text-center">
                       <XCircle className="w-5 h-5 mx-auto mb-1" />
@@ -366,6 +445,7 @@ export default function ExecuteChecklist() {
                     onClick={() => handleTaskUpdate(currentTask.task_id, 'na')}
                     variant="outline"
                     className="h-16"
+                    disabled={updateChecklistMutation.isPending}
                   >
                     <div className="text-center">
                       <MinusCircle className="w-5 h-5 mx-auto mb-1" />
@@ -382,6 +462,14 @@ export default function ExecuteChecklist() {
               </div>
             </CardContent>
           </Card>
+        ) : (
+          <Card className="bg-white border-none shadow-lg">
+            <CardContent className="p-12 text-center">
+              <CheckCircle className="w-16 h-16 text-green-600 mx-auto mb-4" />
+              <h3 className="text-2xl font-bold text-gray-900 mb-2">All Tasks Completed!</h3>
+              <p className="text-gray-600 mb-6">Redirecting to checklists...</p>
+            </CardContent>
+          </Card>
         )}
 
         {/* Completed Tasks Summary */}
@@ -396,7 +484,7 @@ export default function ExecuteChecklist() {
               <div className="space-y-2">
                 {checklist.tasks
                   .filter(t => t.status !== 'pending')
-                  .map((task, index) => (
+                  .map((task) => (
                     <div key={task.task_id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                       <div className="flex items-center gap-3">
                         {task.status === 'pass' && <CheckCircle className="w-5 h-5 text-green-600" />}
@@ -405,7 +493,7 @@ export default function ExecuteChecklist() {
                         <span className="text-sm text-gray-900">{task.description}</span>
                       </div>
                       <Badge variant="outline" className="text-xs">
-                        {task.status.toUpperCase()}
+                        {task.status?.toUpperCase()}
                       </Badge>
                     </div>
                   ))}

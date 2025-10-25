@@ -138,440 +138,446 @@ export default function AdvancedChecklists() {
   });
 
   const createHygieneTemplate = async () => {
-    const hygieneTemplate = {
-      name: "6-Monthly Food Safety & Hygiene Inspection",
-      description: "Comprehensive food safety checklist covering hygiene, storage, handling, pest control, and compliance",
-      frequency: "six_monthly",
-      shift_type: "any",
-      applicable_roles: ["manager", "owner"],
-      advance_notice_days: 14,
-      reminder_minutes: 0,
-      is_active: true,
-      tasks: [
-        // HYGIENE OF FOOD ROOMS & EQUIPMENT
-        {
-          task_id: "hygiene_1",
-          description: "Are food rooms and equipment in good condition and well maintained?",
-          requires_photo: true,
-          requires_temperature: false,
-          order: 1,
-          category: "Hygiene of Food Rooms & Equipment"
-        },
-        {
-          task_id: "hygiene_2",
-          description: "Are food rooms clean and tidy and do staff clean as they go including difficult areas?",
-          requires_photo: true,
-          requires_temperature: false,
-          order: 2,
-          category: "Hygiene of Food Rooms & Equipment"
-        },
-        {
-          task_id: "hygiene_3",
-          description: "Is equipment easy to clean and kept in a clean condition?",
-          requires_photo: true,
-          requires_temperature: false,
-          order: 3,
-          category: "Hygiene of Food Rooms & Equipment"
-        },
-        {
-          task_id: "hygiene_4",
-          description: "Are all food and hand contact surfaces (work surfaces, slicers, fridge handles, probe thermometers) in good condition and cleaned/disinfected regularly?",
-          requires_photo: true,
-          requires_temperature: false,
-          order: 4,
-          category: "Hygiene of Food Rooms & Equipment"
-        },
-        {
-          task_id: "hygiene_5",
-          description: "Are suitable BS EN approved cleaning chemicals available, stored correctly, and proper cleaning methods used?",
-          requires_photo: true,
-          requires_temperature: false,
-          order: 5,
-          category: "Hygiene of Food Rooms & Equipment"
-        },
-        {
-          task_id: "hygiene_6",
-          description: "Are separate cleaning cloths used in clean areas? If re-used, are they laundered in a boil wash?",
-          requires_photo: false,
-          requires_temperature: false,
-          order: 6,
-          category: "Hygiene of Food Rooms & Equipment"
-        },
-        
-        // FOOD STORAGE
-        {
-          task_id: "storage_1",
-          description: "Are deliveries appropriately stored immediately?",
-          requires_photo: true,
-          requires_temperature: false,
-          order: 7,
-          category: "Food Storage"
-        },
-        {
-          task_id: "storage_2",
-          description: "Is ready-to-eat food stored above/separate from raw food in fridges and freezers?",
-          requires_photo: true,
-          requires_temperature: true,
-          order: 8,
-          category: "Food Storage"
-        },
-        {
-          task_id: "storage_3",
-          description: "Is food in fridges/freezers covered?",
-          requires_photo: true,
-          requires_temperature: false,
-          order: 9,
-          category: "Food Storage"
-        },
-        {
-          task_id: "storage_4",
-          description: "Are high risk foods date coded, codes checked daily and stock rotated?",
-          requires_photo: true,
-          requires_temperature: false,
-          order: 10,
-          category: "Food Storage"
-        },
-        {
-          task_id: "storage_5",
-          description: "Are dried goods stored correctly (suitable room, off the floor, in covered containers)?",
-          requires_photo: true,
-          requires_temperature: false,
-          order: 11,
-          category: "Food Storage"
-        },
-        {
-          task_id: "storage_6",
-          description: "Is outer packaging removed from ready-to-eat food before being placed into a clean area?",
-          requires_photo: false,
-          requires_temperature: false,
-          order: 12,
-          category: "Food Storage"
-        },
-        {
-          task_id: "storage_7",
-          description: "Are freezers working properly?",
-          requires_photo: false,
-          requires_temperature: true,
-          order: 13,
-          category: "Food Storage"
-        },
-        {
-          task_id: "storage_8",
-          description: "Are fridges and freezers defrosted regularly?",
-          requires_photo: true,
-          requires_temperature: false,
-          order: 14,
-          category: "Food Storage"
-        },
-        
-        // FOOD HANDLING PRACTICES
-        {
-          task_id: "handling_1",
-          description: "Are ready-to-eat foods prepared in separate clean areas?",
-          requires_photo: true,
-          requires_temperature: false,
-          order: 15,
-          category: "Food Handling Practices"
-        },
-        {
-          task_id: "handling_2",
-          description: "Are separate utensils and equipment used for ready-to-eat foods unless disinfected in a dishwasher? Is the dishwasher in good working order and regularly serviced?",
-          requires_photo: true,
-          requires_temperature: false,
-          order: 16,
-          category: "Food Handling Practices"
-        },
-        {
-          task_id: "handling_3",
-          description: "Is wrapping and packaging used for ready-to-eat food kept in the clean area?",
-          requires_photo: false,
-          requires_temperature: false,
-          order: 17,
-          category: "Food Handling Practices"
-        },
-        {
-          task_id: "handling_4",
-          description: "Do separate staff handle ready-to-eat food or are controls being followed to ensure staff change clothing and wash hands before handling ready-to-eat food?",
-          requires_photo: false,
-          requires_temperature: false,
-          order: 18,
-          category: "Food Handling Practices"
-        },
-        {
-          task_id: "handling_5",
-          description: "Is separate complex equipment provided for ready-to-eat food and located in the clean area?",
-          requires_photo: true,
-          requires_temperature: false,
-          order: 19,
-          category: "Food Handling Practices"
-        },
-        {
-          task_id: "handling_6",
-          description: "Are staff handling food as little as possible (e.g., using tongs)?",
-          requires_photo: false,
-          requires_temperature: false,
-          order: 20,
-          category: "Food Handling Practices"
-        },
-        {
-          task_id: "handling_7",
-          description: "If colour coded equipment is provided (utensils, chopping boards), is it correctly used?",
-          requires_photo: true,
-          requires_temperature: false,
-          order: 21,
-          category: "Food Handling Practices"
-        },
-        {
-          task_id: "handling_8",
-          description: "Are high risk foods prepared in small batches and placed in the fridge immediately after handling/preparation?",
-          requires_photo: false,
-          requires_temperature: true,
-          order: 22,
-          category: "Food Handling Practices"
-        },
-        {
-          task_id: "handling_9",
-          description: "Is food cooled as quickly as possible away from raw food and other sources of contamination?",
-          requires_photo: false,
-          requires_temperature: false,
-          order: 23,
-          category: "Food Handling Practices"
-        },
-        {
-  task_id: "handling_10",
-          description: "Are vegetables/fruit/salads trimmed and washed thoroughly before use unless labelled as 'ready-to-eat'?",
-          requires_photo: false,
-          requires_temperature: false,
-          order: 24,
-          category: "Food Handling Practices"
-        },
-        {
-          task_id: "handling_11",
-          description: "Are ready-to-eat foods kept separate on display and screened from customers?",
-          requires_photo: true,
-          requires_temperature: false,
-          order: 25,
-          category: "Food Handling Practices"
-        },
-        {
-          task_id: "handling_12",
-          description: "Are adequate clean utensils available for self-service?",
-          requires_photo: false,
-          requires_temperature: false,
-          order: 26,
-          category: "Food Handling Practices"
-        },
-        {
-          task_id: "handling_13",
-          description: "Are frozen foods defrosted safely?",
-          requires_photo: false,
-          requires_temperature: false,
-          order: 27,
-          category: "Food Handling Practices"
-        },
-        {
-          task_id: "handling_14",
-          description: "Are controls in place to prevent contamination by chemicals/foreign bodies (glass, packaging, bolts, rust, cleaning chemicals)?",
-          requires_photo: true,
-          requires_temperature: false,
-          order: 28,
-          category: "Food Handling Practices"
-        },
-        {
-          task_id: "handling_15",
-          description: "Are staff aware of food allergy hazards?",
-          requires_photo: false,
-          requires_temperature: false,
-          order: 29,
-          category: "Food Handling Practices"
-        },
-        {
-          task_id: "handling_16",
-          description: "Are controls being followed to ensure staff wash hands after handling raw food and before touching surfaces, such as the cash register?",
-          requires_photo: false,
-          requires_temperature: false,
-          order: 30,
-          category: "Food Handling Practices"
-        },
-        {
-          task_id: "handling_17",
-          description: "Is a separate probe thermometer used for ready-to-eat foods and properly cleaned/disinfected before use?",
-          requires_photo: true,
-          requires_temperature: false,
-          order: 31,
-          category: "Food Handling Practices"
-        },
-        
-        // PERSONAL HYGIENE
-        {
-          task_id: "personal_1",
-          description: "Are staff fit to work, wearing clean, suitable protective clothing and following personal hygiene rules particularly hand washing?",
-          requires_photo: false,
-          requires_temperature: false,
-          order: 32,
-          category: "Personal Hygiene"
-        },
-        {
-          task_id: "personal_2",
-          description: "Are wash hand basins clean with hot water, soap and hygienic hand drying facilities?",
-          requires_photo: true,
-          requires_temperature: true,
-          order: 33,
-          category: "Personal Hygiene"
-        },
-        {
-          task_id: "personal_3",
-          description: "Are wash hand basins used for hand washing only and is effective handwashing by staff regularly observed?",
-          requires_photo: false,
-          requires_temperature: false,
-          order: 34,
-          category: "Personal Hygiene"
-        },
-        {
-          task_id: "personal_4",
-          description: "Are staff toilets and changing facilities clean and tidy?",
-          requires_photo: true,
-          requires_temperature: false,
-          order: 35,
-          category: "Personal Hygiene"
-        },
-        
-        // PEST CONTROL
-        {
-          task_id: "pest_1",
-          description: "Are premises pest proofed and free from any signs of pests?",
-          requires_photo: true,
-          requires_temperature: false,
-          order: 36,
-          category: "Pest Control"
-        },
-        {
-          task_id: "pest_2",
-          description: "Where necessary, are external doors/windows fitted with suitable fly screens?",
-          requires_photo: true,
-          requires_temperature: false,
-          order: 37,
-          category: "Pest Control"
-        },
-        {
-          task_id: "pest_3",
-          description: "Are insectocutors (if provided) properly maintained?",
-          requires_photo: true,
-          requires_temperature: false,
-          order: 38,
-          category: "Pest Control"
-        },
-        {
-          task_id: "pest_4",
-          description: "Is food properly protected from risk of contamination by pests?",
-          requires_photo: false,
-          requires_temperature: false,
-          order: 39,
-          category: "Pest Control"
-        },
-        
-        // WASTE CONTROL
-        {
-          task_id: "waste_1",
-          description: "Is waste in food rooms stored correctly?",
-          requires_photo: true,
-          requires_temperature: false,
-          order: 40,
-          category: "Waste Control"
-        },
-        {
-          task_id: "waste_2",
-          description: "Is food waste stored correctly outside and is the refuse area kept clean?",
-          requires_photo: true,
-          requires_temperature: false,
-          order: 41,
-          category: "Waste Control"
-        },
-        {
-          task_id: "waste_3",
-          description: "Is unfit food clearly labelled and stored separately from other foods?",
-          requires_photo: false,
-          requires_temperature: false,
-          order: 42,
-          category: "Waste Control"
-        },
-        
-        // CHECKS AND RECORD KEEPING
-        {
-          task_id: "records_1",
-          description: "Are all checks properly taken and recorded?",
-          requires_photo: true,
-          requires_temperature: false,
-          order: 43,
-          category: "Checks and Record Keeping"
-        },
-        {
-          task_id: "records_2",
-          description: "Has appropriate corrective action been taken where necessary?",
-          requires_photo: false,
-          requires_temperature: false,
-          order: 44,
-          category: "Checks and Record Keeping"
-        },
-        {
-          task_id: "records_3",
-          description: "Are record sheets up-to-date, checked and verified?",
-          requires_photo: true,
-          requires_temperature: false,
-          order: 45,
-          category: "Checks and Record Keeping"
-        },
-        {
-          task_id: "records_4",
-          description: "Are equipment time/temperature combinations regularly cross-checked?",
-          requires_photo: false,
-          requires_temperature: false,
-          order: 46,
-          category: "Checks and Record Keeping"
-        },
-        
-        // REVIEW
-        {
-          task_id: "review_1",
-          description: "Any new suppliers and approved list updated?",
-          requires_photo: false,
-          requires_temperature: false,
-          requires_signature: true,
-          order: 47,
-          category: "4-Weekly Review"
-        },
-        {
-          task_id: "review_2",
-          description: "Any new menu items updated?",
-          requires_photo: false,
-          requires_temperature: false,
-          requires_signature: true,
-          order: 48,
-          category: "4-Weekly Review"
-        },
-        {
-          task_id: "review_3",
-          description: "Any new food handling methods or equipment updated?",
-          requires_photo: false,
-          requires_temperature: false,
-          requires_signature: true,
-          order: 49,
-          category: "4-Weekly Review"
-        },
-        {
-          task_id: "final_signature",
-          description: "Final Manager Sign-off - I confirm all checks have been completed and documented",
-          requires_photo: false,
-          requires_temperature: false,
-          requires_signature: true,
-          order: 50,
-          category: "Final Sign-off"
-        }
-      ]
-    };
+    try {
+      const hygieneTemplate = {
+        name: "6-Monthly Food Safety & Hygiene Inspection",
+        description: "Comprehensive food safety checklist covering hygiene, storage, handling, pest control, and compliance",
+        frequency: "six_monthly",
+        shift_type: "any",
+        applicable_roles: ["manager", "owner"],
+        advance_notice_days: 14,
+        reminder_minutes: 0,
+        is_active: true,
+        tasks: [
+          // HYGIENE OF FOOD ROOMS & EQUIPMENT
+          {
+            task_id: "hygiene_1",
+            description: "Are food rooms and equipment in good condition and well maintained?",
+            requires_photo: true,
+            requires_temperature: false,
+            order: 1,
+            category: "Hygiene of Food Rooms & Equipment"
+          },
+          {
+            task_id: "hygiene_2",
+            description: "Are food rooms clean and tidy and do staff clean as they go including difficult areas?",
+            requires_photo: true,
+            requires_temperature: false,
+            order: 2,
+            category: "Hygiene of Food Rooms & Equipment"
+          },
+          {
+            task_id: "hygiene_3",
+            description: "Is equipment easy to clean and kept in a clean condition?",
+            requires_photo: true,
+            requires_temperature: false,
+            order: 3,
+            category: "Hygiene of Food Rooms & Equipment"
+          },
+          {
+            task_id: "hygiene_4",
+            description: "Are all food and hand contact surfaces (work surfaces, slicers, fridge handles, probe thermometers) in good condition and cleaned/disinfected regularly?",
+            requires_photo: true,
+            requires_temperature: false,
+            order: 4,
+            category: "Hygiene of Food Rooms & Equipment"
+          },
+          {
+            task_id: "hygiene_5",
+            description: "Are suitable BS EN approved cleaning chemicals available, stored correctly, and proper cleaning methods used?",
+            requires_photo: true,
+            requires_temperature: false,
+            order: 5,
+            category: "Hygiene of Food Rooms & Equipment"
+          },
+          {
+            task_id: "hygiene_6",
+            description: "Are separate cleaning cloths used in clean areas? If re-used, are they laundered in a boil wash?",
+            requires_photo: false,
+            requires_temperature: false,
+            order: 6,
+            category: "Hygiene of Food Rooms & Equipment"
+          },
+          
+          // FOOD STORAGE
+          {
+            task_id: "storage_1",
+            description: "Are deliveries appropriately stored immediately?",
+            requires_photo: true,
+            requires_temperature: false,
+            order: 7,
+            category: "Food Storage"
+          },
+          {
+            task_id: "storage_2",
+            description: "Is ready-to-eat food stored above/separate from raw food in fridges and freezers?",
+            requires_photo: true,
+            requires_temperature: true,
+            order: 8,
+            category: "Food Storage"
+          },
+          {
+            task_id: "storage_3",
+            description: "Is food in fridges/freezers covered?",
+            requires_photo: true,
+            requires_temperature: false,
+            order: 9,
+            category: "Food Storage"
+          },
+          {
+            task_id: "storage_4",
+            description: "Are high risk foods date coded, codes checked daily and stock rotated?",
+            requires_photo: true,
+            requires_temperature: false,
+            order: 10,
+            category: "Food Storage"
+          },
+          {
+            task_id: "storage_5",
+            description: "Are dried goods stored correctly (suitable room, off the floor, in covered containers)?",
+            requires_photo: true,
+            requires_temperature: false,
+            order: 11,
+            category: "Food Storage"
+          },
+          {
+            task_id: "storage_6",
+            description: "Is outer packaging removed from ready-to-eat food before being placed into a clean area?",
+            requires_photo: false,
+            requires_temperature: false,
+            order: 12,
+            category: "Food Storage"
+          },
+          {
+            task_id: "storage_7",
+            description: "Are freezers working properly?",
+            requires_photo: false,
+            requires_temperature: true,
+            order: 13,
+            category: "Food Storage"
+          },
+          {
+            task_id: "storage_8",
+            description: "Are fridges and freezers defrosted regularly?",
+            requires_photo: true,
+            requires_temperature: false,
+            order: 14,
+            category: "Food Storage"
+          },
+          
+          // FOOD HANDLING PRACTICES
+          {
+            task_id: "handling_1",
+            description: "Are ready-to-eat foods prepared in separate clean areas?",
+            requires_photo: true,
+            requires_temperature: false,
+            order: 15,
+            category: "Food Handling Practices"
+          },
+          {
+            task_id: "handling_2",
+            description: "Are separate utensils and equipment used for ready-to-eat foods unless disinfected in a dishwasher? Is the dishwasher in good working order and regularly serviced?",
+            requires_photo: true,
+            requires_temperature: false,
+            order: 16,
+            category: "Food Handling Practices"
+          },
+          {
+            task_id: "handling_3",
+            description: "Is wrapping and packaging used for ready-to-eat food kept in the clean area?",
+            requires_photo: false,
+            requires_temperature: false,
+            order: 17,
+            category: "Food Handling Practices"
+          },
+          {
+            task_id: "handling_4",
+            description: "Do separate staff handle ready-to-eat food or are controls being followed to ensure staff change clothing and wash hands before handling ready-to-eat food?",
+            requires_photo: false,
+            requires_temperature: false,
+            order: 18,
+            category: "Food Handling Practices"
+          },
+          {
+            task_id: "handling_5",
+            description: "Is separate complex equipment provided for ready-to-eat food and located in the clean area?",
+            requires_photo: true,
+            requires_temperature: false,
+            order: 19,
+            category: "Food Handling Practices"
+          },
+          {
+            task_id: "handling_6",
+            description: "Are staff handling food as little as possible (e.g., using tongs)?",
+            requires_photo: false,
+            requires_temperature: false,
+            order: 20,
+            category: "Food Handling Practices"
+          },
+          {
+            task_id: "handling_7",
+            description: "If colour coded equipment is provided (utensils, chopping boards), is it correctly used?",
+            requires_photo: true,
+            requires_temperature: false,
+            order: 21,
+            category: "Food Handling Practices"
+          },
+          {
+            task_id: "handling_8",
+            description: "Are high risk foods prepared in small batches and placed in the fridge immediately after handling/preparation?",
+            requires_photo: false,
+            requires_temperature: true,
+            order: 22,
+            category: "Food Handling Practices"
+          },
+          {
+            task_id: "handling_9",
+            description: "Is food cooled as quickly as possible away from raw food and other sources of contamination?",
+            requires_photo: false,
+            requires_temperature: false,
+            order: 23,
+            category: "Food Handling Practices"
+          },
+          {
+    task_id: "handling_10",
+            description: "Are vegetables/fruit/salads trimmed and washed thoroughly before use unless labelled as 'ready-to-eat'?",
+            requires_photo: false,
+            requires_temperature: false,
+            order: 24,
+            category: "Food Handling Practices"
+          },
+          {
+            task_id: "handling_11",
+            description: "Are ready-to-eat foods kept separate on display and screened from customers?",
+            requires_photo: true,
+            requires_temperature: false,
+            order: 25,
+            category: "Food Handling Practices"
+          },
+          {
+            task_id: "handling_12",
+            description: "Are adequate clean utensils available for self-service?",
+            requires_photo: false,
+            requires_temperature: false,
+            order: 26,
+            category: "Food Handling Practices"
+          },
+          {
+            task_id: "handling_13",
+            description: "Are frozen foods defrosted safely?",
+            requires_photo: false,
+            requires_temperature: false,
+            order: 27,
+            category: "Food Handling Practices"
+          },
+          {
+            task_id: "handling_14",
+            description: "Are controls in place to prevent contamination by chemicals/foreign bodies (glass, packaging, bolts, rust, cleaning chemicals)?",
+            requires_photo: true,
+            requires_temperature: false,
+            order: 28,
+            category: "Food Handling Practices"
+          },
+          {
+            task_id: "handling_15",
+            description: "Are staff aware of food allergy hazards?",
+            requires_photo: false,
+            requires_temperature: false,
+            order: 29,
+            category: "Food Handling Practices"
+          },
+          {
+            task_id: "handling_16",
+            description: "Are controls being followed to ensure staff wash hands after handling raw food and before touching surfaces, such as the cash register?",
+            requires_photo: false,
+            requires_temperature: false,
+            order: 30,
+            category: "Food Handling Practices"
+          },
+          {
+            task_id: "handling_17",
+            description: "Is a separate probe thermometer used for ready-to-eat foods and properly cleaned/disinfected before use?",
+            requires_photo: true,
+            requires_temperature: false,
+            order: 31,
+            category: "Food Handling Practices"
+          },
+          
+          // PERSONAL HYGIENE
+          {
+            task_id: "personal_1",
+            description: "Are staff fit to work, wearing clean, suitable protective clothing and following personal hygiene rules particularly hand washing?",
+            requires_photo: false,
+            requires_temperature: false,
+            order: 32,
+            category: "Personal Hygiene"
+          },
+          {
+            task_id: "personal_2",
+            description: "Are wash hand basins clean with hot water, soap and hygienic hand drying facilities?",
+            requires_photo: true,
+            requires_temperature: true,
+            order: 33,
+            category: "Personal Hygiene"
+          },
+          {
+            task_id: "personal_3",
+            description: "Are wash hand basins used for hand washing only and is effective handwashing by staff regularly observed?",
+            requires_photo: false,
+            requires_temperature: false,
+            order: 34,
+            category: "Personal Hygiene"
+          },
+          {
+            task_id: "personal_4",
+            description: "Are staff toilets and changing facilities clean and tidy?",
+            requires_photo: true,
+            requires_temperature: false,
+            order: 35,
+            category: "Personal Hygiene"
+          },
+          
+          // PEST CONTROL
+          {
+            task_id: "pest_1",
+            description: "Are premises pest proofed and free from any signs of pests?",
+            requires_photo: true,
+            requires_temperature: false,
+            order: 36,
+            category: "Pest Control"
+          },
+          {
+            task_id: "pest_2",
+            description: "Where necessary, are external doors/windows fitted with suitable fly screens?",
+            requires_photo: true,
+            requires_temperature: false,
+            order: 37,
+            category: "Pest Control"
+          },
+          {
+            task_id: "pest_3",
+            description: "Are insectocutors (if provided) properly maintained?",
+            requires_photo: true,
+            requires_temperature: false,
+            order: 38,
+            category: "Pest Control"
+          },
+          {
+            task_id: "pest_4",
+            description: "Is food properly protected from risk of contamination by pests?",
+            requires_photo: false,
+            requires_temperature: false,
+            order: 39,
+            category: "Pest Control"
+          },
+          
+          // WASTE CONTROL
+          {
+            task_id: "waste_1",
+            description: "Is waste in food rooms stored correctly?",
+            requires_photo: true,
+            requires_temperature: false,
+            order: 40,
+            category: "Waste Control"
+          },
+          {
+            task_id: "waste_2",
+            description: "Is food waste stored correctly outside and is the refuse area kept clean?",
+            requires_photo: true,
+            requires_temperature: false,
+            order: 41,
+            category: "Waste Control"
+          },
+          {
+            task_id: "waste_3",
+            description: "Is unfit food clearly labelled and stored separately from other foods?",
+            requires_photo: false,
+            requires_temperature: false,
+            order: 42,
+            category: "Waste Control"
+          },
+          
+          // CHECKS AND RECORD KEEPING
+          {
+            task_id: "records_1",
+            description: "Are all checks properly taken and recorded?",
+            requires_photo: true,
+            requires_temperature: false,
+            order: 43,
+            category: "Checks and Record Keeping"
+          },
+          {
+            task_id: "records_2",
+            description: "Has appropriate corrective action been taken where necessary?",
+            requires_photo: false,
+            requires_temperature: false,
+            order: 44,
+            category: "Checks and Record Keeping"
+          },
+          {
+            task_id: "records_3",
+            description: "Are record sheets up-to-date, checked and verified?",
+            requires_photo: true,
+            requires_temperature: false,
+            order: 45,
+            category: "Checks and Record Keeping"
+          },
+          {
+            task_id: "records_4",
+            description: "Are equipment time/temperature combinations regularly cross-checked?",
+            requires_photo: false,
+            requires_temperature: false,
+            order: 46,
+            category: "Checks and Record Keeping"
+          },
+          
+          // REVIEW
+          {
+            task_id: "review_1",
+            description: "Any new suppliers and approved list updated?",
+            requires_photo: false,
+            requires_temperature: false,
+            requires_signature: true,
+            order: 47,
+            category: "4-Weekly Review"
+          },
+          {
+            task_id: "review_2",
+            description: "Any new menu items updated?",
+            requires_photo: false,
+            requires_temperature: false,
+            requires_signature: true,
+            order: 48,
+            category: "4-Weekly Review"
+          },
+          {
+            task_id: "review_3",
+            description: "Any new food handling methods or equipment updated?",
+            requires_photo: false,
+            requires_temperature: false,
+            requires_signature: true,
+            order: 49,
+            category: "4-Weekly Review"
+          },
+          {
+            task_id: "final_signature",
+            description: "Final Manager Sign-off - I confirm all checks have been completed and documented",
+            requires_photo: false,
+            requires_temperature: false,
+            requires_signature: true,
+            order: 50,
+            category: "Final Sign-off"
+          }
+        ]
+      };
 
-    await createTemplateMutation.mutateAsync(hygieneTemplate);
-    setShowHygieneGuide(false);
+      await createTemplateMutation.mutateAsync(hygieneTemplate);
+      setShowHygieneGuide(false);
+      alert('✅ Hygiene template created successfully!');
+    } catch (error) {
+      console.error("Error creating hygiene template:", error);
+      alert('❌ Failed to create template. Please try again.');
+    }
   };
 
   const resetForm = () => {
