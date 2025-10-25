@@ -34,6 +34,7 @@ import Announcements from './pages/Announcements';
 import SuggestionBox from './pages/SuggestionBox';
 import TeamDirectory from './pages/TeamDirectory';
 import AdvancedChecklists from './pages/AdvancedChecklists';
+import RestaurantRoutines from './pages/RestaurantRoutines';
 import Layout from './Layout.jsx';
 
 
@@ -74,6 +75,7 @@ export const PAGES = {
     "SuggestionBox": SuggestionBox,
     "TeamDirectory": TeamDirectory,
     "AdvancedChecklists": AdvancedChecklists,
+    "RestaurantRoutines": RestaurantRoutines,
 }
 
 export const pagesConfig = {
