@@ -1,0 +1,87 @@
+{
+  "name": "RoleResponsibility",
+  "type": "object",
+  "properties": {
+    "position": {
+      "type": "string",
+      "enum": [
+        "manager",
+        "chef",
+        "line_cook",
+        "server",
+        "bartender",
+        "cleaner",
+        "maintenance"
+      ],
+      "description": "Position title"
+    },
+    "department": {
+      "type": "string",
+      "enum": [
+        "kitchen",
+        "front_of_house",
+        "bar",
+        "management",
+        "cleaning",
+        "maintenance"
+      ],
+      "description": "Department"
+    },
+    "daily_tasks": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "List of daily responsibilities"
+    },
+    "weekly_tasks": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "List of weekly responsibilities"
+    },
+    "monthly_tasks": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "List of monthly responsibilities"
+    },
+    "key_skills_required": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Skills needed for this role"
+    },
+    "assigned_manager": {
+      "type": "string",
+      "description": "Manager responsible for this role"
+    },
+    "linked_form_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Forms assigned to this role"
+    },
+    "last_updated": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Last update timestamp"
+    },
+    "updated_by": {
+      "type": "string",
+      "description": "Who last updated"
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true
+    }
+  },
+  "required": [
+    "position",
+    "department"
+  ]
+}

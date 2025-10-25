@@ -1,11 +1,22 @@
+
 import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { TrendingUp, MessageCircle, Target, Calendar, Award, BarChart3, Home, ArrowLeft } from "lucide-react";
+import { TrendingUp, MessageCircle, Target, Calendar, Award, BarChart3, Home, ArrowLeft, Users } from "lucide-react"; // Added Users import
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { motion } from "framer-motion";
 
 const performanceModules = [
+  {
+    title: "Manager Dashboard",
+    description: "Manage team, HR documents, and role responsibilities",
+    icon: Users,
+    url: createPageUrl("ManagerDashboard"),
+    color: "from-purple-500 to-purple-600",
+    bgColor: "bg-purple-50",
+    iconColor: "text-purple-600",
+    access: "manager",
+  },
   {
     title: "Coaching Dashboard",
     description: "View and manage all coaching sessions, track team progress",

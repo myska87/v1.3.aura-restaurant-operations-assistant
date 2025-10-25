@@ -1,0 +1,86 @@
+{
+  "name": "HRDocument",
+  "type": "object",
+  "properties": {
+    "staff_id": {
+      "type": "string",
+      "description": "Reference to User entity"
+    },
+    "staff_email": {
+      "type": "string",
+      "description": "Staff member email"
+    },
+    "staff_name": {
+      "type": "string",
+      "description": "Staff member name"
+    },
+    "document_type": {
+      "type": "string",
+      "enum": [
+        "contract",
+        "id",
+        "right_to_work",
+        "hygiene_certificate",
+        "first_aid",
+        "dbs_check",
+        "bank_details",
+        "p45",
+        "references",
+        "other"
+      ],
+      "description": "Type of document"
+    },
+    "document_name": {
+      "type": "string",
+      "description": "Custom document name"
+    },
+    "file_url": {
+      "type": "string",
+      "description": "Document file URL"
+    },
+    "expiry_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Expiry date if applicable"
+    },
+    "uploaded_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When uploaded"
+    },
+    "uploaded_by": {
+      "type": "string",
+      "description": "Who uploaded"
+    },
+    "verified_by": {
+      "type": "string",
+      "description": "Manager who verified"
+    },
+    "verified_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When verified"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "valid",
+        "expired",
+        "missing",
+        "pending_review"
+      ],
+      "default": "pending_review",
+      "description": "Document status"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Additional notes"
+    }
+  },
+  "required": [
+    "staff_email",
+    "document_type",
+    "file_url",
+    "status"
+  ]
+}

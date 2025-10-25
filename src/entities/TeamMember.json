@@ -1,0 +1,103 @@
+{
+  "name": "TeamMember",
+  "type": "object",
+  "properties": {
+    "staff_id": {
+      "type": "string",
+      "description": "Reference to User entity"
+    },
+    "staff_email": {
+      "type": "string",
+      "description": "Staff member email"
+    },
+    "staff_name": {
+      "type": "string",
+      "description": "Full name"
+    },
+    "position": {
+      "type": "string",
+      "enum": [
+        "manager",
+        "chef",
+        "line_cook",
+        "server",
+        "bartender",
+        "cleaner",
+        "maintenance"
+      ],
+      "description": "Current position"
+    },
+    "department": {
+      "type": "string",
+      "enum": [
+        "kitchen",
+        "front_of_house",
+        "bar",
+        "management",
+        "cleaning",
+        "maintenance"
+      ],
+      "description": "Department"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "active",
+        "inactive",
+        "on_leave",
+        "probation"
+      ],
+      "default": "active",
+      "description": "Employment status"
+    },
+    "shift_start": {
+      "type": "string",
+      "description": "Typical shift start time (HH:mm)"
+    },
+    "shift_end": {
+      "type": "string",
+      "description": "Typical shift end time (HH:mm)"
+    },
+    "manager_id": {
+      "type": "string",
+      "description": "Assigned manager ID"
+    },
+    "manager_email": {
+      "type": "string",
+      "description": "Assigned manager email"
+    },
+    "photo_url": {
+      "type": "string",
+      "description": "Profile photo URL"
+    },
+    "phone": {
+      "type": "string",
+      "description": "Contact phone"
+    },
+    "emergency_contact": {
+      "type": "string",
+      "description": "Emergency contact details"
+    },
+    "hire_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Date hired"
+    },
+    "probation_end_date": {
+      "type": "string",
+      "format": "date",
+      "description": "End of probation period"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Additional notes"
+    }
+  },
+  "required": [
+    "staff_email",
+    "staff_name",
+    "position",
+    "department",
+    "status"
+  ]
+}
