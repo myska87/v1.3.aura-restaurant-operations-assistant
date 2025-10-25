@@ -43,6 +43,10 @@ import MyTasks from './pages/MyTasks';
 import TaskReports from './pages/TaskReports';
 import SmartScheduler from './pages/SmartScheduler';
 import AttendanceReports from './pages/AttendanceReports';
+import DailyChecklists from './pages/DailyChecklists';
+import ActiveChecklist from './pages/ActiveChecklist';
+import ChecklistBuilder from './pages/ChecklistBuilder';
+import ChecklistReview from './pages/ChecklistReview';
 import Layout from './Layout.jsx';
 
 
@@ -92,6 +96,10 @@ export const PAGES = {
     "TaskReports": TaskReports,
     "SmartScheduler": SmartScheduler,
     "AttendanceReports": AttendanceReports,
+    "DailyChecklists": DailyChecklists,
+    "ActiveChecklist": ActiveChecklist,
+    "ChecklistBuilder": ChecklistBuilder,
+    "ChecklistReview": ChecklistReview,
 }
 
 export const pagesConfig = {

@@ -25,6 +25,7 @@ import {
   CheckCircle, // Added CheckCircle import
 } from "lucide-react";
 import WelcomeNewHire from "./components/WelcomeNewHire";
+import ChecklistAutomation from "./components/ChecklistAutomation";
 
 const navigationItems = [
   {
@@ -36,6 +37,11 @@ const navigationItems = [
     title: "My Tasks", // New item
     url: createPageUrl("MyTasks"), // New item
     icon: CheckCircle, // New item
+  },
+  {
+    title: "Daily Checklists", // NEW ITEM
+    url: createPageUrl("DailyChecklists"),
+    icon: ClipboardCheck,
   },
   {
     title: "Inventory",
@@ -105,6 +111,9 @@ export default function Layout({ children, currentPageName }) {
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
       {/* Auto-welcome new hires in background */}
       <WelcomeNewHire />
+      
+      {/* Auto-generate daily checklists in background */}
+      <ChecklistAutomation />
       
       {/* Mobile Header */}
       <div className="lg:hidden fixed top-0 left-0 right-0 bg-white border-b border-slate-200 z-40 px-4 py-3">
