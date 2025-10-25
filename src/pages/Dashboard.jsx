@@ -22,7 +22,7 @@ export default function Dashboard() {
 
   const { data: inventoryItems = [], isLoading: loadingInventory } = useQuery({
     queryKey: ['inventoryItems'],
-    queryFn: () => base44.entities.InventoryItem.list(),
+    queryFn: () => base44.entities.Ingredient.list(),
   });
 
   const { data: maintenanceTickets = [], isLoading: loadingMaintenance } = useQuery({
@@ -41,7 +41,7 @@ export default function Dashboard() {
     : 0;
 
   const lowStockItems = inventoryItems.filter(
-    item => item.current_quantity <= (item.minimum_quantity || 0)
+    item => item.current_stock <= (item.reorder_point || 0)
   ).length;
 
   const openTickets = maintenanceTickets.filter(t => t.status === "open").length;
