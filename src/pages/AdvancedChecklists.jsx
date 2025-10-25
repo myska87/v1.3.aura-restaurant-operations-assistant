@@ -795,6 +795,56 @@ export default function AdvancedChecklists() {
           )}
         </div>
 
+        {/* Quick Test Button for Admins */}
+        {isAdmin && viewMode === 'templates' && (
+          <Card className="bg-gradient-to-r from-purple-50 to-indigo-50 border-purple-200 mb-6">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-lg font-semibold text-purple-900 mb-1">
+                    🧪 Test Checklist Execution
+                  </h3>
+                  <p className="text-sm text-purple-700">
+                    Create a test checklist execution assigned to yourself to see how it works
+                  </p>
+                </div>
+                <Button 
+                  onClick={async () => {
+                    const hygieneTemplate = templates.find(t => t.name.includes('Hygiene'));
+                    if (!hygieneTemplate) {
+                      alert('Please create the Hygiene template first!');
+                      return;
+                    }
+                    
+                    // Create a test execution
+                    const testExecution = {
+                      template_id: hygieneTemplate.id,
+                      template_name: hygieneTemplate.name,
+                      shift_type: 'any',
+                      execution_date: format(new Date(), 'yyyy-MM-dd'),
+                      assigned_to_email: user?.email,
+                      assigned_to_name: user?.full_name,
+                      status: 'not_started',
+                      tasks: hygieneTemplate.tasks.map(t => ({
+                        ...t,
+                        status: 'pending'
+                      })),
+                    };
+                    
+                    await base44.entities.ChecklistExecution.create(testExecution);
+                    queryClient.invalidateQueries({ queryKey: ['myChecklistExecutions'] });
+                    alert('✅ Test checklist created! Switch to "My Checklists" tab to see it.');
+                  }}
+                  className="bg-purple-600 hover:bg-purple-700"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Create Test Execution
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Hygiene Template Quick Create */}
         {isAdmin && viewMode === 'templates' && (
           <Card className="bg-gradient-to-r from-green-50 to-emerald-50 border-green-200 mb-6">

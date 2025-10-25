@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -114,7 +113,7 @@ export default function ExecuteChecklist() {
     });
 
     if (allCompleted) {
-      navigate(createPageUrl('AdvancedChecklists')); // Changed from MyChecklists
+      navigate(createPageUrl('AdvancedChecklists'));
     } else if (currentTaskIndex < checklist.tasks.length - 1) {
       setCurrentTaskIndex(currentTaskIndex + 1);
     }
