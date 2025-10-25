@@ -8,7 +8,6 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select,
   SelectContent,
@@ -28,7 +27,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Users, FileText, Target, Plus, Edit, Trash2, Upload, CheckCircle, AlertTriangle, Calendar, Phone, Mail, Home, ArrowLeft, Search, Filter, Download, MoreVertical, UserPlus, Clock, AlertCircle, TrendingUp, Award, Eye, Bell, Settings } from "lucide-react";
+import { Plus, Calendar, CheckCircle, Clock, AlertCircle, AlertTriangle, ArrowLeft, Home, Users, TrendingUp, Award, Edit, Trash2, Upload, Eye, Bell, Settings, MoreVertical, UserPlus, FileText, Target, Search, Filter, Download, ChevronUp, ChevronDown, Mail, Phone } from "lucide-react";
 import { format } from "date-fns";
 import { Link, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -392,25 +391,41 @@ export default function ManagerDashboard() {
           </Card>
         </div>
 
-        {/* Main Tabs */}
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="team" className="flex items-center gap-2">
-              <Users className="w-4 h-4" />
-              Team Management
-            </TabsTrigger>
-            <TabsTrigger value="hr" className="flex items-center gap-2">
-              <FileText className="w-4 h-4" />
-              HR Tools
-            </TabsTrigger>
-            <TabsTrigger value="responsibilities" className="flex items-center gap-2">
-              <Target className="w-4 h-4" />
-              Responsibilities
-            </TabsTrigger>
-          </TabsList>
+        {/* Tab Navigation - Replace Tabs with Buttons */}
+        <Card className="mb-6">
+          <CardContent className="p-4">
+            <div className="flex gap-2">
+              <Button
+                onClick={() => setActiveTab("team")}
+                variant={activeTab === "team" ? "default" : "outline"}
+                className="flex items-center gap-2"
+              >
+                <Users className="w-4 h-4" />
+                Team Management
+              </Button>
+              <Button
+                onClick={() => setActiveTab("hr")}
+                variant={activeTab === "hr" ? "default" : "outline"}
+                className="flex items-center gap-2"
+              >
+                <FileText className="w-4 h-4" />
+                HR Tools
+              </Button>
+              <Button
+                onClick={() => setActiveTab("responsibilities")}
+                variant={activeTab === "responsibilities" ? "default" : "outline"}
+                className="flex items-center gap-2"
+              >
+                <Target className="w-4 h-4" />
+                Responsibilities
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
 
-          {/* Enhanced Team Management Tab */}
-          <TabsContent value="team" className="space-y-6">
+        {/* Team Management Tab */}
+        {activeTab === "team" && (
+          <div className="space-y-6">
             <Card>
               <CardHeader>
                 <div className="flex flex-wrap justify-between items-center gap-4">
@@ -672,10 +687,12 @@ export default function ManagerDashboard() {
                 )}
               </CardContent>
             </Card>
-          </TabsContent>
+          </div>
+        )}
 
-          {/* HR Tools Tab */}
-          <TabsContent value="hr" className="space-y-6">
+        {/* HR Tools Tab */}
+        {activeTab === "hr" && (
+          <div className="space-y-6">
             <Card>
               <CardHeader>
                 <div className="flex justify-between items-center">
@@ -790,10 +807,12 @@ export default function ManagerDashboard() {
                 )}
               </CardContent>
             </Card>
-          </TabsContent>
+          </div>
+        )}
 
-          {/* Responsibilities Tab */}
-          <TabsContent value="responsibilities" className="space-y-6">
+        {/* Responsibilities Tab */}
+        {activeTab === "responsibilities" && (
+          <div className="space-y-6">
             <Card>
               <CardHeader>
                 <div className="flex justify-between items-center">
@@ -899,8 +918,8 @@ export default function ManagerDashboard() {
                 )}
               </CardContent>
             </Card>
-          </TabsContent>
-        </Tabs>
+          </div>
+        )}
 
         {/* Profile View Modal */}
         {selectedMember && showProfileModal && (
