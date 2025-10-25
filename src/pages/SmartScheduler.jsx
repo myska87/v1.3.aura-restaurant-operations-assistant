@@ -314,6 +314,7 @@ export default function SmartScheduler() {
       const shiftDate = shift.shift_date;
       const dayOfWeek = format(parseISO(shiftDate), 'EEEE').toLowerCase();
 
+      // Generate daily tasks
       if (roleResponsibilities.daily_tasks) {
         roleResponsibilities.daily_tasks.forEach((task) => {
           const dueTime = calculateDueTime(shift.end_time, task.estimated_minutes || 30);
@@ -340,6 +341,7 @@ export default function SmartScheduler() {
         });
       }
 
+      // Generate weekly tasks
       if (roleResponsibilities.weekly_tasks) {
         roleResponsibilities.weekly_tasks.forEach((task) => {
           if (task.day_of_week === dayOfWeek) {
@@ -817,7 +819,7 @@ export default function SmartScheduler() {
                 <span>Delete Shift</span>
               </div>
               <div className="ml-auto text-sm text-gray-500 italic">
-                💡 Hover over any shift for detailed options
+                💡 Click on any shift for detailed options
               </div>
             </div>
           </CardContent>
