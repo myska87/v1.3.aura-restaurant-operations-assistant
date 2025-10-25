@@ -143,6 +143,19 @@ function ShiftCard({ shift, position, onEdit, onDelete, onGenerateTasks, onPrevi
   );
 }
 
+// Add this helper function after imports and before the component
+const generateTimeOptions = () => {
+  const times = [];
+  for (let hour = 0; hour < 24; hour++) {
+    for (let minute = 0; minute < 60; minute += 15) {
+      const timeString = `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+      const displayTime = `${hour === 0 ? '12' : hour > 12 ? hour - 12 : hour}:${String(minute).padStart(2, '0')} ${hour < 12 ? 'AM' : 'PM'}`;
+      times.push({ value: timeString, label: displayTime });
+    }
+  }
+  return times;
+};
+
 export default function SmartScheduler() {
   const queryClient = useQueryClient();
   const [currentWeekStart, setCurrentWeekStart] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }));
@@ -1196,20 +1209,40 @@ export default function SmartScheduler() {
 
               <div>
                 <Label>Start Time *</Label>
-                <Input
-                  type="time"
-                  value={shiftForm.start_time}
-                  onChange={(e) => setShiftForm({ ...shiftForm, start_time: e.target.value })}
-                />
+                <Select 
+                  value={shiftForm.start_time} 
+                  onValueChange={(value) => setShiftForm({ ...shiftForm, start_time: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select start time" />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-[300px]">
+                    {generateTimeOptions().map((time) => (
+                      <SelectItem key={time.value} value={time.value}>
+                        {time.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               <div>
                 <Label>End Time *</Label>
-                <Input
-                  type="time"
-                  value={shiftForm.end_time}
-                  onChange={(e) => setShiftForm({ ...shiftForm, end_time: e.target.value })}
-                />
+                <Select 
+                  value={shiftForm.end_time} 
+                  onValueChange={(value) => setShiftForm({ ...shiftForm, end_time: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select end time" />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-[300px]">
+                    {generateTimeOptions().map((time) => (
+                      <SelectItem key={time.value} value={time.value}>
+                        {time.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               <div>
