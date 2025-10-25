@@ -1,3 +1,4 @@
+
 import React from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -29,7 +30,7 @@ const staffModules = [
   },
   {
     title: "Onboarding & Training",
-    description: "Structured training paths, quizzes, and digital certificates",
+    description: "Structured training paths, quizzes, digital certificates, and progress tracking",
     icon: GraduationCap,
     url: createPageUrl("OnboardingTraining"),
     color: "from-blue-500 to-blue-600",
