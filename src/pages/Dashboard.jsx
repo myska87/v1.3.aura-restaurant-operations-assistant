@@ -216,12 +216,12 @@ export default function Dashboard() {
     ...complianceChecks.slice(0, 3).map(check => ({
       title: `${check.check_type.replace(/_/g, ' ')} - ${check.area}`,
       date: check.check_date,
-      type: 'compliance'
+      activity_type: 'compliance' // Changed 'type' to 'activity_type' to match expected prop for RecentActivity
     })),
     ...maintenanceTickets.slice(0, 2).map(ticket => ({
       title: ticket.title,
       date: ticket.created_date,
-      type: 'maintenance'
+      activity_type: 'maintenance' // Changed 'type' to 'activity_type' to match expected prop for RecentActivity
     }))
   ].sort((a, b) => new Date(b.date) - new Date(a.date));
 

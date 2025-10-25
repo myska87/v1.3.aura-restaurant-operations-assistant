@@ -61,17 +61,30 @@ const POSITIONS = [
   { name: "Cleaner", color: "bg-gray-100", darkColor: "bg-gray-500", textColor: "text-gray-900" },
 ];
 
+// Helper map for position colors for badges
+const positionColors = POSITIONS.reduce((acc, pos) => {
+  acc[pos.name] = pos.darkColor; 
+  return acc;
+}, {});
+
 function ShiftCard({ shift, position, onEdit, onDelete, onGenerateTasks, onPreviewTasks }) {
   return (
     <Popover>
       <PopoverTrigger asChild>
         <div className={`${position.darkColor} text-white rounded-lg shadow-md p-3 cursor-move hover:shadow-lg transition-all`}>
-          <div className="flex items-center gap-2 mb-2">
-            <div className="w-6 h-6 bg-white/20 rounded-full flex items-center justify-center text-xs font-bold">
-              {shift.staff_name?.charAt(0) || '?'}
+          {/* Updated Staff Name and Role Display */}
+          <div className="flex-1 min-w-0 bg-white p-2 rounded-md mb-2">
+            <div className="flex items-center justify-between gap-2 mb-1">
+              <p className="font-bold text-xs text-gray-900 truncate">
+                {shift.staff_name || 'Unknown'}
+              </p>
+              <Badge className={positionColors[shift.role] || 'bg-gray-100 text-gray-800'}>
+                {shift.role ? shift.role.replace(/_/g, ' ') : 'Unknown'}
+              </Badge>
             </div>
-            <p className="text-xs font-bold truncate">{shift.staff_name}</p>
           </div>
+          {/* End Updated Staff Name and Role Display */}
+
           <p className="text-xs font-semibold flex items-center gap-1">
             <Clock className="w-3 h-3" />
             {shift.start_time} - {shift.end_time}

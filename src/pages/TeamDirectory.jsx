@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -635,17 +636,19 @@ export default function TeamDirectory() {
                         
                         {/* Badges */}
                         <div className="flex flex-wrap gap-1.5 mb-3">
-                          <Badge className={`${getPositionColor(staff.position)} text-xs border`}>
-                            {staff.position?.replace(/_/g, ' ')}
-                          </Badge>
-                          {staff.department && (
-                            <Badge variant="outline" className={`${getDepartmentColor(staff.department)} text-xs border`}>
-                              {staff.department?.replace(/_/g, ' ')}
+                          {staff.position && (
+                            <Badge className={`${getPositionColor(staff.position)} text-xs border`}>
+                              {staff.position.replace(/_/g, ' ')}
                             </Badge>
                           )}
-                          {staff.status !== 'active' && (
+                          {staff.department && (
+                            <Badge variant="outline" className={`${getDepartmentColor(staff.department)} text-xs border`}>
+                              {staff.department.replace(/_/g, ' ')}
+                            </Badge>
+                          )}
+                          {staff.status && staff.status !== 'active' && (
                             <Badge className={`${getStatusColor(staff.status)} text-xs border`}>
-                              {staff.status.replace('_', ' ')}
+                              {staff.status.replace(/_/g, ' ')}
                             </Badge>
                           )}
                         </div>
@@ -719,14 +722,18 @@ export default function TeamDirectory() {
                         </div>
                       </td>
                       <td className="p-4">
-                        <Badge className={`${getPositionColor(staff.position)} text-xs border`}>
-                          {staff.position?.replace(/_/g, ' ')}
-                        </Badge>
+                        {staff.position ? (
+                          <Badge className={`${getPositionColor(staff.position)} text-xs border`}>
+                            {staff.position.replace(/_/g, ' ')}
+                          </Badge>
+                        ) : (
+                          <span className="text-gray-400 text-sm">-</span>
+                        )}
                       </td>
                       <td className="p-4">
                         {staff.department ? (
                           <Badge variant="outline" className={`${getDepartmentColor(staff.department)} text-xs border`}>
-                            {staff.department?.replace(/_/g, ' ')}
+                            {staff.department.replace(/_/g, ' ')}
                           </Badge>
                         ) : (
                           <span className="text-gray-400 text-sm">-</span>
@@ -742,9 +749,15 @@ export default function TeamDirectory() {
                         </div>
                       </td>
                       <td className="p-4 text-center">
-                        <Badge className={`${getStatusColor(staff.status)} text-xs border`}>
-                          {staff.status?.replace('_', ' ')}
-                        </Badge>
+                        {staff.status ? (
+                          <Badge className={`${getStatusColor(staff.status)} text-xs border`}>
+                            {staff.status.replace(/_/g, ' ')}
+                          </Badge>
+                        ) : (
+                          <Badge className="bg-gray-100 text-gray-800 text-xs border border-gray-200">
+                            Unknown
+                          </Badge>
+                        )}
                       </td>
                       {isManager && (
                         <td className="p-4">

@@ -688,10 +688,10 @@ export default function ManagerDashboard() {
                         <td className="p-3">
                           <div>
                             <p className="font-medium text-gray-900 capitalize">
-                              {role.position?.replace('_', ' ')}
+                              {role.position ? role.position.replace(/_/g, ' ') : 'Unknown Position'}
                             </p>
                             <p className="text-xs text-gray-500 capitalize">
-                              {role.department?.replace('_', ' ')}
+                              {role.department ? role.department.replace(/_/g, ' ') : 'No Department'}
                             </p>
                           </div>
                         </td>
@@ -1029,10 +1029,10 @@ export default function ManagerDashboard() {
                           <div className="flex items-start justify-between mb-4">
                             <div>
                               <h3 className="text-lg font-bold text-gray-900 capitalize mb-1">
-                                {role.position?.replace('_', ' ')}
+                                {role.position ? role.position.replace(/_/g, ' ') : 'Unknown Position'}
                               </h3>
                               <Badge variant="outline" className="text-xs capitalize">
-                                {role.department?.replace('_', ' ')}
+                                {role.department ? role.department.replace(/_/g, ' ') : 'No Department'}
                               </Badge>
                             </div>
                             <div className="flex gap-1">
@@ -1081,7 +1081,7 @@ export default function ManagerDashboard() {
                                         <div className="flex-1 flex gap-2 items-center">
                                           <Input
                                             value={editingTaskValue}
-                                            onChange={(e) => setNewRoleDailyTasks(e.target.value)} // Fixed here
+                                            onChange={(e) => setEditingTaskValue(e.target.value)} // Fixed here
                                             className="h-7 text-sm"
                                             autoFocus
                                             onKeyPress={(e) => {
@@ -1164,7 +1164,7 @@ export default function ManagerDashboard() {
                                         <div className="flex-1 flex gap-2 items-center">
                                           <Input
                                             value={editingTaskValue}
-                                            onChange={(e) => setNewRoleWeeklyTasks(e.target.value)} // Fixed here
+                                            onChange={(e) => setEditingTaskValue(e.target.value)} // Fixed here
                                             className="h-7 text-sm"
                                             autoFocus
                                             onKeyPress={(e) => {
@@ -1250,7 +1250,7 @@ export default function ManagerDashboard() {
                                         <div className="flex-1 flex gap-2 items-center">
                                           <Input
                                             value={editingTaskValue}
-                                            onChange={(e) => setNewRoleMonthlyTasks(e.target.value)} // Fixed here
+                                            onChange={(e) => setEditingTaskValue(e.target.value)} // Fixed here
                                             className="h-7 text-sm"
                                             autoFocus
                                             onKeyPress={(e) => {
