@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -6,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Clock, CheckCircle, AlertTriangle, Play, Home } from "lucide-react";
+import { Clock, CheckCircle, AlertTriangle, Play, Home, CalendarDays } from "lucide-react"; // Added CalendarDays
 import { format } from "date-fns";
 import { Link, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -34,11 +35,12 @@ export default function MyChecklists() {
     queryKey: ['myChecklists', user?.email],
     queryFn: async () => {
       if (!user?.email) return [];
+      
       try {
-        // Get all checklists assigned to this user (not just today)
-        return await base44.entities.ChecklistExecution.filter({
-          assigned_to_email: user.email
-        }, '-execution_date');
+        // Get ALL checklists assigned to this user (not just today)
+        // Assuming base44.entities.ChecklistExecution.list can accept a sort parameter
+        const allChecklists = await base44.entities.ChecklistExecution.list('-execution_date');
+        return allChecklists.filter(c => c.assigned_to_email === user.email);
       } catch (error) {
         console.error("Error fetching checklists:", error);
         return [];
@@ -68,6 +70,8 @@ export default function MyChecklists() {
         return 'bg-blue-100 text-blue-800 border-blue-200';
       case 'overdue':
         return 'bg-red-100 text-red-800 border-red-200';
+      case 'not_started':
+        return 'bg-gray-100 text-gray-800 border-gray-200';
       default:
         return 'bg-gray-100 text-gray-800 border-gray-200';
     }
@@ -88,10 +92,28 @@ export default function MyChecklists() {
     }
   };
 
-  const overdueChecklists = myChecklists.filter(c => c.status === 'overdue');
-  const inProgressChecklists = myChecklists.filter(c => c.status === 'in_progress');
-  const notStartedChecklists = myChecklists.filter(c => c.status === 'not_started');
-  const completedChecklists = myChecklists.filter(c => c.status === 'completed');
+  const todayStr = format(new Date(), 'yyyy-MM-dd');
+  const todayChecklists = myChecklists.filter(c => c.execution_date === todayStr);
+
+  const overdueChecklists = myChecklists.filter(c => {
+    const execDate = new Date(c.execution_date);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Normalize today to start of day
+    execDate.setHours(0, 0, 0, 0); // Normalize execution date to start of day
+    return execDate < today && c.status !== 'completed'; // Overdue if date is past and not completed
+  });
+  const inProgressChecklists = todayChecklists.filter(c => c.status === 'in_progress');
+  const notStartedChecklists = todayChecklists.filter(c => c.status === 'not_started');
+  const completedChecklists = todayChecklists.filter(c => c.status === 'completed');
+
+  const upcomingChecklists = myChecklists.filter(c => {
+    const execDate = new Date(c.execution_date);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    execDate.setHours(0, 0, 0, 0);
+    return execDate > today; // Upcoming if execution date is in the future
+  });
+
 
   return (
     <div className="p-6 md:p-8 bg-gray-50 min-h-screen">
@@ -181,7 +203,7 @@ export default function MyChecklists() {
             <div>
               <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
                 <Play className="w-5 h-5 text-blue-600" />
-                In Progress
+                In Progress (Today)
               </h2>
               <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {inProgressChecklists.map(checklist => (
@@ -203,7 +225,7 @@ export default function MyChecklists() {
             <div>
               <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
                 <Clock className="w-5 h-5 text-gray-600" />
-                Pending
+                Pending (Today)
               </h2>
               <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {notStartedChecklists.map(checklist => (
@@ -220,12 +242,34 @@ export default function MyChecklists() {
             </div>
           )}
 
+          {/* Upcoming */}
+          {upcomingChecklists.length > 0 && (
+            <div>
+              <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                <CalendarDays className="w-5 h-5 text-purple-600" />
+                Upcoming
+              </h2>
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {upcomingChecklists.map(checklist => (
+                  <ChecklistCard
+                    key={checklist.id}
+                    checklist={checklist}
+                    progress={0} // Upcoming checklists are not started
+                    getStatusColor={getStatusColor}
+                    getShiftTypeColor={getShiftTypeColor}
+                    onStart={() => navigate(createPageUrl(`ExecuteChecklist?id=${checklist.id}`))}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Completed */}
           {completedChecklists.length > 0 && (
             <div>
               <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
                 <CheckCircle className="w-5 h-5 text-green-600" />
-                Completed
+                Completed (Today)
               </h2>
               <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {completedChecklists.map(checklist => (

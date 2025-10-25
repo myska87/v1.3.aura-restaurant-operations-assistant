@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -8,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { CheckCircle, XCircle, MinusCircle, Camera, ArrowLeft, Home } from "lucide-react";
+import { CheckCircle, XCircle, MinusCircle, Camera, ArrowLeft, Home, AlertTriangle } from "lucide-react";
 import { format } from "date-fns";
 import { useNavigate, Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -26,10 +27,24 @@ export default function ExecuteChecklist() {
   const { data: checklist, isLoading, isError } = useQuery({
     queryKey: ['checklistExecution', checklistId],
     queryFn: async () => {
-      const lists = await base44.entities.ChecklistExecution.list();
-      return lists.find(c => c.id === checklistId);
+      if (!checklistId) return null; // Return null if no checklistId to prevent unnecessary fetch
+      
+      try {
+        const lists = await base44.entities.ChecklistExecution.list();
+        const found = lists.find(c => c.id === checklistId);
+        
+        if (!found) {
+          console.error(`Checklist with ID ${checklistId} not found`);
+        }
+        
+        return found || null;
+      } catch (error) {
+        console.error("Error fetching checklist:", error);
+        throw error;
+      }
     },
     enabled: !!checklistId,
+    retry: 1, // Retry once if the fetch fails
   });
 
   const { data: user } = useQuery({
@@ -166,10 +181,12 @@ export default function ExecuteChecklist() {
   if (!checklistId) {
     return (
       <div className="p-6 md:p-8 bg-gray-50 min-h-screen flex items-center justify-center">
-        <Card className="bg-white">
+        <Card className="bg-white max-w-md">
           <CardContent className="p-12 text-center">
-            <p className="text-red-500">No checklist ID provided</p>
-            <Button onClick={() => navigate(createPageUrl('AdvancedChecklists'))} className="mt-4">
+            <AlertTriangle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+            <p className="text-lg font-semibold text-gray-900 mb-2">No checklist ID provided</p>
+            <p className="text-sm text-gray-600 mb-6">The URL is missing the checklist ID parameter</p>
+            <Button onClick={() => navigate(createPageUrl('AdvancedChecklists'))}>
               Go to Checklists
             </Button>
           </CardContent>
@@ -181,7 +198,10 @@ export default function ExecuteChecklist() {
   if (isLoading) {
     return (
       <div className="p-6 md:p-8 bg-gray-50 min-h-screen flex items-center justify-center">
-        <div className="animate-pulse text-gray-500">Loading checklist...</div>
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-500">Loading checklist...</p>
+        </div>
       </div>
     );
   }
@@ -189,10 +209,17 @@ export default function ExecuteChecklist() {
   if (isError || !checklist) {
     return (
       <div className="p-6 md:p-8 bg-gray-50 min-h-screen flex items-center justify-center">
-        <Card className="bg-white">
+        <Card className="bg-white max-w-md">
           <CardContent className="p-12 text-center">
-            <p className="text-red-500">Checklist not found</p>
-            <Button onClick={() => navigate(createPageUrl('AdvancedChecklists'))} className="mt-4">
+            <AlertTriangle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+            <p className="text-lg font-semibold text-gray-900 mb-2">Checklist Not Found</p>
+            <p className="text-sm text-gray-600 mb-2">
+              The checklist with ID: <code className="bg-gray-100 px-2 py-1 rounded">{checklistId}</code> could not be found.
+            </p>
+            <p className="text-xs text-gray-500 mb-6">
+              It may have been deleted or the link is incorrect.
+            </p>
+            <Button onClick={() => navigate(createPageUrl('AdvancedChecklists'))}>
               Go to Checklists
             </Button>
           </CardContent>
@@ -204,10 +231,14 @@ export default function ExecuteChecklist() {
   if (!checklist.tasks || checklist.tasks.length === 0) {
     return (
       <div className="p-6 md:p-8 bg-gray-50 min-h-screen flex items-center justify-center">
-        <Card className="bg-white">
+        <Card className="bg-white max-w-md">
           <CardContent className="p-12 text-center">
-            <p className="text-gray-500">No tasks found in this checklist</p>
-            <Button onClick={() => navigate(createPageUrl('AdvancedChecklists'))} className="mt-4">
+            <AlertTriangle className="w-12 h-12 text-yellow-500 mx-auto mb-4" />
+            <p className="text-lg font-semibold text-gray-900 mb-2">No Tasks Found</p>
+            <p className="text-sm text-gray-600 mb-6">
+              This checklist doesn't have any tasks configured.
+            </p>
+            <Button onClick={() => navigate(createPageUrl('AdvancedChecklists'))}>
               Go to Checklists
             </Button>
           </CardContent>
@@ -264,7 +295,7 @@ export default function ExecuteChecklist() {
                 </CardTitle>
                 <div className="flex gap-2">
                   <Badge className="bg-blue-100 text-blue-800 border-blue-200">
-                    {checklist.shift_type?.replace(/_/g, ' ') || 'Any Shift'}
+                    {checklist.shift_type?.replace(/_/g || ' ', '') || 'Any Shift'}
                   </Badge>
                   <Badge variant="outline">
                     Task {Math.min(currentTaskIndex + 1, checklist.tasks.length)} of {checklist.tasks.length}

@@ -100,10 +100,15 @@ export default function AdvancedChecklists() {
 
   const { data: myExecutions = [] } = useQuery({
     queryKey: ['myChecklistExecutions', user?.email],
-    queryFn: () => base44.entities.ChecklistExecution.filter({
-      assigned_to_email: user?.email,
-      execution_date: format(new Date(), 'yyyy-MM-dd')
-    }, '-created_date'),
+    queryFn: async () => {
+      if (!user?.email) return [];
+      
+      // Get all executions assigned to current user (not just today)
+      const allExecutions = await base44.entities.ChecklistExecution.list('-execution_date');
+      
+      // Filter by user email
+      return allExecutions.filter(exec => exec.assigned_to_email === user.email);
+    },
     enabled: !!user?.email,
   });
 
@@ -715,7 +720,13 @@ export default function AdvancedChecklists() {
     total: myExecutions.length,
     completed: myExecutions.filter(e => e.status === 'completed').length,
     inProgress: myExecutions.filter(e => e.status === 'in_progress').length,
-    overdue: myExecutions.filter(e => e.status === 'overdue').length,
+    overdue: myExecutions.filter(e => {
+      const execDate = new Date(e.execution_date);
+      execDate.setHours(0,0,0,0);
+      const today = new Date();
+      today.setHours(0,0,0,0);
+      return execDate < today && e.status !== 'completed';
+    }).length,
   };
 
   return (
@@ -747,7 +758,7 @@ export default function AdvancedChecklists() {
                 </div>
                 <div>
                   <p className="text-2xl font-bold text-gray-900">{stats.total}</p>
-                  <p className="text-xs text-gray-600">Total Today</p>
+                  <p className="text-xs text-gray-600">Total Assigned</p>
                 </div>
               </div>
             </CardContent>
@@ -1158,7 +1169,7 @@ export default function AdvancedChecklists() {
               <TemplatesView
                 templates={filterByFrequency(templates, 'yearly')}
                 showForm={showTemplateForm}
-                setShowForm={setShowTemplateForm}
+                setShowForm={setShowForm}
                 formData={formData}
                 setFormData={setFormData}
                 newTask={newTask}
@@ -1192,78 +1203,175 @@ export default function AdvancedChecklists() {
 
 // My Checklists View Component
 function MyChecklistsView({ executions, getProgress, getStatusColor, getShiftTypeColor, navigate }) {
+  const [dateFilter, setDateFilter] = useState('all'); // 'today', 'week', 'all'
+  
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const filteredExecutions = executions.filter(exec => {
+    const execDate = new Date(exec.execution_date);
+    execDate.setHours(0, 0, 0, 0);
+    
+    if (dateFilter === 'today') {
+      return execDate.getTime() === today.getTime();
+    } else if (dateFilter === 'week') {
+      const weekFromNow = new Date(today);
+      weekFromNow.setDate(weekFromNow.getDate() + 7); // Covers today + next 6 days
+      return execDate >= today && execDate <= weekFromNow;
+    }
+    return true; // 'all'
+  }).sort((a, b) => {
+    // Sort by execution date, then status
+    const dateA = new Date(a.execution_date).getTime();
+    const dateB = new Date(b.execution_date).getTime();
+    if (dateA !== dateB) return dateA - dateB;
+
+    const statusOrder = { 'overdue': 0, 'not_started': 1, 'in_progress': 2, 'completed': 3 };
+    return statusOrder[a.status] - statusOrder[b.status];
+  });
+
   if (executions.length === 0) {
     return (
       <Card className="bg-white">
         <CardContent className="p-12 text-center">
           <Calendar className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-          <p className="text-gray-500">No checklists assigned for this frequency</p>
+          <p className="text-gray-500 mb-2">No checklists assigned to you yet</p>
+          <p className="text-sm text-gray-400">Checklists will appear here when assigned by your manager</p>
         </CardContent>
       </Card>
     );
   }
 
   return (
-    <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-      {executions.map((execution) => {
-        const progress = getProgress(execution);
-        return (
-          <motion.div
-            key={execution.id}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-          >
-            <Card className="bg-white border-none shadow-sm hover:shadow-md transition-all duration-200">
-              <CardHeader className="pb-3">
-                <div className="flex justify-between items-start mb-2">
-                  <CardTitle className="text-lg font-semibold text-gray-900">
-                    {execution.template_name}
-                  </CardTitle>
-                  {execution.status === 'completed' && (
-                    <CheckCircle className="w-5 h-5 text-green-600" />
-                  )}
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <Badge className={getShiftTypeColor(execution.shift_type)}>
-                    {execution.shift_type?.replace(/_/g, ' ')}
-                  </Badge>
-                  <Badge className={getStatusColor(execution.status)}>
-                    {execution.status?.replace(/_/g, ' ')}
-                  </Badge>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div>
-                    <div className="flex justify-between text-sm mb-2">
-                      <span className="text-gray-600">Progress</span>
-                      <span className="font-medium text-gray-900">{progress}%</span>
+    <div className="space-y-4">
+      {/* Date Filter */}
+      <div className="flex gap-2 mb-4">
+        <Button
+          variant={dateFilter === 'today' ? 'default' : 'outline'}
+          size="sm"
+          onClick={() => setDateFilter('today')}
+        >
+          Today ({executions.filter(e => {
+            const d = new Date(e.execution_date);
+            d.setHours(0, 0, 0, 0);
+            return d.getTime() === today.getTime();
+          }).length})
+        </Button>
+        <Button
+          variant={dateFilter === 'week' ? 'default' : 'outline'}
+          size="sm"
+          onClick={() => setDateFilter('week')}
+        >
+          This Week
+        </Button>
+        <Button
+          variant={dateFilter === 'all' ? 'default' : 'outline'}
+          size="sm"
+          onClick={() => setDateFilter('all')}
+        >
+          All ({executions.length})
+        </Button>
+      </div>
+
+      {filteredExecutions.length === 0 ? (
+        <Card className="bg-white">
+          <CardContent className="p-12 text-center">
+            <p className="text-gray-500">No checklists for this time period</p>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {filteredExecutions.map((execution) => {
+            const progress = getProgress(execution);
+            const execDate = new Date(execution.execution_date);
+            const isOverdue = execDate < today && execution.status !== 'completed';
+            
+            return (
+              <motion.div
+                key={execution.id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+              >
+                <Card className={`bg-white border-none shadow-sm hover:shadow-md transition-all duration-200 ${isOverdue ? 'border-l-4 border-l-red-500' : ''}`}>
+                  <CardHeader className="pb-3">
+                    <div className="flex justify-between items-start mb-2">
+                      <CardTitle className="text-lg font-semibold text-gray-900">
+                        {execution.template_name}
+                      </CardTitle>
+                      {(execution.status === 'completed' || isOverdue) && (
+                        execution.status === 'completed' ? (
+                          <CheckCircle className="w-5 h-5 text-green-600" />
+                        ) : (
+                          <AlertTriangle className="w-5 h-5 text-red-600" />
+                        )
+                      )}
                     </div>
-                    <Progress value={progress} className="h-2" />
-                  </div>
+                    <div className="flex flex-wrap gap-2">
+                      <Badge className={getShiftTypeColor(execution.shift_type)}>
+                        {execution.shift_type?.replace(/_/g, ' ')}
+                      </Badge>
+                      <Badge className={getStatusColor(execution.status)}>
+                        {execution.status?.replace(/_/g, ' ')}
+                      </Badge>
+                      <Badge variant="outline">
+                        {format(new Date(execution.execution_date), 'MMM d')}
+                      </Badge>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      <div>
+                        <div className="flex justify-between text-sm mb-2">
+                          <span className="text-gray-600">Progress</span>
+                          <span className="font-medium text-gray-900">{progress}%</span>
+                        </div>
+                        <Progress value={progress} className="h-2" />
+                      </div>
 
-                  <div className="text-sm text-gray-600">
-                    <p>{execution.tasks?.length || 0} tasks</p>
-                    {execution.started_at && (
-                      <p className="text-xs mt-1">
-                        Started: {format(new Date(execution.started_at), 'h:mm a')}
-                      </p>
-                    )}
-                  </div>
+                      <div className="text-sm text-gray-600">
+                        <p>{execution.tasks?.length || 0} tasks</p>
+                        {execution.started_at && (
+                          <p className="text-xs mt-1">
+                            Started: {format(new Date(execution.started_at), 'h:mm a')}
+                          </p>
+                        )}
+                        {isOverdue && (
+                          <p className="text-xs mt-1 text-red-600 font-semibold">
+                            ⚠️ Overdue
+                          </p>
+                        )}
+                      </div>
 
-                  <Button
-                    onClick={() => navigate(createPageUrl(`ExecuteChecklist?id=${execution.id}`))}
-                    className="w-full"
-                    variant={execution.status === 'completed' ? 'outline' : 'default'}
-                  >
-                    {execution.status === 'completed' ? 'View' : progress > 0 ? 'Continue' : 'Start Checklist'}
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          </motion.div>
-        );
-      })}
+                      <Button
+                        onClick={() => navigate(createPageUrl(`ExecuteChecklist?id=${execution.id}`))}
+                        className="w-full"
+                        variant={execution.status === 'completed' ? 'outline' : 'default'}
+                      >
+                        {execution.status === 'completed' ? (
+                          <>
+                            <Eye className="w-4 h-4 mr-2" />
+                            View Results
+                          </>
+                        ) : progress > 0 ? (
+                          <>
+                            <Play className="w-4 h-4 mr-2" />
+                            Continue Checklist
+                          </>
+                        ) : (
+                          <>
+                            <Play className="w-4 h-4 mr-2" />
+                            Start Checklist
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
@@ -1306,7 +1414,6 @@ function TemplatesView({
       setAssignDialogOpen(false);
       setSelectedTemplate(null);
       setSelectedUser('');
-      alert('✅ Checklist assigned successfully!');
     },
   });
 
@@ -1336,7 +1443,13 @@ function TemplatesView({
       })),
     };
 
-    await createExecutionMutation.mutateAsync(execution);
+    try {
+      await createExecutionMutation.mutateAsync(execution);
+      alert(`✅ Checklist "${selectedTemplate.name}" assigned to ${userToAssign.full_name} for ${format(new Date(assignDate), 'PPP')}`);
+    } catch (error) {
+      console.error("Error assigning checklist:", error);
+      alert('❌ Failed to assign checklist. Please try again.');
+    }
   };
 
   return (
