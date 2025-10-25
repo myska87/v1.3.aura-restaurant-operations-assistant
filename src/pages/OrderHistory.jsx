@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -13,6 +14,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { FileText, Package, CheckCircle, XCircle, Clock, Camera, ArrowLeft, Home } from "lucide-react";
 import { format } from "date-fns";
 import { Link } from "react-router-dom";
@@ -22,10 +29,27 @@ export default function OrderHistory() {
   const queryClient = useQueryClient();
   const [filterStatus, setFilterStatus] = useState("all");
   const [uploadingPhoto, setUploadingPhoto] = useState(null);
+  const [showVerificationDialog, setShowVerificationDialog] = useState(false);
+  const [verifyingOrder, setVerifyingOrder] = useState(null);
+  const [verificationData, setVerificationData] = useState({
+    photo_url: "",
+    notes: "",
+    all_verified: false,
+  });
 
   const { data: orders = [], isLoading } = useQuery({
     queryKey: ['purchaseOrders'],
     queryFn: () => base44.entities.PurchaseOrder.list('-order_date'),
+  });
+
+  const { data: ingredients = [] } = useQuery({
+    queryKey: ['ingredients'],
+    queryFn: () => base44.entities.Ingredient.list(),
+  });
+
+  const { data: user } = useQuery({
+    queryKey: ['currentUser'],
+    queryFn: () => base44.auth.me(),
   });
 
   const updateOrderMutation = useMutation({
@@ -35,34 +59,89 @@ export default function OrderHistory() {
     },
   });
 
-  const handlePhotoUpload = async (orderId, e) => {
+  const updateIngredientStockMutation = useMutation({
+    mutationFn: ({ id, data }) => base44.entities.Ingredient.update(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['ingredients'] });
+    },
+  });
+
+  const handlePhotoUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    setUploadingPhoto(orderId);
+    setUploadingPhoto(true);
     try {
       const { file_url } = await base44.integrations.Core.UploadFile({ file });
-      const order = orders.find(o => o.id === orderId);
-      
-      await updateOrderMutation.mutateAsync({
-        id: orderId,
-        data: {
-          delivery_photo_urls: [...(order.delivery_photo_urls || []), file_url]
-        }
-      });
+      setVerificationData({ ...verificationData, photo_url: file_url });
     } catch (error) {
       console.error("Error uploading photo:", error);
+      alert("Failed to upload photo");
     }
-    setUploadingPhoto(null);
+    setUploadingPhoto(false);
+  };
+
+  const handleStartVerification = (order) => {
+    setVerifyingOrder(order);
+    setVerificationData({
+      photo_url: "",
+      notes: "",
+      all_verified: false,
+    });
+    setShowVerificationDialog(true);
+  };
+
+  const handleCompleteVerification = async () => {
+    if (!verifyingOrder) return;
+
+    if (!verificationData.photo_url || !verificationData.notes || !verificationData.all_verified) {
+      alert("⚠️ Please complete all verification steps:\n• Upload delivery photo\n• Add notes/comments\n• Confirm all items verified");
+      return;
+    }
+
+    try {
+      // Update order status
+      await updateOrderMutation.mutateAsync({
+        id: verifyingOrder.id,
+        data: {
+          status: 'approved_received',
+          actual_delivery_date: new Date().toISOString(),
+          delivery_photo_urls: [verificationData.photo_url],
+          delivery_notes: verificationData.notes,
+          verified_by: user?.email,
+          verified_at: new Date().toISOString(),
+        }
+      });
+
+      // Update stock levels for each ingredient
+      for (const item of verifyingOrder.items) {
+        const ingredient = ingredients.find(ing => ing.id === item.ingredient_id);
+        if (ingredient) {
+          const newStock = ingredient.current_stock + item.quantity_ordered;
+          await updateIngredientStockMutation.mutateAsync({
+            id: ingredient.id,
+            data: {
+              current_stock: newStock,
+              last_order_date: new Date().toISOString(),
+            }
+          });
+        }
+      }
+
+      alert(`✅ Delivery verified successfully!\n\nStock levels have been updated automatically.`);
+      setShowVerificationDialog(false);
+      setVerifyingOrder(null);
+      
+    } catch (error) {
+      console.error("Error completing verification:", error);
+      alert("Failed to complete verification. Please try again.");
+    }
   };
 
   const handleStatusChange = async (orderId, newStatus) => {
     await updateOrderMutation.mutateAsync({
       id: orderId,
-      data: {
-        status: newStatus,
-        ...(newStatus === 'received' && { actual_delivery_date: new Date().toISOString() })
-      }
+      data: { status: newStatus }
     });
   };
 
@@ -74,13 +153,13 @@ export default function OrderHistory() {
     switch (status) {
       case 'draft':
         return 'bg-gray-100 text-gray-800 border-gray-200';
-      case 'sent':
-        return 'bg-blue-100 text-blue-800 border-blue-200';
-      case 'confirmed':
-        return 'bg-purple-100 text-purple-800 border-purple-200';
-      case 'partially_received':
+      case 'pending_approval':
         return 'bg-amber-100 text-amber-800 border-amber-200';
-      case 'received':
+      case 'in_delivery':
+        return 'bg-blue-100 text-blue-800 border-blue-200';
+      case 'delivered_awaiting_check':
+        return 'bg-purple-100 text-purple-800 border-purple-200';
+      case 'approved_received':
         return 'bg-green-100 text-green-800 border-green-200';
       case 'cancelled':
         return 'bg-red-100 text-red-800 border-red-200';
@@ -111,7 +190,7 @@ export default function OrderHistory() {
         <div className="flex justify-between items-center mb-8">
           <div>
             <h1 className="text-3xl font-bold text-gray-900 mb-2">Order History</h1>
-            <p className="text-gray-600">Track all purchase orders and deliveries</p>
+            <p className="text-gray-600">Track all purchase orders and verify deliveries</p>
           </div>
         </div>
 
@@ -120,16 +199,16 @@ export default function OrderHistory() {
           <CardContent className="p-4">
             <div className="flex gap-4">
               <Select value={filterStatus} onValueChange={setFilterStatus}>
-                <SelectTrigger className="w-48">
+                <SelectTrigger className="w-64">
                   <SelectValue placeholder="Filter by status" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Orders</SelectItem>
                   <SelectItem value="draft">Draft</SelectItem>
-                  <SelectItem value="sent">Sent</SelectItem>
-                  <SelectItem value="confirmed">Confirmed</SelectItem>
-                  <SelectItem value="partially_received">Partially Received</SelectItem>
-                  <SelectItem value="received">Received</SelectItem>
+                  <SelectItem value="pending_approval">Pending Approval</SelectItem>
+                  <SelectItem value="in_delivery">In Delivery</SelectItem>
+                  <SelectItem value="delivered_awaiting_check">Awaiting Check</SelectItem>
+                  <SelectItem value="approved_received">Approved & Received</SelectItem>
                   <SelectItem value="cancelled">Cancelled</SelectItem>
                 </SelectContent>
               </Select>
@@ -169,6 +248,11 @@ export default function OrderHistory() {
                       <p className="text-xs text-gray-500 mt-1">
                         Ordered: {format(new Date(order.order_date), "PPP")}
                       </p>
+                      {order.verified_at && (
+                        <p className="text-xs text-green-600 mt-1">
+                          Verified: {format(new Date(order.verified_at), "PPP")} by {order.verified_by}
+                        </p>
+                      )}
                     </div>
                     <Badge className={getStatusColor(order.status)}>
                       {order.status.replace(/_/g, ' ')}
@@ -206,54 +290,60 @@ export default function OrderHistory() {
                     </div>
                   </div>
 
-                  {/* Actions */}
-                  <div className="mt-4 flex gap-3 flex-wrap">
-                    <Select
-                      value={order.status}
-                      onValueChange={(value) => handleStatusChange(order.id, value)}
-                    >
-                      <SelectTrigger className="w-48">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="draft">Draft</SelectItem>
-                        <SelectItem value="sent">Sent</SelectItem>
-                        <SelectItem value="confirmed">Confirmed</SelectItem>
-                        <SelectItem value="partially_received">Partially Received</SelectItem>
-                        <SelectItem value="received">Received</SelectItem>
-                        <SelectItem value="cancelled">Cancelled</SelectItem>
-                      </SelectContent>
-                    </Select>
-
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => document.getElementById(`photo-upload-${order.id}`).click()}
-                      disabled={uploadingPhoto === order.id}
-                    >
-                      <Camera className="w-4 h-4 mr-2" />
-                      {uploadingPhoto === order.id ? 'Uploading...' : 'Add Photo'}
-                    </Button>
-                    <input
-                      id={`photo-upload-${order.id}`}
-                      type="file"
-                      accept="image/*"
-                      onChange={(e) => handlePhotoUpload(order.id, e)}
-                      className="hidden"
-                    />
-                  </div>
-
-                  {/* Photos */}
+                  {/* Delivery Photos */}
                   {order.delivery_photo_urls?.length > 0 && (
-                    <div className="mt-4 flex gap-2">
-                      {order.delivery_photo_urls.map((url, idx) => (
-                        <img
-                          key={idx}
-                          src={url}
-                          alt="Delivery"
-                          className="w-20 h-20 object-cover rounded-lg"
-                        />
-                      ))}
+                    <div className="mt-4">
+                      <p className="text-sm font-medium text-gray-700 mb-2">Delivery Photos:</p>
+                      <div className="flex gap-2">
+                        {order.delivery_photo_urls.map((url, idx) => (
+                          <img
+                            key={idx}
+                            src={url}
+                            alt="Delivery"
+                            className="w-24 h-24 object-cover rounded-lg border-2 border-gray-200"
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Delivery Notes */}
+                  {order.delivery_notes && (
+                    <div className="mt-4 p-3 bg-gray-50 rounded-lg">
+                      <p className="text-sm font-medium text-gray-700 mb-1">Delivery Notes:</p>
+                      <p className="text-sm text-gray-600">{order.delivery_notes}</p>
+                    </div>
+                  )}
+
+                  {/* Actions */}
+                  {order.status === 'delivered_awaiting_check' && (
+                    <div className="mt-4">
+                      <Button
+                        onClick={() => handleStartVerification(order)}
+                        className="w-full bg-purple-600 hover:bg-purple-700"
+                      >
+                        <CheckCircle className="w-4 h-4 mr-2" />
+                        Complete Delivery Verification
+                      </Button>
+                    </div>
+                  )}
+
+                  {order.status === 'pending_approval' && (
+                    <div className="mt-4">
+                      <Select
+                        value={order.status}
+                        onValueChange={(value) => handleStatusChange(order.id, value)}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="pending_approval">Pending Approval</SelectItem>
+                          <SelectItem value="in_delivery">In Delivery</SelectItem>
+                          <SelectItem value="delivered_awaiting_check">Delivered - Awaiting Check</SelectItem>
+                          <SelectItem value="cancelled">Cancelled</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
                   )}
                 </CardContent>
@@ -261,6 +351,126 @@ export default function OrderHistory() {
             ))
           )}
         </div>
+
+        {/* Verification Dialog */}
+        <Dialog open={showVerificationDialog} onOpenChange={setShowVerificationDialog}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Package className="w-5 h-5 text-purple-600" />
+                Delivery Verification: {verifyingOrder?.order_number}
+              </DialogTitle>
+            </DialogHeader>
+
+            <div className="space-y-6 mt-4">
+              {/* Photo Upload */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">
+                  1. Upload Delivery Photo *
+                </Label>
+                <div className="flex items-center gap-4">
+                  {verificationData.photo_url ? (
+                    <img 
+                      src={verificationData.photo_url} 
+                      alt="Delivery" 
+                      className="w-32 h-32 object-cover rounded-lg border-2 border-green-200"
+                    />
+                  ) : (
+                    <div className="w-32 h-32 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center bg-gray-50">
+                      <Camera className="w-8 h-8 text-gray-400" />
+                    </div>
+                  )}
+                  <Button
+                    variant="outline"
+                    onClick={() => document.getElementById('verification-photo').click()}
+                    disabled={uploadingPhoto}
+                  >
+                    <Camera className="w-4 h-4 mr-2" />
+                    {uploadingPhoto ? 'Uploading...' : verificationData.photo_url ? 'Change Photo' : 'Upload Photo'}
+                  </Button>
+                  <input
+                    id="verification-photo"
+                    type="file"
+                    accept="image/*"
+                    onChange={handlePhotoUpload}
+                    className="hidden"
+                  />
+                </div>
+              </div>
+
+              {/* Notes */}
+              <div className="space-y-2">
+                <Label htmlFor="notes" className="text-sm font-medium">
+                  2. Add Comments / Notes *
+                </Label>
+                <Textarea
+                  id="notes"
+                  value={verificationData.notes}
+                  onChange={(e) => setVerificationData({ ...verificationData, notes: e.target.value })}
+                  placeholder="E.g., All items received in good condition, packaging intact..."
+                  rows={4}
+                />
+              </div>
+
+              {/* Verification Checkbox */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">
+                  3. Confirm Verification *
+                </Label>
+                <div className="flex items-center gap-3 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                  <input
+                    type="checkbox"
+                    id="all-verified"
+                    checked={verificationData.all_verified}
+                    onChange={(e) => setVerificationData({ ...verificationData, all_verified: e.target.checked })}
+                    className="w-5 h-5"
+                  />
+                  <label htmlFor="all-verified" className="text-sm font-medium text-blue-900 cursor-pointer">
+                    ☑ All items verified and received in good condition
+                  </label>
+                </div>
+              </div>
+
+              {/* Order Summary */}
+              <div className="p-4 bg-gray-50 rounded-lg">
+                <p className="text-sm font-medium text-gray-700 mb-2">Order Summary:</p>
+                <div className="space-y-1">
+                  {verifyingOrder?.items.map((item, idx) => (
+                    <div key={idx} className="flex justify-between text-sm">
+                      <span className="text-gray-600">
+                        {item.ingredient_name}: {item.quantity_ordered} {item.unit}
+                      </span>
+                      <span className="font-medium text-gray-900">
+                        Stock will increase to: {
+                          (ingredients.find(ing => ing.id === item.ingredient_id)?.current_stock || 0) + 
+                          item.quantity_ordered
+                        } {item.unit}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="flex justify-end gap-3 pt-4 border-t">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowVerificationDialog(false)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleCompleteVerification}
+                  disabled={!verificationData.photo_url || !verificationData.notes || !verificationData.all_verified}
+                  className="bg-green-600 hover:bg-green-700"
+                >
+                  <CheckCircle className="w-4 h-4 mr-2" />
+                  Complete Verification & Update Stock
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );

@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -12,7 +13,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Plus, Calculator, ShoppingCart, TrendingUp } from "lucide-react";
+import { Plus, Calculator, ShoppingCart, TrendingUp, ArrowLeft, Home, Send } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { Link } from "react-router-dom";
@@ -21,6 +22,7 @@ import { createPageUrl } from "@/utils";
 export default function ProductionPlanning() {
   const queryClient = useQueryClient();
   const [showForm, setShowForm] = useState(false);
+  const [creatingOrders, setCreatingOrders] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
     date: format(new Date(), 'yyyy-MM-dd'),
@@ -54,6 +56,20 @@ export default function ProductionPlanning() {
         date: format(new Date(), 'yyyy-MM-dd'),
         menu_items: [],
       });
+    },
+  });
+
+  const createPurchaseOrderMutation = useMutation({
+    mutationFn: (data) => base44.entities.PurchaseOrder.create(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['purchaseOrders'] });
+    },
+  });
+
+  const updatePlanMutation = useMutation({
+    mutationFn: ({ id, data }) => base44.entities.ProductionPlan.update(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['productionPlans'] });
     },
   });
 
@@ -106,6 +122,10 @@ export default function ProductionPlanning() {
               unit: recipeItem.unit,
               current_stock: ingredient?.current_stock || 0,
               to_order: Math.max(0, totalNeeded - (ingredient?.current_stock || 0)),
+              supplier_id: ingredient?.supplier_id,
+              supplier_name: ingredient?.supplier_name,
+              supplier_email: ingredient?.supplier_email,
+              unit_cost: ingredient?.unit_cost || 0,
             };
           }
         });
@@ -136,15 +156,154 @@ export default function ProductionPlanning() {
     await createPlanMutation.mutateAsync(data);
   };
 
+  const handleCreatePurchaseOrders = async (plan) => {
+    setCreatingOrders(true);
+    
+    try {
+      const ingredientsNeeded = plan.ingredients_needed || [];
+      
+      // Check for missing suppliers
+      const missingSuppliers = ingredientsNeeded.filter(ing => ing.to_order > 0 && !ing.supplier_id);
+      if (missingSuppliers.length > 0) {
+        alert(`⚠️ Cannot create orders. ${missingSuppliers.length} ingredient(s) missing suppliers:\n${missingSuppliers.map(i => i.ingredient_name).join(', ')}\n\nPlease assign suppliers in Inventory Management.`);
+        setCreatingOrders(false);
+        return;
+      }
+
+      // Group by supplier
+      const ordersBySupplier = {};
+      
+      ingredientsNeeded.forEach(ing => {
+        if (ing.to_order > 0) {
+          if (!ordersBySupplier[ing.supplier_id]) {
+            ordersBySupplier[ing.supplier_id] = {
+              supplier_id: ing.supplier_id,
+              supplier_name: ing.supplier_name,
+              supplier_email: ing.supplier_email,
+              items: []
+            };
+          }
+          
+          ordersBySupplier[ing.supplier_id].items.push({
+            ingredient_id: ing.ingredient_id,
+            ingredient_name: ing.ingredient_name,
+            quantity_ordered: ing.to_order,
+            unit: ing.unit,
+            unit_cost: ing.unit_cost,
+            line_total: ing.to_order * ing.unit_cost,
+          });
+        }
+      });
+
+      if (Object.keys(ordersBySupplier).length === 0) {
+        alert('✅ All ingredients are already in stock! No orders needed.');
+        setCreatingOrders(false);
+        return;
+      }
+
+      // Create POs and send emails
+      let ordersCreated = 0;
+      for (const [supplierId, order] of Object.entries(ordersBySupplier)) {
+        const subtotal = order.items.reduce((sum, item) => sum + item.line_total, 0);
+        const tax = subtotal * 0.2; // Assuming 20% VAT
+        const total = subtotal + tax;
+        
+        const poNumber = `PO-${Date.now()}-${supplierId.substring(0, 4)}`;
+
+        // Create PO
+        await createPurchaseOrderMutation.mutateAsync({
+          order_number: poNumber,
+          supplier_id: order.supplier_id,
+          supplier_name: order.supplier_name,
+          supplier_email: order.supplier_email,
+          status: 'pending_approval',
+          items: order.items,
+          subtotal: parseFloat(subtotal.toFixed(2)),
+          tax: parseFloat(tax.toFixed(2)),
+          total: parseFloat(total.toFixed(2)),
+          order_date: new Date().toISOString(),
+          linked_production_plan_id: plan.id,
+          linked_production_plan_name: plan.name,
+          notes: `Auto-generated from Production Plan: ${plan.name}`,
+          email_sent_at: new Date().toISOString(),
+        });
+
+        // Send email to supplier
+        const emailBody = `
+Dear ${order.supplier_name},
+
+Please find our purchase order details below:
+
+📋 Purchase Order: ${poNumber}
+📅 Date: ${format(new Date(), 'PPP')}
+🏪 From: AURA Restaurant Management System
+
+ITEMS:
+${order.items.map(item => 
+  `• ${item.ingredient_name}: ${item.quantity_ordered.toFixed(2)} ${item.unit} @ £${item.unit_cost.toFixed(2)} = £${item.line_total.toFixed(2)}`
+).join('\n')}
+
+TOTALS:
+Subtotal: £${subtotal.toFixed(2)}
+VAT (20%): £${tax.toFixed(2)}
+TOTAL: £${total.toFixed(2)}
+
+📦 Please confirm receipt of this order and provide expected delivery date.
+
+Thank you,
+AURA Restaurant Management
+        `;
+
+        await base44.integrations.Core.SendEmail({
+          to: order.supplier_email,
+          subject: `Purchase Order ${poNumber} from AURA`,
+          body: emailBody,
+        });
+
+        ordersCreated++;
+      }
+
+      // Update plan status
+      await updatePlanMutation.mutateAsync({
+        id: plan.id,
+        data: { status: 'approved', orders_created: true }
+      });
+
+      alert(`✅ Successfully created and emailed ${ordersCreated} purchase order(s)!\n\nCheck the Ordering page to track status.`);
+      
+    } catch (error) {
+      console.error('Error creating purchase orders:', error);
+      alert('❌ Failed to create purchase orders. Please try again.');
+    }
+    
+    setCreatingOrders(false);
+  };
+
   const totals = formData.menu_items.length > 0 ? calculatePlanTotals() : null;
 
   return (
     <div className="p-6 md:p-8 bg-gray-50 min-h-screen">
       <div className="max-w-7xl mx-auto">
+        {/* Back Buttons */}
+        <div className="flex gap-3 mb-6">
+          <Link to={createPageUrl("Dashboard")}>
+            <Button variant="outline" size="sm">
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back to Dashboard
+            </Button>
+          </Link>
+          <Link to={createPageUrl("Inventory")}>
+            <Button variant="outline" size="sm">
+              <Home className="w-4 h-4 mr-2" />
+              Inventory Hub
+            </Button>
+          </Link>
+        </div>
+
         <div className="flex justify-between items-center mb-8">
           <div>
             <h1 className="text-3xl font-bold text-gray-900 mb-2">Production Planning</h1>
-            <p className="text-gray-600">Plan portions and calculate ingredient requirements</p>
+            <p className="text-gray-600">Plan portions and automatically generate purchase orders</p>
           </div>
           <Dialog open={showForm} onOpenChange={setShowForm}>
             <DialogTrigger asChild>
@@ -359,7 +518,8 @@ export default function ProductionPlanning() {
                     </div>
                     <Badge className={
                       plan.status === 'completed' ? 'bg-green-100 text-green-800' :
-                      plan.status === 'in_production' ? 'bg-blue-100 text-blue-800' :
+                      plan.status === 'approved' ? 'bg-blue-100 text-blue-800' :
+                      plan.status === 'in_production' ? 'bg-purple-100 text-purple-800' :
                       'bg-gray-100 text-gray-800'
                     }>
                       {plan.status}
@@ -387,13 +547,35 @@ export default function ProductionPlanning() {
                     </div>
                   </div>
 
+                  {plan.orders_created && (
+                    <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg flex items-center gap-2">
+                      <Send className="w-4 h-4 text-green-600" />
+                      <span className="text-sm text-green-800 font-medium">
+                        Purchase orders created and emailed to suppliers
+                      </span>
+                    </div>
+                  )}
+
                   <div className="flex gap-2">
-                    <Link to={createPageUrl('Ordering')} state={{ plan }}>
-                      <Button size="sm" className="bg-green-600 hover:bg-green-700">
+                    {!plan.orders_created && (
+                      <Button
+                        size="sm"
+                        className="bg-green-600 hover:bg-green-700"
+                        onClick={() => handleCreatePurchaseOrders(plan)}
+                        disabled={creatingOrders}
+                      >
                         <ShoppingCart className="w-4 h-4 mr-2" />
-                        Create Purchase Orders
+                        {creatingOrders ? 'Creating Orders...' : 'Create & Email Purchase Orders'}
                       </Button>
-                    </Link>
+                    )}
+                    {plan.orders_created && (
+                      <Link to={createPageUrl('Ordering')}>
+                        <Button size="sm" variant="outline">
+                          <ShoppingCart className="w-4 h-4 mr-2" />
+                          View Orders
+                        </Button>
+                      </Link>
+                    )}
                   </div>
                 </CardContent>
               </Card>
