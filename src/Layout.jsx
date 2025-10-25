@@ -22,7 +22,7 @@ import {
   ClipboardList,
   GraduationCap,
   MessageCircle,
-  CheckCircle, 
+  CheckCircle,
   Calendar, // Added from outline
   TrendingUp, // Added from outline
   UserCircle, // Added from outline
@@ -30,6 +30,7 @@ import {
 } from "lucide-react";
 import WelcomeNewHire from "./components/WelcomeNewHire";
 import ChecklistAutomation from "./components/ChecklistAutomation";
+import NotificationBell from "./components/NotificationBell";
 
 const navigationItems = [
   {
@@ -115,10 +116,10 @@ export default function Layout({ children, currentPageName }) {
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
       {/* Auto-welcome new hires in background */}
       <WelcomeNewHire />
-      
+
       {/* Auto-generate daily checklists in background */}
       <ChecklistAutomation />
-      
+
       {/* Mobile Header */}
       <div className="lg:hidden fixed top-0 left-0 right-0 bg-white border-b border-slate-200 z-40 px-4 py-3">
         <div className="flex items-center justify-between">
@@ -133,13 +134,14 @@ export default function Layout({ children, currentPageName }) {
                 <Menu className="w-6 h-6 text-slate-700" />
               )}
             </button>
-            <img 
-              src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/68fbb8d31770834f6bea4e9b/404b389b2_image.png" 
+            <img
+              src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/68fbb8d31770834f6bea4e9b/404b389b2_image.png"
               alt="AURA One Pro"
               className="h-8 w-auto"
             />
           </div>
           <div className="flex items-center gap-2">
+            <NotificationBell />
             <span className="text-sm font-medium text-slate-700">
               {user?.full_name}
             </span>
@@ -157,8 +159,8 @@ export default function Layout({ children, currentPageName }) {
           {/* Logo Section */}
           <div className="p-6 border-b border-slate-200">
             <div className="flex flex-col items-center justify-center">
-              <img 
-                src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/68fbb8d31770834f6bea4e9b/404b389b2_image.png" 
+              <img
+                src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/68fbb8d31770834f6bea4e9b/404b389b2_image.png"
                 alt="AURA One Pro"
                 className="w-48 h-auto mb-3"
               />
@@ -229,6 +231,9 @@ export default function Layout({ children, currentPageName }) {
                   {user?.full_name || "User"}
                 </p>
                 <p className="text-xs text-slate-500 truncate">{user?.email}</p>
+              </div>
+              <div className="hidden lg:block">
+                <NotificationBell />
               </div>
             </div>
             <button
