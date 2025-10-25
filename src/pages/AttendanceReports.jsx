@@ -21,30 +21,32 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
-  Clock,
-  TrendingUp,
-  AlertTriangle,
-  CheckCircle,
-  Download,
-  Filter,
-  Calendar,
   Users,
+  Clock,
+  AlertTriangle,
+  TrendingUp,
+  Download,
+  Calendar,
+  CheckCircle,
+  XCircle,
+  Filter,
   ArrowLeft,
   Home,
   Eye,
-  CheckSquare,
-  XCircle,
+  Check,
+  X,
 } from "lucide-react";
-import { format, startOfWeek, endOfWeek, parseISO, differenceInMinutes } from "date-fns";
+import { format, startOfWeek, endOfWeek, parseISO } from "date-fns";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
+import { motion } from "framer-motion";
 
 export default function AttendanceReports() {
   const queryClient = useQueryClient();
-  const [selectedWeek, setSelectedWeek] = useState(format(new Date(), 'yyyy-MM-dd'));
-  const [filterDepartment, setFilterDepartment] = useState('all');
-  const [filterStatus, setFilterStatus] = useState('all');
-  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedWeek, setSelectedWeek] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }));
+  const [filterDepartment, setFilterDepartment] = useState("all");
+  const [filterStatus, setFilterStatus] = useState("all");
+  const [searchQuery, setSearchQuery] = useState("");
 
   const { data: user } = useQuery({
     queryKey: ['currentUser'],
@@ -53,42 +55,50 @@ export default function AttendanceReports() {
 
   const isManager = user?.position === 'manager' || user?.position === 'owner' || user?.role === 'admin';
 
-  // Fetch attendance records
+  const weekStart = format(selectedWeek, 'yyyy-MM-dd');
+  const weekEnd = format(endOfWeek(selectedWeek, { weekStartsOn: 1 }), 'yyyy-MM-dd');
+
   const { data: attendanceRecords = [] } = useQuery({
-    queryKey: ['attendanceRecords', selectedWeek],
+    queryKey: ['attendanceRecords', weekStart, weekEnd],
     queryFn: async () => {
-      const weekStart = startOfWeek(parseISO(selectedWeek), { weekStartsOn: 1 });
-      const weekEnd = endOfWeek(parseISO(selectedWeek), { weekStartsOn: 1 });
-      
-      return await base44.entities.AttendanceRecord.list('-shift_date');
+      const records = await base44.entities.AttendanceRecord.list('-shift_date');
+      return records.filter(r => r.shift_date >= weekStart && r.shift_date <= weekEnd);
     },
     enabled: isManager,
   });
 
-  // Verify attendance mutation
-  const verifyAttendanceMutation = useMutation({
-    mutationFn: async ({ id, status }) => {
-      return await base44.entities.AttendanceRecord.update(id, {
-        status: 'verified',
-        verified_by: user.email,
-        verified_at: new Date().toISOString(),
-      });
-    },
+  const updateAttendanceMutation = useMutation({
+    mutationFn: ({ id, data }) => base44.entities.AttendanceRecord.update(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['attendanceRecords'] });
     },
   });
 
-  const flagForReviewMutation = useMutation({
-    mutationFn: async (id) => {
-      return await base44.entities.AttendanceRecord.update(id, {
+  const handleVerify = async (record) => {
+    await updateAttendanceMutation.mutateAsync({
+      id: record.id,
+      data: {
+        status: 'verified',
+        verified_by: user?.email,
+        verified_at: new Date().toISOString(),
+      }
+    });
+  };
+
+  const handleReject = async (record) => {
+    const reason = prompt('Enter reason for rejection:');
+    if (!reason) return;
+
+    await updateAttendanceMutation.mutateAsync({
+      id: record.id,
+      data: {
         flagged_for_review: true,
-      });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['attendanceRecords'] });
-    },
-  });
+        notes: reason,
+        verified_by: user?.email,
+        verified_at: new Date().toISOString(),
+      }
+    });
+  };
 
   if (!isManager) {
     return (
@@ -104,13 +114,13 @@ export default function AttendanceReports() {
     );
   }
 
-  // Calculate statistics
+  // Calculate stats
   const totalRecords = attendanceRecords.length;
   const onTimeRecords = attendanceRecords.filter(r => r.status === 'on_time').length;
   const lateRecords = attendanceRecords.filter(r => r.status === 'late').length;
-  const missingClockOuts = attendanceRecords.filter(r => r.status === 'missing_clock_out').length;
-  const totalOvertime = attendanceRecords.reduce((sum, r) => sum + (r.overtime_hours || 0), 0);
   const totalHours = attendanceRecords.reduce((sum, r) => sum + (r.total_hours || 0), 0);
+  const totalOvertime = attendanceRecords.reduce((sum, r) => sum + (r.overtime_hours || 0), 0);
+  const pendingVerification = attendanceRecords.filter(r => r.status === 'pending' || r.flagged_for_review).length;
 
   // Filter records
   const filteredRecords = attendanceRecords.filter(record => {
@@ -123,15 +133,15 @@ export default function AttendanceReports() {
   const getStatusBadge = (status) => {
     switch (status) {
       case 'on_time':
-        return <Badge className="bg-green-100 text-green-800">✅ On Time</Badge>;
+        return <Badge className="bg-green-100 text-green-800">On Time</Badge>;
       case 'late':
-        return <Badge className="bg-red-100 text-red-800">⚠️ Late</Badge>;
-      case 'verified':
-        return <Badge className="bg-blue-100 text-blue-800">✓ Verified</Badge>;
+        return <Badge className="bg-red-100 text-red-800">Late</Badge>;
+      case 'early':
+        return <Badge className="bg-blue-100 text-blue-800">Early</Badge>;
       case 'pending':
-        return <Badge className="bg-yellow-100 text-yellow-800">⏳ Pending</Badge>;
-      case 'missing_clock_out':
-        return <Badge className="bg-orange-100 text-orange-800">❌ Missing Clock Out</Badge>;
+        return <Badge className="bg-yellow-100 text-yellow-800">Pending</Badge>;
+      case 'verified':
+        return <Badge className="bg-green-100 text-green-800">Verified</Badge>;
       default:
         return <Badge className="bg-gray-100 text-gray-800">{status}</Badge>;
     }
@@ -139,19 +149,21 @@ export default function AttendanceReports() {
 
   const exportToCSV = () => {
     const csvData = [
-      ['Staff Name', 'Date', 'Role', 'Department', 'Scheduled Start', 'Scheduled End', 'Clock In', 'Clock Out', 'Total Hours', 'Overtime', 'Status'],
-      ...filteredRecords.map(r => [
-        r.staff_name,
-        r.shift_date,
-        r.role || '',
-        r.department || '',
-        r.scheduled_start,
-        r.scheduled_end,
-        r.actual_clock_in ? format(parseISO(r.actual_clock_in), 'HH:mm') : '',
-        r.actual_clock_out ? format(parseISO(r.actual_clock_out), 'HH:mm') : '',
-        r.total_hours?.toFixed(2) || '',
-        r.overtime_hours?.toFixed(2) || '',
-        r.status
+      ['AURA Attendance Report', `Week: ${weekStart} to ${weekEnd}`],
+      [''],
+      ['Staff Name', 'Role', 'Date', 'Scheduled Start', 'Scheduled End', 'Clock In', 'Clock Out', 'Total Hours', 'Overtime', 'Status', 'Lateness (min)'],
+      ...filteredRecords.map(record => [
+        record.staff_name,
+        record.role || '',
+        record.shift_date,
+        record.scheduled_start,
+        record.scheduled_end,
+        record.actual_clock_in ? format(parseISO(record.actual_clock_in), 'HH:mm') : 'N/A',
+        record.actual_clock_out ? format(parseISO(record.actual_clock_out), 'HH:mm') : 'N/A',
+        record.total_hours?.toFixed(2) || '0',
+        record.overtime_hours?.toFixed(2) || '0',
+        record.status,
+        record.lateness_minutes || '0'
       ])
     ];
 
@@ -160,19 +172,19 @@ export default function AttendanceReports() {
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `attendance-report-${format(new Date(), 'yyyy-MM-dd')}.csv`;
+    a.download = `attendance-report-${weekStart}.csv`;
     a.click();
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6 md:p-8">
       <div className="max-w-7xl mx-auto">
-        {/* Back Navigation */}
+        {/* Back Buttons */}
         <div className="flex gap-3 mb-6">
           <Link to={createPageUrl("ManagerDashboard")}>
             <Button variant="outline" size="sm">
               <ArrowLeft className="w-4 h-4 mr-2" />
-              Manager Dashboard
+              Back
             </Button>
           </Link>
           <Link to={createPageUrl("Dashboard")}>
@@ -183,200 +195,195 @@ export default function AttendanceReports() {
           </Link>
         </div>
 
+        {/* Header */}
         <div className="mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 mb-3">⏰ Attendance & Hours</h1>
-          <p className="text-lg text-gray-600">Monitor staff attendance and working hours</p>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2 flex items-center gap-3">
+            <Clock className="w-10 h-10" style={{color: '#014D40'}} />
+            Attendance & Hours Report
+          </h1>
+          <p className="text-gray-600">
+            Week: {format(selectedWeek, 'MMM d')} - {format(endOfWeek(selectedWeek, { weekStartsOn: 1 }), 'MMM d, yyyy')}
+          </p>
         </div>
 
-        {/* Statistics Cards */}
+        {/* Stats Grid */}
         <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
-          <Card className="bg-white border-l-4 border-l-blue-500">
+          <Card className="border-l-4" style={{borderLeftColor: '#014D40'}}>
             <CardContent className="p-4">
               <div className="flex items-center justify-between mb-2">
-                <Users className="w-6 h-6 text-blue-600" />
+                <Users className="w-8 h-8" style={{color: '#014D40'}} />
               </div>
-              <p className="text-2xl font-bold text-gray-900">{totalRecords}</p>
-              <p className="text-xs text-gray-600">Total Records</p>
+              <p className="text-3xl font-bold text-gray-900">{totalRecords}</p>
+              <p className="text-xs text-gray-600 mt-1">Total Records</p>
             </CardContent>
           </Card>
 
-          <Card className="bg-white border-l-4 border-l-green-500">
+          <Card className="border-l-4 border-l-green-500">
             <CardContent className="p-4">
               <div className="flex items-center justify-between mb-2">
-                <CheckCircle className="w-6 h-6 text-green-600" />
+                <CheckCircle className="w-8 h-8 text-green-600" />
               </div>
-              <p className="text-2xl font-bold text-gray-900">{onTimeRecords}</p>
-              <p className="text-xs text-gray-600">On Time</p>
+              <p className="text-3xl font-bold text-gray-900">{onTimeRecords}</p>
+              <p className="text-xs text-gray-600 mt-1">On Time</p>
             </CardContent>
           </Card>
 
-          <Card className="bg-white border-l-4 border-l-red-500">
+          <Card className="border-l-4 border-l-red-500">
             <CardContent className="p-4">
               <div className="flex items-center justify-between mb-2">
-                <AlertTriangle className="w-6 h-6 text-red-600" />
+                <AlertTriangle className="w-8 h-8 text-red-600" />
               </div>
-              <p className="text-2xl font-bold text-gray-900">{lateRecords}</p>
-              <p className="text-xs text-gray-600">Late Clock-Ins</p>
+              <p className="text-3xl font-bold text-gray-900">{lateRecords}</p>
+              <p className="text-xs text-gray-600 mt-1">Late Clock-Ins</p>
             </CardContent>
           </Card>
 
-          <Card className="bg-white border-l-4 border-l-purple-500">
+          <Card className="border-l-4 border-l-purple-500">
             <CardContent className="p-4">
               <div className="flex items-center justify-between mb-2">
-                <Clock className="w-6 h-6 text-purple-600" />
+                <TrendingUp className="w-8 h-8 text-purple-600" />
               </div>
-              <p className="text-2xl font-bold text-gray-900">{totalOvertime.toFixed(1)}h</p>
-              <p className="text-xs text-gray-600">Total Overtime</p>
+              <p className="text-3xl font-bold text-gray-900">{totalOvertime.toFixed(1)}h</p>
+              <p className="text-xs text-gray-600 mt-1">Overtime</p>
             </CardContent>
           </Card>
 
-          <Card className="bg-white border-l-4 border-l-orange-500">
+          <Card className="border-l-4 border-l-yellow-500">
             <CardContent className="p-4">
               <div className="flex items-center justify-between mb-2">
-                <AlertTriangle className="w-6 h-6 text-orange-600" />
+                <Clock className="w-8 h-8 text-yellow-600" />
               </div>
-              <p className="text-2xl font-bold text-gray-900">{missingClockOuts}</p>
-              <p className="text-xs text-gray-600">Missing Clock-Outs</p>
+              <p className="text-3xl font-bold text-gray-900">{pendingVerification}</p>
+              <p className="text-xs text-gray-600 mt-1">Pending Review</p>
             </CardContent>
           </Card>
         </div>
 
-        {/* Filters and Actions */}
+        {/* Filters */}
         <Card className="mb-6">
-          <CardHeader>
-            <div className="flex flex-wrap justify-between items-center gap-4">
-              <CardTitle>Attendance Records</CardTitle>
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm" onClick={exportToCSV}>
-                  <Download className="w-4 h-4 mr-2" />
-                  Export CSV
-                </Button>
+          <CardContent className="p-6">
+            <div className="flex flex-wrap gap-4">
+              <div className="flex-1 min-w-[200px]">
+                <Input
+                  placeholder="Search by name..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
               </div>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-wrap gap-4 mb-6">
-              <Input
-                placeholder="Search by name..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="max-w-xs"
-              />
               <Select value={filterDepartment} onValueChange={setFilterDepartment}>
-                <SelectTrigger className="w-40">
-                  <SelectValue />
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="Department" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Departments</SelectItem>
                   <SelectItem value="kitchen">Kitchen</SelectItem>
                   <SelectItem value="front_of_house">Front of House</SelectItem>
                   <SelectItem value="bar">Bar</SelectItem>
-                  <SelectItem value="cleaning">Cleaning</SelectItem>
                 </SelectContent>
               </Select>
               <Select value={filterStatus} onValueChange={setFilterStatus}>
-                <SelectTrigger className="w-40">
-                  <SelectValue />
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="Status" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Status</SelectItem>
                   <SelectItem value="on_time">On Time</SelectItem>
                   <SelectItem value="late">Late</SelectItem>
-                  <SelectItem value="verified">Verified</SelectItem>
                   <SelectItem value="pending">Pending</SelectItem>
-                  <SelectItem value="missing_clock_out">Missing Clock-Out</SelectItem>
+                  <SelectItem value="verified">Verified</SelectItem>
                 </SelectContent>
               </Select>
+              <Button onClick={exportToCSV} variant="outline">
+                <Download className="w-4 h-4 mr-2" />
+                Export CSV
+              </Button>
             </div>
+          </CardContent>
+        </Card>
 
-            {/* Attendance Table */}
+        {/* Attendance Table */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Attendance Records</CardTitle>
+          </CardHeader>
+          <CardContent>
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead>Staff</TableHead>
+                    <TableHead>Role</TableHead>
                     <TableHead>Date</TableHead>
                     <TableHead>Scheduled</TableHead>
                     <TableHead>Clock In</TableHead>
                     <TableHead>Clock Out</TableHead>
                     <TableHead>Total</TableHead>
                     <TableHead>Status</TableHead>
-                    <TableHead>Actions</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredRecords.map((record) => (
                     <TableRow key={record.id}>
-                      <TableCell>
-                        <div>
-                          <p className="font-medium">{record.staff_name}</p>
-                          <p className="text-xs text-gray-500">{record.staff_email}</p>
-                        </div>
-                      </TableCell>
+                      <TableCell className="font-medium">{record.staff_name}</TableCell>
+                      <TableCell className="capitalize">{record.role || 'N/A'}</TableCell>
                       <TableCell>{format(parseISO(record.shift_date), 'MMM d')}</TableCell>
-                      <TableCell>
-                        <div className="text-sm">
-                          <p>{record.scheduled_start} - {record.scheduled_end}</p>
-                          <p className="text-xs text-gray-500">{record.scheduled_hours?.toFixed(1)}h</p>
-                        </div>
+                      <TableCell className="text-sm text-gray-600">
+                        {record.scheduled_start} - {record.scheduled_end}
                       </TableCell>
                       <TableCell>
                         {record.actual_clock_in ? (
                           <div>
-                            <p className="text-sm">{format(parseISO(record.actual_clock_in), 'HH:mm')}</p>
+                            <p className="font-medium">{format(parseISO(record.actual_clock_in), 'HH:mm')}</p>
                             {record.lateness_minutes > 0 && (
                               <p className="text-xs text-red-600">+{record.lateness_minutes} min</p>
                             )}
                           </div>
                         ) : (
-                          <span className="text-gray-400">--</span>
+                          <span className="text-gray-400">N/A</span>
                         )}
                       </TableCell>
                       <TableCell>
                         {record.actual_clock_out ? (
-                          <div>
-                            <p className="text-sm">{format(parseISO(record.actual_clock_out), 'HH:mm')}</p>
-                            {record.early_departure_minutes > 0 && (
-                              <p className="text-xs text-orange-600">-{record.early_departure_minutes} min</p>
-                            )}
-                          </div>
+                          format(parseISO(record.actual_clock_out), 'HH:mm')
                         ) : (
-                          <span className="text-gray-400">--</span>
+                          <span className="text-gray-400">N/A</span>
                         )}
                       </TableCell>
                       <TableCell>
-                        {record.total_hours ? (
-                          <div>
-                            <p className="font-medium">{record.total_hours.toFixed(1)}h</p>
-                            {record.overtime_hours > 0 && (
-                              <p className="text-xs text-purple-600">+{record.overtime_hours.toFixed(1)}h OT</p>
-                            )}
-                          </div>
-                        ) : (
-                          <span className="text-gray-400">--</span>
-                        )}
+                        <div>
+                          <p className="font-medium">{record.total_hours?.toFixed(1) || '0'}h</p>
+                          {record.overtime_hours > 0 && (
+                            <p className="text-xs text-purple-600">+{record.overtime_hours.toFixed(1)}h OT</p>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell>{getStatusBadge(record.status)}</TableCell>
-                      <TableCell>
-                        <div className="flex gap-2">
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-2">
                           {record.status === 'pending' && (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => verifyAttendanceMutation.mutate({ id: record.id })}
-                              className="h-8 w-8"
-                            >
-                              <CheckSquare className="w-4 h-4 text-green-600" />
-                            </Button>
+                            <>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleVerify(record)}
+                                className="h-8 w-8 text-green-600 hover:bg-green-50"
+                              >
+                                <Check className="w-4 h-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleReject(record)}
+                                className="h-8 w-8 text-red-600 hover:bg-red-50"
+                              >
+                                <X className="w-4 h-4" />
+                              </Button>
+                            </>
                           )}
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => flagForReviewMutation.mutate(record.id)}
-                            className="h-8 w-8"
-                          >
-                            <AlertTriangle className="w-4 h-4 text-orange-600" />
-                          </Button>
+                          {record.flagged_for_review && (
+                            <Badge className="bg-red-100 text-red-800 text-xs">Flagged</Badge>
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>
