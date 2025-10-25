@@ -841,290 +841,18 @@ export default function ManagerDashboard() {
         {activeTab === "team" && (
           <div className="space-y-6">
             <Card>
-              <CardHeader>
-                <div className="flex flex-wrap justify-between items-center gap-4">
-                  <div>
-                    <CardTitle>Team Members</CardTitle>
-                    <p className="text-sm text-gray-600 mt-1">
-                      {activeMembers} active • {onProbation} on probation • {onLeave} on leave
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {/* Quick Links */}
-                    <Link to={createPageUrl("CoachingDashboard")}>
-                      <Button variant="outline" size="sm" className="text-xs">
-                        <Award className="w-3 h-3 mr-1" />
-                        Coaching
-                      </Button>
-                    </Link>
-                    <Link to={createPageUrl("WeeklyRotaSchedule")}>
-                      <Button variant="outline" size="sm" className="text-xs">
-                        <Calendar className="w-3 h-3 mr-1" />
-                        Schedule
-                      </Button>
-                    </Link>
-
-                    {/* View Toggle */}
-                    <div className="flex border rounded-lg overflow-hidden">
-                      <Button
-                        variant={viewMode === 'grid' ? 'default' : 'ghost'}
-                        size="sm"
-                        onClick={() => setViewMode('grid')}
-                        className="rounded-none"
-                      >
-                        Grid
-                      </Button>
-                      <Button
-                        variant={viewMode === 'table' ? 'default' : 'ghost'}
-                        size="sm"
-                        onClick={() => setViewMode('table')}
-                        className="rounded-none"
-                      >
-                        Table
-                      </Button>
-                    </div>
-
-                    <Button onClick={() => setShowAddMemberDialog(true)} className="bg-blue-600">
-                      <UserPlus className="w-4 h-4 mr-2" />
-                      Add Member
-                    </Button>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent>
-                {/* Filters */}
-                <div className="flex flex-wrap gap-4 mb-6">
-                  <div className="flex-1 min-w-[200px]">
-                    <div className="relative">
-                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                      <Input
-                        placeholder="Search by name or position..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        className="pl-10"
-                      />
-                    </div>
-                  </div>
-                  <Select value={filterDepartment} onValueChange={setFilterDepartment}>
-                    <SelectTrigger className="w-[180px]">
-                      <SelectValue placeholder="Department" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Departments</SelectItem>
-                      {availableDepartments.map(dep => (
-                        <SelectItem key={dep.value} value={dep.value}>{dep.label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <Select value={filterStatus} onValueChange={setFilterStatus}>
-                    <SelectTrigger className="w-[180px]">
-                      <SelectValue placeholder="Status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Status</SelectItem>
-                      <SelectItem value="active">Active</SelectItem>
-                      <SelectItem value="inactive">Inactive</SelectItem>
-                      <SelectItem value="on_leave">On Leave</SelectItem>
-                      <SelectItem value="probation">Probation</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Grid View */}
-                {viewMode === 'grid' && (
-                  <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {filteredTeamMembers.map((member, index) => (
-                      <motion.div
-                        key={member.id}
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: index * 0.05 }}
-                      >
-                        <Card className="hover:shadow-lg transition-shadow">
-                          <CardContent className="p-4">
-                            <div className="flex items-start gap-3 mb-3">
-                              <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-green-500 rounded-full flex items-center justify-center text-white text-lg font-bold flex-shrink-0">
-                                {member.staff_name?.charAt(0)?.toUpperCase()}
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <h4 className="font-semibold text-gray-900 truncate">{member.staff_name}</h4>
-                                <p className="text-sm text-gray-600 capitalize">{member.position?.replace('_', ' ')}</p>
-                                <Badge className={`${getStatusColor(member.status)} mt-1 text-[10px]`}>
-                                  {member.status}
-                                </Badge>
-                              </div>
-
-                              {/* Actions Dropdown */}
-                              <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                  <Button variant="ghost" size="icon" className="h-8 w-8">
-                                    <MoreVertical className="w-4 h-4" />
-                                  </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end">
-                                  <DropdownMenuItem onClick={() => {
-                                    setSelectedMember(member);
-                                    setShowProfileModal(true);
-                                  }}>
-                                    <Eye className="w-4 h-4 mr-2" />
-                                    View Profile
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem onClick={() => {
-                                    setSelectedMember(member);
-                                    setShowAddMemberDialog(true);
-                                  }}>
-                                    <Edit className="w-4 h-4 mr-2" />
-                                    Edit Member
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem
-                                    onClick={() => navigate(createPageUrl(`StartCoachingSession?staff_email=${member.staff_email}`))}
-                                  >
-                                    <Award className="w-4 h-4 mr-2" />
-                                    Start Coaching
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem
-                                    onClick={() => navigate(createPageUrl(`WeeklyRotaSchedule?staff_email=${member.staff_email}`))}
-                                  >
-                                    <Calendar className="w-4 h-4 mr-2" />
-                                    View Schedule
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem
-                                    className="text-red-600"
-                                    onClick={() => {
-                                      setMemberToDelete(member);
-                                      setShowDeleteConfirm(true);
-                                    }}
-                                  >
-                                    <Trash2 className="w-4 h-4 mr-2" />
-                                    Remove
-                                  </DropdownMenuItem>
-                                </DropdownMenuContent>
-                              </DropdownMenu>
-                            </div>
-
-                            <div className="space-y-1 text-xs text-gray-600 mb-3">
-                              {member.staff_email && (
-                                <p className="truncate">📧 {member.staff_email}</p>
-                              )}
-                              {member.phone && (
-                                <p>📞 {member.phone}</p>
-                              )}
-                              {member.shift_start && member.shift_end && (
-                                <p>⏰ {member.shift_start} - {member.shift_end}</p>
-                              )}
-                            </div>
-
-                            <div className="flex gap-2">
-                              <Link to={createPageUrl(`ViewCoachingSession?staff_email=${member.staff_email}`)} className="flex-1">
-                                <Button variant="outline" size="sm" className="w-full text-xs">
-                                  View Profile
-                                </Button>
-                              </Link>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      </motion.div>
-                    ))}
-                  </div>
-                )}
-
-                {/* Table View */}
-                {viewMode === 'table' && (
-                  <div className="overflow-x-auto">
-                    <table className="w-full">
-                      <thead>
-                        <tr className="border-b">
-                          <th className="text-left p-3 text-sm font-semibold text-gray-700">Photo</th>
-                          <th className="text-left p-3 text-sm font-semibold text-gray-700">Name</th>
-                          <th className="text-left p-3 text-sm font-semibold text-gray-700">Role</th>
-                          <th className="text-left p-3 text-sm font-semibold text-gray-700">Department</th>
-                          <th className="text-left p-3 text-sm font-semibold text-gray-700">Status</th>
-                          <th className="text-left p-3 text-sm font-semibold text-gray-700">Next Shift</th>
-                          <th className="text-right p-3 text-sm font-semibold text-gray-700">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {filteredTeamMembers.map((member) => (
-                          <tr key={member.id} className="border-b hover:bg-gray-50 transition-colors">
-                            <td className="p-3">
-                              <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-green-500 rounded-full flex items-center justify-center text-white font-bold">
-                                {member.staff_name?.charAt(0)?.toUpperCase()}
-                              </div>
-                            </td>
-                            <td className="p-3">
-                              <div>
-                                <p className="font-medium text-gray-900">{member.staff_name}</p>
-                                <p className="text-xs text-gray-500">{member.staff_email}</p>
-                              </div>
-                            </td>
-                            <td className="p-3">
-                              <p className="text-sm capitalize">{member.position?.replace('_', ' ')}</p>
-                            </td>
-                            <td className="p-3">
-                              <p className="text-sm capitalize">{member.department?.replace('_', ' ')}</p>
-                            </td>
-                            <td className="p-3">
-                              <Badge className={`${getStatusColor(member.status)} text-[10px]`}>
-                                {member.status}
-                              </Badge>
-                            </td>
-                            <td className="p-3">
-                              {member.shift_start && member.shift_end ? (
-                                <p className="text-sm text-gray-700">
-                                  {member.shift_start} - {member.shift_end}
-                                </p>
-                              ) : (
-                                <p className="text-xs text-gray-400">Not set</p>
-                              )}
-                            </td>
-                            <td className="p-3">
-                              <div className="flex items-center justify-end gap-2">
-                                <Link to={createPageUrl(`StaffProfile?staff_email=${member.staff_email}`)}>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-8 w-8"
-                                  >
-                                    <Eye className="w-4 h-4" />
-                                  </Button>
-                                </Link>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-8 w-8"
-                                  onClick={() => {
-                                    setSelectedMember(member);
-                                    setShowAddMemberDialog(true);
-                                  }}
-                                >
-                                  <Edit className="w-4 h-4" />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
-                                  onClick={() => {
-                                    setMemberToDelete(member);
-                                    setShowDeleteConfirm(true);
-                                  }}
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </Button>
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-
-                {filteredTeamMembers.length === 0 && (
-                  <div className="text-center py-12 text-gray-500">
-                    <Users className="w-12 h-12 mx-auto mb-4 text-gray-400" />
-                    <p>No team members found</p>
-                  </div>
-                )}
+              <CardContent className="p-12 text-center">
+                <Users className="w-16 h-16 text-blue-600 mx-auto mb-4" />
+                <h3 className="text-2xl font-bold text-gray-900 mb-2">Team Directory</h3>
+                <p className="text-gray-600 mb-6">
+                  Manage your team members, view profiles, and track performance
+                </p>
+                <Link to={createPageUrl("TeamDirectory")}>
+                  <Button className="bg-blue-600 hover:bg-blue-700">
+                    <Users className="w-5 h-5 mr-2" />
+                    Go to Team Directory
+                  </Button>
+                </Link>
               </CardContent>
             </Card>
           </div>
@@ -1353,7 +1081,7 @@ export default function ManagerDashboard() {
                                         <div className="flex-1 flex gap-2 items-center">
                                           <Input
                                             value={editingTaskValue}
-                                            onChange={(e) => setEditingTaskValue(e.target.value)} // Fixed here
+                                            onChange={(e) => setNewRoleDailyTasks(e.target.value)} // Fixed here
                                             className="h-7 text-sm"
                                             autoFocus
                                             onKeyPress={(e) => {
@@ -1436,7 +1164,7 @@ export default function ManagerDashboard() {
                                         <div className="flex-1 flex gap-2 items-center">
                                           <Input
                                             value={editingTaskValue}
-                                            onChange={(e) => setEditingTaskValue(e.target.value)} // Fixed here
+                                            onChange={(e) => setNewRoleWeeklyTasks(e.target.value)} // Fixed here
                                             className="h-7 text-sm"
                                             autoFocus
                                             onKeyPress={(e) => {
@@ -1522,7 +1250,7 @@ export default function ManagerDashboard() {
                                         <div className="flex-1 flex gap-2 items-center">
                                           <Input
                                             value={editingTaskValue}
-                                            onChange={(e) => setEditingTaskValue(e.target.value)} // Fixed here
+                                            onChange={(e) => setNewRoleMonthlyTasks(e.target.value)} // Fixed here
                                             className="h-7 text-sm"
                                             autoFocus
                                             onKeyPress={(e) => {
