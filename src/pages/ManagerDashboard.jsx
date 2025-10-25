@@ -28,7 +28,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Plus, Calendar, CheckCircle, Clock, AlertCircle, AlertTriangle, ArrowLeft, Home, Users, TrendingUp, Award, Edit, Trash2, Upload, Eye, Bell, Settings, MoreVertical, UserPlus, FileText, Target, Search, Filter, Download, ChevronUp, ChevronDown, Mail, Phone } from "lucide-react";
+import { Plus, Calendar, CheckCircle, Clock, AlertCircle, AlertTriangle, ArrowLeft, Home, Users, TrendingUp, Award, Edit, Trash2, Upload, Eye, Bell, Settings, MoreVertical, UserPlus, FileText, Target, Search, Filter, Download, ChevronUp, ChevronDown, Mail, Phone, X } from "lucide-react";
 import { format } from "date-fns";
 import { Link, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -56,11 +56,18 @@ export default function ManagerDashboard() {
   const [newRoleDepartment, setNewRoleDepartment] = useState("");
   const [newRoleDailyTasks, setNewRoleDailyTasks] = useState("");
   const [newRoleWeeklyTasks, setNewRoleWeeklyTasks] = useState("");
+  const [newRoleMonthlyTasks, setNewRoleMonthlyTasks] = useState(""); // New state for Monthly Tasks
   const [newRoleSkills, setNewRoleSkills] = useState("");
 
   // New states for Delete Responsibility Confirmation
   const [showDeleteResponsibilityConfirm, setShowDeleteResponsibilityConfirm] = useState(false);
   const [roleToDelete, setRoleToDelete] = useState(null);
+
+  // Inline task editing states
+  const [editingTaskId, setEditingTaskId] = useState(null);
+  const [editingTaskValue, setEditingTaskValue] = useState("");
+  const [editingTaskType, setEditingTaskType] = useState("");
+
 
   const { data: user } = useQuery({
     queryKey: ['currentUser'],
@@ -187,8 +194,10 @@ export default function ManagerDashboard() {
     setNewRoleDepartment(roleToEdit.department);
     setNewRoleDailyTasks(roleToEdit.daily_tasks?.join(', ') || '');
     setNewRoleWeeklyTasks(roleToEdit.weekly_tasks?.join(', ') || '');
+    setNewRoleMonthlyTasks(roleToEdit.monthly_tasks?.join(', ') || ''); // Populate new monthly tasks field
     setNewRoleSkills(roleToEdit.key_skills_required?.join(', ') || '');
     setShowAddResponsibilityDialog(true);
+    cancelEditTask(); // Clear any inline task editing
   };
 
   // Function to handle adding new responsibility (opens empty form)
@@ -198,8 +207,10 @@ export default function ManagerDashboard() {
     setNewRoleDepartment("");
     setNewRoleDailyTasks("");
     setNewRoleWeeklyTasks("");
+    setNewRoleMonthlyTasks(""); // Clear new monthly tasks field
     setNewRoleSkills("");
     setShowAddResponsibilityDialog(true);
+    cancelEditTask(); // Clear any inline task editing
   };
 
   // Function to close responsibility dialog and reset form
@@ -210,12 +221,85 @@ export default function ManagerDashboard() {
     setNewRoleDepartment("");
     setNewRoleDailyTasks("");
     setNewRoleWeeklyTasks("");
+    setNewRoleMonthlyTasks(""); // Clear new monthly tasks field
     setNewRoleSkills("");
   };
 
   // Function to prepare array strings from textarea input
   const parseCommaSeparatedString = (str) =>
     str.split(',').map(s => s.trim()).filter(s => s.length > 0);
+
+  // Inline task editing functions
+  const startEditTask = (roleId, taskType, taskIndex, currentValue) => {
+    setEditingTaskId(`${roleId}-${taskType}-${taskIndex}`);
+    setEditingTaskValue(currentValue);
+    setEditingTaskType(taskType);
+  };
+
+  const cancelEditTask = () => {
+    setEditingTaskId(null);
+    setEditingTaskValue("");
+    setEditingTaskType("");
+  };
+
+  const saveEditTask = async (role, taskType, taskIndex) => {
+    const updatedRoleData = { ...role };
+    
+    if (taskType === 'daily_tasks') {
+      updatedRoleData.daily_tasks = [...(role.daily_tasks || [])];
+      updatedRoleData.daily_tasks[taskIndex] = editingTaskValue;
+    } else if (taskType === 'weekly_tasks') {
+      updatedRoleData.weekly_tasks = [...(role.weekly_tasks || [])];
+      updatedRoleData.weekly_tasks[taskIndex] = editingTaskValue;
+    } else if (taskType === 'monthly_tasks') {
+      updatedRoleData.monthly_tasks = [...(role.monthly_tasks || [])];
+      updatedRoleData.monthly_tasks[taskIndex] = editingTaskValue;
+    }
+
+    await updateResponsibilityMutation.mutateAsync({
+      id: role.id,
+      updatedRole: {
+        position: updatedRoleData.position,
+        department: updatedRoleData.department,
+        daily_tasks: updatedRoleData.daily_tasks || [],
+        weekly_tasks: updatedRoleData.weekly_tasks || [],
+        monthly_tasks: updatedRoleData.monthly_tasks || [],
+        key_skills_required: updatedRoleData.key_skills_required || [],
+        last_updated: new Date().toISOString(),
+        updated_by: user?.email,
+      }
+    });
+
+    cancelEditTask();
+  };
+
+  const deleteTask = async (role, taskType, taskIndex) => {
+    if (!confirm("Are you sure you want to delete this task?")) return;
+
+    const updatedRoleData = { ...role };
+    
+    if (taskType === 'daily_tasks') {
+      updatedRoleData.daily_tasks = (role.daily_tasks || []).filter((_, i) => i !== taskIndex);
+    } else if (taskType === 'weekly_tasks') {
+      updatedRoleData.weekly_tasks = (role.weekly_tasks || []).filter((_, i) => i !== taskIndex);
+    } else if (taskType === 'monthly_tasks') {
+      updatedRoleData.monthly_tasks = (role.monthly_tasks || []).filter((_, i) => i !== taskIndex);
+    }
+
+    await updateResponsibilityMutation.mutateAsync({
+      id: role.id,
+      updatedRole: {
+        position: updatedRoleData.position,
+        department: updatedRoleData.department,
+        daily_tasks: updatedRoleData.daily_tasks || [],
+        weekly_tasks: updatedRoleData.weekly_tasks || [],
+        monthly_tasks: updatedRoleData.monthly_tasks || [],
+        key_skills_required: updatedRoleData.key_skills_required || [],
+        last_updated: new Date().toISOString(),
+        updated_by: user?.email,
+      }
+    });
+  };
 
   // Mutations for Role Responsibilities
   const addResponsibilityMutation = useMutation({
@@ -249,6 +333,7 @@ export default function ManagerDashboard() {
       department: newRoleDepartment,
       daily_tasks: parseCommaSeparatedString(newRoleDailyTasks),
       weekly_tasks: parseCommaSeparatedString(newRoleWeeklyTasks),
+      monthly_tasks: parseCommaSeparatedString(newRoleMonthlyTasks), // Include monthly tasks
       key_skills_required: parseCommaSeparatedString(newRoleSkills),
     };
 
@@ -1059,37 +1144,256 @@ export default function ManagerDashboard() {
                             </div>
                           </div>
 
-                          {/* Daily Tasks */}
+                          {/* Daily Tasks with Inline Editing */}
                           {role.daily_tasks && role.daily_tasks.length > 0 && (
                             <div className="mb-3">
-                              <Label className="text-xs font-semibold text-gray-700 mb-2 block">Daily Tasks</Label>
+                              <Label className="text-xs font-semibold text-gray-700 mb-2 block flex items-center justify-between">
+                                <span>Daily Tasks</span>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-6 text-xs"
+                                  onClick={() => handleEditResponsibility(role)}
+                                >
+                                  <Plus className="w-3 h-3 mr-1" />
+                                  Add
+                                </Button>
+                              </Label>
                               <ul className="space-y-1">
-                                {role.daily_tasks.slice(0, 3).map((task, i) => (
-                                  <li key={i} className="text-sm text-gray-600 flex items-start gap-2">
-                                    <CheckCircle className="w-3 h-3 text-green-600 mt-0.5 flex-shrink-0" />
-                                    <span>{task}</span>
-                                  </li>
-                                ))}
-                                {role.daily_tasks.length > 3 && (
-                                  <li className="text-xs text-gray-500">+{role.daily_tasks.length - 3} more</li>
+                                {role.daily_tasks.map((task, i) => {
+                                  const taskId = `${role.id}-daily_tasks-${i}`;
+                                  const isEditing = editingTaskId === taskId;
+
+                                  return (
+                                    <li key={i} className="text-sm text-gray-600 flex items-start gap-2 group">
+                                      <CheckCircle className="w-3 h-3 text-green-600 mt-0.5 flex-shrink-0" />
+                                      {isEditing ? (
+                                        <div className="flex-1 flex gap-2 items-center">
+                                          <Input
+                                            value={editingTaskValue}
+                                            onChange={(e) => setEditingTaskValue(e.target.value)}
+                                            className="h-7 text-sm"
+                                            autoFocus
+                                            onKeyPress={(e) => {
+                                              if (e.key === 'Enter') {
+                                                saveEditTask(role, 'daily_tasks', i);
+                                              }
+                                            }}
+                                          />
+                                          <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-7 w-7"
+                                            onClick={() => saveEditTask(role, 'daily_tasks', i)}
+                                          >
+                                            <CheckCircle className="w-3 h-3 text-green-600" />
+                                          </Button>
+                                          <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-7 w-7"
+                                            onClick={cancelEditTask}
+                                          >
+                                            <X className="w-3 h-3 text-red-600" />
+                                          </Button>
+                                        </div>
+                                      ) : (
+                                        <>
+                                          <span className="flex-1">{task}</span>
+                                          <div className="opacity-0 group-hover:opacity-100 flex gap-1 transition-opacity">
+                                            <Button
+                                              variant="ghost"
+                                              size="icon"
+                                              className="h-5 w-5"
+                                              onClick={() => startEditTask(role.id, 'daily_tasks', i, task)}
+                                            >
+                                              <Edit className="w-3 h-3 text-blue-600" />
+                                            </Button>
+                                            <Button
+                                              variant="ghost"
+                                              size="icon"
+                                              className="h-5 w-5"
+                                              onClick={() => deleteTask(role, 'daily_tasks', i)}
+                                            >
+                                              <Trash2 className="w-3 h-3 text-red-600" />
+                                            </Button>
+                                          </div>
+                                        </>
+                                      )}
+                                    </li>
+                                  );
+                                })}
+                              </ul>
+                            </div>
+                          )}
+
+                          {/* Weekly Tasks with Inline Editing */}
+                          {role.weekly_tasks && role.weekly_tasks.length > 0 && (
+                            <div className="mb-3">
+                              <Label className="text-xs font-semibold text-gray-700 mb-2 block flex items-center justify-between">
+                                <span>Weekly Tasks</span>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-6 text-xs"
+                                  onClick={() => handleEditResponsibility(role)}
+                                >
+                                  <Plus className="w-3 h-3 mr-1" />
+                                  Add
+                                </Button>
+                              </Label>
+                              <ul className="space-y-1">
+                                {role.weekly_tasks.map((task, i) => {
+                                  const taskId = `${role.id}-weekly_tasks-${i}`;
+                                  const isEditing = editingTaskId === taskId;
+
+                                  return (
+                                    <li key={i} className="text-sm text-gray-600 flex items-start gap-2 group">
+                                      <Calendar className="w-3 h-3 text-blue-600 mt-0.5 flex-shrink-0" />
+                                      {isEditing ? (
+                                        <div className="flex-1 flex gap-2 items-center">
+                                          <Input
+                                            value={editingTaskValue}
+                                            onChange={(e) => setEditingTaskValue(e.target.value)}
+                                            className="h-7 text-sm"
+                                            autoFocus
+                                            onKeyPress={(e) => {
+                                              if (e.key === 'Enter') {
+                                                saveEditTask(role, 'weekly_tasks', i);
+                                              }
+                                            }}
+                                          />
+                                          <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-7 w-7"
+                                            onClick={() => saveEditTask(role, 'weekly_tasks', i)}
+                                          >
+                                            <CheckCircle className="w-3 h-3 text-green-600" />
+                                          </Button>
+                                          <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-7 w-7"
+                                            onClick={cancelEditTask}
+                                          >
+                                            <X className="w-3 h-3 text-red-600" />
+                                          </Button>
+                                        </div>
+                                      ) : (
+                                        <>
+                                          <span className="flex-1">{task}</span>
+                                          <div className="opacity-0 group-hover:opacity-100 flex gap-1 transition-opacity">
+                                            <Button
+                                              variant="ghost"
+                                              size="icon"
+                                              className="h-5 w-5"
+                                              onClick={() => startEditTask(role.id, 'weekly_tasks', i, task)}
+                                            >
+                                              <Edit className="w-3 h-3 text-blue-600" />
+                                            </Button>
+                                            <Button
+                                              variant="ghost"
+                                              size="icon"
+                                              className="h-5 w-5"
+                                              onClick={() => deleteTask(role, 'weekly_tasks', i)}
+                                            >
+                                              <Trash2 className="w-3 h-3 text-red-600" />
+                                            </Button>
+                                          </div>
+                                        </>
+                                      )}
+                                    </li>
+                                  );
+                                })}
+                                {role.weekly_tasks.length > 2 && (
+                                  <li className="text-xs text-gray-500">+{role.weekly_tasks.length - 2} more</li>
                                 )}
                               </ul>
                             </div>
                           )}
 
-                          {/* Weekly Tasks */}
-                          {role.weekly_tasks && role.weekly_tasks.length > 0 && (
+                          {/* Monthly Tasks with Inline Editing */}
+                          {role.monthly_tasks && role.monthly_tasks.length > 0 && (
                             <div className="mb-3">
-                              <Label className="text-xs font-semibold text-gray-700 mb-2 block">Weekly Tasks</Label>
+                              <Label className="text-xs font-semibold text-gray-700 mb-2 block flex items-center justify-between">
+                                <span>Monthly Tasks</span>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-6 text-xs"
+                                  onClick={() => handleEditResponsibility(role)}
+                                >
+                                  <Plus className="w-3 h-3 mr-1" />
+                                  Add
+                                </Button>
+                              </Label>
                               <ul className="space-y-1">
-                                {role.weekly_tasks.slice(0, 2).map((task, i) => (
-                                  <li key={i} className="text-sm text-gray-600 flex items-start gap-2">
-                                    <Calendar className="w-3 h-3 text-blue-600 mt-0.5 flex-shrink-0" />
-                                    <span>{task}</span>
-                                  </li>
-                                ))}
-                                {role.weekly_tasks.length > 2 && (
-                                  <li className="text-xs text-gray-500">+{role.weekly_tasks.length - 2} more</li>
+                                {role.monthly_tasks.map((task, i) => {
+                                  const taskId = `${role.id}-monthly_tasks-${i}`;
+                                  const isEditing = editingTaskId === taskId;
+
+                                  return (
+                                    <li key={i} className="text-sm text-gray-600 flex items-start gap-2 group">
+                                      <Target className="w-3 h-3 text-purple-600 mt-0.5 flex-shrink-0" />
+                                      {isEditing ? (
+                                        <div className="flex-1 flex gap-2 items-center">
+                                          <Input
+                                            value={editingTaskValue}
+                                            onChange={(e) => setEditingTaskValue(e.target.value)}
+                                            className="h-7 text-sm"
+                                            autoFocus
+                                            onKeyPress={(e) => {
+                                              if (e.key === 'Enter') {
+                                                saveEditTask(role, 'monthly_tasks', i);
+                                              }
+                                            }}
+                                          />
+                                          <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-7 w-7"
+                                            onClick={() => saveEditTask(role, 'monthly_tasks', i)}
+                                          >
+                                            <CheckCircle className="w-3 h-3 text-green-600" />
+                                          </Button>
+                                          <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-7 w-7"
+                                            onClick={cancelEditTask}
+                                          >
+                                            <X className="w-3 h-3 text-red-600" />
+                                          </Button>
+                                        </div>
+                                      ) : (
+                                        <>
+                                          <span className="flex-1">{task}</span>
+                                          <div className="opacity-0 group-hover:opacity-100 flex gap-1 transition-opacity">
+                                            <Button
+                                              variant="ghost"
+                                              size="icon"
+                                              className="h-5 w-5"
+                                              onClick={() => startEditTask(role.id, 'monthly_tasks', i, task)}
+                                            >
+                                              <Edit className="w-3 h-3 text-blue-600" />
+                                            </Button>
+                                            <Button
+                                              variant="ghost"
+                                              size="icon"
+                                              className="h-5 w-5"
+                                              onClick={() => deleteTask(role, 'monthly_tasks', i)}
+                                            >
+                                              <Trash2 className="w-3 h-3 text-red-600" />
+                                            </Button>
+                                          </div>
+                                        </>
+                                      )}
+                                    </li>
+                                  );
+                                })}
+                                {role.monthly_tasks.length > 2 && (
+                                  <li className="text-xs text-gray-500">+{role.monthly_tasks.length - 2} more</li>
                                 )}
                               </ul>
                             </div>
@@ -1296,6 +1600,20 @@ export default function ManagerDashboard() {
                   value={newRoleWeeklyTasks}
                   onChange={(e) => setNewRoleWeeklyTasks(e.target.value)}
                   placeholder="Weekly Task 1, Weekly Task 2 (comma-separated)"
+                  className="col-span-3"
+                />
+              </div>
+
+              {/* New Monthly Tasks field */}
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="monthlyTasks" className="text-right">
+                  Monthly Tasks
+                </Label>
+                <Textarea
+                  id="monthlyTasks"
+                  value={newRoleMonthlyTasks}
+                  onChange={(e) => setNewRoleMonthlyTasks(e.target.value)}
+                  placeholder="Monthly Task 1, Monthly Task 2 (comma-separated)"
                   className="col-span-3"
                 />
               </div>
