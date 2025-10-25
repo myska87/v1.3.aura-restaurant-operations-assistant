@@ -1,5 +1,5 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -24,6 +24,16 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Calendar,
@@ -37,9 +47,19 @@ import {
   Eye,
   GripVertical,
   Home,
+  Camera,
+  Thermometer,
+  Signature,
+  ArrowLeft,
+  X,
+  Image,
+  Upload,
+  RotateCw,
+  Check,
+  Ban,
 } from "lucide-react";
 import { format } from "date-fns";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { motion } from "framer-motion";
 
@@ -318,7 +338,7 @@ export default function AdvancedChecklists() {
           category: "Food Handling Practices"
         },
         {
-          task_id: "handling_10",
+  task_id: "handling_10",
           description: "Are vegetables/fruit/salads trimmed and washed thoroughly before use unless labelled as 'ready-to-eat'?",
           requires_photo: false,
           requires_temperature: false,
@@ -652,6 +672,8 @@ export default function AdvancedChecklists() {
         return 'bg-blue-100 text-blue-800 border-blue-200';
       case 'overdue':
         return 'bg-red-100 text-red-800 border-red-200';
+      case 'not_started':
+        return 'bg-gray-100 text-gray-800 border-gray-200';
       default:
         return 'bg-gray-100 text-gray-800 border-gray-200';
     }
@@ -1001,7 +1023,7 @@ export default function AdvancedChecklists() {
               <TemplatesView
                 templates={filterByFrequency(templates, 'weekly')}
                 showForm={showTemplateForm}
-                setShowForm={setShowTemplateForm}
+                setShowForm={setShowForm}
                 formData={formData}
                 setFormData={setFormData}
                 newTask={newTask}
@@ -1044,7 +1066,7 @@ export default function AdvancedChecklists() {
               <TemplatesView
                 templates={filterByFrequency(templates, 'monthly')}
                 showForm={showTemplateForm}
-                setShowForm={setShowTemplateForm}
+                setShowForm={setShowForm}
                 formData={formData}
                 setFormData={setFormData}
                 newTask={newTask}
@@ -1087,7 +1109,7 @@ export default function AdvancedChecklists() {
               <TemplatesView
                 templates={filterByFrequency(templates, 'six_monthly')}
                 showForm={showTemplateForm}
-                setShowForm={setShowTemplateForm}
+                setShowForm={setShowForm}
                 formData={formData}
                 setFormData={setFormData}
                 newTask={newTask}
@@ -1130,7 +1152,7 @@ export default function AdvancedChecklists() {
               <TemplatesView
                 templates={filterByFrequency(templates, 'yearly')}
                 showForm={showTemplateForm}
-                setShowForm={setShowTemplateForm}
+                setShowForm={setShowForm}
                 formData={formData}
                 setFormData={setFormData}
                 newTask={newTask}
@@ -1602,6 +1624,458 @@ function MonitorView({ executions, getProgress, getStatusColor, getShiftTypeColo
           </Card>
         );
       })}
+    </div>
+  );
+}
+
+// Fillable Checklist Execution Page Component
+export function ExecuteChecklistPage() {
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const { search } = useLocation();
+  const executionId = new URLSearchParams(search).get('id');
+
+  const { data: user } = useQuery({
+    queryKey: ['currentUser'],
+    queryFn: () => base44.auth.me(),
+  });
+
+  const {
+    data: executionData,
+    isLoading: isExecutionLoading,
+    isError: isExecutionError,
+    error: executionError,
+  } = useQuery({
+    queryKey: ['checklistExecution', executionId],
+    queryFn: () => base44.entities.ChecklistExecution.get(executionId),
+    enabled: !!executionId,
+  });
+
+  const [currentExecution, setCurrentExecution] = useState(null);
+  const [showCompleteDialog, setShowCompleteDialog] = useState(false);
+  const [showImageDialog, setShowImageDialog] = useState(false);
+  const [currentTaskForImage, setCurrentTaskForImage] = useState(null);
+  const [imageUrlInput, setImageUrlInput] = useState('');
+  const [showProgressAlert, setShowProgressAlert] = useState(false);
+
+  useEffect(() => {
+    if (executionData) {
+      setCurrentExecution(executionData);
+    }
+  }, [executionData]);
+
+  const updateExecutionMutation = useMutation({
+    mutationFn: ({ id, data }) => base44.entities.ChecklistExecution.update(id, data),
+    onSuccess: (updatedData) => {
+      queryClient.invalidateQueries({ queryKey: ['checklistExecution', executionId] });
+      queryClient.invalidateQueries({ queryKey: ['myChecklistExecutions'] });
+      queryClient.invalidateQueries({ queryKey: ['allChecklistExecutions'] });
+      setCurrentExecution(updatedData); // Update local state with fresh data
+    },
+    onError: (error) => {
+      console.error("Failed to update checklist execution:", error);
+      // alert("Failed to save changes. Please try again."); // Removed for smoother UX
+    }
+  });
+
+  const handleTaskUpdate = (taskId, updates) => {
+    if (!currentExecution || isReadOnly) return;
+
+    const updatedTasks = currentExecution.tasks.map(task =>
+      task.task_id === taskId ? { ...task, ...updates } : task
+    );
+
+    const allTasksAnswered = updatedTasks.every(task => ['pass', 'fail', 'na'].includes(task.status));
+    const newStatus = allTasksAnswered ? 'completed' : (updatedTasks.some(task => ['pass', 'fail', 'na'].includes(task.status)) ? 'in_progress' : 'not_started');
+
+    const updatedExecution = {
+      ...currentExecution,
+      tasks: updatedTasks,
+      status: newStatus,
+      started_at: currentExecution.started_at || new Date().toISOString(), // Mark started if first task updated
+      completed_at: allTasksAnswered ? new Date().toISOString() : null,
+    };
+
+    setCurrentExecution(updatedExecution);
+    updateExecutionMutation.mutate({ id: currentExecution.id, data: updatedExecution });
+  };
+
+  const handleCompleteChecklist = () => {
+    if (!currentExecution) return;
+
+    const allTasksAnswered = currentExecution.tasks.every(task => ['pass', 'fail', 'na'].includes(task.status));
+    if (!allTasksAnswered) {
+      setShowProgressAlert(true);
+      return;
+    }
+
+    const completedExecution = {
+      ...currentExecution,
+      status: 'completed',
+      completed_at: new Date().toISOString(),
+    };
+
+    updateExecutionMutation.mutate({ id: currentExecution.id, data: completedExecution }, {
+      onSuccess: () => {
+        setShowCompleteDialog(false);
+        navigate(createPageUrl("AdvancedChecklists")); // Go back to main view
+      }
+    });
+  };
+
+  const handleImageUpload = (taskId) => {
+    handleTaskUpdate(taskId, { photo_url: imageUrlInput });
+    setShowImageDialog(false);
+    setImageUrlInput('');
+    setCurrentTaskForImage(null);
+  };
+
+  const getProgress = (execution) => {
+    if (!execution || !execution.tasks || execution.tasks.length === 0) return 0;
+    const completed = execution.tasks.filter(t =>
+      t.status === 'pass' || t.status === 'fail' || t.status === 'na'
+    ).length;
+    return Math.round((completed / execution.tasks.length) * 100);
+  };
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'completed':
+        return 'bg-green-100 text-green-800 border-green-200';
+      case 'in_progress':
+        return 'bg-blue-100 text-blue-800 border-blue-200';
+      case 'overdue':
+        return 'bg-red-100 text-red-800 border-red-200';
+      case 'not_started':
+        return 'bg-gray-100 text-gray-800 border-gray-200';
+      default:
+        return 'bg-gray-100 text-gray-800 border-gray-200';
+    }
+  };
+
+  const isAssignedToCurrentUser = user && currentExecution?.assigned_to_email === user.email;
+  const isReadOnly = !isAssignedToCurrentUser || currentExecution?.status === 'completed';
+
+  if (isExecutionLoading) {
+    return (
+      <div className="flex justify-center items-center h-screen">
+        <RotateCw className="animate-spin h-8 w-8 text-blue-600" />
+        <p className="ml-2 text-gray-700">Loading checklist...</p>
+      </div>
+    );
+  }
+
+  if (isExecutionError || !currentExecution) {
+    return (
+      <div className="p-6 md:p-8 bg-gray-50 min-h-screen">
+        <Card className="bg-white">
+          <CardContent className="p-12 text-center">
+            <AlertTriangle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+            <p className="text-lg font-semibold text-gray-800">Error loading checklist.</p>
+            <p className="text-gray-600 mt-2">
+              {executionError?.message || "Checklist not found or an error occurred."}
+            </p>
+            <Button onClick={() => navigate(createPageUrl("AdvancedChecklists"))} className="mt-6">
+              Go Back to Checklists
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  const tasksByCategory = currentExecution.tasks.reduce((acc, task) => {
+    const category = task.category || 'General Tasks';
+    if (!acc[category]) {
+      acc[category] = [];
+    }
+    acc[category].push(task);
+    return acc;
+  }, {});
+
+  const currentProgress = getProgress(currentExecution);
+
+  return (
+    <div className="p-6 md:p-8 bg-gray-50 min-h-screen">
+      <div className="max-w-4xl mx-auto">
+        <div className="mb-6 flex justify-between items-center">
+          <Button variant="outline" onClick={() => navigate(createPageUrl("AdvancedChecklists"))}>
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back to Checklists
+          </Button>
+          <div className="flex gap-2">
+            <Badge className={getStatusColor(currentExecution.status)}>
+              {currentExecution.status?.replace(/_/g, ' ')}
+            </Badge>
+            {updateExecutionMutation.isPending && (
+              <Badge variant="secondary" className="flex items-center gap-1">
+                <RotateCw className="h-3 w-3 animate-spin" /> Saving...
+              </Badge>
+            )}
+          </div>
+        </div>
+
+        <Card className="mb-6 bg-white shadow-sm">
+          <CardHeader className="pb-4">
+            <CardTitle className="text-2xl font-bold text-gray-900">
+              {currentExecution.template_name}
+            </CardTitle>
+            <p className="text-gray-600 mt-1">
+              Assigned to: <span className="font-medium">{currentExecution.assigned_to_name}</span> for{" "}
+              {format(new Date(currentExecution.execution_date), 'PPP')} ({currentExecution.shift_type?.replace(/_/g, ' ')})
+            </p>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div>
+                <div className="flex justify-between text-sm mb-2">
+                  <span className="text-gray-600">Overall Progress</span>
+                  <span className="font-medium text-gray-900">{currentProgress}%</span>
+                </div>
+                <Progress value={currentProgress} className="h-2" />
+              </div>
+              {!isAssignedToCurrentUser && (
+                <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 text-yellow-700">
+                  <p className="font-semibold flex items-center">
+                    <AlertTriangle className="w-5 h-5 mr-2" />
+                    Viewing Only: This checklist is assigned to another user.
+                  </p>
+                </div>
+              )}
+              {currentExecution.status === 'completed' && (
+                <div className="bg-green-50 border-l-4 border-green-400 p-4 text-green-700">
+                  <p className="font-semibold flex items-center">
+                    <CheckCircle className="w-5 h-5 mr-2" />
+                    This checklist has been completed on {format(new Date(currentExecution.completed_at), 'PPP h:mm a')}.
+                  </p>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        {Object.keys(tasksByCategory).map(category => (
+          <div key={category} className="mb-8">
+            <h2 className="text-xl font-bold text-gray-900 mb-4 sticky top-0 bg-gray-50 z-10 py-2 -mx-6 px-6 border-b border-gray-200">
+              {category}
+            </h2>
+            <div className="space-y-4">
+              {tasksByCategory[category].map((task) => (
+                <Card key={task.task_id} className="bg-white shadow-sm border border-gray-200">
+                  <CardContent className="p-5 space-y-4">
+                    <div className="flex items-start">
+                      <div className="flex-shrink-0 mr-3 mt-1">
+                        {task.status === 'pass' && <CheckCircle className="w-5 h-5 text-green-500" />}
+                        {task.status === 'fail' && <X className="w-5 h-5 text-red-500" />}
+                        {task.status === 'na' && <Ban className="w-5 h-5 text-gray-500" />}
+                        {!task.status || task.status === 'pending' && <Clock className="w-5 h-5 text-gray-400" />}
+                      </div>
+                      <div className="flex-1">
+                        <p className="font-medium text-gray-900 mb-2">
+                          {task.order}. {task.description}
+                        </p>
+                        <div className="flex flex-wrap gap-2 mb-3">
+                          {task.requires_photo && <Badge variant="secondary">📸 Photo</Badge>}
+                          {task.requires_temperature && <Badge variant="secondary">🌡️ Temp</Badge>}
+                          {task.requires_signature && <Badge variant="secondary">✍️ Sign</Badge>}
+                        </div>
+
+                        {!isReadOnly && (
+                          <div className="flex gap-2 mb-3">
+                            <Button
+                              variant={task.status === 'pass' ? 'default' : 'outline'}
+                              size="sm"
+                              onClick={() => handleTaskUpdate(task.task_id, { status: 'pass' })}
+                            >
+                              Pass
+                            </Button>
+                            <Button
+                              variant={task.status === 'fail' ? 'destructive' : 'outline'}
+                              size="sm"
+                              onClick={() => handleTaskUpdate(task.task_id, { status: 'fail' })}
+                            >
+                              Fail
+                            </Button>
+                            <Button
+                              variant={task.status === 'na' ? 'secondary' : 'outline'}
+                              size="sm"
+                              onClick={() => handleTaskUpdate(task.task_id, { status: 'na' })}
+                            >
+                              N/A
+                            </Button>
+                          </div>
+                        )}
+
+                        <div className="space-y-3">
+                          <Label htmlFor={`notes-${task.task_id}`} className="sr-only">Notes</Label>
+                          <Textarea
+                            id={`notes-${task.task_id}`}
+                            placeholder="Add notes (e.g., observations, corrective actions)"
+                            value={task.notes || ''}
+                            onChange={(e) => handleTaskUpdate(task.task_id, { notes: e.target.value })}
+                            rows={2}
+                            disabled={isReadOnly}
+                          />
+
+                          {task.requires_photo && (
+                            <div className="flex flex-col gap-2">
+                              <Label htmlFor={`photo-${task.task_id}`}>Photo</Label>
+                              {task.photo_url && (
+                                <img
+                                  src={task.photo_url}
+                                  alt="Task photo"
+                                  className="max-w-xs max-h-48 object-cover rounded-md border border-gray-200"
+                                />
+                              )}
+                              {!isReadOnly && (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => {
+                                    setCurrentTaskForImage(task);
+                                    setImageUrlInput(task.photo_url || '');
+                                    setShowImageDialog(true);
+                                  }}
+                                >
+                                  <Camera className="w-4 h-4 mr-2" />
+                                  {task.photo_url ? 'Change Photo' : 'Add Photo'}
+                                </Button>
+                              )}
+                            </div>
+                          )}
+
+                          {task.requires_temperature && (
+                            <div className="flex flex-col gap-2">
+                              <Label htmlFor={`temperature-${task.task_id}`}>Temperature (°C)</Label>
+                              <Input
+                                id={`temperature-${task.task_id}`}
+                                type="number"
+                                placeholder="Enter temperature"
+                                value={task.temperature || ''}
+                                onChange={(e) => handleTaskUpdate(task.task_id, { temperature: e.target.value })}
+                                disabled={isReadOnly}
+                              />
+                            </div>
+                          )}
+
+                          {task.requires_signature && (
+                            <div className="flex flex-col gap-2">
+                              <Label htmlFor={`signature-${task.task_id}`}>Signature</Label>
+                              <Input
+                                id={`signature-${task.task_id}`}
+                                placeholder="Enter signature (e.g., your name)"
+                                value={task.signature || ''}
+                                onChange={(e) => handleTaskUpdate(task.task_id, { signature: e.target.value })}
+                                disabled={isReadOnly}
+                              />
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
+        ))}
+
+        <div className="mt-8 pt-6 border-t border-gray-200 flex justify-end">
+          <Button
+            onClick={() => setShowCompleteDialog(true)}
+            disabled={isReadOnly || updateExecutionMutation.isPending}
+            className="bg-green-600 hover:bg-green-700"
+          >
+            <CheckCircle className="w-4 h-4 mr-2" />
+            Complete Checklist
+          </Button>
+        </div>
+      </div>
+
+      {/* Complete Checklist Confirmation Dialog */}
+      <AlertDialog open={showCompleteDialog} onOpenChange={setShowCompleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirm Completion</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to mark this checklist as completed?
+              You won't be able to make further changes.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleCompleteChecklist}>
+              Yes, Complete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Progress Alert Dialog */}
+      <AlertDialog open={showProgressAlert} onOpenChange={setShowProgressAlert}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center text-red-600">
+              <AlertTriangle className="w-5 h-5 mr-2" />
+              Checklist Incomplete
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              You must complete all tasks (Pass, Fail, or N/A) before finalizing the checklist.
+              Please go back and mark all tasks accordingly.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={() => setShowProgressAlert(false)}>
+              Understood
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Image Upload Dialog (Mock) */}
+      <Dialog open={showImageDialog} onOpenChange={setShowImageDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add Photo for Task</DialogTitle>
+            <p className="text-sm text-gray-500">
+              {currentTaskForImage?.description}
+            </p>
+          </DialogHeader>
+          <div className="space-y-4 mt-4">
+            <Label htmlFor="image-url-input">Image URL (for mock upload)</Label>
+            <Input
+              id="image-url-input"
+              value={imageUrlInput}
+              onChange={(e) => setImageUrlInput(e.target.value)}
+              placeholder="e.g., https://example.com/image.jpg"
+            />
+            {imageUrlInput && (
+              <div className="relative w-full h-48 bg-gray-100 rounded-md overflow-hidden">
+                <img
+                  src={imageUrlInput}
+                  alt="Preview"
+                  className="w-full h-full object-cover"
+                />
+              </div>
+            )}
+            <p className="text-xs text-gray-500">
+              In a real application, this would be a file upload interface.
+            </p>
+          </div>
+          <div className="flex justify-end gap-3 pt-4">
+            <Button variant="outline" onClick={() => setShowImageDialog(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => handleImageUpload(currentTaskForImage.task_id)}
+              disabled={!imageUrlInput}
+            >
+              <Upload className="w-4 h-4 mr-2" />
+              Save Photo
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
