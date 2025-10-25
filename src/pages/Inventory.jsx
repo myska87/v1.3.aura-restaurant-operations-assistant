@@ -1,6 +1,6 @@
 import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Package, Truck, ChefHat, BarChart3, ArrowRight, Warehouse } from "lucide-react";
+import { Package, Truck, ChefHat, BarChart3, ArrowRight, Warehouse, ShoppingCart, FileText } from "lucide-react";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { motion } from "framer-motion";
@@ -41,6 +41,24 @@ const inventoryModules = [
     color: "from-amber-500 to-amber-600",
     bgColor: "bg-amber-50",
     iconColor: "text-amber-600",
+  },
+  {
+    title: "Shopping Cart & Orders",
+    description: "Create draft orders and manage your shopping basket",
+    icon: ShoppingCart,
+    url: createPageUrl("Ordering"),
+    color: "from-blue-500 to-blue-600",
+    bgColor: "bg-blue-50",
+    iconColor: "text-blue-600",
+  },
+  {
+    title: "Order History",
+    description: "View past orders, track deliveries, and manage receipts",
+    icon: FileText,
+    url: createPageUrl("OrderHistory"),
+    color: "from-indigo-500 to-indigo-600",
+    bgColor: "bg-indigo-50",
+    iconColor: "text-indigo-600",
   },
 ];
 

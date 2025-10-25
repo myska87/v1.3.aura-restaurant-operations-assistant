@@ -29,7 +29,9 @@ import {
   Pencil,
   ArrowLeft,
   Home,
-  RefreshCw
+  RefreshCw,
+  ShoppingBasket,
+  Trash2
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -41,6 +43,8 @@ export default function InventoryManagement() {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterCategory, setFilterCategory] = useState("all");
   const [filterSupplier, setFilterSupplier] = useState("all");
+  const [cart, setCart] = useState([]);
+  const [showCart, setShowCart] = useState(false);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -86,6 +90,120 @@ export default function InventoryManagement() {
       queryClient.invalidateQueries({ queryKey: ['purchaseOrders'] });
     },
   });
+
+  const addToCart = (ingredient, quantity = 1) => {
+    if (!ingredient.supplier_id) {
+      alert(`⚠️ Cannot add "${ingredient.name}" to cart. It does not have a supplier assigned.`);
+      return;
+    }
+
+    const existingItem = cart.find(item => item.ingredient_id === ingredient.id);
+    
+    // Find the current supplier details for the ingredient
+    const currentSupplier = suppliers.find(s => s.id === ingredient.supplier_id);
+
+    if (existingItem) {
+      setCart(cart.map(item => 
+        item.ingredient_id === ingredient.id 
+          ? {...item, quantity: item.quantity + quantity, line_total: (item.quantity + quantity) * ingredient.unit_cost}
+          : item
+      ));
+    } else {
+      setCart([...cart, {
+        ingredient_id: ingredient.id,
+        ingredient_name: ingredient.name,
+        quantity: quantity,
+        unit: ingredient.unit,
+        unit_cost: ingredient.unit_cost,
+        supplier_id: ingredient.supplier_id,
+        supplier_name: currentSupplier?.name || 'Unknown Supplier',
+        supplier_email: currentSupplier?.email || null,
+        line_total: quantity * ingredient.unit_cost,
+      }]);
+    }
+    
+    alert(`✅ ${ingredient.name} added to cart!`);
+  };
+
+  const removeFromCart = (ingredientId) => {
+    setCart(cart.filter(item => item.ingredient_id !== ingredientId));
+  };
+
+  const updateCartQuantity = (ingredientId, newQuantity) => {
+    const parsedQuantity = parseFloat(newQuantity);
+    if (isNaN(parsedQuantity) || parsedQuantity <= 0) {
+      removeFromCart(ingredientId);
+      return;
+    }
+    
+    setCart(cart.map(item => 
+      item.ingredient_id === ingredientId 
+        ? {...item, quantity: parsedQuantity, line_total: parsedQuantity * item.unit_cost}
+        : item
+    ));
+  };
+
+  const createOrderFromCart = async () => {
+    if (cart.length === 0) {
+      alert('Cart is empty!');
+      return;
+    }
+
+    // Group cart items by supplier
+    const ordersBySupplier = {};
+    
+    cart.forEach(item => {
+      if (!item.supplier_id) return; // Should not happen if check in addToCart works
+
+      if (!ordersBySupplier[item.supplier_id]) {
+        ordersBySupplier[item.supplier_id] = {
+          supplier_id: item.supplier_id,
+          supplier_name: item.supplier_name,
+          supplier_email: item.supplier_email,
+          items: []
+        };
+      }
+      
+      ordersBySupplier[item.supplier_id].items.push({
+        ingredient_id: item.ingredient_id,
+        ingredient_name: item.ingredient_name,
+        quantity_ordered: item.quantity,
+        unit: item.unit,
+        unit_cost: item.unit_cost,
+        line_total: item.line_total,
+      });
+    });
+
+    let ordersCreatedCount = 0;
+    // Create draft orders
+    for (const order of Object.values(ordersBySupplier)) {
+      const subtotal = order.items.reduce((sum, item) => sum + item.line_total, 0);
+      const taxRate = 0.20; // 20% VAT
+      const tax = subtotal * taxRate;
+      const total = subtotal + tax;
+
+      await createPurchaseOrderMutation.mutateAsync({
+        order_number: `PO-CART-${Date.now()}-${order.supplier_id.substring(0, 4)}`, // Unique order number
+        supplier_id: order.supplier_id,
+        supplier_name: order.supplier_name,
+        supplier_email: order.supplier_email,
+        status: 'draft',
+        items: order.items,
+        subtotal: parseFloat(subtotal.toFixed(2)),
+        tax: parseFloat(tax.toFixed(2)),
+        total: parseFloat(total.toFixed(2)),
+        order_date: new Date().toISOString().split('T')[0], // YYYY-MM-DD
+        notes: 'Created from shopping cart',
+      });
+      ordersCreatedCount++;
+    }
+
+    setCart([]);
+    setShowCart(false);
+    alert(`✅ ${ordersCreatedCount} Draft order(s) created! Check the Orders page.`);
+  };
+
+  const cartTotal = cart.reduce((sum, item) => sum + item.line_total, 0);
 
   const resetForm = () => {
     setShowForm(false);
@@ -157,12 +275,17 @@ export default function InventoryManagement() {
 
   const handleStockUpdate = async (ingredientId, newStock) => {
     const ingredient = ingredients.find(ing => ing.id === ingredientId);
+    if (!ingredient) return;
+
+    const parsedNewStock = parseFloat(newStock);
+    if (isNaN(parsedNewStock)) return;
+
     await updateIngredientMutation.mutateAsync({
       id: ingredientId,
-      data: { current_stock: parseFloat(newStock) }
+      data: { current_stock: parsedNewStock }
     });
 
-    if (ingredient.auto_order_enabled && parseFloat(newStock) <= (ingredient.reorder_point || 0)) {
+    if (ingredient.auto_order_enabled && parsedNewStock <= (ingredient.reorder_point || 0)) {
       await triggerAutoOrder(ingredient);
     }
   };
@@ -176,11 +299,17 @@ export default function InventoryManagement() {
 
     const orderQuantity = ingredient.auto_order_quantity || (ingredient.par_level - ingredient.current_stock) || 10;
     const lineTotal = orderQuantity * ingredient.unit_cost;
+    const subtotal = lineTotal;
+    const taxRate = 0.20; // 20% VAT
+    const tax = subtotal * taxRate;
+    const total = subtotal + tax;
 
     const poData = {
+      order_number: `PO-AUTO-${Date.now()}-${ingredient.id.substring(0, 4)}`, // Unique order number
       supplier_id: supplier.id,
       supplier_name: supplier.name,
-      status: "pending",
+      supplier_email: supplier.email,
+      status: "pending", // Auto orders can be pending for approval
       order_date: new Date().toISOString().split('T')[0],
       items: [{
         ingredient_id: ingredient.id,
@@ -188,9 +317,11 @@ export default function InventoryManagement() {
         quantity_ordered: orderQuantity,
         unit: ingredient.unit,
         unit_cost: ingredient.unit_cost,
-        line_total: lineTotal,
+        line_total: parseFloat(lineTotal.toFixed(2)),
       }],
-      total_amount: lineTotal,
+      subtotal: parseFloat(subtotal.toFixed(2)),
+      tax: parseFloat(tax.toFixed(2)),
+      total: parseFloat(total.toFixed(2)),
       notes: `AUTO-GENERATED: ${ingredient.name} fell below reorder point`,
       auto_generated: true,
     };
@@ -206,13 +337,16 @@ export default function InventoryManagement() {
       ing.supplier_id
     );
 
+    if (lowStockItems.length === 0) {
+      alert('✅ All stock levels are adequate, or no auto-ordering items are set up.');
+      return;
+    }
+
     for (const item of lowStockItems) {
       await triggerAutoOrder(item);
     }
 
-    if (lowStockItems.length === 0) {
-      alert('✅ All stock levels are adequate');
-    }
+    alert(`Initiated auto-orders for ${lowStockItems.length} items.`);
   };
 
   const filteredIngredients = ingredients.filter(ing => {
@@ -251,6 +385,19 @@ export default function InventoryManagement() {
             <p className="text-gray-600">Track stock levels with automated reordering</p>
           </div>
           <div className="flex gap-3">
+            <Button 
+              onClick={() => setShowCart(true)} 
+              variant="outline" 
+              className="bg-blue-50 relative"
+            >
+              <ShoppingBasket className="w-4 h-4 mr-2" />
+              Cart
+              {cart.length > 0 && (
+                <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center">
+                  {cart.length}
+                </span>
+              )}
+            </Button>
             <Button onClick={checkAllAutoOrders} variant="outline" className="bg-blue-50">
               <RefreshCw className="w-4 h-4 mr-2" />
               Check Auto-Orders
@@ -433,13 +580,23 @@ export default function InventoryManagement() {
                           )}
                         </td>
                         <td className="p-3">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleEdit(ingredient)}
-                          >
-                            <Pencil className="w-4 h-4" />
-                          </Button>
+                          <div className="flex gap-2">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleEdit(ingredient)}
+                            >
+                              <Pencil className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => addToCart(ingredient, 10)} // Default to 10 units for quick add
+                              className="bg-blue-50 hover:bg-blue-100"
+                            >
+                              <ShoppingBasket className="w-4 h-4" />
+                            </Button>
+                          </div>
                         </td>
                       </tr>
                     );
@@ -646,6 +803,84 @@ export default function InventoryManagement() {
                 </Button>
               </div>
             </form>
+          </DialogContent>
+        </Dialog>
+
+        {/* Shopping Cart Dialog */}
+        <Dialog open={showCart} onOpenChange={setShowCart}>
+          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <ShoppingBasket className="w-5 h-5 text-blue-600" />
+                Shopping Cart ({cart.length} items)
+              </DialogTitle>
+            </DialogHeader>
+
+            {cart.length === 0 ? (
+              <div className="p-12 text-center">
+                <ShoppingBasket className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                <p className="text-gray-500">Your cart is empty</p>
+                <p className="text-sm text-gray-400 mt-2">Click the basket icon next to items to add them</p>
+              </div>
+            ) : (
+              <div className="space-y-4 mt-4">
+                {cart.map((item) => (
+                  <Card key={item.ingredient_id} className="border border-gray-200">
+                    <CardContent className="p-4">
+                      <div className="flex items-center gap-4">
+                        <div className="flex-1">
+                          <p className="font-medium text-gray-900">{item.ingredient_name}</p>
+                          <p className="text-sm text-gray-600">
+                            {item.supplier_name} • £{item.unit_cost.toFixed(2)} per {item.unit}
+                          </p>
+                        </div>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          value={item.quantity}
+                          onChange={(e) => updateCartQuantity(item.ingredient_id, e.target.value)}
+                          className="w-24"
+                        />
+                        <span className="text-sm text-gray-600 w-16">{item.unit}</span>
+                        <span className="font-semibold text-gray-900 w-24 text-right">
+                          £{item.line_total.toFixed(2)}
+                        </span>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => removeFromCart(item.ingredient_id)}
+                        >
+                          <Trash2 className="w-4 h-4 text-red-500" />
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+
+                <Card className="bg-blue-50 border-blue-200">
+                  <CardContent className="p-4">
+                    <div className="flex justify-between items-center text-lg font-bold">
+                      <span>Total:</span>
+                      <span className="text-blue-700">£{cartTotal.toFixed(2)}</span>
+                    </div>
+                    <p className="text-xs text-gray-600 mt-1">+ 20% VAT will be added to the draft order</p>
+                  </CardContent>
+                </Card>
+
+                <div className="flex justify-end gap-3 pt-4">
+                  <Button variant="outline" onClick={() => setShowCart(false)}>
+                    Continue Shopping
+                  </Button>
+                  <Button 
+                    onClick={createOrderFromCart}
+                    className="bg-green-600 hover:bg-green-700"
+                  >
+                    <ShoppingCart className="w-4 h-4 mr-2" />
+                    Create Draft Order
+                  </Button>
+                </div>
+              </div>
+            )}
           </DialogContent>
         </Dialog>
       </div>

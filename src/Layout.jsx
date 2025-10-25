@@ -40,16 +40,6 @@ const navigationItems = [
     icon: Calculator,
   },
   {
-    title: "Ordering",
-    url: createPageUrl("Ordering"),
-    icon: ShoppingCart,
-  },
-  {
-    title: "Order History",
-    url: createPageUrl("OrderHistory"),
-    icon: FileText,
-  },
-  {
     title: "Shift & Rota",
     url: createPageUrl("StaffRota"),
     icon: Users,
