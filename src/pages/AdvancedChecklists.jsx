@@ -35,6 +35,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch"; // New import for Switch
 import {
   Calendar,
   Clock,
@@ -60,6 +61,7 @@ import {
   ChevronUp,
   ChevronDown,
   PenTool,
+  Save, // New import for Save icon
 } from "lucide-react";
 import { format } from "date-fns";
 import { Link, useNavigate, useLocation } from "react-router-dom";
@@ -164,7 +166,8 @@ export default function AdvancedChecklists() {
             requires_photo: true,
             requires_temperature: false,
             order: 1,
-            category: "Hygiene of Food Rooms & Equipment"
+            category: "Hygiene of Food Rooms & Equipment",
+            field_type: 'standard',
           },
           {
             task_id: "hygiene_2",
@@ -172,7 +175,8 @@ export default function AdvancedChecklists() {
             requires_photo: true,
             requires_temperature: false,
             order: 2,
-            category: "Hygiene of Food Rooms & Equipment"
+            category: "Hygiene of Food Rooms & Equipment",
+            field_type: 'standard',
           },
           {
             task_id: "hygiene_3",
@@ -180,7 +184,8 @@ export default function AdvancedChecklists() {
             requires_photo: true,
             requires_temperature: false,
             order: 3,
-            category: "Hygiene of Food Rooms & Equipment"
+            category: "Hygiene of Food Rooms & Equipment",
+            field_type: 'standard',
           },
           {
             task_id: "hygiene_4",
@@ -188,7 +193,8 @@ export default function AdvancedChecklists() {
             requires_photo: true,
             requires_temperature: false,
             order: 4,
-            category: "Hygiene of Food Rooms & Equipment"
+            category: "Hygiene of Food Rooms & Equipment",
+            field_type: 'standard',
           },
           {
             task_id: "hygiene_5",
@@ -196,7 +202,8 @@ export default function AdvancedChecklists() {
             requires_photo: true,
             requires_temperature: false,
             order: 5,
-            category: "Hygiene of Food Rooms & Equipment"
+            category: "Hygiene of Food Rooms & Equipment",
+            field_type: 'standard',
           },
           {
             task_id: "hygiene_6",
@@ -204,7 +211,8 @@ export default function AdvancedChecklists() {
             requires_photo: false,
             requires_temperature: false,
             order: 6,
-            category: "Hygiene of Food Rooms & Equipment"
+            category: "Hygiene of Food Rooms & Equipment",
+            field_type: 'standard',
           },
           
           // FOOD STORAGE
@@ -214,7 +222,8 @@ export default function AdvancedChecklists() {
             requires_photo: true,
             requires_temperature: false,
             order: 7,
-            category: "Food Storage"
+            category: "Food Storage",
+            field_type: 'standard',
           },
           {
             task_id: "storage_2",
@@ -222,7 +231,8 @@ export default function AdvancedChecklists() {
             requires_photo: true,
             requires_temperature: true,
             order: 8,
-            category: "Food Storage"
+            category: "Food Storage",
+            field_type: 'standard',
           },
           {
             task_id: "storage_3",
@@ -230,7 +240,8 @@ export default function AdvancedChecklists() {
             requires_photo: true,
             requires_temperature: false,
             order: 9,
-            category: "Food Storage"
+            category: "Food Storage",
+            field_type: 'standard',
           },
           {
             task_id: "storage_4",
@@ -238,7 +249,8 @@ export default function AdvancedChecklists() {
             requires_photo: true,
             requires_temperature: false,
             order: 10,
-            category: "Food Storage"
+            category: "Food Storage",
+            field_type: 'standard',
           },
           {
             task_id: "storage_5",
@@ -246,7 +258,8 @@ export default function AdvancedChecklists() {
             requires_photo: true,
             requires_temperature: false,
             order: 11,
-            category: "Food Storage"
+            category: "Food Storage",
+            field_type: 'standard',
           },
           {
             task_id: "storage_6",
@@ -254,7 +267,8 @@ export default function AdvancedChecklists() {
             requires_photo: false,
             requires_temperature: false,
             order: 12,
-            category: "Food Storage"
+            category: "Food Storage",
+            field_type: 'standard',
           },
           {
             task_id: "storage_7",
@@ -262,7 +276,8 @@ export default function AdvancedChecklists() {
             requires_photo: false,
             requires_temperature: true,
             order: 13,
-            category: "Food Storage"
+            category: "Food Storage",
+            field_type: 'standard',
           },
           {
             task_id: "storage_8",
@@ -270,7 +285,8 @@ export default function AdvancedChecklists() {
             requires_photo: true,
             requires_temperature: false,
             order: 14,
-            category: "Food Storage"
+            category: "Food Storage",
+            field_type: 'standard',
           },
           
           // FOOD HANDLING PRACTICES
@@ -280,7 +296,8 @@ export default function AdvancedChecklists() {
             requires_photo: true,
             requires_temperature: false,
             order: 15,
-            category: "Food Handling Practices"
+            category: "Food Handling Practices",
+            field_type: 'standard',
           },
           {
             task_id: "handling_2",
@@ -288,7 +305,8 @@ export default function AdvancedChecklists() {
             requires_photo: true,
             requires_temperature: false,
             order: 16,
-            category: "Food Handling Practices"
+            category: "Food Handling Practices",
+            field_type: 'standard',
           },
           {
             task_id: "handling_3",
@@ -296,7 +314,8 @@ export default function AdvancedChecklists() {
             requires_photo: false,
             requires_temperature: false,
             order: 17,
-            category: "Food Handling Practices"
+            category: "Food Handling Practices",
+            field_type: 'standard',
           },
           {
             task_id: "handling_4",
@@ -304,7 +323,8 @@ export default function AdvancedChecklists() {
             requires_photo: false,
             requires_temperature: false,
             order: 18,
-            category: "Food Handling Practices"
+            category: "Food Handling Practices",
+            field_type: 'standard',
           },
           {
             task_id: "handling_5",
@@ -312,7 +332,8 @@ export default function AdvancedChecklists() {
             requires_photo: true,
             requires_temperature: false,
             order: 19,
-            category: "Food Handling Practices"
+            category: "Food Handling Practices",
+            field_type: 'standard',
           },
           {
             task_id: "handling_6",
@@ -320,7 +341,8 @@ export default function AdvancedChecklists() {
             requires_photo: false,
             requires_temperature: false,
             order: 20,
-            category: "Food Handling Practices"
+            category: "Food Handling Practices",
+            field_type: 'standard',
           },
           {
             task_id: "handling_7",
@@ -328,7 +350,8 @@ export default function AdvancedChecklists() {
             requires_photo: true,
             requires_temperature: false,
             order: 21,
-            category: "Food Handling Practices"
+            category: "Food Handling Practices",
+            field_type: 'standard',
           },
           {
             task_id: "handling_8",
@@ -336,7 +359,8 @@ export default function AdvancedChecklists() {
             requires_photo: false,
             requires_temperature: true,
             order: 22,
-            category: "Food Handling Practices"
+            category: "Food Handling Practices",
+            field_type: 'standard',
           },
           {
             task_id: "handling_9",
@@ -344,7 +368,8 @@ export default function AdvancedChecklists() {
             requires_photo: false,
             requires_temperature: false,
             order: 23,
-            category: "Food Handling Practices"
+            category: "Food Handling Practices",
+            field_type: 'standard',
           },
           {
             task_id: "handling_10",
@@ -352,7 +377,8 @@ export default function AdvancedChecklists() {
             requires_photo: false,
             requires_temperature: false,
             order: 24,
-            category: "Food Handling Practices"
+            category: "Food Handling Practices",
+            field_type: 'standard',
           },
           {
             task_id: "handling_11",
@@ -360,7 +386,8 @@ export default function AdvancedChecklists() {
             requires_photo: true,
             requires_temperature: false,
             order: 25,
-            category: "Food Handling Practices"
+            category: "Food Handling Practices",
+            field_type: 'standard',
           },
           {
             task_id: "handling_12",
@@ -368,7 +395,8 @@ export default function AdvancedChecklists() {
             requires_photo: false,
             requires_temperature: false,
             order: 26,
-            category: "Food Handling Practices"
+            category: "Food Handling Practices",
+            field_type: 'standard',
           },
           {
             task_id: "handling_13",
@@ -376,7 +404,8 @@ export default function AdvancedChecklists() {
             requires_photo: false,
             requires_temperature: false,
             order: 27,
-            category: "Food Handling Practices"
+            category: "Food Handling Practices",
+            field_type: 'standard',
           },
           {
             task_id: "handling_14",
@@ -384,7 +413,8 @@ export default function AdvancedChecklists() {
             requires_photo: true,
             requires_temperature: false,
             order: 28,
-            category: "Food Handling Practices"
+            category: "Food Handling Practices",
+            field_type: 'standard',
           },
           {
             task_id: "handling_15",
@@ -392,7 +422,8 @@ export default function AdvancedChecklists() {
             requires_photo: false,
             requires_temperature: false,
             order: 29,
-            category: "Food Handling Practices"
+            category: "Food Handling Practices",
+            field_type: 'standard',
           },
           {
             task_id: "handling_16",
@@ -400,7 +431,8 @@ export default function AdvancedChecklists() {
             requires_photo: false,
             requires_temperature: false,
             order: 30,
-            category: "Food Handling Practices"
+            category: "Food Handling Practices",
+            field_type: 'standard',
           },
           {
             task_id: "handling_17",
@@ -408,7 +440,8 @@ export default function AdvancedChecklists() {
             requires_photo: true,
             requires_temperature: false,
             order: 31,
-            category: "Food Handling Practices"
+            category: "Food Handling Practices",
+            field_type: 'standard',
           },
           
           // PERSONAL HYGIENE
@@ -418,7 +451,8 @@ export default function AdvancedChecklists() {
             requires_photo: false,
             requires_temperature: false,
             order: 32,
-            category: "Personal Hygiene"
+            category: "Personal Hygiene",
+            field_type: 'standard',
           },
           {
             task_id: "personal_2",
@@ -426,7 +460,8 @@ export default function AdvancedChecklists() {
             requires_photo: true,
             requires_temperature: true,
             order: 33,
-            category: "Personal Hygiene"
+            category: "Personal Hygiene",
+            field_type: 'standard',
           },
           {
             task_id: "personal_3",
@@ -434,7 +469,8 @@ export default function AdvancedChecklists() {
             requires_photo: false,
             requires_temperature: false,
             order: 34,
-            category: "Personal Hygiene"
+            category: "Personal Hygiene",
+            field_type: 'standard',
           },
           {
             task_id: "personal_4",
@@ -442,7 +478,8 @@ export default function AdvancedChecklists() {
             requires_photo: true,
             requires_temperature: false,
             order: 35,
-            category: "Personal Hygiene"
+            category: "Personal Hygiene",
+            field_type: 'standard',
           },
           
           // PEST CONTROL
@@ -452,7 +489,8 @@ export default function AdvancedChecklists() {
             requires_photo: true,
             requires_temperature: false,
             order: 36,
-            category: "Pest Control"
+            category: "Pest Control",
+            field_type: 'standard',
           },
           {
             task_id: "pest_2",
@@ -460,7 +498,8 @@ export default function AdvancedChecklists() {
             requires_photo: true,
             requires_temperature: false,
             order: 37,
-            category: "Pest Control"
+            category: "Pest Control",
+            field_type: 'standard',
           },
           {
             task_id: "pest_3",
@@ -468,7 +507,8 @@ export default function AdvancedChecklists() {
             requires_photo: true,
             requires_temperature: false,
             order: 38,
-            category: "Pest Control"
+            category: "Pest Control",
+            field_type: 'standard',
           },
           {
             task_id: "pest_4",
@@ -476,7 +516,8 @@ export default function AdvancedChecklists() {
             requires_photo: false,
             requires_temperature: false,
             order: 39,
-            category: "Pest Control"
+            category: "Pest Control",
+            field_type: 'standard',
           },
           
           // WASTE CONTROL
@@ -486,7 +527,8 @@ export default function AdvancedChecklists() {
             requires_photo: true,
             requires_temperature: false,
             order: 40,
-            category: "Waste Control"
+            category: "Waste Control",
+            field_type: 'standard',
           },
           {
             task_id: "waste_2",
@@ -494,7 +536,8 @@ export default function AdvancedChecklists() {
             requires_photo: true,
             requires_temperature: false,
             order: 41,
-            category: "Waste Control"
+            category: "Waste Control",
+            field_type: 'standard',
           },
           {
             task_id: "waste_3",
@@ -502,7 +545,8 @@ export default function AdvancedChecklists() {
             requires_photo: false,
             requires_temperature: false,
             order: 42,
-            category: "Waste Control"
+            category: "Waste Control",
+            field_type: 'standard',
           },
           
           // CHECKS AND RECORD KEEPING
@@ -512,7 +556,8 @@ export default function AdvancedChecklists() {
             requires_photo: true,
             requires_temperature: false,
             order: 43,
-            category: "Checks and Record Keeping"
+            category: "Checks and Record Keeping",
+            field_type: 'standard',
           },
           {
             task_id: "records_2",
@@ -520,7 +565,8 @@ export default function AdvancedChecklists() {
             requires_photo: false,
             requires_temperature: false,
             order: 44,
-            category: "Checks and Record Keeping"
+            category: "Checks and Record Keeping",
+            field_type: 'standard',
           },
           {
             task_id: "records_3",
@@ -528,7 +574,8 @@ export default function AdvancedChecklists() {
             requires_photo: true,
             requires_temperature: false,
             order: 45,
-            category: "Checks and Record Keeping"
+            category: "Checks and Record Keeping",
+            field_type: 'standard',
           },
           {
             task_id: "records_4",
@@ -536,7 +583,8 @@ export default function AdvancedChecklists() {
             requires_photo: false,
             requires_temperature: false,
             order: 46,
-            category: "Checks and Record Keeping"
+            category: "Checks and Record Keeping",
+            field_type: 'standard',
           },
           
           // REVIEW
@@ -547,7 +595,8 @@ export default function AdvancedChecklists() {
             requires_temperature: false,
             requires_signature: true,
             order: 47,
-            category: "4-Weekly Review"
+            category: "4-Weekly Review",
+            field_type: 'standard',
           },
           {
             task_id: "review_2",
@@ -556,7 +605,8 @@ export default function AdvancedChecklists() {
             requires_temperature: false,
             requires_signature: true,
             order: 48,
-            category: "4-Weekly Review"
+            category: "4-Weekly Review",
+            field_type: 'standard',
           },
           {
             task_id: "review_3",
@@ -565,7 +615,8 @@ export default function AdvancedChecklists() {
             requires_temperature: false,
             requires_signature: true,
             order: 49,
-            category: "4-Weekly Review"
+            category: "4-Weekly Review",
+            field_type: 'standard',
           },
           {
             task_id: "final_signature",
@@ -574,7 +625,8 @@ export default function AdvancedChecklists() {
             requires_temperature: false,
             requires_signature: true,
             order: 50,
-            category: "Final Sign-off"
+            category: "Final Sign-off",
+            field_type: 'standard',
           }
         ]
       };
@@ -628,6 +680,7 @@ export default function AdvancedChecklists() {
       requires_photo: false, // Default to false, editable per task
       requires_signature: false, // Default to false, editable per task
       requires_temperature: false, // Default to false, editable per task
+      field_type: 'standard', // Can be 'standard', 'text_input', 'yesno'
       order: formData.tasks.length,
     };
 
@@ -672,10 +725,26 @@ export default function AdvancedChecklists() {
 
   const getProgress = (execution) => {
     if (!execution.tasks || execution.tasks.length === 0) return 0;
-    const completed = execution.tasks.filter(t => 
-      t.status === 'pass' || t.status === 'fail' || t.status === 'na'
+    
+    const totalAnswerableTasks = execution.tasks.filter(task => 
+      task.field_type !== 'text_input' && !task.requires_signature
     ).length;
-    return Math.round((completed / execution.tasks.length) * 100);
+
+    if (totalAnswerableTasks === 0) {
+      // If there are no 'standard' or 'yesno' tasks, consider progress based on signature/text tasks
+      const completedNonStandard = execution.tasks.filter(task =>
+        (task.field_type === 'text_input' && task.text_input_value) ||
+        (task.requires_signature && task.signature)
+      ).length;
+      return execution.tasks.length > 0 ? Math.round((completedNonStandard / execution.tasks.length) * 100) : 0;
+    }
+
+    const completedStandardTasks = execution.tasks.filter(task =>
+      (task.field_type === 'standard' && ['pass', 'fail', 'na'].includes(task.status)) ||
+      (task.field_type === 'yesno' && ['yes', 'no'].includes(task.status))
+    ).length;
+
+    return Math.round((completedStandardTasks / totalAnswerableTasks) * 100);
   };
 
   const getStatusColor = (status) => {
@@ -1634,7 +1703,10 @@ function TemplatesView({
       status: 'not_started',
       tasks: selectedTemplate.tasks.map(t => ({
         ...t,
-        status: 'pending'
+        status: t.field_type === 'standard' || t.field_type === 'yesno' ? 'pending' : undefined, // Status for standard/yesno
+        text_input_value: t.field_type === 'text_input' ? '' : undefined, // Value for text input
+        yesno_value: t.field_type === 'yesno' ? null : undefined, // Value for yes/no toggle
+        // Retain other task properties like requires_photo etc.
       })),
     };
 
@@ -1837,6 +1909,56 @@ function TemplatesView({
                                 />
                               </div>
 
+                              {/* Field Type Selector */}
+                              <div className="space-y-2">
+                                <Label className="text-xs text-gray-600">Response Type</Label>
+                                <Select
+                                  value={task.field_type || 'standard'}
+                                  onValueChange={(value) => {
+                                    const updatedTasks = formData.tasks.map(t =>
+                                      t.task_id === task.task_id
+                                        ? { ...t, field_type: value, notify_manager_on_no: value === 'yesno' ? (t.notify_manager_on_no || false) : undefined }
+                                        : t
+                                    );
+                                    setFormData({ ...formData, tasks: updatedTasks });
+                                  }}
+                                >
+                                  <SelectTrigger className="w-full">
+                                    <SelectValue placeholder="Select response type" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="standard">Pass/Fail/N/A</SelectItem>
+                                    <SelectItem value="yesno">Yes/No Toggle</SelectItem>
+                                    <SelectItem value="text_input">Text Input</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+
+                              {/* Yes/No Auto-Notify Option */}
+                              {task.field_type === 'yesno' && (
+                                <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                                  <div className="flex items-center justify-between mb-2">
+                                    <Label className="text-sm font-semibold text-amber-900">⚠️ Auto-Notify Manager on "No"</Label>
+                                    <Switch
+                                      checked={task.notify_manager_on_no || false}
+                                      onCheckedChange={(checked) => {
+                                        const updatedTasks = formData.tasks.map(t =>
+                                          t.task_id === task.task_id
+                                            ? { ...t, notify_manager_on_no: checked }
+                                            : t
+                                        );
+                                        setFormData({ ...formData, tasks: updatedTasks });
+                                      }}
+                                    />
+                                  </div>
+                                  {task.notify_manager_on_no && (
+                                    <p className="text-xs text-amber-700">
+                                      Manager will be automatically notified if user answers "No"
+                                    </p>
+                                  )}
+                                </div>
+                              )}
+
                               <div className="flex flex-wrap gap-2">
                                 <label className="flex items-center gap-2 text-sm">
                                   <Checkbox
@@ -1900,6 +2022,19 @@ function TemplatesView({
                         </CardContent>
                       </Card>
                     ))}
+                  </div>
+                )}
+
+                {/* Submit Button Preview */}
+                {formData.tasks.length > 0 && (
+                  <div className="mt-6 p-4 bg-green-50 border-2 border-green-200 rounded-lg text-center">
+                    <Button className="bg-green-600 hover:bg-green-700 w-full md:w-auto" disabled>
+                      <Save className="w-4 h-4 mr-2" />
+                      Submit Checklist
+                    </Button>
+                    <p className="text-xs text-green-700 mt-2">
+                      ✓ Submit button will appear at the end of the checklist
+                    </p>
                   </div>
                 )}
               </div>
@@ -2200,15 +2335,33 @@ export function ExecuteChecklistPage() {
       task.task_id === taskId ? { ...task, ...updates } : task
     );
 
-    const allTasksAnswered = updatedTasks.every(task => ['pass', 'fail', 'na'].includes(task.status));
-    const newStatus = allTasksAnswered ? 'completed' : (updatedTasks.some(task => ['pass', 'fail', 'na'].includes(task.status)) ? 'in_progress' : 'not_started');
+    const areAllAnswerableTasksAnswered = updatedTasks.every(task => {
+      if (task.field_type === 'standard') {
+        return ['pass', 'fail', 'na'].includes(task.status);
+      } else if (task.field_type === 'yesno') {
+        return ['yes', 'no'].includes(task.yesno_value); // Note: using yesno_value for yes/no
+      } else if (task.field_type === 'text_input') {
+        return !!task.text_input_value?.trim();
+      }
+      return true; // Tasks with only signature/photo are considered "answered" if those are done, but for completion, we check standard/yesno/text input
+    });
+
+    const hasAnyTaskBeenAnswered = updatedTasks.some(task => 
+      (task.field_type === 'standard' && ['pass', 'fail', 'na'].includes(task.status)) ||
+      (task.field_type === 'yesno' && ['yes', 'no'].includes(task.yesno_value)) ||
+      (task.field_type === 'text_input' && !!task.text_input_value?.trim()) ||
+      (task.requires_signature && !!task.signature?.trim()) ||
+      (task.requires_photo && !!task.photo_url?.trim())
+    );
+
+    const newStatus = areAllAnswerableTasksAnswered ? 'completed' : (hasAnyTaskBeenAnswered ? 'in_progress' : 'not_started');
 
     const updatedExecution = {
       ...currentExecution,
       tasks: updatedTasks,
       status: newStatus,
       started_at: currentExecution.started_at || new Date().toISOString(), // Mark started if first task updated
-      completed_at: allTasksAnswered ? new Date().toISOString() : null,
+      completed_at: areAllAnswerableTasksAnswered ? new Date().toISOString() : null,
     };
 
     setCurrentExecution(updatedExecution);
@@ -2218,7 +2371,20 @@ export function ExecuteChecklistPage() {
   const handleCompleteChecklist = () => {
     if (!currentExecution) return;
 
-    const allTasksAnswered = currentExecution.tasks.every(task => ['pass', 'fail', 'na'].includes(task.status));
+    const allTasksAnswered = currentExecution.tasks.every(task => {
+      if (task.field_type === 'standard') {
+        return ['pass', 'fail', 'na'].includes(task.status);
+      } else if (task.field_type === 'yesno') {
+        return ['yes', 'no'].includes(task.yesno_value);
+      } else if (task.field_type === 'text_input') {
+        return !!task.text_input_value?.trim();
+      }
+      if (task.requires_signature) { // Signature is mandatory for completion if required
+        return !!task.signature?.trim();
+      }
+      return true; // Tasks with just photo, no specific field_type, or not required for completion count as complete
+    });
+    
     if (!allTasksAnswered) {
       setShowProgressAlert(true);
       return;
@@ -2247,11 +2413,32 @@ export function ExecuteChecklistPage() {
 
   const getProgress = (execution) => {
     if (!execution || !execution.tasks || execution.tasks.length === 0) return 0;
-    const completed = execution.tasks.filter(t =>
-      t.status === 'pass' || t.status === 'fail' || t.status === 'na'
+    
+    const totalTasksToAnswer = execution.tasks.filter(task =>
+      task.field_type === 'standard' ||
+      task.field_type === 'yesno' ||
+      task.field_type === 'text_input' ||
+      task.requires_signature // Signatures are also a form of answer
     ).length;
-    return Math.round((completed / execution.tasks.length) * 100);
+
+    if (totalTasksToAnswer === 0) return 0;
+
+    const answeredTasks = execution.tasks.filter(task => {
+      if (task.field_type === 'standard') {
+        return ['pass', 'fail', 'na'].includes(task.status);
+      } else if (task.field_type === 'yesno') {
+        return ['yes', 'no'].includes(task.yesno_value);
+      } else if (task.field_type === 'text_input') {
+        return !!task.text_input_value?.trim();
+      } else if (task.requires_signature) {
+        return !!task.signature?.trim();
+      }
+      return false;
+    }).length;
+
+    return Math.round((answeredTasks / totalTasksToAnswer) * 100);
   };
+
 
   const getStatusColor = (status) => {
     switch (status) {
@@ -2380,10 +2567,19 @@ export function ExecuteChecklistPage() {
                   <CardContent className="p-5 space-y-4">
                     <div className="flex items-start">
                       <div className="flex-shrink-0 mr-3 mt-1">
-                        {task.status === 'pass' && <Check className="w-5 h-5 text-green-500" />}
-                        {task.status === 'fail' && <X className="w-5 h-5 text-red-500" />}
-                        {task.status === 'na' && <Ban className="w-5 h-5 text-gray-500" />}
-                        {!task.status || task.status === 'pending' && <Clock className="w-5 h-5 text-gray-400" />}
+                        {task.field_type === 'standard' && task.status === 'pass' && <Check className="w-5 h-5 text-green-500" />}
+                        {task.field_type === 'standard' && task.status === 'fail' && <X className="w-5 h-5 text-red-500" />}
+                        {task.field_type === 'standard' && task.status === 'na' && <Ban className="w-5 h-5 text-gray-500" />}
+                        {task.field_type === 'yesno' && task.yesno_value === 'yes' && <Check className="w-5 h-5 text-green-500" />}
+                        {task.field_type === 'yesno' && task.yesno_value === 'no' && <X className="w-5 h-5 text-red-500" />}
+                        {(task.field_type === 'text_input' && task.text_input_value) || (task.requires_signature && task.signature) ? <Check className="w-5 h-5 text-blue-500" /> : null}
+                        {
+                          (task.field_type === 'standard' && (!task.status || task.status === 'pending')) ||
+                          (task.field_type === 'yesno' && task.yesno_value === null) ||
+                          (task.field_type === 'text_input' && !task.text_input_value) ||
+                          (task.requires_signature && !task.signature)
+                          ? <Clock className="w-5 h-5 text-gray-400" /> : null
+                        }
                       </div>
                       <div className="flex-1">
                         <p className="font-medium text-gray-900 mb-2">
@@ -2393,9 +2589,12 @@ export function ExecuteChecklistPage() {
                           {task.requires_photo && <Badge variant="secondary">📸 Photo</Badge>}
                           {task.requires_temperature && <Badge variant="secondary">🌡️ Temp</Badge>}
                           {task.requires_signature && <Badge variant="secondary">✍️ Sign</Badge>}
+                          {task.field_type === 'yesno' && <Badge variant="secondary">✅ Yes/No</Badge>}
+                          {task.field_type === 'text_input' && <Badge variant="secondary">📝 Text</Badge>}
                         </div>
 
-                        {!isReadOnly && (
+                        {/* Render based on field_type */}
+                        {task.field_type === 'standard' && !isReadOnly && (
                           <div className="flex gap-2 mb-3">
                             <Button
                               variant={task.status === 'pass' ? 'default' : 'outline'}
@@ -2418,6 +2617,40 @@ export function ExecuteChecklistPage() {
                             >
                               N/A
                             </Button>
+                          </div>
+                        )}
+
+                        {task.field_type === 'yesno' && (
+                          <div className="mb-3">
+                            <div className="flex items-center space-x-2">
+                              <Switch
+                                id={`yesno-${task.task_id}`}
+                                checked={task.yesno_value === 'yes'}
+                                onCheckedChange={(checked) => handleTaskUpdate(task.task_id, { yesno_value: checked ? 'yes' : 'no' })}
+                                disabled={isReadOnly}
+                              />
+                              <Label htmlFor={`yesno-${task.task_id}`}>
+                                {task.yesno_value === 'yes' ? 'Yes' : task.yesno_value === 'no' ? 'No' : 'Toggle Yes/No'}
+                              </Label>
+                            </div>
+                            {task.yesno_value === 'no' && task.notify_manager_on_no && (
+                              <p className="text-xs text-red-600 mt-1">
+                                Manager will be notified of "No".
+                              </p>
+                            )}
+                          </div>
+                        )}
+
+                        {task.field_type === 'text_input' && (
+                          <div className="flex flex-col gap-2 mb-3">
+                            <Label htmlFor={`textinput-${task.task_id}`} className="sr-only">Text Input</Label>
+                            <Input
+                              id={`textinput-${task.task_id}`}
+                              placeholder="Enter text here..."
+                              value={task.text_input_value || ''}
+                              onChange={(e) => handleTaskUpdate(task.task_id, { text_input_value: e.target.value })}
+                              disabled={isReadOnly}
+                            />
                           </div>
                         )}
 
@@ -2535,7 +2768,7 @@ export function ExecuteChecklistPage() {
               Checklist Incomplete
             </AlertDialogTitle>
             <AlertDialogDescription>
-              You must complete all tasks (Pass, Fail, or N/A) before finalizing the checklist.
+              You must complete all tasks (Pass, Fail, N/A, Yes/No, or fill in text/signature fields) before finalizing the checklist.
               Please go back and mark all tasks accordingly.
             </AlertDialogDescription>
           </AlertDialogHeader>

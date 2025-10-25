@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { CheckCircle, XCircle, MinusCircle, Camera, ArrowLeft, Home, AlertTriangle } from "lucide-react";
+import { CheckCircle, XCircle, MinusCircle, Camera, ArrowLeft, Home, AlertTriangle, Check, X } from "lucide-react";
 import { format } from "date-fns";
 import { useNavigate, Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -23,11 +23,12 @@ export default function ExecuteChecklist() {
   const [uploading, setUploading] = useState(false);
   const [currentTaskIndex, setCurrentTaskIndex] = useState(0);
   const [hasStarted, setHasStarted] = useState(false);
+  const [showCompleteDialog, setShowCompleteDialog] = useState(false); // New state for completion dialog
 
   const { data: checklist, isLoading, isError } = useQuery({
     queryKey: ['checklistExecution', checklistId],
     queryFn: async () => {
-      if (!checklistId) return null; // Return null if no checklistId to prevent unnecessary fetch
+      if (!checklistId) return null;
       
       try {
         const lists = await base44.entities.ChecklistExecution.list();
@@ -44,7 +45,7 @@ export default function ExecuteChecklist() {
       }
     },
     enabled: !!checklistId,
-    retry: 1, // Retry once if the fetch fails
+    retry: 1,
   });
 
   const { data: user } = useQuery({
@@ -72,6 +73,18 @@ export default function ExecuteChecklist() {
     }
   });
 
+  // Helper to determine if a task is still pending action
+  const isTaskPending = (task) => {
+    if (!task) return false; // Handle case where task might be undefined
+    if (task.status === 'pending') {
+      if (task.field_type === 'text_input' && task.text_response) {
+        return false; // Text input task with response is considered "done"
+      }
+      return true; // Other pending tasks are truly pending
+    }
+    return false;
+  };
+
   // Auto-start checklist only once
   useEffect(() => {
     if (checklist && checklist.status === 'not_started' && !hasStarted && user) {
@@ -86,47 +99,49 @@ export default function ExecuteChecklist() {
     }
   }, [checklist?.id, checklist?.status, hasStarted, user]);
 
-  const handleTaskUpdate = async (taskId, status, additionalData = {}) => {
+  const handleTaskUpdate = async (taskId, updates = {}) => {
     if (!checklist) return;
 
+    const currentTaskBeforeUpdate = checklist.tasks.find(t => t.task_id === taskId);
+    
     const updatedTasks = checklist.tasks.map(task => 
       task.task_id === taskId
         ? {
             ...task,
-            status,
-            completed_at: new Date().toISOString(),
-            ...additionalData
+            ...updates,
+            // Only set completed_at if a status is explicitly being set AND it's different from current
+            completed_at: updates.status && task.status !== updates.status ? new Date().toISOString() : task.completed_at,
           }
         : task
     );
 
-    const allCompleted = updatedTasks.every(t => 
-      t.status === 'pass' || t.status === 'fail' || t.status === 'na'
-    );
+    const currentTaskDataAfterUpdate = updatedTasks.find(t => t.task_id === taskId);
+
+    const allTasksTrulyCompleted = updatedTasks.every(t => !isTaskPending(t));
 
     const passCount = updatedTasks.filter(t => t.status === 'pass').length;
-    const passRate = Math.round((passCount / updatedTasks.length) * 100);
+    const totalTasksForPassRate = updatedTasks.length; 
+    const passRate = totalTasksForPassRate > 0 ? Math.round((passCount / totalTasksForPassRate) * 100) : 0;
 
     // AUTO-CREATE MAINTENANCE TICKET FOR FAILED ITEMS
-    if (status === 'fail' && checklist.template_name.includes('Hygiene')) {
-      const currentTaskData = updatedTasks.find(t => t.task_id === taskId);
-      
+    // This should only trigger if the status just became 'fail' and it wasn't already 'fail'
+    if (updates.status === 'fail' && currentTaskBeforeUpdate?.status !== 'fail' && checklist.template_name.includes('Hygiene')) {
       try {
         await createMaintenanceTicketMutation.mutateAsync({
-          title: `🚨 URGENT: Hygiene Check Failed - ${currentTaskData.description.substring(0, 50)}...`,
+          title: `🚨 URGENT: Hygiene Check Failed - ${currentTaskDataAfterUpdate.description.substring(0, 50)}...`,
           description: `**AUTOMATIC TICKET FROM 6-MONTHLY HYGIENE INSPECTION**\n\n` +
-                      `**Failed Check:** ${currentTaskData.description}\n\n` +
+                      `**Failed Check:** ${currentTaskDataAfterUpdate.description}\n\n` +
                       `**Inspector:** ${user?.full_name || user?.email || 'Unknown'}\n` +
                       `**Date:** ${format(new Date(), 'PPP')}\n\n` +
-                      `**Notes:** ${currentTaskData.notes || 'No additional notes provided'}\n\n` +
-                      `**Category:** ${currentTaskData.category || 'Food Safety'}\n\n` +
+                      `**Notes:** ${currentTaskDataAfterUpdate.notes || 'No additional notes provided'}\n\n` +
+                      `**Category:** ${currentTaskDataAfterUpdate.category || 'Food Safety'}\n\n` +
                       `⚠️ This issue must be resolved immediately to maintain food safety compliance.`,
           category: "hygiene",
           location: checklist.template_name,
           priority: "urgent",
           status: "open",
           reported_by: user?.full_name || user?.email || 'System',
-          photo_urls: currentTaskData.photo_url ? [currentTaskData.photo_url] : [],
+          photo_urls: currentTaskDataAfterUpdate.photo_url ? [currentTaskDataAfterUpdate.photo_url] : [],
         });
       } catch (error) {
         console.error("Failed to create maintenance ticket:", error);
@@ -137,20 +152,23 @@ export default function ExecuteChecklist() {
       id: checklist.id,
       data: {
         tasks: updatedTasks,
-        status: allCompleted ? 'completed' : 'in_progress',
-        completed_at: allCompleted ? new Date().toISOString() : null,
-        completed_by_email: allCompleted ? user?.email : null,
-        completed_by_name: allCompleted ? user?.full_name : null,
+        status: allTasksTrulyCompleted ? 'completed' : 'in_progress',
+        completed_at: allTasksTrulyCompleted ? new Date().toISOString() : null,
+        completed_by_email: allTasksTrulyCompleted ? user?.email : null,
+        completed_by_name: allTasksTrulyCompleted ? user?.full_name : null,
         overall_pass_rate: passRate,
       }
     });
 
-    if (allCompleted) {
+    if (allTasksTrulyCompleted) {
       setTimeout(() => {
         navigate(createPageUrl('AdvancedChecklists'));
       }, 1000);
-    } else if (currentTaskIndex < checklist.tasks.length - 1) {
-      setCurrentTaskIndex(currentTaskIndex + 1);
+    } else if (updates.status) { // Only advance if an explicit status was set (not just text input change)
+      const nextPendingIndex = updatedTasks.findIndex(isTaskPending);
+      if (nextPendingIndex !== -1 && nextPendingIndex !== currentTaskIndex) {
+        setCurrentTaskIndex(nextPendingIndex);
+      }
     }
   };
 
@@ -228,43 +246,29 @@ export default function ExecuteChecklist() {
     );
   }
 
-  if (!checklist.tasks || checklist.tasks.length === 0) {
-    return (
-      <div className="p-6 md:p-8 bg-gray-50 min-h-screen flex items-center justify-center">
-        <Card className="bg-white max-w-md">
-          <CardContent className="p-12 text-center">
-            <AlertTriangle className="w-12 h-12 text-yellow-500 mx-auto mb-4" />
-            <p className="text-lg font-semibold text-gray-900 mb-2">No Tasks Found</p>
-            <p className="text-sm text-gray-600 mb-6">
-              This checklist doesn't have any tasks configured.
-            </p>
-            <Button onClick={() => navigate(createPageUrl('AdvancedChecklists'))}>
-              Go to Checklists
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
-  const currentTask = checklist.tasks[currentTaskIndex];
-  const completedTasks = checklist.tasks.filter(t => 
-    t.status === 'pass' || t.status === 'fail' || t.status === 'na'
-  ).length;
-  const progress = Math.round((completedTasks / checklist.tasks.length) * 100);
-
-  // Group tasks by category for hygiene checklist
-  const isHygieneChecklist = checklist.template_name?.includes('Hygiene') || false;
-  const currentCategory = currentTask?.category;
-
-  // All tasks completed
-  if (!currentTask || currentTask.status !== 'pending') {
-    const nextPendingIndex = checklist.tasks.findIndex(t => t.status === 'pending');
+  // Find the current task to display, prioritizing the first truly pending one
+  let currentTask = checklist.tasks[currentTaskIndex];
+  if (!currentTask || !isTaskPending(currentTask)) {
+    const nextPendingIndex = checklist.tasks.findIndex(isTaskPending);
     if (nextPendingIndex !== -1 && nextPendingIndex !== currentTaskIndex) {
       setCurrentTaskIndex(nextPendingIndex);
-      return null;
+      return null; // Trigger re-render to display the new currentTask
+    } else if (nextPendingIndex === -1) {
+      // All tasks are truly completed or have a response.
+      // currentTask will remain the last task, but UI will show "All tasks completed!"
     }
   }
+
+  const completedTasksCount = checklist.tasks.filter(t => !isTaskPending(t)).length;
+  const progress = Math.round((completedTasksCount / checklist.tasks.length) * 100);
+
+  const isHygieneChecklist = checklist.template_name?.includes('Hygiene') || false;
+
+  // Read-only state for current task actions
+  const isCurrentTaskActionDisabled = updateChecklistMutation.isPending || uploading;
+
+  // Read-only state for overall checklist submission button
+  const allChecklistTasksTrulyCompleted = checklist.tasks.every(t => !isTaskPending(t));
 
   return (
     <div className="p-6 md:p-8 bg-gray-50 min-h-screen">
@@ -295,7 +299,7 @@ export default function ExecuteChecklist() {
                 </CardTitle>
                 <div className="flex gap-2">
                   <Badge className="bg-blue-100 text-blue-800 border-blue-200">
-                    {checklist.shift_type?.replace(/_/g || ' ', '') || 'Any Shift'}
+                    {checklist.shift_type?.replace(/_/g, ' ') || 'Any Shift'}
                   </Badge>
                   <Badge variant="outline">
                     Task {Math.min(currentTaskIndex + 1, checklist.tasks.length)} of {checklist.tasks.length}
@@ -314,13 +318,14 @@ export default function ExecuteChecklist() {
         </Card>
 
         {/* Current Task */}
-        {currentTask && currentTask.status === 'pending' ? (
+        {currentTask && isTaskPending(currentTask) ? (
           <Card className="bg-white border-none shadow-lg">
             <CardHeader>
-              {isHygieneChecklist && currentCategory && (
-                <Badge className="mb-2 w-fit bg-blue-100 text-blue-800">
-                  {currentCategory}
-                </Badge>
+              {isHygieneChecklist && currentTask.category && (
+                <div className="flex items-start gap-2 p-2 bg-gray-50 rounded mb-2 w-fit">
+                  <CheckCircle className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
+                  <span className="text-sm text-gray-700">{currentTask.category}</span>
+                </div>
               )}
               <CardTitle className="text-xl font-semibold text-gray-900">
                 {currentTask.description}
@@ -347,7 +352,7 @@ export default function ExecuteChecklist() {
                       type="button"
                       variant="outline"
                       onClick={() => document.getElementById(`photo-${currentTask.task_id}`).click()}
-                      disabled={uploading}
+                      disabled={isCurrentTaskActionDisabled}
                     >
                       <Camera className="w-4 h-4 mr-2" />
                       {uploading ? 'Uploading...' : 'Take Photo'}
@@ -359,6 +364,7 @@ export default function ExecuteChecklist() {
                       capture="environment"
                       onChange={(e) => handlePhotoUpload(e, currentTask.task_id)}
                       className="hidden"
+                      disabled={isCurrentTaskActionDisabled}
                     />
                     {currentTask.photo_url && (
                       <CheckCircle className="w-5 h-5 text-green-600" />
@@ -383,18 +389,11 @@ export default function ExecuteChecklist() {
                     type="number"
                     step="0.1"
                     placeholder="Enter temperature reading"
-                    defaultValue={currentTask.temperature_value || ''}
+                    value={currentTask.temperature_value || ''}
                     onChange={(e) => {
-                      const updatedTasks = checklist.tasks.map(task =>
-                        task.task_id === currentTask.task_id
-                          ? { ...task, temperature_value: parseFloat(e.target.value) || null }
-                          : task
-                      );
-                      updateChecklistMutation.mutate({
-                        id: checklist.id,
-                        data: { tasks: updatedTasks }
-                      });
+                      handleTaskUpdate(currentTask.task_id, { temperature_value: parseFloat(e.target.value) || null });
                     }}
+                    disabled={isCurrentTaskActionDisabled}
                   />
                 </div>
               )}
@@ -408,22 +407,15 @@ export default function ExecuteChecklist() {
                   id="notes"
                   placeholder={isHygieneChecklist ? "Describe the issue and corrective action needed..." : "Add any observations..."}
                   rows={3}
-                  defaultValue={currentTask.notes || ''}
+                  value={currentTask.notes || ''}
                   onChange={(e) => {
-                    const updatedTasks = checklist.tasks.map(task =>
-                      task.task_id === currentTask.task_id
-                        ? { ...task, notes: e.target.value }
-                        : task
-                    );
-                    updateChecklistMutation.mutate({
-                      id: checklist.id,
-                      data: { tasks: updatedTasks }
-                    });
+                    handleTaskUpdate(currentTask.task_id, { notes: e.target.value });
                   }}
+                  disabled={isCurrentTaskActionDisabled}
                 />
               </div>
 
-              {/* Action Buttons - YES / NO / N/A */}
+              {/* Response Type Handling */}
               <div className="space-y-3 pt-4">
                 {isHygieneChecklist && (
                   <div className="bg-blue-50 p-3 rounded-lg text-sm text-blue-900">
@@ -431,59 +423,113 @@ export default function ExecuteChecklist() {
                   </div>
                 )}
                 
-                <div className="grid grid-cols-3 gap-3">
-                  <Button
-                    onClick={() => handleTaskUpdate(currentTask.task_id, 'pass', {
-                      notes: currentTask.notes,
-                      temperature_value: currentTask.temperature_value,
-                      photo_url: currentTask.photo_url,
-                    })}
-                    className="bg-green-600 hover:bg-green-700 h-16"
-                    disabled={
-                      updateChecklistMutation.isPending ||
-                      (currentTask.requires_photo && !currentTask.photo_url) ||
-                      (currentTask.requires_temperature && !currentTask.temperature_value)
-                    }
-                  >
-                    <div className="text-center">
-                      <CheckCircle className="w-5 h-5 mx-auto mb-1" />
-                      <span className="text-sm">YES</span>
-                    </div>
-                  </Button>
-                  
-                  <Button
-                    onClick={() => {
-                      if (isHygieneChecklist && !currentTask.notes?.trim()) {
-                        alert('⚠️ Notes are required when answering NO. Please describe the issue.');
-                        return;
+                {/* Standard (Pass/Fail/N/A) */}
+                {(!currentTask.field_type || currentTask.field_type === 'standard') && (
+                  <div className="grid grid-cols-3 gap-3">
+                    <Button
+                      onClick={() => {
+                        if (currentTask.requires_photo && !currentTask.photo_url) { alert('Photo evidence is required for this task.'); return; }
+                        if (currentTask.requires_temperature && !currentTask.temperature_value) { alert('Temperature reading is required for this task.'); return; }
+                        handleTaskUpdate(currentTask.task_id, {
+                          status: 'pass',
+                          notes: currentTask.notes,
+                          temperature_value: currentTask.temperature_value,
+                          photo_url: currentTask.photo_url,
+                        });
+                      }}
+                      className="bg-green-600 hover:bg-green-700 h-16"
+                      disabled={
+                        isCurrentTaskActionDisabled ||
+                        (currentTask.requires_photo && !currentTask.photo_url) ||
+                        (currentTask.requires_temperature && !currentTask.temperature_value)
                       }
-                      handleTaskUpdate(currentTask.task_id, 'fail', {
-                        notes: currentTask.notes,
-                        temperature_value: currentTask.temperature_value,
-                        photo_url: currentTask.photo_url,
-                      });
-                    }}
-                    className="bg-red-600 hover:bg-red-700 h-16"
-                    disabled={updateChecklistMutation.isPending}
-                  >
-                    <div className="text-center">
-                      <XCircle className="w-5 h-5 mx-auto mb-1" />
-                      <span className="text-sm">NO</span>
-                    </div>
-                  </Button>
-                  
-                  <Button
-                    onClick={() => handleTaskUpdate(currentTask.task_id, 'na')}
-                    variant="outline"
-                    className="h-16"
-                    disabled={updateChecklistMutation.isPending}
-                  >
-                    <div className="text-center">
-                      <MinusCircle className="w-5 h-5 mx-auto mb-1" />
-                      <span className="text-sm">N/A</span>
-                    </div>
-                  </Button>
-                </div>
+                    >
+                      <div className="text-center">
+                        <CheckCircle className="w-5 h-5 mx-auto mb-1" />
+                        <span className="text-sm">YES</span>
+                      </div>
+                    </Button>
+                    
+                    <Button
+                      onClick={() => {
+                        if (isHygieneChecklist && !currentTask.notes?.trim()) {
+                          alert('⚠️ Notes are required when answering NO. Please describe the issue.');
+                          return;
+                        }
+                        handleTaskUpdate(currentTask.task_id, {
+                          status: 'fail',
+                          notes: currentTask.notes,
+                          temperature_value: currentTask.temperature_value,
+                          photo_url: currentTask.photo_url,
+                        });
+                      }}
+                      className="bg-red-600 hover:bg-red-700 h-16"
+                      disabled={isCurrentTaskActionDisabled}
+                    >
+                      <div className="text-center">
+                        <XCircle className="w-5 h-5 mx-auto mb-1" />
+                        <span className="text-sm">NO</span>
+                      </div>
+                    </Button>
+                    
+                    <Button
+                      onClick={() => handleTaskUpdate(currentTask.task_id, { status: 'na' })}
+                      variant="outline"
+                      className="h-16"
+                      disabled={isCurrentTaskActionDisabled}
+                    >
+                      <div className="text-center">
+                        <MinusCircle className="w-5 h-5 mx-auto mb-1" />
+                        <span className="text-sm">N/A</span>
+                      </div>
+                    </Button>
+                  </div>
+                )}
+
+                {/* Yes/No Field Type */}
+                {currentTask.field_type === 'yesno' && (
+                  <div className="flex gap-3">
+                    <Button
+                      variant={currentTask.status === 'pass' ? 'default' : 'outline'}
+                      size="lg"
+                      onClick={() => handleTaskUpdate(currentTask.task_id, { status: 'pass' })}
+                      className={`flex-1 ${currentTask.status === 'pass' ? 'bg-green-600 hover:bg-green-700 text-white' : 'bg-green-100 hover:bg-green-200 text-green-800 border-green-300'}`}
+                      disabled={isCurrentTaskActionDisabled}
+                    >
+                      <Check className="w-4 h-4 mr-1" /> Yes
+                    </Button>
+                    <Button
+                      variant={currentTask.status === 'fail' ? 'destructive' : 'outline'}
+                      size="lg"
+                      onClick={() => {
+                        if (isHygieneChecklist && !currentTask.notes?.trim()) {
+                          alert('⚠️ Notes are required when answering NO. Please describe the issue.');
+                          return;
+                        }
+                        handleTaskUpdate(currentTask.task_id, { status: 'fail' });
+                      }}
+                      className={`flex-1 ${currentTask.status === 'fail' ? 'bg-red-600 hover:bg-red-700 text-white' : 'bg-red-100 hover:bg-red-200 text-red-800 border-red-300'}`}
+                      disabled={isCurrentTaskActionDisabled}
+                    >
+                      <X className="w-4 h-4 mr-1" /> No
+                    </Button>
+                  </div>
+                )}
+
+                {/* Text Input Field Type */}
+                {currentTask.field_type === 'text_input' && (
+                  <div className="mb-3">
+                    <Input
+                      placeholder="Enter your answer..."
+                      value={currentTask.text_response || ''}
+                      onChange={(e) => handleTaskUpdate(currentTask.task_id, { 
+                        text_response: e.target.value,
+                        status: e.target.value ? 'pass' : 'pending' // Status becomes 'pass' if text is present
+                      })}
+                      disabled={isCurrentTaskActionDisabled}
+                    />
+                  </div>
+                )}
 
                 {isHygieneChecklist && (
                   <div className="bg-red-50 border border-red-200 p-3 rounded-lg text-xs text-red-800">
@@ -504,27 +550,28 @@ export default function ExecuteChecklist() {
         )}
 
         {/* Completed Tasks Summary */}
-        {completedTasks > 0 && (
+        {completedTasksCount > 0 && (
           <Card className="bg-white border-none shadow-sm mt-6">
             <CardHeader>
               <CardTitle className="text-lg font-semibold text-gray-900">
-                Completed Tasks ({completedTasks}/{checklist.tasks.length})
+                Completed Tasks ({completedTasksCount}/{checklist.tasks.length})
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-2">
                 {checklist.tasks
-                  .filter(t => t.status !== 'pending')
+                  .filter(t => !isTaskPending(t))
                   .map((task) => (
                     <div key={task.task_id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                       <div className="flex items-center gap-3">
                         {task.status === 'pass' && <CheckCircle className="w-5 h-5 text-green-600" />}
                         {task.status === 'fail' && <XCircle className="w-5 h-5 text-red-600" />}
                         {task.status === 'na' && <MinusCircle className="w-5 h-5 text-gray-600" />}
+                        {task.field_type === 'text_input' && <Check className="w-5 h-5 text-blue-600" />}
                         <span className="text-sm text-gray-900">{task.description}</span>
                       </div>
                       <Badge variant="outline" className="text-xs">
-                        {task.status?.toUpperCase()}
+                        {task.field_type === 'text_input' ? 'TEXT' : task.status?.toUpperCase()}
                       </Badge>
                     </div>
                   ))}
@@ -532,6 +579,18 @@ export default function ExecuteChecklist() {
             </CardContent>
           </Card>
         )}
+
+        {/* Submit Button */}
+        <div className="mt-8 pt-6 border-t border-gray-200 flex justify-end">
+          <Button
+            onClick={() => setShowCompleteDialog(true)}
+            disabled={!allChecklistTasksTrulyCompleted || updateChecklistMutation.isPending}
+            className="bg-green-600 hover:bg-green-700"
+          >
+            <CheckCircle className="w-4 h-4 mr-2" />
+            Submit Checklist
+          </Button>
+        </div>
       </div>
     </div>
   );
