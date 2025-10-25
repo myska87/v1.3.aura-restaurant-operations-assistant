@@ -1,5 +1,5 @@
 
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -121,33 +121,72 @@ export default function TeamDirectory() {
     queryFn: () => base44.entities.CoachingSession.list('-session_date'),
   });
 
-  // Merge staff with team member data and performance stats
-  const enrichedStaff = allStaff.map(staff => {
-    const teamMember = teamMembers.find(tm => tm.staff_email === staff.email);
-    const staffRewards = rewards.filter(r => r.staff_email === staff.email);
-    const staffSessions = coachingSessions.filter(s => s.staff_email === staff.email);
-    const totalPoints = staffRewards.reduce((sum, r) => sum + (r.points_earned || 0), 0);
-    const completedSessions = staffSessions.filter(s => s.status === 'completed').length;
-    const tenure = teamMember?.hire_date ? differenceInMonths(new Date(), new Date(teamMember.hire_date)) : 0;
+  // Merge staff with team member data AND include team members without user accounts
+  const enrichedStaff = useMemo(() => {
+    // First, get all staff with their team member data
+    const staffWithTeamData = allStaff.map(staff => {
+      const teamMember = teamMembers.find(tm => tm.staff_email === staff.email);
+      const staffRewards = rewards.filter(r => r.staff_email === staff.email);
+      const staffSessions = coachingSessions.filter(s => s.staff_email === staff.email);
+      const totalPoints = staffRewards.reduce((sum, r) => sum + (r.points_earned || 0), 0);
+      const completedSessions = staffSessions.filter(s => s.status === 'completed').length;
+      const tenure = teamMember?.hire_date ? differenceInMonths(new Date(), new Date(teamMember.hire_date)) : 0;
 
-    return {
-      ...staff,
-      ...teamMember,
-      position: teamMember?.position || staff.position,
-      phone: teamMember?.phone || staff.phone,
-      totalPoints,
-      completedSessions,
-      tenure,
-      rewardCount: staffRewards.length,
-    };
-  });
+      return {
+        ...staff,
+        ...teamMember, // teamMember properties will override staff properties if they share names
+        // Explicitly set these from teamMember if they exist, otherwise from staff
+        position: teamMember?.position || staff.position,
+        phone: teamMember?.phone || staff.phone,
+        status: teamMember?.status || staff.status || 'active', // Ensure status is set
+        totalPoints,
+        completedSessions,
+        tenure,
+        rewardCount: staffRewards.length,
+      };
+    });
+
+    // Then, add team members that don't have a User account yet
+    const staffEmails = allStaff.map(s => s.email);
+    const teamMembersWithoutUser = teamMembers
+      .filter(tm => !staffEmails.includes(tm.staff_email))
+      .map(tm => ({
+        id: tm.id,
+        email: tm.staff_email,
+        staff_email: tm.staff_email, // Keep staff_email for consistency with other objects
+        full_name: tm.staff_name, // Use staff_name as full_name for display
+        staff_name: tm.staff_name,
+        position: tm.position,
+        department: tm.department,
+        phone: tm.phone,
+        hire_date: tm.hire_date,
+        status: tm.status || 'active',
+        shift_start: tm.shift_start,
+        shift_end: tm.shift_end,
+        emergency_contact: tm.emergency_contact,
+        hourly_rate: tm.hourly_rate,
+        notes: tm.notes,
+        manager_email: tm.manager_email,
+        totalPoints: 0,
+        completedSessions: 0,
+        tenure: tm.hire_date ? differenceInMonths(new Date(), new Date(tm.hire_date)) : 0,
+        rewardCount: 0,
+        isTeamMemberOnly: true, // Flag to identify these
+      }));
+
+    return [...staffWithTeamData, ...teamMembersWithoutUser];
+  }, [allStaff, teamMembers, rewards, coachingSessions]);
 
   // Filtering and sorting
   let filteredStaff = enrichedStaff.filter(staff => {
+    const nameToSearch = staff.full_name || staff.staff_name || '';
+    const emailToSearch = staff.email || staff.staff_email || '';
+    const positionToSearch = staff.position || '';
+
     const matchesSearch = 
-      staff.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      staff.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      staff.position?.toLowerCase().includes(searchQuery.toLowerCase());
+      nameToSearch.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      emailToSearch.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      positionToSearch.toLowerCase().includes(searchQuery.toLowerCase());
     
     const matchesPosition = filterPosition === 'all' || staff.position === filterPosition;
     const matchesDepartment = filterDepartment === 'all' || staff.department === filterDepartment;
@@ -160,7 +199,7 @@ export default function TeamDirectory() {
   filteredStaff = filteredStaff.sort((a, b) => {
     switch (sortBy) {
       case 'name':
-        return (a.full_name || '').localeCompare(b.full_name || '');
+        return (a.full_name || a.staff_name || '').localeCompare(b.full_name || b.staff_name || '');
       case 'hire_date':
         return new Date(b.hire_date || 0) - new Date(a.hire_date || 0);
       case 'position':
@@ -174,29 +213,32 @@ export default function TeamDirectory() {
     }
   });
 
-  // Stats
+  // Stats (recalculated based on enrichedStaff)
   const stats = {
     total: enrichedStaff.length,
     active: enrichedStaff.filter(s => s.status === 'active').length,
     managers: enrichedStaff.filter(s => s.position === 'manager' || s.position === 'owner').length,
     kitchen: enrichedStaff.filter(s => s.department === 'kitchen').length,
     frontHouse: enrichedStaff.filter(s => s.department === 'front_of_house').length,
-    avgTenure: Math.round(enrichedStaff.reduce((sum, s) => sum + (s.tenure || 0), 0) / enrichedStaff.length),
+    avgTenure: enrichedStaff.length > 0 ? Math.round(enrichedStaff.reduce((sum, s) => sum + (s.tenure || 0), 0) / enrichedStaff.length) : 0,
     newHires: enrichedStaff.filter(s => (s.tenure || 0) < 3).length,
   };
 
   // CRUD operations
   const saveMemberMutation = useMutation({
     mutationFn: async (data) => {
-      if (editingMember && editingMember.id) {
-        return await base44.entities.TeamMember.update(editingMember.id, data);
+      // Ensure the correct ID is used if editing a TeamMember-only entry
+      const memberId = editingMember?.isTeamMemberOnly ? editingMember.id : teamMembers.find(tm => tm.staff_email === data.staff_email)?.id;
+
+      if (memberId) {
+        return await base44.entities.TeamMember.update(memberId, data);
       } else {
         return await base44.entities.TeamMember.create(data);
       }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['teamMembers'] });
-      queryClient.invalidateQueries({ queryKey: ['allStaff'] });
+      queryClient.invalidateQueries({ queryKey: ['allStaff'] }); // Invalidate allStaff in case a new user is created and merges later
       closeDialog();
     },
     onError: (error) => {
@@ -573,7 +615,7 @@ export default function TeamDirectory() {
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredStaff.map((staff, index) => (
               <motion.div
-                key={staff.id}
+                key={staff.id || staff.staff_email}
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.3, delay: index * 0.03 }}
@@ -584,10 +626,15 @@ export default function TeamDirectory() {
                       {/* Avatar */}
                       <div className="relative">
                         <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-green-500 rounded-full flex items-center justify-center text-white text-2xl font-bold flex-shrink-0">
-                          {staff.full_name?.charAt(0)?.toUpperCase() || "?"}
+                          {(staff.full_name?.charAt(0) || staff.staff_name?.charAt(0) || "?").toUpperCase()}
                         </div>
                         {staff.status === 'active' && (
                           <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-green-500 rounded-full border-2 border-white" />
+                        )}
+                        {staff.isTeamMemberOnly && (
+                          <div className="absolute -top-1 -left-1 w-5 h-5 bg-yellow-500 rounded-full border-2 border-white flex items-center justify-center">
+                            <span className="text-white text-xs font-bold">!</span>
+                          </div>
                         )}
                       </div>
 
@@ -595,7 +642,7 @@ export default function TeamDirectory() {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-start justify-between gap-2 mb-2">
                           <h3 className="font-bold text-lg text-gray-900 truncate">
-                            {staff.full_name}
+                            {staff.full_name || staff.staff_name || 'Unknown'}
                           </h3>
                           {isManager && (
                             <DropdownMenu>
@@ -605,19 +652,23 @@ export default function TeamDirectory() {
                                 </Button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
-                                <DropdownMenuItem onClick={() => navigate(createPageUrl(`StaffProfile?staff_email=${staff.email}`))}>
-                                  <Eye className="w-4 h-4 mr-2" />
-                                  View Profile
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => navigate(createPageUrl(`StartCoachingSession?staff_email=${staff.email}`))}>
-                                  <MessageCircle className="w-4 h-4 mr-2" />
-                                  Start Coaching
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => navigate(createPageUrl(`WeeklyRotaSchedule?staff_email=${staff.email}`))}>
-                                  <Calendar className="w-4 h-4 mr-2" />
-                                  View Schedule
-                                </DropdownMenuItem>
-                                <DropdownMenuSeparator />
+                                {!staff.isTeamMemberOnly && (
+                                  <>
+                                    <DropdownMenuItem onClick={() => navigate(createPageUrl(`StaffProfile?staff_email=${staff.email}`))}>
+                                      <Eye className="w-4 h-4 mr-2" />
+                                      View Profile
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => navigate(createPageUrl(`StartCoachingSession?staff_email=${staff.email}`))}>
+                                      <MessageCircle className="w-4 h-4 mr-2" />
+                                      Start Coaching
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => navigate(createPageUrl(`WeeklyRotaSchedule?staff_email=${staff.email}`))}>
+                                      <Calendar className="w-4 h-4 mr-2" />
+                                      View Schedule
+                                    </DropdownMenuItem>
+                                    <DropdownMenuSeparator />
+                                  </>
+                                )}
                                 <DropdownMenuItem onClick={() => handleOpenEditDialog(staff)}>
                                   <Edit className="w-4 h-4 mr-2" />
                                   Edit Member
@@ -634,6 +685,14 @@ export default function TeamDirectory() {
                           )}
                         </div>
                         
+                        {staff.isTeamMemberOnly && (
+                          <div className="mb-2">
+                            <Badge className="bg-yellow-100 text-yellow-800 border-yellow-200 text-xs">
+                              Pending User Account
+                            </Badge>
+                          </div>
+                        )}
+
                         {/* Badges */}
                         <div className="flex flex-wrap gap-1.5 mb-3">
                           {staff.position && (
@@ -657,7 +716,7 @@ export default function TeamDirectory() {
                         <div className="space-y-1.5 text-sm mb-3">
                           <div className="flex items-center gap-2 text-gray-600">
                             <Mail className="w-3.5 h-3.5 flex-shrink-0" />
-                            <span className="truncate text-xs">{staff.email}</span>
+                            <span className="truncate text-xs">{staff.email || staff.staff_email}</span>
                           </div>
                           {staff.phone && (
                             <div className="flex items-center gap-2 text-gray-600">
@@ -709,15 +768,20 @@ export default function TeamDirectory() {
                 </thead>
                 <tbody>
                   {filteredStaff.map((staff) => (
-                    <tr key={staff.id} className="border-b hover:bg-gray-50 transition-colors">
+                    <tr key={staff.id || staff.staff_email} className="border-b hover:bg-gray-50 transition-colors">
                       <td className="p-4">
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-green-500 rounded-full flex items-center justify-center text-white font-bold">
-                            {staff.full_name?.charAt(0)?.toUpperCase()}
+                            {(staff.full_name?.charAt(0) || staff.staff_name?.charAt(0) || "?").toUpperCase()}
                           </div>
                           <div>
-                            <p className="font-medium text-gray-900">{staff.full_name}</p>
-                            <p className="text-sm text-gray-500">{staff.email}</p>
+                            <p className="font-medium text-gray-900">{staff.full_name || staff.staff_name}</p>
+                            <p className="text-sm text-gray-500">{staff.email || staff.staff_email}</p>
+                            {staff.isTeamMemberOnly && (
+                              <Badge className="bg-yellow-100 text-yellow-800 border-yellow-200 text-xs mt-1">
+                                Pending User Account
+                              </Badge>
+                            )}
                           </div>
                         </div>
                       </td>
@@ -762,11 +826,13 @@ export default function TeamDirectory() {
                       {isManager && (
                         <td className="p-4">
                           <div className="flex items-center justify-end gap-2">
-                            <Link to={createPageUrl(`StaffProfile?staff_email=${staff.email}`)}>
-                              <Button variant="ghost" size="icon" className="h-8 w-8">
-                                <Eye className="w-4 h-4" />
-                              </Button>
-                            </Link>
+                            {!staff.isTeamMemberOnly && (
+                              <Link to={createPageUrl(`StaffProfile?staff_email=${staff.email}`)}>
+                                <Button variant="ghost" size="icon" className="h-8 w-8">
+                                  <Eye className="w-4 h-4" />
+                                </Button>
+                              </Link>
+                            )}
                             <Button
                               variant="ghost"
                               size="icon"
