@@ -16,11 +16,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { GraduationCap, Play, CheckCircle, Lock, Clock, Award, Upload, FileText, ArrowLeft, Home } from "lucide-react";
+import { GraduationCap, Play, CheckCircle, Lock, Clock, Award, Upload, FileText, ArrowLeft, Home, Trophy } from "lucide-react";
 import { format } from "date-fns";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { motion } from "framer-motion";
+import confetti from 'canvas-confetti';
 
 export default function OnboardingTraining() {
   const queryClient = useQueryClient();
@@ -31,6 +32,7 @@ export default function OnboardingTraining() {
   const [quizResults, setQuizResults] = useState(null);
   const [uploadingDoc, setUploadingDoc] = useState(false);
   const [showCelebration, setShowCelebration] = useState(false);
+  const [newCertificate, setNewCertificate] = useState(null);
 
   const { data: user } = useQuery({
     queryKey: ['currentUser'],
@@ -51,6 +53,12 @@ export default function OnboardingTraining() {
   const { data: myDocuments = [] } = useQuery({
     queryKey: ['staffDocuments', user?.email],
     queryFn: () => base44.entities.StaffDocument.filter({ staff_email: user?.email }),
+    enabled: !!user?.email,
+  });
+
+  const { data: myCertificates = [] } = useQuery({
+    queryKey: ['certificates', user?.email],
+    queryFn: () => base44.entities.Certificate.filter({ staff_email: user?.email }),
     enabled: !!user?.email,
   });
 
@@ -75,6 +83,20 @@ export default function OnboardingTraining() {
     },
   });
 
+  const createCertificateMutation = useMutation({
+    mutationFn: (data) => base44.entities.Certificate.create(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['certificates'] });
+    },
+  });
+
+  const createRewardMutation = useMutation({
+    mutationFn: (data) => base44.entities.StaffReward.create(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['staffRewards'] });
+    },
+  });
+
   // Initialize progress for all steps on first load
   useEffect(() => {
     if (onboardingSteps.length > 0 && myProgress.length === 0 && user?.email) {
@@ -89,7 +111,82 @@ export default function OnboardingTraining() {
         });
       });
     }
-  }, [onboardingSteps, myProgress, user]);
+  }, [onboardingSteps, myProgress, user, createProgressMutation]);
+
+  const triggerConfetti = () => {
+    const duration = 3000;
+    const animationEnd = Date.now() + duration;
+    const defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 9999 };
+
+    function randomInRange(min, max) {
+      return Math.random() * (max - min) + min;
+    }
+
+    const interval = setInterval(function() {
+      const timeLeft = animationEnd - Date.now();
+
+      if (timeLeft <= 0) {
+        return clearInterval(interval);
+      }
+
+      const particleCount = 50 * (timeLeft / duration);
+      confetti(Object.assign({}, defaults, {
+        particleCount,
+        origin: { x: randomInRange(0.1, 0.3), y: Math.random() - 0.2 }
+      }));
+      confetti(Object.assign({}, defaults, {
+        particleCount,
+        origin: { x: randomInRange(0.7, 0.9), y: Math.random() - 0.2 }
+      }));
+    }, 250);
+  };
+
+  const generateCertificate = async (step, isMasterCertificate = false) => {
+    const certificateId = `CERT-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    
+    const certificateData = {
+      certificate_id: certificateId,
+      staff_email: user?.email,
+      staff_name: user?.full_name,
+      certificate_type: isMasterCertificate ? 'master_onboarding' : 'onboarding_step',
+      title: isMasterCertificate ? 'Master Onboarding Certificate' : `${step?.title} - Completion Certificate`,
+      description: isMasterCertificate 
+        ? 'Successfully completed all onboarding steps and joined the team'
+        : `Completed "${step?.title}" training module`,
+      step_id: step?.id,
+      step_number: step?.step_number,
+      issued_date: new Date().toISOString(),
+      issued_by: 'AURA System',
+      verification_url: `${window.location.origin}/verify-certificate/${certificateId}`,
+      is_verified: true,
+      points_awarded: isMasterCertificate ? 20 : 5,
+      badge_earned: isMasterCertificate ? 'Onboarding Graduate' : null,
+    };
+
+    const newCert = await createCertificateMutation.mutateAsync(certificateData);
+
+    // Award points and badge
+    await createRewardMutation.mutateAsync({
+      staff_email: user?.email,
+      staff_name: user?.full_name,
+      reward_type: isMasterCertificate ? 'badge' : 'points',
+      points_earned: certificateData.points_awarded,
+      badge_name: certificateData.badge_earned,
+      badge_icon: isMasterCertificate ? '🎓' : '⭐',
+      reason: isMasterCertificate 
+        ? 'Completed full onboarding program'
+        : `Completed ${step?.title}`,
+      awarded_by: 'AURA System',
+      awarded_date: new Date().toISOString(),
+      is_public: true,
+      linked_achievement: isMasterCertificate ? 'onboarding_master' : `onboarding_step_${step?.step_number}`,
+    });
+
+    setNewCertificate(newCert);
+    triggerConfetti();
+
+    return newCert;
+  };
 
   const getStepProgress = (stepId) => {
     return myProgress.find(p => p.step_id === stepId);
@@ -105,7 +202,7 @@ export default function OnboardingTraining() {
     if (step.step_number === 1) return true;
     
     const previousStep = onboardingSteps.find(s => s.step_number === step.step_number - 1);
-    if (!previousStep) return true;
+    if (!previousStep) return true; // Should not happen if step numbers are sequential and start from 1
     
     const previousProgress = getStepProgress(previousStep.id);
     return previousProgress?.status === 'completed';
@@ -140,6 +237,9 @@ export default function OnboardingTraining() {
       }
     });
 
+    // Generate certificate for this step
+    await generateCertificate(step, false);
+
     // Unlock next step
     const nextStep = onboardingSteps.find(s => s.step_number === step.step_number + 1);
     if (nextStep) {
@@ -155,9 +255,18 @@ export default function OnboardingTraining() {
     setSelectedStep(null);
 
     // Check if all steps completed
-    const allCompleted = myProgress.filter(p => p.status === 'completed').length + 1 === onboardingSteps.length;
+    // Need to re-evaluate `myProgress` after update for accurate `allCompleted` check
+    // Invalidate and refetch myProgress to ensure we have the latest state
+    await queryClient.invalidateQueries({ queryKey: ['onboardingProgress'] });
+    const updatedMyProgress = await queryClient.fetchQuery({ queryKey: ['onboardingProgress', user?.email], queryFn: () => base44.entities.OnboardingProgress.filter({ staff_email: user?.email }) });
+
+    const allCompleted = updatedMyProgress.filter(p => p.status === 'completed').length === onboardingSteps.length;
     if (allCompleted) {
+      // Generate master certificate
+      await generateCertificate(step, true); // Pass the last completed step for context
+      
       setShowCelebration(true);
+      
       // Update user profile
       await base44.auth.updateMe({
         onboarding_completed: true,
@@ -286,6 +395,62 @@ export default function OnboardingTraining() {
     }
   };
 
+  const downloadCertificate = (certificate) => {
+    // In production, this would generate a PDF
+    // For now, we'll create a simple HTML certificate
+    const certHTML = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>${certificate.title}</title>
+        <style>
+          body {
+            font-family: 'Georgia', serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 40px;
+            border: 10px solid #10b981;
+            background: linear-gradient(135deg, #f0fdf4 0%, #fff 100%);
+            color: #333;
+            line-height: 1.6;
+          }
+          h1 { color: #10b981; text-align: center; font-size: 48px; margin-bottom: 10px; }
+          h2 { text-align: center; color: #666; font-size: 24px; margin-top: 0; }
+          .content { text-align: center; margin: 40px 0; }
+          .name { font-size: 36px; color: #000; font-weight: bold; margin: 20px 0; }
+          .description { font-size: 18px; color: #555; margin: 20px 0; }
+          .footer { text-align: center; margin-top: 60px; color: #888; }
+          .cert-id { font-size: 12px; color: #999; margin-top: 20px; }
+        </style>
+      </head>
+      <body>
+        <h1>🎓 Certificate of Achievement</h1>
+        <h2>AURA Restaurant Management System</h2>
+        <div class="content">
+          <p>This certifies that</p>
+          <p class="name">${certificate.staff_name}</p>
+          <p>has successfully completed</p>
+          <p class="description">${certificate.title}</p>
+          <p>${certificate.description}</p>
+          <div class="footer">
+            <p>Issued on ${format(new Date(certificate.issued_date), 'MMMM d, yyyy')}</p>
+            <p>Verified by: ${certificate.issued_by}</p>
+            <p class="cert-id">Certificate ID: ${certificate.certificate_id}</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+
+    const blob = new Blob([certHTML], { type: 'text/html' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `certificate-${certificate.certificate_id}.html`;
+    a.click();
+    window.URL.revokeObjectURL(url);
+  };
+
   const overallProgress = getOverallProgress();
   const completedSteps = myProgress.filter(p => p.status === 'completed').length;
 
@@ -348,6 +513,59 @@ export default function OnboardingTraining() {
             <Progress value={overallProgress} className="h-3" />
           </CardContent>
         </Card>
+
+        {/* Certificates Section */}
+        {myCertificates.length > 0 && (
+          <Card className="bg-gradient-to-r from-amber-50 to-yellow-50 border-yellow-200 mb-8">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Award className="w-6 h-6 text-yellow-600" />
+                Your Certificates ({myCertificates.length})
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid md:grid-cols-2 gap-4">
+                {myCertificates.map(cert => (
+                  <motion.div
+                    key={cert.id}
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="p-4 bg-white rounded-lg border-2 border-yellow-300 shadow-md"
+                  >
+                    <div className="flex items-start justify-between mb-2">
+                      <div className="flex-1">
+                        <h4 className="font-semibold text-gray-900">{cert.title}</h4>
+                        <p className="text-sm text-gray-600">{cert.description}</p>
+                        <p className="text-xs text-gray-500 mt-2">
+                          Issued: {format(new Date(cert.issued_date), 'MMM d, yyyy')}
+                        </p>
+                        {cert.points_awarded > 0 && (
+                          <Badge className="bg-green-100 text-green-800 mt-2">
+                            +{cert.points_awarded} points
+                          </Badge>
+                        )}
+                        {cert.badge_earned && (
+                          <Badge className="bg-purple-100 text-purple-800 mt-2 ml-2">
+                            {cert.badge_earned}
+                          </Badge>
+                        )}
+                      </div>
+                      <Trophy className="w-8 h-8 text-yellow-600 flex-shrink-0" />
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => downloadCertificate(cert)}
+                      className="w-full mt-3"
+                    >
+                      Download Certificate
+                    </Button>
+                  </motion.div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Onboarding Steps */}
         <div className="space-y-4">
@@ -836,7 +1054,7 @@ export default function OnboardingTraining() {
                 </p>
                 <div className="flex justify-center gap-4 pt-6">
                   <Button
-                    onClick={() => setShowCelebration(false)}
+                    onClick={() => setShowCelebration(false)} // As per outline, this button just closes celebration
                     className="bg-green-600 hover:bg-green-700"
                   >
                     <Award className="w-4 h-4 mr-2" />
@@ -847,6 +1065,49 @@ export default function OnboardingTraining() {
                       Go to Dashboard
                     </Button>
                   </Link>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
+        )}
+
+        {/* New Certificate Notification */}
+        {newCertificate && !showCelebration && (
+          <Dialog open={!!newCertificate} onOpenChange={() => setNewCertificate(null)}>
+            <DialogContent className="max-w-md">
+              <div className="text-center space-y-4 py-6">
+                <motion.div
+                  initial={{ scale: 0, rotate: -180 }}
+                  animate={{ scale: 1, rotate: 0 }}
+                  transition={{ type: "spring", duration: 0.6 }}
+                >
+                  <Trophy className="w-20 h-20 text-yellow-600 mx-auto" />
+                </motion.div>
+                <h3 className="text-2xl font-bold text-gray-900">
+                  🎊 Certificate Earned!
+                </h3>
+                <p className="text-lg text-gray-700">
+                  {newCertificate.title}
+                </p>
+                <p className="text-gray-600">
+                  +{newCertificate.points_awarded} performance points added
+                </p>
+                <div className="flex flex-col gap-3 pt-4">
+                  <Button
+                    onClick={() => {
+                      downloadCertificate(newCertificate);
+                      setNewCertificate(null); // Close after download
+                    }}
+                    className="bg-yellow-600 hover:bg-yellow-700"
+                  >
+                    Download Certificate
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => setNewCertificate(null)}
+                  >
+                    Continue
+                  </Button>
                 </div>
               </div>
             </DialogContent>
