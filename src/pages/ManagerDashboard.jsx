@@ -192,9 +192,15 @@ export default function ManagerDashboard() {
     setSelectedRole(roleToEdit); // Set the selected role here
     setNewRolePosition(roleToEdit.position);
     setNewRoleDepartment(roleToEdit.department);
-    setNewRoleDailyTasks(roleToEdit.daily_tasks?.join(', ') || '');
-    setNewRoleWeeklyTasks(roleToEdit.weekly_tasks?.join(', ') || '');
-    setNewRoleMonthlyTasks(roleToEdit.monthly_tasks?.join(', ') || ''); // Populate new monthly tasks field
+    setNewRoleDailyTasks(
+      roleToEdit.daily_tasks?.map(task => typeof task === 'string' ? task : (task?.task_name || '')).filter(Boolean).join(', ') || ''
+    );
+    setNewRoleWeeklyTasks(
+      roleToEdit.weekly_tasks?.map(task => typeof task === 'string' ? task : (task?.task_name || '')).filter(Boolean).join(', ') || ''
+    );
+    setNewRoleMonthlyTasks( // Populate new monthly tasks field
+      roleToEdit.monthly_tasks?.map(task => typeof task === 'string' ? task : (task?.task_name || '')).filter(Boolean).join(', ') || ''
+    );
     setNewRoleSkills(roleToEdit.key_skills_required?.join(', ') || '');
     setShowAddResponsibilityDialog(true);
     cancelEditTask(); // Clear any inline task editing
@@ -1083,6 +1089,10 @@ export default function ManagerDashboard() {
                                 {role.daily_tasks.map((task, i) => {
                                   const taskId = `${role.id}-daily_tasks-${i}`;
                                   const isEditing = editingTaskId === taskId;
+                                  
+                                  // Handle both string and object task formats
+                                  const taskText = typeof task === 'string' ? task : (task?.task_name || task?.description || 'Unnamed Task');
+                                  const taskDescription = typeof task === 'object' && task?.description ? task.description : '';
 
                                   return (
                                     <li key={i} className="text-sm text-gray-600 flex items-start gap-2 group">
@@ -1091,7 +1101,7 @@ export default function ManagerDashboard() {
                                         <div className="flex-1 flex gap-2 items-center">
                                           <Input
                                             value={editingTaskValue}
-                                            onChange={(e) => setEditingTaskValue(e.target.value)} // Fixed here
+                                            onChange={(e) => setNewRoleDailyTasks(e.target.value)}
                                             className="h-7 text-sm"
                                             autoFocus
                                             onKeyPress={(e) => {
@@ -1119,13 +1129,18 @@ export default function ManagerDashboard() {
                                         </div>
                                       ) : (
                                         <>
-                                          <span className="flex-1">{task}</span>
+                                          <div className="flex-1">
+                                            <span>{taskText}</span>
+                                            {taskDescription && (
+                                              <p className="text-xs text-gray-500 mt-0.5">{taskDescription}</p>
+                                            )}
+                                          </div>
                                           <div className="opacity-0 group-hover:opacity-100 flex gap-1 transition-opacity">
                                             <Button
                                               variant="ghost"
                                               size="icon"
                                               className="h-5 w-5"
-                                              onClick={() => startEditTask(role.id, 'daily_tasks', i, task)}
+                                              onClick={() => startEditTask(role.id, 'daily_tasks', i, taskText)}
                                             >
                                               <Edit className="w-3 h-3 text-blue-600" />
                                             </Button>
@@ -1166,6 +1181,11 @@ export default function ManagerDashboard() {
                                 {role.weekly_tasks.map((task, i) => {
                                   const taskId = `${role.id}-weekly_tasks-${i}`;
                                   const isEditing = editingTaskId === taskId;
+                                  
+                                  // Handle both string and object task formats
+                                  const taskText = typeof task === 'string' ? task : (task?.task_name || task?.description || 'Unnamed Task');
+                                  const taskDescription = typeof task === 'object' && task?.description ? task.description : '';
+                                  const dayOfWeek = typeof task === 'object' && task?.day_of_week ? ` (${task.day_of_week})` : '';
 
                                   return (
                                     <li key={i} className="text-sm text-gray-600 flex items-start gap-2 group">
@@ -1202,13 +1222,18 @@ export default function ManagerDashboard() {
                                         </div>
                                       ) : (
                                         <>
-                                          <span className="flex-1">{task}</span>
+                                          <div className="flex-1">
+                                            <span>{taskText}{dayOfWeek}</span>
+                                            {taskDescription && (
+                                              <p className="text-xs text-gray-500 mt-0.5">{taskDescription}</p>
+                                            )}
+                                          </div>
                                           <div className="opacity-0 group-hover:opacity-100 flex gap-1 transition-opacity">
                                             <Button
                                               variant="ghost"
                                               size="icon"
                                               className="h-5 w-5"
-                                              onClick={() => startEditTask(role.id, 'weekly_tasks', i, task)}
+                                              onClick={() => startEditTask(role.id, 'weekly_tasks', i, taskText)}
                                             >
                                               <Edit className="w-3 h-3 text-blue-600" />
                                             </Button>
@@ -1252,6 +1277,11 @@ export default function ManagerDashboard() {
                                 {role.monthly_tasks.map((task, i) => {
                                   const taskId = `${role.id}-monthly_tasks-${i}`;
                                   const isEditing = editingTaskId === taskId;
+                                  
+                                  // Handle both string and object task formats
+                                  const taskText = typeof task === 'string' ? task : (task?.task_name || task?.description || 'Unnamed Task');
+                                  const taskDescription = typeof task === 'object' && task?.description ? task.description : '';
+                                  const dayOfMonth = typeof task === 'object' && task?.day_of_month ? ` (Day ${task.day_of_month})` : '';
 
                                   return (
                                     <li key={i} className="text-sm text-gray-600 flex items-start gap-2 group">
@@ -1260,7 +1290,7 @@ export default function ManagerDashboard() {
                                         <div className="flex-1 flex gap-2 items-center">
                                           <Input
                                             value={editingTaskValue}
-                                            onChange={(e) => setEditingTaskValue(e.target.value)} // Fixed here
+                                            onChange={(e) => setEditingTaskValue(e.target.value)}
                                             className="h-7 text-sm"
                                             autoFocus
                                             onKeyPress={(e) => {
@@ -1288,13 +1318,18 @@ export default function ManagerDashboard() {
                                         </div>
                                       ) : (
                                         <>
-                                          <span className="flex-1">{task}</span>
+                                          <div className="flex-1">
+                                            <span>{taskText}{dayOfMonth}</span>
+                                            {taskDescription && (
+                                              <p className="text-xs text-gray-500 mt-0.5">{taskDescription}</p>
+                                            )}
+                                          </div>
                                           <div className="opacity-0 group-hover:opacity-100 flex gap-1 transition-opacity">
                                             <Button
                                               variant="ghost"
                                               size="icon"
                                               className="h-5 w-5"
-                                              onClick={() => startEditTask(role.id, 'monthly_tasks', i, task)}
+                                              onClick={() => startEditTask(role.id, 'monthly_tasks', i, taskText)}
                                             >
                                               <Edit className="w-3 h-3 text-blue-600" />
                                             </Button>
