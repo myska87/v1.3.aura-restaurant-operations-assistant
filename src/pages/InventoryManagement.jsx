@@ -43,6 +43,7 @@ export default function InventoryManagement() {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterCategory, setFilterCategory] = useState("all");
   const [filterSupplier, setFilterSupplier] = useState("all");
+  const [sortBy, setSortBy] = useState("name"); // New state for sorting
   const [cart, setCart] = useState([]);
   const [showCart, setShowCart] = useState(false);
 
@@ -411,12 +412,59 @@ export default function InventoryManagement() {
     alert(`Initiated auto-orders for ${lowStockItemsForAutoOrder.length} items.`);
   };
 
-  const filteredIngredients = ingredients.filter(ing => {
-    const matchesSearch = ing.name.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCategory = filterCategory === 'all' || ing.category === filterCategory;
-    const matchesSupplier = filterSupplier === 'all' || ing.supplier_id === filterSupplier;
-    return matchesSearch && matchesCategory && matchesSupplier;
-  });
+  const filteredIngredients = ingredients
+    .filter(ing => {
+      const matchesSearch = ing.name.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesCategory = filterCategory === 'all' || ing.category === filterCategory;
+      const matchesSupplier = filterSupplier === 'all' || ing.supplier_id === filterSupplier;
+      return matchesSearch && matchesCategory && matchesSupplier;
+    })
+    .sort((a, b) => {
+      switch (sortBy) {
+        case 'low_stock':
+          // Items with reorder point and below it come first
+          const aBelowReorder = a.reorder_point !== null && a.reorder_point !== undefined && a.reorder_point > 0 && a.current_stock <= a.reorder_point;
+          const bBelowReorder = b.reorder_point !== null && b.reorder_point !== undefined && b.reorder_point > 0 && b.current_stock <= b.reorder_point;
+
+          if (aBelowReorder && !bBelowReorder) return -1;
+          if (!aBelowReorder && bBelowReorder) return 1;
+
+          // If both are below reorder point or both are not, sort by urgency ratio
+          // Lower ratio means more urgent. Handle reorder_point === 0 carefully.
+          const aUrgency = (a.reorder_point !== null && a.reorder_point !== undefined && a.reorder_point > 0) ? (a.current_stock / a.reorder_point) : (a.current_stock <= 0 ? -1 : 9999);
+          const bUrgency = (b.reorder_point !== null && b.reorder_point !== undefined && b.reorder_point > 0) ? (b.current_stock / b.reorder_point) : (b.current_stock <= 0 ? -1 : 9999);
+
+          return aUrgency - bUrgency;
+
+        case 'high_stock':
+          return b.current_stock - a.current_stock;
+
+        case 'name':
+          return a.name.localeCompare(b.name);
+
+        case 'category':
+          return a.category.localeCompare(b.category);
+
+        case 'value_high':
+          const aValue = a.current_stock * a.unit_cost;
+          const bValue = b.current_stock * b.unit_cost;
+          return bValue - aValue;
+
+        case 'value_low':
+          const aVal = a.current_stock * a.unit_cost;
+          const bVal = b.current_stock * b.unit_cost;
+          return aVal - bVal;
+
+        case 'no_supplier':
+          // Items without suppliers first
+          if (!a.supplier_id && b.supplier_id) return -1;
+          if (a.supplier_id && !b.supplier_id) return 1;
+          return 0;
+
+        default:
+          return a.name.localeCompare(b.name);
+      }
+    });
 
   const lowStockItems = ingredients.filter(ing => ing.current_stock <= (ing.reorder_point || 0));
   const totalValue = ingredients.reduce((sum, ing) => sum + (ing.current_stock * ing.unit_cost), 0);
@@ -486,6 +534,7 @@ export default function InventoryManagement() {
           </div>
         )}
 
+        {/* Stats Grid */}
         <div className="grid md:grid-cols-4 gap-6 mb-8">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -540,39 +589,102 @@ export default function InventoryManagement() {
 
         <Card>
           <CardHeader>
-            <div className="flex flex-col md:flex-row gap-4 justify-between">
-              <div className="flex-1">
-                <Input
-                  placeholder="Search items..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="max-w-sm"
-                />
-              </div>
-              <div className="flex gap-3">
-                <Select value={filterCategory} onValueChange={setFilterCategory}>
-                  <SelectTrigger className="w-48">
-                    <SelectValue placeholder="All Categories" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Categories</SelectItem>
-                    {categories.map(cat => (
-                      <SelectItem key={cat} value={cat}>{cat}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+            <div className="flex flex-col gap-4">
+              {/* Search and Sort Row */}
+              <div className="flex flex-col md:flex-row gap-4 justify-between">
+                <div className="flex-1">
+                  <Input
+                    placeholder="Search items..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="max-w-sm"
+                  />
+                </div>
+                <div className="flex gap-3 flex-wrap">
+                  <Select value={sortBy} onValueChange={setSortBy}>
+                    <SelectTrigger className="w-48">
+                      <SelectValue placeholder="Sort by..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="name">📝 Name (A-Z)</SelectItem>
+                      <SelectItem value="low_stock">⚠️ Low Stock First</SelectItem>
+                      <SelectItem value="high_stock">📦 High Stock First</SelectItem>
+                      <SelectItem value="category">📁 Category</SelectItem>
+                      <SelectItem value="value_high">💰 Value (High-Low)</SelectItem>
+                      <SelectItem value="value_low">💰 Value (Low-High)</SelectItem>
+                      <SelectItem value="no_supplier">🚫 No Supplier First</SelectItem>
+                    </SelectContent>
+                  </Select>
 
-                <Select value={filterSupplier} onValueChange={setFilterSupplier}>
-                  <SelectTrigger className="w-48">
-                    <SelectValue placeholder="All Suppliers" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Suppliers</SelectItem>
-                    {suppliers.map(sup => (
-                      <SelectItem key={sup.id} value={sup.id}>{sup.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  <Select value={filterCategory} onValueChange={setFilterCategory}>
+                    <SelectTrigger className="w-48">
+                      <SelectValue placeholder="All Categories" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Categories</SelectItem>
+                      {categories.map(cat => (
+                        <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  <Select value={filterSupplier} onValueChange={setFilterSupplier}>
+                    <SelectTrigger className="w-48">
+                      <SelectValue placeholder="All Suppliers" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Suppliers</SelectItem>
+                      {suppliers.map(sup => (
+                        <SelectItem key={sup.id} value={sup.id}>{sup.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              {/* Active Filters Display */}
+              {(searchTerm || filterCategory !== 'all' || filterSupplier !== 'all' || sortBy !== 'name') && (
+                <div className="flex gap-2 flex-wrap items-center text-sm">
+                  <span className="text-gray-600 font-medium">Active filters:</span>
+                  {searchTerm && (
+                    <Badge variant="outline" className="bg-blue-50">
+                      Search: "{searchTerm}"
+                    </Badge>
+                  )}
+                  {filterCategory !== 'all' && (
+                    <Badge variant="outline" className="bg-green-50">
+                      Category: {filterCategory}
+                    </Badge>
+                  )}
+                  {filterSupplier !== 'all' && (
+                    <Badge variant="outline" className="bg-purple-50">
+                      Supplier: {suppliers.find(s => s.id === filterSupplier)?.name}
+                    </Badge>
+                  )}
+                  {sortBy !== 'name' && (
+                    <Badge variant="outline" className="bg-amber-50 capitalize">
+                      Sort: {sortBy.replace(/_/g, ' ')}
+                    </Badge>
+                  )}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setSearchTerm("");
+                      setFilterCategory("all");
+                      setFilterSupplier("all");
+                      setSortBy("name");
+                    }}
+                    className="text-xs h-auto px-2 py-1"
+                  >
+                    Clear All
+                  </Button>
+                </div>
+              )}
+
+              {/* Results Count */}
+              <div className="text-sm text-gray-600">
+                Showing {filteredIngredients.length} of {ingredients.length} items
               </div>
             </div>
           </CardHeader>
@@ -595,7 +707,7 @@ export default function InventoryManagement() {
                 <tbody>
                   {filteredIngredients.map((ingredient) => {
                     const isLowStock = ingredient.current_stock <= (ingredient.reorder_point || 0);
-                    const totalValue = ingredient.current_stock * ingredient.unit_cost;
+                    const totalItemValue = ingredient.current_stock * ingredient.unit_cost;
                     const hasSupplier = !!ingredient.supplier_id;
 
                     return (
@@ -639,7 +751,7 @@ export default function InventoryManagement() {
                           )}
                         </td>
                         <td className="p-3">£{ingredient.unit_cost.toFixed(2)}</td>
-                        <td className="p-3">£{totalValue.toFixed(2)}</td>
+                        <td className="p-3">£{totalItemValue.toFixed(2)}</td>
                         <td className="p-3">
                           {ingredient.auto_order_enabled && hasSupplier ? (
                             <Badge className="bg-green-100 text-green-800">ON</Badge>
