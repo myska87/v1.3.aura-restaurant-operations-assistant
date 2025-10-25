@@ -47,6 +47,7 @@ import DailyChecklists from './pages/DailyChecklists';
 import ActiveChecklist from './pages/ActiveChecklist';
 import ChecklistBuilder from './pages/ChecklistBuilder';
 import ChecklistReview from './pages/ChecklistReview';
+import WeeklyPayrollReport from './pages/WeeklyPayrollReport';
 import Layout from './Layout.jsx';
 
 
@@ -100,6 +101,7 @@ export const PAGES = {
     "ActiveChecklist": ActiveChecklist,
     "ChecklistBuilder": ChecklistBuilder,
     "ChecklistReview": ChecklistReview,
+    "WeeklyPayrollReport": WeeklyPayrollReport,
 }
 
 export const pagesConfig = {

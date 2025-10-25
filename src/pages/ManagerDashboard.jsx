@@ -28,7 +28,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Plus, Calendar, CheckCircle, Clock, AlertCircle, AlertTriangle, ArrowLeft, Home, Users, TrendingUp, Award, Edit, Trash2, Upload, Eye, Bell, Settings, MoreVertical, UserPlus, FileText, Target, Search, Filter, Download, ChevronUp, ChevronDown, Mail, Phone, X } from "lucide-react";
+import { Plus, Calendar, CheckCircle, Clock, AlertCircle, AlertTriangle, ArrowLeft, Home, Users, TrendingUp, Award, Edit, Trash2, Upload, Eye, Bell, Settings, MoreVertical, UserPlus, FileText, Target, Search, Filter, Download, ChevronUp, ChevronDown, Mail, Phone, X, DollarSign } from "lucide-react";
 import { format } from "date-fns";
 import { Link, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -489,6 +489,49 @@ export default function ManagerDashboard() {
           <p className="text-lg text-gray-600">
             Manage your team, HR documents, and role responsibilities
           </p>
+        </div>
+
+        {/* Quick Access Buttons */}
+        <div className="grid md:grid-cols-4 gap-4 mb-8">
+          <Link to={createPageUrl("WeeklyPayrollReport")}>
+            <Button className="w-full bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white shadow-lg hover:shadow-xl transition-all h-24">
+              <div className="text-center">
+                <DollarSign className="w-8 h-8 mx-auto mb-2" />
+                <p className="font-bold">Weekly Payroll Report</p>
+                <p className="text-xs text-green-100">Staff hours & pay calculation</p>
+              </div>
+            </Button>
+          </Link>
+
+          <Link to={createPageUrl("AttendanceReports")}>
+            <Button className="w-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white shadow-lg hover:shadow-xl transition-all h-24">
+              <div className="text-center">
+                <TrendingUp className="w-8 h-8 mx-auto mb-2" />
+                <p className="font-bold">Attendance Reports</p>
+                <p className="text-xs text-blue-100">Track staff attendance</p>
+              </div>
+            </Button>
+          </Link>
+
+          <Link to={createPageUrl("WeeklyRotaSchedule")}>
+            <Button className="w-full bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white shadow-lg hover:shadow-xl transition-all h-24">
+              <div className="text-center">
+                <Calendar className="w-8 h-8 mx-auto mb-2" />
+                <p className="font-bold">Weekly Schedule</p>
+                <p className="text-xs text-purple-100">View & print schedules</p>
+              </div>
+            </Button>
+          </Link>
+
+          <Link to={createPageUrl("TeamDirectory")}>
+            <Button className="w-full bg-gradient-to-r from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700 text-white shadow-lg hover:shadow-xl transition-all h-24">
+              <div className="text-center">
+                <Users className="w-8 h-8 mx-auto mb-2" />
+                <p className="font-bold">Team Directory</p>
+                <p className="text-xs text-indigo-100">Contact information</p>
+              </div>
+            </Button>
+          </Link>
         </div>
 
         {/* Enhanced Stats Grid - 5 Widgets */}
@@ -1310,7 +1353,7 @@ export default function ManagerDashboard() {
                                         <div className="flex-1 flex gap-2 items-center">
                                           <Input
                                             value={editingTaskValue}
-                                            onChange={(e) => setEditingTaskValue(e.target.value)}
+                                            onChange={(e) => setNewTaskValue(e.target.value)}
                                             className="h-7 text-sm"
                                             autoFocus
                                             onKeyPress={(e) => {
@@ -1393,7 +1436,7 @@ export default function ManagerDashboard() {
                                         <div className="flex-1 flex gap-2 items-center">
                                           <Input
                                             value={editingTaskValue}
-                                            onChange={(e) => setEditingTaskValue(e.target.value)}
+                                            onChange={(e) => setNewTaskValue(e.target.value)}
                                             className="h-7 text-sm"
                                             autoFocus
                                             onKeyPress={(e) => {
@@ -1479,7 +1522,7 @@ export default function ManagerDashboard() {
                                         <div className="flex-1 flex gap-2 items-center">
                                           <Input
                                             value={editingTaskValue}
-                                            onChange={(e) => setEditingTaskValue(e.target.value)}
+                                            onChange={(e) => setNewTaskValue(e.target.value)}
                                             className="h-7 text-sm"
                                             autoFocus
                                             onKeyPress={(e) => {
