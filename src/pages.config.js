@@ -28,6 +28,8 @@ import OnboardingTraining from './pages/OnboardingTraining';
 import PerformanceGrowth from './pages/PerformanceGrowth';
 import CoachingDashboard from './pages/CoachingDashboard';
 import StartCoachingSession from './pages/StartCoachingSession';
+import CommunicationFeedback from './pages/CommunicationFeedback';
+import TeamChat from './pages/TeamChat';
 import Layout from './Layout.jsx';
 
 
@@ -62,6 +64,8 @@ export const PAGES = {
     "PerformanceGrowth": PerformanceGrowth,
     "CoachingDashboard": CoachingDashboard,
     "StartCoachingSession": StartCoachingSession,
+    "CommunicationFeedback": CommunicationFeedback,
+    "TeamChat": TeamChat,
 }
 
 export const pagesConfig = {

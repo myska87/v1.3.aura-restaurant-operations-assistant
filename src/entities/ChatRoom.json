@@ -1,0 +1,74 @@
+{
+  "name": "ChatRoom",
+  "type": "object",
+  "properties": {
+    "room_name": {
+      "type": "string",
+      "description": "Name of the chat room"
+    },
+    "room_type": {
+      "type": "string",
+      "enum": [
+        "department",
+        "broadcast",
+        "direct",
+        "group",
+        "custom"
+      ],
+      "description": "Type of chat room"
+    },
+    "department": {
+      "type": "string",
+      "description": "Department this room is for (if department type)"
+    },
+    "description": {
+      "type": "string",
+      "description": "Room description or purpose"
+    },
+    "is_public": {
+      "type": "boolean",
+      "default": true,
+      "description": "Whether room is public or private"
+    },
+    "created_by_email": {
+      "type": "string",
+      "description": "Who created the room"
+    },
+    "created_by_name": {
+      "type": "string",
+      "description": "Creator's name"
+    },
+    "members": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Array of member emails (for private/group rooms)"
+    },
+    "icon": {
+      "type": "string",
+      "description": "Room icon emoji"
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true
+    },
+    "pinned_message_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Array of pinned message IDs"
+    },
+    "last_message_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Last message timestamp for sorting"
+    }
+  },
+  "required": [
+    "room_name",
+    "room_type",
+    "created_by_email"
+  ]
+}

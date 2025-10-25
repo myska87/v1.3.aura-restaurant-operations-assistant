@@ -1,0 +1,82 @@
+{
+  "name": "Announcement",
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string",
+      "description": "Announcement title"
+    },
+    "content": {
+      "type": "string",
+      "description": "Announcement message"
+    },
+    "priority": {
+      "type": "string",
+      "enum": [
+        "info",
+        "urgent",
+        "celebration"
+      ],
+      "default": "info",
+      "description": "Priority level"
+    },
+    "created_by_email": {
+      "type": "string",
+      "description": "Manager who created"
+    },
+    "created_by_name": {
+      "type": "string",
+      "description": "Manager name"
+    },
+    "department": {
+      "type": "string",
+      "description": "Target department (or 'all')"
+    },
+    "location": {
+      "type": "string",
+      "description": "Specific location if applicable"
+    },
+    "attachment_url": {
+      "type": "string",
+      "description": "File attachment"
+    },
+    "expire_date": {
+      "type": "string",
+      "format": "date",
+      "description": "When to archive this announcement"
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true
+    },
+    "is_pinned": {
+      "type": "boolean",
+      "default": false,
+      "description": "Pin to dashboard"
+    },
+    "read_by": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Array of staff emails who viewed"
+    },
+    "reactions": {
+      "type": "object",
+      "description": "Count of each reaction type"
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Tags for filtering"
+    }
+  },
+  "required": [
+    "title",
+    "content",
+    "priority",
+    "created_by_email"
+  ]
+}
