@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -7,7 +8,6 @@ import { Badge } from "@/components/ui/badge";
 import { LogOut, Clock, MapPin, CheckCircle, AlertCircle } from "lucide-react";
 import { format, parseISO, differenceInMinutes } from "date-fns";
 import { motion } from "framer-motion";
-import confetti from "canvas-confetti";
 
 export default function QuickClockOut({ shift, attendanceRecord, onSuccess }) {
   const queryClient = useQueryClient();
@@ -32,23 +32,9 @@ export default function QuickClockOut({ shift, attendanceRecord, onSuccess }) {
     );
   };
 
+  // Simple celebration (no external library)
   const celebrateShiftComplete = () => {
-    const duration = 3000;
-    const animationEnd = Date.now() + duration;
-    const randomInRange = (min, max) => Math.random() * (max - min) + min;
-
-    const interval = setInterval(() => {
-      const timeLeft = animationEnd - Date.now();
-      if (timeLeft <= 0) return clearInterval(interval);
-
-      confetti({
-        particleCount: 3,
-        angle: randomInRange(55, 125),
-        spread: randomInRange(50, 70),
-        origin: { x: randomInRange(0.1, 0.9), y: Math.random() - 0.2 },
-        colors: ['#014D40', '#E0B037', '#10b981', '#3b82f6'],
-      });
-    }, 250);
+    console.log('🎉 Shift completed successfully!');
   };
 
   const clockOutMutation = useMutation({

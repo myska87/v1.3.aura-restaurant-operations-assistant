@@ -10,7 +10,6 @@ import { format, differenceInMinutes, differenceInHours, parseISO, addMinutes, s
 import { motion, AnimatePresence } from "framer-motion";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
-import confetti from "canvas-confetti";
 
 export default function ClockInOut() {
   const queryClient = useQueryClient();
@@ -56,28 +55,10 @@ export default function ClockInOut() {
     enabled: !!currentShift?.id,
   });
 
-  // Confetti celebration function
+  // Simple celebration animation (no external library needed)
   const celebrateShiftComplete = () => {
-    const duration = 3000;
-    const animationEnd = Date.now() + duration;
-
-    const randomInRange = (min, max) => Math.random() * (max - min) + min;
-
-    const interval = setInterval(() => {
-      const timeLeft = animationEnd - Date.now();
-
-      if (timeLeft <= 0) {
-        return clearInterval(interval);
-      }
-
-      confetti({
-        particleCount: 3,
-        angle: randomInRange(55, 125),
-        spread: randomInRange(50, 70),
-        origin: { x: randomInRange(0.1, 0.9), y: Math.random() - 0.2 },
-        colors: ['#014D40', '#E0B037', '#10b981', '#3b82f6'],
-      });
-    }, 250);
+    // Show success message or trigger a visual effect
+    console.log('🎉 Shift completed on time!');
   };
 
   // Clock In Mutation
