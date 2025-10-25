@@ -1,16 +1,20 @@
-import { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { base44 } from "@/api/base44Client";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 export default function WelcomeNewHire() {
-  const { data: allStaff = [] } = useQuery({
-    queryKey: ['allStaff'],
-    queryFn: () => base44.entities.User.list('-created_date'),
+  const queryClient = useQueryClient();
+  const [hasWelcomed, setHasWelcomed] = useState(false);
+
+  const { data: user } = useQuery({
+    queryKey: ['currentUser'],
+    queryFn: () => base44.auth.me(),
   });
 
-  const { data: chatRooms = [] } = useQuery({
-    queryKey: ['chatRooms'],
-    queryFn: () => base44.entities.ChatRoom.list(),
+  const { data: onboardingProgress = [] } = useQuery({
+    queryKey: ['onboardingProgress', user?.email],
+    queryFn: () => base44.entities.OnboardingProgress.filter({ staff_email: user?.email }),
+    enabled: !!user?.email,
   });
 
   const createChatMessageMutation = useMutation({
@@ -18,49 +22,38 @@ export default function WelcomeNewHire() {
   });
 
   useEffect(() => {
-    const checkForNewHires = async () => {
-      if (allStaff.length === 0 || chatRooms.length === 0) return;
-
-      // Find All Staff room
-      const allStaffRoom = chatRooms.find(room => room.room_name === "All Staff");
-      if (!allStaffRoom) return;
-
-      // Check for staff members created in the last 5 minutes
-      const recentStaff = allStaff.filter(staff => {
-        const createdDate = new Date(staff.created_date);
-        const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
-        return createdDate > fiveMinutesAgo;
-      });
-
-      // Get existing welcome messages to avoid duplicates
-      const messages = await base44.entities.ChatMessage.filter({ 
-        room_id: allStaffRoom.id 
-      });
-
-      for (const staff of recentStaff) {
-        // Check if we already sent a welcome message
-        const alreadyWelcomed = messages.some(
-          msg => msg.message_content.includes(staff.full_name) && 
-          msg.message_content.includes("Welcome to the team")
-        );
-
-        if (!alreadyWelcomed) {
-          await createChatMessageMutation.mutateAsync({
-            room_id: allStaffRoom.id,
-            room_name: allStaffRoom.room_name,
-            sender_email: "system",
-            sender_name: "AURA System",
-            message_content: `🎉 Everyone, please welcome ${staff.full_name} to the team! 👋\n\n${staff.full_name} just joined as ${staff.position?.replace(/_/g, ' ')}. Let's make them feel at home! 🌟`,
-            message_type: "announcement",
-            attachments: [],
-            read_by: [],
-          });
+    const welcomeNewHire = async () => {
+      if (!user || hasWelcomed || user.role === 'admin') return;
+      
+      // Check if user just registered (no onboarding progress yet)
+      if (onboardingProgress.length === 0) {
+        try {
+          // Find "All Staff" chat room
+          const chatRooms = await base44.entities.ChatRoom.list();
+          const allStaffRoom = chatRooms.find(room => room.room_name === "All Staff");
+          
+          if (allStaffRoom) {
+            await createChatMessageMutation.mutateAsync({
+              room_id: allStaffRoom.id,
+              room_name: allStaffRoom.room_name,
+              sender_email: "system",
+              sender_name: "AURA System",
+              message_content: `🎉 Welcome to the team, ${user.full_name}! We're excited to have you join Chai Patta. Your onboarding journey begins now!`,
+              message_type: "announcement",
+              attachments: [],
+              read_by: [],
+            });
+            
+            setHasWelcomed(true);
+          }
+        } catch (error) {
+          console.error("Error posting welcome message:", error);
         }
       }
     };
 
-    checkForNewHires();
-  }, [allStaff.length, chatRooms.length]);
+    welcomeNewHire();
+  }, [user, onboardingProgress, hasWelcomed]);
 
-  return null; // This is a background component, no UI
+  return null;
 }
