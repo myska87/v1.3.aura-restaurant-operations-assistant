@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -32,6 +33,8 @@ export default function CultureBuilding() {
   const [editingContent, setEditingContent] = useState(null);
   const [showQuiz, setShowQuiz] = useState(null);
   const [quizAnswers, setQuizAnswers] = useState({});
+  const [showResults, setShowResults] = useState(false);
+  const [quizResults, setQuizResults] = useState(null);
 
   const [formData, setFormData] = useState({
     content_type: "company_value",
@@ -115,16 +118,36 @@ export default function CultureBuilding() {
   const handleQuizSubmit = async (content) => {
     const questions = content.quiz_questions || [];
     let correctCount = 0;
+    const results = [];
 
     questions.forEach((q, index) => {
-      if (quizAnswers[index] === q.correct_answer) {
-        correctCount++;
-      }
+      const userAnswer = quizAnswers[index];
+      const isCorrect = userAnswer === q.correct_answer;
+      if (isCorrect) correctCount++;
+
+      results.push({
+        question: q.question,
+        options: q.options,
+        userAnswer: userAnswer,
+        correctAnswer: q.correct_answer,
+        isCorrect: isCorrect,
+      });
     });
 
-    const score = Math.round((correctCount / questions.length) * 100);
+    const score = questions.length > 0 ? Math.round((correctCount / questions.length) * 100) : 100; // Handle division by zero for no questions
     const passed = score >= 80;
 
+    // Store results for display
+    setQuizResults({
+      score,
+      passed,
+      correctCount,
+      totalQuestions: questions.length,
+      results: results,
+      contentTitle: content.title,
+    });
+
+    // Save to database
     await createAcknowledgementMutation.mutateAsync({
       staff_email: user?.email,
       staff_name: user?.full_name,
@@ -136,14 +159,15 @@ export default function CultureBuilding() {
       quiz_passed: passed,
     });
 
+    // Close quiz, show results
     setShowQuiz(null);
+    setShowResults(true);
     setQuizAnswers({});
+  };
 
-    if (passed) {
-      alert(`🎉 Congratulations! You passed with ${score}%`);
-    } else {
-      alert(`📚 You scored ${score}%. Please review the content and try again.`);
-    }
+  const closeResults = () => {
+    setShowResults(false);
+    setQuizResults(null);
   };
 
   const isAcknowledged = (contentId) => {
@@ -392,38 +416,171 @@ export default function CultureBuilding() {
         {/* Quiz Dialog */}
         {showQuiz && (
           <Dialog open={!!showQuiz} onOpenChange={() => setShowQuiz(null)}>
-            <DialogContent className="max-w-2xl">
+            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>Culture Quiz: {showQuiz.title}</DialogTitle>
               </DialogHeader>
               <div className="space-y-6 mt-4">
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                  <p className="text-sm text-blue-800">
+                    📝 Answer all questions to complete the quiz. You need 80% or higher to pass.
+                  </p>
+                </div>
+
                 {showQuiz.quiz_questions?.map((q, index) => (
-                  <div key={index} className="space-y-2">
-                    <Label className="text-base font-semibold">{index + 1}. {q.question}</Label>
-                    <div className="space-y-2">
+                  <div key={index} className="space-y-3 p-4 bg-gray-50 rounded-lg">
+                    <Label className="text-base font-semibold text-gray-900">
+                      {index + 1}. {q.question}
+                    </Label>
+                    <div className="space-y-2 pl-2">
                       {q.options.map((option, optIndex) => (
-                        <div key={optIndex} className="flex items-center gap-2">
+                        <div key={optIndex} className="flex items-center gap-3 p-2 hover:bg-gray-100 rounded transition-colors">
                           <input
                             type="radio"
+                            id={`q${index}-opt${optIndex}`}
                             name={`question-${index}`}
                             value={optIndex}
+                            checked={quizAnswers[index] === optIndex}
                             onChange={(e) => setQuizAnswers({ ...quizAnswers, [index]: parseInt(e.target.value) })}
                             className="w-4 h-4"
                           />
-                          <Label className="cursor-pointer">{option}</Label>
+                          <Label htmlFor={`q${index}-opt${optIndex}`} className="cursor-pointer flex-1">
+                            {option}
+                          </Label>
                         </div>
                       ))}
                     </div>
                   </div>
                 ))}
 
-                <div className="flex justify-end gap-3 pt-4">
-                  <Button variant="outline" onClick={() => setShowQuiz(null)}>
+                <div className="flex justify-end gap-3 pt-4 border-t">
+                  <Button variant="outline" onClick={() => {
+                    setShowQuiz(null);
+                    setQuizAnswers({});
+                  }}>
                     Cancel
                   </Button>
-                  <Button onClick={() => handleQuizSubmit(showQuiz)} className="bg-green-600 hover:bg-green-700">
+                  <Button 
+                    onClick={() => handleQuizSubmit(showQuiz)} 
+                    className="bg-green-600 hover:bg-green-700"
+                    disabled={Object.keys(quizAnswers).length !== showQuiz.quiz_questions?.length || showQuiz.quiz_questions?.length === 0}
+                  >
                     Submit Quiz
                   </Button>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
+        )}
+
+        {/* Quiz Results Dialog */}
+        {showResults && quizResults && (
+          <Dialog open={showResults} onOpenChange={setShowResults}>
+            <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle className="text-2xl">
+                  {quizResults.passed ? '🎉 Congratulations!' : '📚 Keep Learning!'}
+                </DialogTitle>
+              </DialogHeader>
+
+              <div className="space-y-6 mt-4">
+                {/* Score Summary */}
+                <Card className={`border-none shadow-lg ${
+                  quizResults.passed 
+                    ? 'bg-gradient-to-r from-green-500 to-green-600' 
+                    : 'bg-gradient-to-r from-amber-500 to-amber-600'
+                } text-white`}>
+                  <CardContent className="p-6 text-center">
+                    <div className="text-6xl font-bold mb-3">
+                      {quizResults.score}%
+                    </div>
+                    <p className="text-xl mb-2">
+                      {quizResults.correctCount} out of {quizResults.totalQuestions} correct
+                    </p>
+                    <p className="text-lg opacity-90">
+                      {quizResults.passed 
+                        ? '✅ You passed! Great job understanding our culture!' 
+                        : '⚠️ You need 80% to pass. Review the content and try again.'}
+                    </p>
+                  </CardContent>
+                </Card>
+
+                {/* Detailed Results */}
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold text-gray-900">Detailed Results:</h3>
+                  {quizResults.results.map((result, index) => (
+                    <Card key={index} className={`border-2 ${
+                      result.isCorrect ? 'border-green-300 bg-green-50' : 'border-red-300 bg-red-50'
+                    }`}>
+                      <CardContent className="p-4">
+                        <div className="flex items-start gap-3">
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
+                            result.isCorrect ? 'bg-green-500' : 'bg-red-500'
+                          } text-white font-bold`}>
+                            {result.isCorrect ? '✓' : '✗'}
+                          </div>
+                          <div className="flex-1">
+                            <p className="font-semibold text-gray-900 mb-3">
+                              {index + 1}. {result.question}
+                            </p>
+                            
+                            <div className="space-y-2">
+                              {result.options.map((option, optIndex) => {
+                                const isUserAnswer = result.userAnswer === optIndex;
+                                const isCorrectAnswer = result.correctAnswer === optIndex;
+                                
+                                return (
+                                  <div 
+                                    key={optIndex}
+                                    className={`p-2 rounded-lg ${
+                                      isCorrectAnswer 
+                                        ? 'bg-green-100 border border-green-400' 
+                                        : isUserAnswer 
+                                        ? 'bg-red-100 border border-red-400' 
+                                        : 'bg-white border border-gray-200'
+                                    }`}
+                                  >
+                                    <div className="flex items-center gap-2">
+                                      {isCorrectAnswer && <span className="text-green-600 font-bold">✓ Correct:</span>}
+                                      {isUserAnswer && !isCorrectAnswer && <span className="text-red-600 font-bold">✗ Your answer:</span>}
+                                      <span className={isCorrectAnswer || isUserAnswer ? 'font-medium' : ''}>
+                                        {option}
+                                      </span>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex justify-between items-center pt-4 border-t">
+                  <Button 
+                    variant="outline" 
+                    onClick={closeResults}
+                  >
+                    Close
+                  </Button>
+                  {!quizResults.passed && (
+                    <Button 
+                      onClick={() => {
+                        closeResults();
+                        // Reopen quiz to try again
+                        const contentToRetest = cultureContent.find(c => c.title === quizResults.contentTitle);
+                        if (contentToRetest) {
+                          setShowQuiz(contentToRetest);
+                        }
+                      }}
+                      className="bg-blue-600 hover:bg-blue-700"
+                    >
+                      Try Again
+                    </Button>
+                  )}
                 </div>
               </div>
             </DialogContent>
