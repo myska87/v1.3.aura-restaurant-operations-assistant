@@ -1091,7 +1091,7 @@ export default function ManagerDashboard() {
                                         <div className="flex-1 flex gap-2 items-center">
                                           <Input
                                             value={editingTaskValue}
-                                            onChange={(e) => setNewEditingTaskValue(e.target.value)} // Fixed here
+                                            onChange={(e) => setEditingTaskValue(e.target.value)} // Fixed here
                                             className="h-7 text-sm"
                                             autoFocus
                                             onKeyPress={(e) => {
@@ -1174,7 +1174,7 @@ export default function ManagerDashboard() {
                                         <div className="flex-1 flex gap-2 items-center">
                                           <Input
                                             value={editingTaskValue}
-                                            onChange={(e) => setEditingTaskValue(e.target.value)} // Fixed here
+                                            onChange={(e) => setEditingTaskValue(e.target.value)}
                                             className="h-7 text-sm"
                                             autoFocus
                                             onKeyPress={(e) => {
@@ -1260,7 +1260,7 @@ export default function ManagerDashboard() {
                                         <div className="flex-1 flex gap-2 items-center">
                                           <Input
                                             value={editingTaskValue}
-                                            onChange={(e) => setNewEditingTaskValue(e.target.value)} // Fixed here
+                                            onChange={(e) => setEditingTaskValue(e.target.value)} // Fixed here
                                             className="h-7 text-sm"
                                             autoFocus
                                             onKeyPress={(e) => {
