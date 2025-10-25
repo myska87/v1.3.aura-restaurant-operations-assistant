@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
@@ -12,7 +13,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
-import { Download, TrendingUp, Calendar, Users, CheckCircle, Clock, AlertTriangle, ArrowLeft, Home } from "lucide-react";
+import { Download, TrendingUp, Calendar, Users, CheckCircle, Clock, AlertTriangle, ArrowLeft, Home, AlertCircle } from "lucide-react";
 import { format, subDays } from "date-fns";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
