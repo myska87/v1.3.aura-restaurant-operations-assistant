@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -104,6 +105,12 @@ function ShiftCard({ shift, position, onEdit, onDelete, onGenerateTasks, onPrevi
               <Mail className="w-4 h-4 text-gray-500" />
               <span className="truncate">{shift.staff_email}</span>
             </div>
+            {shift.location && (
+              <div className="flex items-center gap-2">
+                <MapPin className="w-4 h-4 text-gray-500" />
+                <span>{shift.location}</span>
+              </div>
+            )}
           </div>
           <div className="flex gap-2 pt-2">
             {!shift.auto_generated_tasks && (
@@ -151,6 +158,7 @@ export default function SmartScheduler() {
     start_time: "",
     end_time: "",
     status: "scheduled",
+    location: "", // Added location field
   });
 
   const weekDates = Array.from({ length: 7 }, (_, i) => addDays(currentWeekStart, i));
@@ -191,7 +199,7 @@ export default function SmartScheduler() {
   const getDefaultDepartment = (position) => {
     const deptMap = {
       'chef': 'kitchen',
-      'line_cook': 'kitchen',
+      'line cook': 'kitchen', // Updated to match POSITIONS entry 'Line Cook'
       'server': 'front_of_house',
       'bartender': 'bar',
       'manager': 'management',
@@ -347,11 +355,12 @@ export default function SmartScheduler() {
       start_time: "",
       end_time: "",
       status: "scheduled",
+      location: "", // Added location field
     });
   };
 
   const handleSaveShift = async () => {
-    if (!shiftForm.staff_email || !shiftForm.shift_date || !shiftForm.start_time || !shiftForm.end_time) {
+    if (!shiftForm.staff_email || !shiftForm.role || !shiftForm.shift_date || !shiftForm.start_time || !shiftForm.end_time) {
       alert("Please fill all required fields");
       return;
     }
@@ -359,11 +368,13 @@ export default function SmartScheduler() {
     const staffMember = users.find(u => u.email === shiftForm.staff_email);
     const data = {
       ...shiftForm,
+      // role and department are now explicitly set by the dropdowns/logic in the form,
+      // so we don't need to default them from staffMember position here unless staffMember is selected AFTER role.
+      // For consistency and explicit control via form, we use shiftForm.role and shiftForm.department directly.
       staff_name: staffMember?.full_name || shiftForm.staff_name,
-      role: shiftForm.role || staffMember?.position,
-      department: shiftForm.department || getDefaultDepartment(staffMember?.position),
       status: "scheduled",
       auto_generated_tasks: false,
+      location: shiftForm.location, // Ensure location is passed
     };
 
     if (selectedShift) {
@@ -403,6 +414,7 @@ export default function SmartScheduler() {
       start_time: shift.start_time,
       end_time: shift.end_time,
       status: shift.status,
+      location: shift.location || "", // Added location field
     });
     setShowAddShiftDialog(true);
   };
@@ -649,12 +661,51 @@ export default function SmartScheduler() {
               </div>
 
               <div>
+                <Label>Role/Position *</Label>
+                <Select 
+                  value={shiftForm.role} 
+                  onValueChange={(value) => {
+                    setShiftForm({
+                      ...shiftForm,
+                      role: value,
+                      department: getDefaultDepartment(value),
+                    });
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select role" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {POSITIONS.map((pos) => (
+                      <SelectItem key={pos.name} value={pos.name}>
+                        {pos.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
                 <Label>Date *</Label>
                 <Input
                   type="date"
                   value={shiftForm.shift_date}
                   onChange={(e) => setShiftForm({ ...shiftForm, shift_date: e.target.value })}
                 />
+              </div>
+
+              <div>
+                <Label>Shift Type</Label>
+                <Select value={shiftForm.shift_type} onValueChange={(value) => setShiftForm({ ...shiftForm, shift_type: value })}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="opening">Opening</SelectItem>
+                    <SelectItem value="mid_shift">Mid Shift</SelectItem>
+                    <SelectItem value="closing">Closing</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
               <div>
@@ -676,32 +727,49 @@ export default function SmartScheduler() {
               </div>
 
               <div>
-                <Label>Shift Type</Label>
-                <Select value={shiftForm.shift_type} onValueChange={(value) => setShiftForm({ ...shiftForm, shift_type: value })}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="opening">Opening</SelectItem>
-                    <SelectItem value="mid_shift">Mid Shift</SelectItem>
-                    <SelectItem value="closing">Closing</SelectItem>
-                  </SelectContent>
-                </Select>
+                <Label>Department</Label>
+                <Input
+                  value={shiftForm.department}
+                  disabled
+                  placeholder="Auto-filled from role"
+                  className="bg-gray-50"
+                />
               </div>
 
               <div>
-                <Label>Role</Label>
+                <Label>Location (Optional)</Label>
                 <Input
-                  value={shiftForm.role}
-                  onChange={(e) => setShiftForm({ ...shiftForm, role: e.target.value })}
-                  placeholder="Auto-filled"
+                  value={shiftForm.location || ""}
+                  onChange={(e) => setShiftForm({ ...shiftForm, location: e.target.value })}
+                  placeholder="e.g., Main Restaurant"
                 />
               </div>
             </div>
 
-            <div className="flex justify-end gap-3 pt-4">
+            {/* Selected Staff Info */}
+            {shiftForm.staff_email && (
+              <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white font-bold">
+                    {shiftForm.staff_name?.charAt(0)}
+                  </div>
+                  <div>
+                    <p className="font-semibold text-blue-900">{shiftForm.staff_name}</p>
+                    <p className="text-sm text-blue-700">
+                      {shiftForm.role} • {shiftForm.department}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="flex justify-end gap-3 pt-4 border-t">
               <Button variant="outline" onClick={resetForm}>Cancel</Button>
-              <Button onClick={handleSaveShift} className="bg-blue-600">
+              <Button 
+                onClick={handleSaveShift} 
+                disabled={!shiftForm.staff_email || !shiftForm.role || !shiftForm.shift_date || !shiftForm.start_time || !shiftForm.end_time}
+                className="bg-blue-600"
+              >
                 {selectedShift ? 'Update' : 'Create'} Shift
               </Button>
             </div>
@@ -722,6 +790,11 @@ export default function SmartScheduler() {
                 <p className="text-sm text-gray-600">
                   {format(parseISO(previewShift.shift_date), 'EEEE, MMM d')} • {previewShift.start_time} - {previewShift.end_time}
                 </p>
+                {previewShift.location && (
+                  <p className="text-xs text-gray-500 flex items-center gap-1 mt-1">
+                    <MapPin className="w-3 h-3" /> {previewShift.location}
+                  </p>
+                )}
               </div>
 
               {previewShift.auto_generated_tasks ? (
