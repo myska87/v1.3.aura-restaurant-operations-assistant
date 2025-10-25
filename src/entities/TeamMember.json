@@ -17,6 +17,7 @@
     "position": {
       "type": "string",
       "enum": [
+        "owner",
         "manager",
         "chef",
         "line_cook",
@@ -38,6 +39,10 @@
         "maintenance"
       ],
       "description": "Department"
+    },
+    "photo_url": {
+      "type": "string",
+      "description": "Profile photo URL"
     },
     "status": {
       "type": "string",
@@ -66,10 +71,6 @@
       "type": "string",
       "description": "Assigned manager email"
     },
-    "photo_url": {
-      "type": "string",
-      "description": "Profile photo URL"
-    },
     "phone": {
       "type": "string",
       "description": "Contact phone"
@@ -87,6 +88,10 @@
       "type": "string",
       "format": "date",
       "description": "End of probation period"
+    },
+    "hourly_rate": {
+      "type": "number",
+      "description": "Hourly pay rate"
     },
     "notes": {
       "type": "string",

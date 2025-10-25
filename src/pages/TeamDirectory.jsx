@@ -91,7 +91,11 @@ export default function TeamDirectory() {
     notes: "",
     status: "active",
     manager_email: "",
+    photo_url: "",
   });
+
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [photoPreview, setPhotoPreview] = useState(null);
 
   const { data: user } = useQuery({
     queryKey: ['currentUser'],
@@ -139,6 +143,7 @@ export default function TeamDirectory() {
         position: teamMember?.position || staff.position,
         phone: teamMember?.phone || staff.phone,
         status: teamMember?.status || staff.status || 'active', // Ensure status is set
+        photo_url: teamMember?.photo_url || staff.photo_url || '', // Add photo_url
         totalPoints,
         completedSessions,
         tenure,
@@ -167,6 +172,7 @@ export default function TeamDirectory() {
         hourly_rate: tm.hourly_rate,
         notes: tm.notes,
         manager_email: tm.manager_email,
+        photo_url: tm.photo_url || '', // Add photo_url here
         totalPoints: 0,
         completedSessions: 0,
         tenure: tm.hire_date ? differenceInMonths(new Date(), new Date(tm.hire_date)) : 0,
@@ -259,6 +265,7 @@ export default function TeamDirectory() {
 
   const handleOpenAddDialog = () => {
     setEditingMember(null);
+    setPhotoPreview(null);
     setFormData({
       staff_email: "",
       staff_name: "",
@@ -273,12 +280,14 @@ export default function TeamDirectory() {
       notes: "",
       status: "active",
       manager_email: "",
+      photo_url: "",
     });
     setShowAddDialog(true);
   };
 
   const handleOpenEditDialog = (member) => {
     setEditingMember(member);
+    setPhotoPreview(member.photo_url || null);
     setFormData({
       staff_email: member.staff_email || member.email,
       staff_name: member.staff_name || member.full_name,
@@ -293,6 +302,7 @@ export default function TeamDirectory() {
       notes: member.notes || "",
       status: member.status || "active",
       manager_email: member.manager_email || "",
+      photo_url: member.photo_url || "",
     });
     setShowAddDialog(true);
   };
@@ -300,6 +310,35 @@ export default function TeamDirectory() {
   const closeDialog = () => {
     setShowAddDialog(false);
     setEditingMember(null);
+    setPhotoPreview(null);
+  };
+
+  const handlePhotoUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Check file type
+    if (!file.type.startsWith('image/')) {
+      alert('Please upload an image file');
+      return;
+    }
+
+    // Check file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      alert('Photo size must be less than 5MB');
+      return;
+    }
+
+    setUploadingPhoto(true);
+    try {
+      const { file_url } = await base44.integrations.Core.UploadFile({ file });
+      setFormData({ ...formData, photo_url: file_url });
+      setPhotoPreview(file_url);
+    } catch (error) {
+      console.error('Error uploading photo:', error);
+      alert('Failed to upload photo. Please try again.');
+    }
+    setUploadingPhoto(false);
   };
 
   const handleSubmit = () => {
@@ -625,9 +664,17 @@ export default function TeamDirectory() {
                     <div className="flex items-start gap-4">
                       {/* Avatar */}
                       <div className="relative">
-                        <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-green-500 rounded-full flex items-center justify-center text-white text-2xl font-bold flex-shrink-0">
-                          {(staff.full_name?.charAt(0) || staff.staff_name?.charAt(0) || "?").toUpperCase()}
-                        </div>
+                        {staff.photo_url ? (
+                          <img
+                            src={staff.photo_url}
+                            alt={staff.full_name || staff.staff_name}
+                            className="w-16 h-16 rounded-full object-cover flex-shrink-0 border-2 border-white shadow-md"
+                          />
+                        ) : (
+                          <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-green-500 rounded-full flex items-center justify-center text-white text-2xl font-bold flex-shrink-0">
+                            {(staff.full_name?.charAt(0)?.toUpperCase() || staff.staff_name?.charAt(0)?.toUpperCase() || "?")}
+                          </div>
+                        )}
                         {staff.status === 'active' && (
                           <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-green-500 rounded-full border-2 border-white" />
                         )}
@@ -771,9 +818,17 @@ export default function TeamDirectory() {
                     <tr key={staff.id || staff.staff_email} className="border-b hover:bg-gray-50 transition-colors">
                       <td className="p-4">
                         <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-green-500 rounded-full flex items-center justify-center text-white font-bold">
-                            {(staff.full_name?.charAt(0) || staff.staff_name?.charAt(0) || "?").toUpperCase()}
-                          </div>
+                          {staff.photo_url ? (
+                            <img
+                              src={staff.photo_url}
+                              alt={staff.full_name || staff.staff_name}
+                              className="w-10 h-10 rounded-full object-cover border-2 border-white shadow-md"
+                            />
+                          ) : (
+                            <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-green-500 rounded-full flex items-center justify-center text-white font-bold">
+                              {(staff.full_name?.charAt(0)?.toUpperCase() || staff.staff_name?.charAt(0)?.toUpperCase() || "?")}
+                            </div>
+                          )}
                           <div>
                             <p className="font-medium text-gray-900">{staff.full_name || staff.staff_name}</p>
                             <p className="text-sm text-gray-500">{staff.email || staff.staff_email}</p>
@@ -885,6 +940,65 @@ export default function TeamDirectory() {
             </DialogHeader>
 
             <div className="space-y-4 py-4">
+              {/* Photo Upload Section */}
+              <div className="flex flex-col items-center gap-4 pb-4 border-b border-gray-200">
+                <div className="relative">
+                  {photoPreview ? (
+                    <img
+                      src={photoPreview}
+                      alt="Staff photo"
+                      className="w-32 h-32 rounded-full object-cover border-4 border-blue-100 shadow-lg"
+                    />
+                  ) : (
+                    <div className="w-32 h-32 bg-gradient-to-br from-blue-500 to-green-500 rounded-full flex items-center justify-center text-white text-5xl font-bold border-4 border-blue-100 shadow-lg">
+                      {formData.staff_name?.charAt(0)?.toUpperCase() || "?"}
+                    </div>
+                  )}
+                  {uploadingPhoto && (
+                    <div className="absolute inset-0 bg-black/50 rounded-full flex items-center justify-center">
+                      <div className="w-8 h-8 border-4 border-white border-t-transparent rounded-full animate-spin" />
+                    </div>
+                  )}
+                </div>
+                <div className="text-center">
+                  <input
+                    type="file"
+                    id="photo-upload"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handlePhotoUpload}
+                    disabled={uploadingPhoto}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => document.getElementById('photo-upload').click()}
+                    disabled={uploadingPhoto}
+                    className="mb-2"
+                  >
+                    <Upload className="w-4 h-4 mr-2" />
+                    {uploadingPhoto ? 'Uploading...' : photoPreview ? 'Change Photo' : 'Upload Photo'}
+                  </Button>
+                  {photoPreview && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setFormData({ ...formData, photo_url: "" });
+                        setPhotoPreview(null);
+                      }}
+                      className="text-red-600 hover:text-red-700 text-xs"
+                    >
+                      Remove Photo
+                    </Button>
+                  )}
+                  <p className="text-xs text-gray-500 mt-2">
+                    Recommended: Square image, max 5MB
+                  </p>
+                </div>
+              </div>
+
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label className="text-sm font-semibold">Email *</Label>
