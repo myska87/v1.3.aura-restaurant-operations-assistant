@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -545,7 +546,7 @@ export default function ClockInOut() {
               <Button
                 onClick={handleClockOut}
                 disabled={!canClockOut || isProcessing}
-                className="w-full h-32 text-2xl font-bold shadow-2xl disabled:opacity-50 relative overflow-hidden"
+                className="w-full h-32 text-2xl font-bold shadow-2xl disabled:opacity-50 relative overflow-hidden group"
                 style={{
                   background: 'linear-gradient(135deg, #E0B037 0%, #f59e0b 100%)',
                   border: canClockOut ? '3px solid #dc2626' : 'none'
@@ -554,9 +555,47 @@ export default function ClockInOut() {
                 {canClockOut && (
                   <div className="absolute inset-0 animate-pulse bg-white opacity-20" />
                 )}
-                <LogOut className="w-8 h-8 mr-3" />
-                {isProcessing ? 'Clocking Out...' : 'Clock Out'}
+                <div className="flex items-center justify-center gap-4">
+                  <LogOut className="w-8 h-8" />
+                  <div className="text-center">
+                    <p className="text-2xl font-bold">
+                      {isProcessing ? 'Clocking Out...' : 'Clock Out'}
+                    </p>
+                    {duration && (
+                      <p className="text-sm opacity-90 mt-1">
+                        Total: {duration.hours}h {duration.minutes}m
+                      </p>
+                    )}
+                  </div>
+                </div>
+                {canClockOut && (
+                  <div className="absolute bottom-0 left-0 right-0 h-1 bg-red-500 animate-pulse" />
+                )}
               </Button>
+              
+              {/* Quick Clock Out Info */}
+              <div className="mt-4 p-4 bg-white rounded-lg shadow-sm">
+                <div className="flex items-center justify-between text-sm">
+                  <div className="flex items-center gap-2">
+                    <Clock className="w-4 h-4 text-gray-600" />
+                    <span className="text-gray-700">Started at</span>
+                  </div>
+                  <span className="font-semibold text-gray-900">
+                    {attendanceRecord?.actual_clock_in 
+                      ? format(parseISO(attendanceRecord.actual_clock_in), 'h:mm a')
+                      : 'N/A'}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-sm mt-2">
+                  <div className="flex items-center gap-2">
+                    <MapPin className="w-4 h-4 text-gray-600" />
+                    <span className="text-gray-700">Location</span>
+                  </div>
+                  <span className="font-semibold text-gray-900">
+                    {location ? '✓ Captured' : '⚠️ Required'}
+                  </span>
+                </div>
+              </div>
             </motion.div>
           ) : nextShift ? (
             <motion.div
