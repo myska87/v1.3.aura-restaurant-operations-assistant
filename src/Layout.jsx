@@ -172,6 +172,30 @@ export default function Layout({ children, currentPageName }) {
                   </Link>
                 );
               })}
+
+              {/* Manager Dashboard - Only show to managers/owners */}
+              {(user?.position === 'manager' || user?.position === 'owner' || user?.role === 'admin') && (
+                <>
+                  <div className="my-4 border-t border-slate-200" />
+                  <div className="px-2 mb-2">
+                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                      Management Tools
+                    </p>
+                  </div>
+                  <Link
+                    to={createPageUrl("ManagerDashboard")}
+                    onClick={() => setSidebarOpen(false)}
+                    className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${
+                      isActive(createPageUrl("ManagerDashboard"))
+                        ? "bg-gradient-to-r from-purple-50 to-indigo-50 text-purple-700 font-medium"
+                        : "text-slate-700 hover:bg-slate-50"
+                    }`}
+                  >
+                    <Users className={`w-5 h-5 ${isActive(createPageUrl("ManagerDashboard")) ? "text-purple-600" : "text-slate-500"}`} />
+                    <span className="text-sm">Manager Dashboard</span>
+                  </Link>
+                </>
+              )}
             </div>
           </nav>
 
