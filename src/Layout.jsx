@@ -23,75 +23,150 @@ import {
   GraduationCap,
   MessageCircle,
   CheckCircle,
-  Calendar, // Added from outline
-  TrendingUp, // Added from outline
-  UserCircle, // Added from outline
-  ChevronRight, // Added from outline
+  Calendar,
+  TrendingUp,
+  UserCircle,
+  ChevronRight,
+  Clock, // Added from outline
+  Shield, // Added from outline
 } from "lucide-react";
 import WelcomeNewHire from "./components/WelcomeNewHire";
 import ChecklistAutomation from "./components/ChecklistAutomation";
 import NotificationBell from "./components/NotificationBell";
 
+// Simple Badge component for reusability within the sidebar
+const Badge = ({ children, className }) => (
+  <span className={`inline-flex items-center justify-center rounded-full text-center font-semibold leading-none whitespace-nowrap ${className}`}>
+    {children}
+  </span>
+);
+
 const navigationItems = [
+  // === DAILY ESSENTIALS ===
   {
-    title: "Dashboard",
-    url: createPageUrl("Dashboard"),
-    icon: LayoutDashboard,
+    section: "Daily Essentials",
+    items: [
+      {
+        title: "Dashboard",
+        url: createPageUrl("Dashboard"),
+        icon: LayoutDashboard,
+        badge: null,
+      },
+      {
+        title: "My Tasks",
+        url: createPageUrl("MyTasks"),
+        icon: CheckCircle,
+        badge: null,
+      },
+      {
+        title: "My Shifts",
+        url: createPageUrl("MyShifts"),
+        icon: Calendar,
+        badge: null,
+      },
+      {
+        title: "Clock In/Out",
+        url: createPageUrl("ClockInOut"),
+        icon: Clock,
+        badge: null,
+      },
+    ]
+  },
+  
+  // === OPERATIONS ===
+  {
+    section: "Operations",
+    items: [
+      {
+        title: "Daily Checklists",
+        url: createPageUrl("DailyChecklists"),
+        icon: ClipboardCheck,
+        badge: null,
+      },
+      {
+        title: "Advanced Checklists",
+        url: createPageUrl("AdvancedChecklists"),
+        icon: ClipboardList,
+        badge: null,
+      },
+      {
+        title: "Compliance",
+        url: createPageUrl("Compliance"),
+        icon: Shield,
+        badge: null,
+      },
+      {
+        title: "Maintenance",
+        url: createPageUrl("Maintenance"),
+        icon: Wrench,
+        badge: null,
+      },
+    ]
+  },
+  
+  // === INVENTORY & MENU ===
+  {
+    section: "Inventory & Menu",
+    items: [
+      {
+        title: "Inventory Hub",
+        url: createPageUrl("Inventory"),
+        icon: Package,
+        badge: null,
+      },
+      {
+        title: "Production Planning",
+        url: createPageUrl("ProductionPlanning"),
+        icon: Calculator,
+        badge: null,
+      },
+    ]
+  },
+  
+  // === TEAM & PEOPLE ===
+  {
+    section: "Team & People",
+    items: [
+      {
+        title: "Staff Model",
+        url: createPageUrl("StaffModel"),
+        icon: GraduationCap,
+        badge: null,
+      },
+      {
+        title: "Shift & Rota",
+        url: createPageUrl("StaffRota"),
+        icon: Users,
+        badge: null,
+      },
+      {
+        title: "Team Chat",
+        url: createPageUrl("TeamChat"),
+        icon: MessageCircle,
+        badge: null,
+      },
+    ]
+  },
+];
+
+const managementItems = [
+  {
+    title: "Manager Dashboard",
+    url: createPageUrl("ManagerDashboard"),
+    icon: TrendingUp,
+    badge: "MGMT",
   },
   {
-    title: "My Tasks", // New item
-    url: createPageUrl("MyTasks"), // New item
-    icon: CheckCircle, // New item
+    title: "Smart Scheduler",
+    url: createPageUrl("SmartScheduler"),
+    icon: Calendar,
+    badge: "AI",
   },
   {
-    title: "Daily Checklists", // NEW ITEM
-    url: createPageUrl("DailyChecklists"),
-    icon: ClipboardCheck,
-  },
-  {
-    title: "Inventory",
-    url: createPageUrl("Inventory"),
-    icon: Package,
-  },
-  {
-    title: "Production Planning",
-    url: createPageUrl("ProductionPlanning"),
-    icon: Calculator,
-  },
-  {
-    title: "Shift & Rota",
-    url: createPageUrl("StaffRota"),
-    icon: Users,
-  },
-  {
-    title: "Staff Model",
-    url: createPageUrl("StaffModel"),
-    icon: GraduationCap,
-  },
-  {
-    title: "Team Chat",
-    url: createPageUrl("TeamChat"),
-    icon: MessageCircle,
-  },
-  {
-    title: "Checklists",
-    url: createPageUrl("AdvancedChecklists"),
-    icon: ClipboardList,
-  },
-  {
-    title: "Compliance",
-    url: createPageUrl("Compliance"),
-    icon: ClipboardCheck,
-  },
-  {
-    title: "Maintenance",
-    url: createPageUrl("Maintenance"),
-    icon: Wrench,
-  },
-  {
-    title: "Reports",
+    title: "Reports & Analytics",
     url: createPageUrl("Reports"),
     icon: BarChart3,
+    badge: null,
   },
 ];
 
@@ -171,53 +246,90 @@ export default function Layout({ children, currentPageName }) {
           </div>
 
           {/* Navigation */}
-          <nav className="flex-1 overflow-y-auto p-4">
-            <div className="space-y-1">
-              {navigationItems.map((item) => {
-                const Icon = item.icon;
-                const active = isActive(item.url);
+          <nav className="flex-1 overflow-y-auto p-4 space-y-6">
+            {navigationItems.map((section, sectionIdx) => (
+              <div key={sectionIdx}>
+                {/* Section Header */}
+                <div className="px-3 mb-2">
+                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                    {section.section}
+                  </p>
+                </div>
+                
+                {/* Section Items */}
+                <div className="space-y-1">
+                  {section.items.map((item) => {
+                    const Icon = item.icon;
+                    const active = isActive(item.url);
 
-                return (
-                  <Link
-                    key={item.title}
-                    to={item.url}
-                    onClick={() => setSidebarOpen(false)}
-                    className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${
-                      active
-                        ? "bg-gradient-to-r from-blue-50 to-green-50 text-blue-700 font-medium"
-                        : "text-slate-700 hover:bg-slate-50"
-                    }`}
-                  >
-                    <Icon className={`w-5 h-5 ${active ? "text-blue-600" : "text-slate-500"}`} />
-                    <span className="text-sm">{item.title}</span>
-                  </Link>
-                );
-              })}
+                    return (
+                      <Link
+                        key={item.title}
+                        to={item.url}
+                        onClick={() => setSidebarOpen(false)}
+                        className={`flex items-center gap-3 px-4 py-2.5 rounded-lg transition-all ${
+                          active
+                            ? "bg-gradient-to-r from-blue-50 to-green-50 text-blue-700 font-medium shadow-sm"
+                            : "text-slate-700 hover:bg-slate-50"
+                        }`}
+                      >
+                        <Icon className={`w-5 h-5 ${active ? "text-blue-600" : "text-slate-500"}`} />
+                        <span className="text-sm flex-1">{item.title}</span>
+                        {item.badge && (
+                          <Badge className="text-xs px-1.5 py-0.5 bg-blue-100 text-blue-700">
+                            {item.badge}
+                          </Badge>
+                        )}
+                      </Link>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
 
-              {/* Manager Dashboard - Only show to managers/owners */}
-              {(user?.position === 'manager' || user?.position === 'owner' || user?.role === 'admin') && (
-                <>
-                  <div className="my-4 border-t border-slate-200" />
-                  <div className="px-2 mb-2">
-                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                      Management Tools
-                    </p>
-                  </div>
-                  <Link
-                    to={createPageUrl("ManagerDashboard")}
-                    onClick={() => setSidebarOpen(false)}
-                    className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${
-                      isActive(createPageUrl("ManagerDashboard"))
-                        ? "bg-gradient-to-r from-purple-50 to-indigo-50 text-purple-700 font-medium"
-                        : "text-slate-700 hover:bg-slate-50"
-                    }`}
-                  >
-                    <Users className={`w-5 h-5 ${isActive(createPageUrl("ManagerDashboard")) ? "text-purple-600" : "text-slate-500"}`} />
-                    <span className="text-sm">Manager Dashboard</span>
-                  </Link>
-                </>
-              )}
-            </div>
+            {/* Management Tools Section - Only for Managers/Owners */}
+            {(user?.position === 'manager' || user?.position === 'owner' || user?.role === 'admin') && (
+              <div>
+                <div className="px-3 mb-2 mt-6 pt-6 border-t border-slate-200">
+                  <p className="text-xs font-semibold text-purple-600 uppercase tracking-wider flex items-center gap-1.5">
+                    <Users className="w-3.5 h-3.5" />
+                    Management Tools
+                  </p>
+                </div>
+                
+                <div className="space-y-1">
+                  {managementItems.map((item) => {
+                    const Icon = item.icon;
+                    const active = isActive(item.url);
+
+                    return (
+                      <Link
+                        key={item.title}
+                        to={item.url}
+                        onClick={() => setSidebarOpen(false)}
+                        className={`flex items-center gap-3 px-4 py-2.5 rounded-lg transition-all ${
+                          active
+                            ? "bg-gradient-to-r from-purple-50 to-indigo-50 text-purple-700 font-medium shadow-sm"
+                            : "text-slate-700 hover:bg-purple-50"
+                        }`}
+                      >
+                        <Icon className={`w-5 h-5 ${active ? "text-purple-600" : "text-slate-500"}`} />
+                        <span className="text-sm flex-1">{item.title}</span>
+                        {item.badge && (
+                          <Badge className={`text-xs px-1.5 py-0.5 ${
+                            item.badge === 'AI' 
+                              ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white' 
+                              : 'bg-purple-100 text-purple-700'
+                          }`}>
+                            {item.badge}
+                          </Badge>
+                        )}
+                      </Link>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </nav>
 
           {/* User Section */}
