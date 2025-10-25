@@ -298,9 +298,6 @@ export default function MenuManagement() {
     
     // Calculate cost per serving with waste
     const costPerServing = recipe.reduce((sum, item) => {
-      // item.cost is the cost for the *defined quantity* in the recipe.
-      // ingredient.unit_cost is cost per unit.
-      // We need cost per unit * quantity for the recipe item.
       const ingredientDetail = ingredients.find(ing => ing.id === item.ingredient_id);
       if (!ingredientDetail) return sum;
 
@@ -329,14 +326,17 @@ export default function MenuManagement() {
       const totalIngredientCost = quantityNeededWithWaste * ingredientDetail.unit_cost;
 
       return {
-        ...item,
-        ingredient_name: ingredientDetail.name, // Ensure name is available
-        unit: ingredientDetail.unit,           // Ensure unit is available
-        unit_cost: ingredientDetail.unit_cost, // Ensure unit_cost is available
+        ingredient_id: item.ingredient_id,
+        ingredient_name: ingredientDetail.name,
         quantity_needed: quantityNeededWithWaste,
+        unit: ingredientDetail.unit,
+        unit_cost: ingredientDetail.unit_cost,
         total_cost: totalIngredientCost,
+        supplier_id: ingredientDetail.supplier_id,
+        supplier_name: ingredientDetail.supplier_name,
+        supplier_email: ingredientDetail.supplier_email,
       };
-    }).filter(Boolean); // Filter out any nulls if ingredient not found
+    }).filter(Boolean);
 
     return {
       costPerServing: costPerServingWithWaste,
@@ -355,32 +355,44 @@ export default function MenuManagement() {
 
     const { ingredientsNeeded } = metrics;
 
+    if (ingredientsNeeded.length === 0) {
+      alert('No ingredients found to order!');
+      return;
+    }
+
     // Group by supplier
     const ordersBySupplier = {};
 
     for (const recipeItem of ingredientsNeeded) {
-      const ingredient = ingredients.find(ing => ing.id === recipeItem.ingredient_id);
-      if (!ingredient || !ingredient.supplier_id) continue; // Skip if no supplier info
+      if (!recipeItem.supplier_id) {
+        console.warn(`Ingredient ${recipeItem.ingredient_name} has no supplier_id assigned and will not be ordered.`);
+        continue;
+      }
 
-      const supplierId = ingredient.supplier_id;
+      const supplierId = recipeItem.supplier_id;
 
       if (!ordersBySupplier[supplierId]) {
         ordersBySupplier[supplierId] = {
-          supplier_id: ingredient.supplier_id,
-          supplier_name: ingredient.supplier_name,
-          supplier_email: ingredient.supplier_email,
+          supplier_id: recipeItem.supplier_id,
+          supplier_name: recipeItem.supplier_name,
+          supplier_email: recipeItem.supplier_email,
           items: [],
         };
       }
 
       ordersBySupplier[supplierId].items.push({
-        ingredient_id: ingredient.id,
-        ingredient_name: ingredient.name,
+        ingredient_id: recipeItem.ingredient_id,
+        ingredient_name: recipeItem.ingredient_name,
         quantity_ordered: recipeItem.quantity_needed,
-        unit: ingredient.unit,
-        unit_cost: ingredient.unit_cost,
-        line_total: recipeItem.quantity_needed * ingredient.unit_cost,
+        unit: recipeItem.unit,
+        unit_cost: recipeItem.unit_cost,
+        line_total: recipeItem.total_cost,
       });
+    }
+
+    if (Object.keys(ordersBySupplier).length === 0) {
+      alert('⚠️ No suppliers assigned to ingredients found in this recipe. Please ensure all recipe ingredients are linked to inventory items, and those inventory items have an assigned supplier.');
+      return;
     }
 
     // Create draft orders for each supplier
@@ -391,15 +403,15 @@ export default function MenuManagement() {
         const total = subtotal + tax;
 
         await createPurchaseOrderMutation.mutateAsync({
-          order_number: `PO-MENU-${Date.now()}`,
+          order_number: `PO-MENU-${Date.now()}-${order.supplier_id.substring(0, 4)}`,
           supplier_id: order.supplier_id,
           supplier_name: order.supplier_name,
           supplier_email: order.supplier_email,
           status: 'draft',
           items: order.items,
-          subtotal,
-          tax,
-          total,
+          subtotal: parseFloat(subtotal.toFixed(2)),
+          tax: parseFloat(tax.toFixed(2)),
+          total: parseFloat(total.toFixed(2)),
           order_date: new Date().toISOString(),
           notes: `Order for ${calculatorItem.name} (${servings} servings) - Generated from Profit Calculator`,
         });
@@ -1011,28 +1023,40 @@ export default function MenuManagement() {
                 {/* Ingredients Breakdown */}
                 <div>
                   <h4 className="font-semibold text-gray-900 mb-3">Ingredients Needed ({servings} servings)</h4>
-                  <div className="space-y-2">
-                    {metrics.ingredientsNeeded.map((item, index) => (
-                      <Card key={index} className="border border-gray-200">
-                        <CardContent className="p-4">
-                          <div className="flex justify-between items-center">
-                            <div>
-                              <p className="font-medium text-gray-900">{item.ingredient_name}</p>
-                              <p className="text-sm text-gray-600">
-                                {item.quantity_needed.toFixed(2)} {item.unit} × £{item.unit_cost?.toFixed(2)}
-                                {wastePercentage > 0 && (
-                                  <span className="text-amber-600 ml-1"> (+{wastePercentage}% waste)</span>
+                  {metrics.ingredientsNeeded.length === 0 ? (
+                    <Card className="bg-amber-50 border-amber-200">
+                      <CardContent className="p-4 text-center">
+                        <p className="text-amber-800">⚠️ No ingredients found or no ingredients linked to suppliers.</p>
+                        <p className="text-amber-700 text-sm mt-2">Ensure all recipe ingredients are linked to inventory items, and those inventory items have an assigned supplier.</p>
+                      </CardContent>
+                    </Card>
+                  ) : (
+                    <div className="space-y-2">
+                      {metrics.ingredientsNeeded.map((item, index) => (
+                        <Card key={index} className="border border-gray-200">
+                          <CardContent className="p-4">
+                            <div className="flex justify-between items-center">
+                              <div>
+                                <p className="font-medium text-gray-900">{item.ingredient_name}</p>
+                                <p className="text-sm text-gray-600">
+                                  {item.quantity_needed.toFixed(2)} {item.unit} × £{item.unit_cost?.toFixed(2)}
+                                  {wastePercentage > 0 && (
+                                    <span className="text-amber-600 ml-1"> (+{wastePercentage}% waste)</span>
+                                  )}
+                                </p>
+                                {item.supplier_name && (
+                                  <p className="text-xs text-gray-500">Supplier: {item.supplier_name}</p>
                                 )}
-                              </p>
+                              </div>
+                              <span className="font-semibold text-gray-900">
+                                £{item.total_cost.toFixed(2)}
+                              </span>
                             </div>
-                            <span className="font-semibold text-gray-900">
-                              £{item.total_cost.toFixed(2)}
-                            </span>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 {/* Totals Summary */}
@@ -1065,7 +1089,7 @@ export default function MenuManagement() {
                   <Button
                     onClick={handleOrderIngredients}
                     className="bg-green-600 hover:bg-green-700"
-                    disabled={createPurchaseOrderMutation.isPending}
+                    disabled={createPurchaseOrderMutation.isPending || metrics.ingredientsNeeded.length === 0}
                   >
                     <ShoppingCart className="w-4 h-4 mr-2" />
                     {createPurchaseOrderMutation.isPending ? 'Creating Order...' : 'Order Ingredients Now'}
