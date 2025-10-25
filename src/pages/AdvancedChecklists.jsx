@@ -1169,7 +1169,7 @@ export default function AdvancedChecklists() {
               <TemplatesView
                 templates={filterByFrequency(templates, 'yearly')}
                 showForm={showTemplateForm}
-                setShowForm={setShowForm}
+                setShowForm={setShowTemplateForm}
                 formData={formData}
                 setFormData={setFormData}
                 newTask={newTask}
@@ -1759,7 +1759,7 @@ function TemplatesView({
                 <SelectContent>
                   {users.map((user) => (
                     <SelectItem key={user.email} value={user.email}>
-                      {user.full_name} ({user.email}) - {user.position}
+                      {user.full_name} ({user.email})
                     </SelectItem>
                   ))}
                 </SelectContent>
