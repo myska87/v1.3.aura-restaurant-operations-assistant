@@ -40,6 +40,7 @@ import FormLibrary from './pages/FormLibrary';
 import ManagerDashboard from './pages/ManagerDashboard';
 import StaffProfile from './pages/StaffProfile';
 import MyTasks from './pages/MyTasks';
+import TaskReports from './pages/TaskReports';
 import Layout from './Layout.jsx';
 
 
@@ -86,6 +87,7 @@ export const PAGES = {
     "ManagerDashboard": ManagerDashboard,
     "StaffProfile": StaffProfile,
     "MyTasks": MyTasks,
+    "TaskReports": TaskReports,
 }
 
 export const pagesConfig = {

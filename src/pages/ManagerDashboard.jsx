@@ -602,6 +602,145 @@ export default function ManagerDashboard() {
           </Card>
         </div>
 
+        {/* Task Matrix View - Quick Overview */}
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Target className="w-5 h-5 text-purple-600" />
+              Smart Task Matrix
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b">
+                    <th className="text-left p-3 text-sm font-semibold text-gray-700">Role</th>
+                    <th className="text-left p-3 text-sm font-semibold text-gray-700">Tasks Count</th>
+                    <th className="text-left p-3 text-sm font-semibold text-gray-700">Linked Forms</th>
+                    <th className="text-left p-3 text-sm font-semibold text-gray-700">Auto Assign</th>
+                    <th className="text-right p-3 text-sm font-semibold text-gray-700">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {responsibilities.map((role) => {
+                    const dailyCount = role.daily_tasks?.length || 0;
+                    const weeklyCount = role.weekly_tasks?.length || 0;
+                    const monthlyCount = role.monthly_tasks?.length || 0;
+                    const totalTasks = dailyCount + weeklyCount + monthlyCount;
+                    // Note: This assumes tasks might be objects with a linked_form_id.
+                    // If tasks are simple strings, this will always evaluate to false.
+                    const hasLinkedForms = [
+                      ...(role.daily_tasks || []),
+                      ...(role.weekly_tasks || []),
+                      ...(role.monthly_tasks || [])
+                    ].some(t => typeof t === 'object' && t !== null && t.linked_form_id);
+
+                    // Note: auto_assign_enabled is a hypothetical field for display purposes here.
+                    // It would need to be added to the RoleResponsibility entity and its management UI.
+                    const autoAssignEnabled = role.auto_assign_enabled ?? false;
+
+                    return (
+                      <tr key={role.id} className="border-b hover:bg-gray-50 transition-colors">
+                        <td className="p-3">
+                          <div>
+                            <p className="font-medium text-gray-900 capitalize">
+                              {role.position?.replace('_', ' ')}
+                            </p>
+                            <p className="text-xs text-gray-500 capitalize">
+                              {role.department?.replace('_', ' ')}
+                            </p>
+                          </div>
+                        </td>
+                        <td className="p-3">
+                          <div className="flex flex-wrap gap-1">
+                            {dailyCount > 0 && (
+                              <Badge variant="outline" className="text-xs">
+                                {dailyCount} Daily
+                              </Badge>
+                            )}
+                            {weeklyCount > 0 && (
+                              <Badge variant="outline" className="text-xs">
+                                {weeklyCount} Weekly
+                              </Badge>
+                            )}
+                            {monthlyCount > 0 && (
+                              <Badge variant="outline" className="text-xs">
+                                {monthlyCount} Monthly
+                              </Badge>
+                            )}
+                            {totalTasks === 0 && (
+                              <Badge className="bg-red-100 text-red-800 text-xs">
+                                No Tasks
+                              </Badge>
+                            )}
+                          </div>
+                        </td>
+                        <td className="p-3">
+                          {hasLinkedForms ? (
+                            <Badge className="bg-green-100 text-green-800 text-xs">
+                              <FileText className="w-3 h-3 mr-1" />
+                              Yes
+                            </Badge>
+                          ) : (
+                            <span className="text-xs text-gray-400">No forms</span>
+                          )}
+                        </td>
+                        <td className="p-3">
+                          {autoAssignEnabled ? (
+                            <Badge className="bg-green-100 text-green-800 text-xs">
+                              ✅ Enabled
+                            </Badge>
+                          ) : (
+                            <Badge className="bg-gray-100 text-gray-800 text-xs">
+                              ❌ Disabled
+                            </Badge>
+                          )}
+                        </td>
+                        <td className="p-3">
+                          <div className="flex items-center justify-end gap-2">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                setActiveTab('responsibilities');
+                                // Use setTimeout to ensure tab change renders before dialog attempts to open
+                                setTimeout(() => handleEditResponsibility(role), 0);
+                              }}
+                            >
+                              <Edit className="w-4 h-4 mr-1" />
+                              Edit
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setActiveTab('responsibilities')}
+                            >
+                              <Eye className="w-4 h-4 mr-1" />
+                              Preview
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {responsibilities.length === 0 && (
+              <div className="text-center py-12 text-gray-500">
+                <Target className="w-12 h-12 mx-auto mb-4 text-gray-400" />
+                <p className="mb-4">No role responsibilities defined yet</p>
+                <Button onClick={() => setActiveTab('responsibilities')} className="bg-purple-600">
+                  <Plus className="w-4 h-4 mr-2" />
+                  Create First Role
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
         {/* Tab Navigation with Indicators */}
         <Card className="mb-6">
           <CardContent className="p-4">
@@ -1171,7 +1310,7 @@ export default function ManagerDashboard() {
                                         <div className="flex-1 flex gap-2 items-center">
                                           <Input
                                             value={editingTaskValue}
-                                            onChange={(e) => setEditingTaskValue(e.target.value)}
+                                            onChange={(e) => setNewTaskValue(e.target.value)}
                                             className="h-7 text-sm"
                                             autoFocus
                                             onKeyPress={(e) => {

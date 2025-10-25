@@ -2,10 +2,10 @@
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
-import { 
-  ClipboardCheck, 
-  Package, 
-  Wrench, 
+import {
+  ClipboardCheck,
+  Package,
+  Wrench,
   Users,
   AlertTriangle,
   TrendingUp,
@@ -23,6 +23,15 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { format } from "date-fns"; // Added for date formatting
 import { Badge } from "@/components/ui/badge"; // Added for badges
+
+// Placeholder for SmartAlerts component - will likely fetch and display dynamic alerts
+const SmartAlerts = () => {
+  // This component would typically contain logic to fetch and render various alerts
+  // based on real-time data, system status, or user roles.
+  // For now, it returns null, meaning it won't render anything visually,
+  // but it's available to be populated with alert logic in the future.
+  return null;
+};
 
 export default function Dashboard() {
   const [dailyQuote, setDailyQuote] = useState("");
@@ -69,7 +78,7 @@ export default function Dashboard() {
         // Fetch all checklist executions and templates
         const allExecutions = await base44.entities.ChecklistExecution.list('-execution_date');
         const templates = await base44.entities.ChecklistTemplate.list();
-        
+
         const templatesMap = new Map(templates.map(t => [t.id, t]));
 
         const now = new Date();
@@ -85,7 +94,7 @@ export default function Dashboard() {
           execDate.setHours(0, 0, 0, 0); // Normalize 'execDate' to the start of its day
 
           const daysUntilDue = Math.ceil((execDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-          
+
           // Filter for manager/owner-specific checklists that are due within 14 days and not completed
           return (
             template.applicable_roles?.includes(user.position) &&
@@ -107,10 +116,10 @@ export default function Dashboard() {
   useEffect(() => {
     const fetchDailyQuote = async () => {
       setLoadingQuote(true);
-      
+
       // First, check if there's a daily quote in culture content
       const existingQuote = cultureContent.find(c => c.content_type === 'daily_quote');
-      
+
       if (existingQuote) {
         setDailyQuote(existingQuote.content);
         setLoadingQuote(false);
@@ -119,7 +128,7 @@ export default function Dashboard() {
         const today = new Date().toISOString().split('T')[0];
         const cachedQuote = localStorage.getItem('dailyQuote');
         const cachedDate = localStorage.getItem('dailyQuoteDate');
-        
+
         if (cachedQuote && cachedDate === today) {
           setDailyQuote(cachedQuote);
           setLoadingQuote(false);
@@ -128,7 +137,7 @@ export default function Dashboard() {
             const response = await base44.integrations.Core.InvokeLLM({
               prompt: `Generate one inspiring and motivational quote about hospitality, customer service, or teamwork in the restaurant industry. Make it uplifting and positive. Return only the quote text without quotes or author attribution. Keep it under 100 characters.`,
             });
-            
+
             const newQuote = typeof response === 'string' ? response : (response && response.quote) ? response.quote : "Excellence in hospitality starts with a smile and genuine care for every guest.";
             setDailyQuote(newQuote);
             localStorage.setItem('dailyQuote', newQuote);
@@ -146,7 +155,7 @@ export default function Dashboard() {
     if (!loadingCulture) { // Trigger fetch when cultureContent is done loading
       fetchDailyQuote();
     }
-  }, [cultureContent, loadingCulture]); 
+  }, [cultureContent, loadingCulture]);
 
   // Calculate stats
   const complianceRate = complianceChecks.length > 0
@@ -158,7 +167,7 @@ export default function Dashboard() {
   ).length;
 
   const openTickets = maintenanceTickets.filter(t => t.status === "open").length;
-  
+
   const pendingTasks = staffTasks.filter(t => t.status === "pending" || t.status === "in_progress").length;
 
   // Chart data
@@ -199,6 +208,21 @@ export default function Dashboard() {
   return (
     <div className="p-6 md:p-8 bg-gray-50 min-h-screen">
       <div className="max-w-7xl mx-auto space-y-8">
+        {/* Header */}
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+          <div>
+            <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-2">Dashboard</h1>
+            <p className="text-gray-600">Real-time restaurant operations overview</p>
+          </div>
+          <div className="flex items-center gap-2 px-4 py-2 bg-white rounded-xl shadow-sm border border-gray-200">
+            <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+            <span className="text-sm font-medium text-gray-700">System Online</span>
+          </div>
+        </div>
+
+        {/* Smart Alerts Section */}
+        <SmartAlerts />
+
         {/* Daily Motivational Quote */}
         <Card className="bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 text-white border-none shadow-xl overflow-hidden relative">
           <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-32 -mt-32" />
@@ -228,18 +252,6 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        {/* Header */}
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-          <div>
-            <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-2">Dashboard</h1>
-            <p className="text-gray-600">Real-time restaurant operations overview</p>
-          </div>
-          <div className="flex items-center gap-2 px-4 py-2 bg-white rounded-xl shadow-sm border border-gray-200">
-            <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-            <span className="text-sm font-medium text-gray-700">System Online</span>
-          </div>
-        </div>
-
         {/* Manager Upcoming Tasks Alert */}
         {upcomingChecklists.length > 0 && (user?.position === 'manager' || user?.position === 'owner') && (
           <Card className="bg-gradient-to-r from-orange-50 to-amber-50 border-orange-200">
@@ -261,12 +273,12 @@ export default function Dashboard() {
                       todayDate.setHours(0,0,0,0);
                       const execDate = new Date(checklist.execution_date);
                       execDate.setHours(0,0,0,0);
-                      
+
                       const daysUntil = Math.ceil(
-                        (execDate.getTime() - todayDate.getTime()) / 
+                        (execDate.getTime() - todayDate.getTime()) /
                         (1000 * 60 * 60 * 24)
                       );
-                      
+
                       return (
                         <div key={checklist.id} className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-3 bg-white rounded-lg">
                           <div>
