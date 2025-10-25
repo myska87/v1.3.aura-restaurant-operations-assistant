@@ -2,7 +2,7 @@
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"; // Added CardHeader, CardTitle
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -41,7 +41,9 @@ import {
   Eye,
   MapPin,
   Mail,
-  Copy, // Import Copy icon
+  Copy,
+  Users, // Added Users icon
+  TrendingUp, // Added TrendingUp icon
 } from "lucide-react";
 import { format, startOfWeek, addDays, addWeeks, subWeeks, getWeek, parseISO, isSameDay } from "date-fns";
 import { Link } from "react-router-dom";
@@ -696,15 +698,302 @@ export default function SmartScheduler() {
           </CardContent>
         </Card>
 
+        {/* Week Summary Section */}
+        <div className="mt-8 space-y-6">
+          <h2 className="text-2xl font-bold text-gray-900">📊 Week Summary</h2>
+          
+          {/* Overview Cards */}
+          <div className="grid md:grid-cols-4 gap-4">
+            {/* Total Hours */}
+            <Card className="bg-gradient-to-br from-blue-500 to-blue-600 text-white border-none shadow-lg">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between mb-2">
+                  <Clock className="w-8 h-8 opacity-80" />
+                  <Badge className="bg-white/20 text-white border-none">Week {weekNumber}</Badge>
+                </div>
+                <p className="text-3xl font-bold mb-1">
+                  {shifts.reduce((total, shift) => {
+                    const [startH, startM] = shift.start_time.split(':').map(Number);
+                    const [endH, endM] = shift.end_time.split(':').map(Number);
+                    const hours = ((endH * 60 + endM) - (startH * 60 + startM)) / 60;
+                    return total + hours;
+                  }, 0).toFixed(1)}h
+                </p>
+                <p className="text-sm text-blue-100">Total Weekly Hours</p>
+              </CardContent>
+            </Card>
+
+            {/* Total Shifts */}
+            <Card className="bg-gradient-to-br from-green-500 to-green-600 text-white border-none shadow-lg">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between mb-2">
+                  <Calendar className="w-8 h-8 opacity-80" />
+                  <Badge className="bg-white/20 text-white border-none">Active</Badge>
+                </div>
+                <p className="text-3xl font-bold mb-1">{shifts.length}</p>
+                <p className="text-sm text-green-100">Total Shifts Scheduled</p>
+              </CardContent>
+            </Card>
+
+            {/* Unique Staff */}
+            <Card className="bg-gradient-to-br from-purple-500 to-purple-600 text-white border-none shadow-lg">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between mb-2">
+                  <Users className="w-8 h-8 opacity-80" />
+                  <Badge className="bg-white/20 text-white border-none">Team</Badge>
+                </div>
+                <p className="text-3xl font-bold mb-1">
+                  {new Set(shifts.map(s => s.staff_email)).size}
+                </p>
+                <p className="text-sm text-purple-100">Staff Members Working</p>
+              </CardContent>
+            </Card>
+
+            {/* Tasks Status */}
+            <Card className="bg-gradient-to-br from-amber-500 to-amber-600 text-white border-none shadow-lg">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between mb-2">
+                  <Zap className="w-8 h-8 opacity-80" />
+                  <Badge className="bg-white/20 text-white border-none">Auto</Badge>
+                </div>
+                <p className="text-3xl font-bold mb-1">
+                  {shifts.filter(s => s.auto_generated_tasks).length}/{shifts.length}
+                </p>
+                <p className="text-sm text-amber-100">Shifts with Tasks</p>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Detailed Breakdown */}
+          <div className="grid md:grid-cols-2 gap-6">
+            {/* Hours by Position */}
+            <Card className="bg-white border-none shadow-sm">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <TrendingUp className="w-5 h-5 text-blue-600" />
+                  Hours by Position
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {POSITIONS.filter(pos => shifts.some(s => s.role === pos.name)).map((position) => {
+                    const positionShifts = shifts.filter(s => s.role === position.name);
+                    const totalHours = positionShifts.reduce((total, shift) => {
+                      const [startH, startM] = shift.start_time.split(':').map(Number);
+                      const [endH, endM] = shift.end_time.split(':').map(Number);
+                      const hours = ((endH * 60 + endM) - (startH * 60 + startM)) / 60;
+                      return total + hours;
+                    }, 0);
+
+                    const totalShiftsInWeek = shifts.length;
+                    const percentage = totalShiftsInWeek > 0 
+                      ? (positionShifts.length / totalShiftsInWeek) * 100 
+                      : 0;
+
+                    return (
+                      <div key={position.name} className="space-y-1">
+                        <div className="flex justify-between items-center text-sm">
+                          <div className="flex items-center gap-2">
+                            <div className={`w-3 h-3 rounded-full ${position.darkColor}`} />
+                            <span className="font-medium text-gray-900">{position.name}</span>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <span className="text-gray-600">{positionShifts.length} shifts</span>
+                            <span className="font-bold text-gray-900">{totalHours.toFixed(1)}h</span>
+                          </div>
+                        </div>
+                        <div className="w-full bg-gray-200 rounded-full h-2">
+                          <div 
+                            className={`${position.darkColor} h-2 rounded-full transition-all duration-500`}
+                            style={{ width: `${percentage}%` }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Daily Breakdown */}
+            <Card className="bg-white border-none shadow-sm">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Calendar className="w-5 h-5 text-green-600" />
+                  Daily Breakdown
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {weekDates.map((date, index) => {
+                    const dayShifts = shifts.filter(s => isSameDay(parseISO(s.shift_date), date));
+                    const totalHours = dayShifts.reduce((total, shift) => {
+                      const [startH, startM] = shift.start_time.split(':').map(Number);
+                      const [endH, endM] = shift.end_time.split(':').map(Number);
+                      const hours = ((endH * 60 + endM) - (startH * 60 + startM)) / 60;
+                      return total + hours;
+                    }, 0);
+
+                    const isToday = isSameDay(date, new Date());
+
+                    // Calculate max hours for scaling the progress bar
+                    const maxHours = Math.max(...weekDates.map(d => {
+                      const ds = shifts.filter(s => isSameDay(parseISO(s.shift_date), d));
+                      return ds.reduce((t, s) => {
+                        const [startH, startM] = s.start_time.split(':').map(Number);
+                        const [endH, endM] = s.end_time.split(':').map(Number);
+                        return t + ((endH * 60 + endM) - (startH * 60 + startM)) / 60;
+                      }, 0);
+                    }));
+                    const percentage = maxHours > 0 ? (totalHours / maxHours) * 100 : 0;
+
+                    return (
+                      <div key={index} className="space-y-1">
+                        <div className="flex justify-between items-center text-sm">
+                          <span className={`font-medium ${isToday ? 'text-yellow-600' : 'text-gray-900'}`}>
+                            {isToday && '👉 '}{format(date, 'EEEE')}
+                          </span>
+                          <div className="flex items-center gap-3">
+                            <span className="text-gray-600">{dayShifts.length} shifts</span>
+                            <span className="font-bold text-gray-900">{totalHours.toFixed(1)}h</span>
+                          </div>
+                        </div>
+                        <div className="w-full bg-gray-200 rounded-full h-2">
+                          <div 
+                            className={`${isToday ? 'bg-yellow-500' : 'bg-green-500'} h-2 rounded-full transition-all duration-500`}
+                            style={{ width: `${percentage}%` }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Staff Utilization */}
+          <Card className="bg-white border-none shadow-sm">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Users className="w-5 h-5 text-purple-600" />
+                Staff Utilization This Week
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b-2 border-gray-200">
+                      <th className="text-left p-3 font-semibold text-gray-900">Staff Member</th>
+                      <th className="text-center p-3 font-semibold text-gray-900">Role</th>
+                      <th className="text-center p-3 font-semibold text-gray-900">Shifts</th>
+                      <th className="text-center p-3 font-semibold text-gray-900">Total Hours</th>
+                      <th className="text-center p-3 font-semibold text-gray-900">Avg per Shift</th>
+                      <th className="text-center p-3 font-semibold text-gray-900">Tasks</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {Object.entries(
+                      shifts.reduce((acc, shift) => {
+                        if (!acc[shift.staff_email]) {
+                          acc[shift.staff_email] = {
+                            name: shift.staff_name,
+                            email: shift.staff_email,
+                            role: shift.role,
+                            shifts: [],
+                          };
+                        }
+                        acc[shift.staff_email].shifts.push(shift);
+                        return acc;
+                      }, {})
+                    ).map(([email, data]) => {
+                      const totalHours = data.shifts.reduce((total, shift) => {
+                        const [startH, startM] = shift.start_time.split(':').map(Number);
+                        const [endH, endM] = shift.end_time.split(':').map(Number);
+                        const hours = ((endH * 60 + endM) - (startH * 60 + startM)) / 60;
+                        return total + hours;
+                      }, 0);
+
+                      const avgHours = totalHours / data.shifts.length;
+                      const shiftsWithTasks = data.shifts.filter(s => s.auto_generated_tasks).length;
+
+                      return (
+                        <tr key={email} className="border-b border-gray-100 hover:bg-gray-50">
+                          <td className="p-3">
+                            <div>
+                              <p className="font-medium text-gray-900">{data.name}</p>
+                              <p className="text-xs text-gray-500">{email}</p>
+                            </div>
+                          </td>
+                          <td className="p-3 text-center">
+                            <Badge className="bg-gray-100 text-gray-800">
+                              {data.role}
+                            </Badge>
+                          </td>
+                          <td className="p-3 text-center font-semibold">{data.shifts.length}</td>
+                          <td className="p-3 text-center font-bold text-blue-600">{totalHours.toFixed(1)}h</td>
+                          <td className="p-3 text-center text-gray-600">{avgHours.toFixed(1)}h</td>
+                          <td className="p-3 text-center">
+                            {shiftsWithTasks === data.shifts.length ? (
+                              <Badge className="bg-green-100 text-green-800">
+                                <CheckCircle className="w-3 h-3 mr-1" />
+                                {shiftsWithTasks}/{data.shifts.length}
+                              </Badge>
+                            ) : (
+                              <Badge className="bg-yellow-100 text-yellow-800">
+                                <AlertCircle className="w-3 h-3 mr-1" />
+                                {shiftsWithTasks}/{data.shifts.length}
+                              </Badge>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Coverage Alerts */}
+          {shifts.length > 0 && (
+            <Card className="bg-gradient-to-r from-amber-50 to-orange-50 border-amber-200">
+              <CardContent className="p-6">
+                <div className="flex items-start gap-4">
+                  <div className="p-3 bg-amber-100 rounded-lg">
+                    <AlertCircle className="w-6 h-6 text-amber-600" />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="font-semibold text-amber-900 mb-2">📋 Coverage Insights</h3>
+                    <div className="space-y-2 text-sm text-amber-800">
+                      <p>• <strong>{shifts.filter(s => !s.auto_generated_tasks).length}</strong> shifts need task generation</p>
+                      <p>• <strong>{weekDates.filter(date => !shifts.some(s => isSameDay(parseISO(s.shift_date), date))).length}</strong> days have no shifts scheduled</p>
+                      <p>• <strong>{POSITIONS.filter(pos => !shifts.some(s => s.role === pos.name)).length}</strong> positions not covered this week</p>
+                      <p>• Average shift length: <strong>
+                        {(shifts.reduce((total, shift) => {
+                          const [startH, startM] = shift.start_time.split(':').map(Number);
+                          const [endH, endM] = shift.end_time.split(':').map(Number);
+                          return total + ((endH * 60 + endM) - (startH * 60 + startM)) / 60;
+                        }, 0) / (shifts.length || 1)).toFixed(1)}h
+                      </strong></p>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+
         {/* Legend */}
         <Card className="mt-6">
           <CardContent className="p-4">
-            <div className="flex items-center gap-6">
-              <p className="font-semibold">Colors:</p>
+            <div className="flex items-center gap-6 flex-wrap">
+              <p className="font-semibold text-gray-900">Position Colors:</p>
               {POSITIONS.map((pos, i) => (
                 <div key={i} className="flex items-center gap-2">
                   <div className={`w-4 h-4 rounded ${pos.darkColor}`} />
-                  <span className="text-sm">{pos.name}</span>
+                  <span className="text-sm text-gray-700">{pos.name}</span>
                 </div>
               ))}
             </div>
