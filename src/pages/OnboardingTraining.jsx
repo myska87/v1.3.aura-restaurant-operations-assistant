@@ -263,9 +263,11 @@ export default function OnboardingTraining() {
     const progress = getStepProgress(step.id);
     if (!progress) return;
 
-    // The checkbox's onCheckedChange now handles setting acknowledged status.
-    // This function will primarily be called to mark the step complete.
-    handleCompleteStep(step);
+    // This function is now only for completing the step if acknowledged
+    // The acknowledged status itself is updated directly by the checkbox's onChange
+    if (progress.acknowledged) {
+      handleCompleteStep(step);
+    }
   };
 
   const overallProgress = getOverallProgress();
@@ -558,29 +560,35 @@ export default function OnboardingTraining() {
                     <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg mb-4">
                       <p className="text-gray-800">{selectedStep.acknowledgement_text}</p>
                     </div>
-                    <label 
-                      htmlFor="acknowledge-checkbox"
-                      className="flex items-start gap-3 p-4 bg-white border-2 border-gray-200 rounded-lg cursor-pointer hover:border-blue-300 hover:bg-blue-50 transition-all"
-                    >
-                      <Checkbox
-                        id="acknowledge-checkbox"
-                        checked={getStepProgress(selectedStep.id)?.acknowledged || false}
-                        onCheckedChange={(checked) => {
-                          const progress = getStepProgress(selectedStep.id);
-                          if (progress && !progress.acknowledged) { // Only allow changing if not already acknowledged
-                            updateProgressMutation.mutate({
-                              id: progress.id,
-                              data: { acknowledged: checked }
-                            });
-                          }
-                        }}
-                        disabled={getStepProgress(selectedStep.id)?.acknowledged}
-                        className="mt-1 cursor-pointer"
-                      />
-                      <span className="flex-1 text-gray-800 cursor-pointer leading-relaxed">
-                        I have read and understood the above information and agree to comply with these requirements.
-                      </span>
-                    </label>
+                    <div className="p-4 bg-white border-2 border-gray-200 rounded-lg hover:border-blue-300 hover:bg-blue-50 transition-all">
+                      <div className="flex items-start gap-3">
+                        <input
+                          type="checkbox"
+                          id="acknowledge-checkbox"
+                          checked={getStepProgress(selectedStep.id)?.acknowledged || false}
+                          onChange={async (e) => {
+                            const progress = getStepProgress(selectedStep.id);
+                            if (progress && !progress.acknowledged) { // Only allow changing if not already acknowledged
+                              await updateProgressMutation.mutateAsync({
+                                id: progress.id,
+                                data: { 
+                                  acknowledged: e.target.checked,
+                                  acknowledged_at: new Date().toISOString()
+                                }
+                              });
+                            }
+                          }}
+                          disabled={getStepProgress(selectedStep.id)?.acknowledged}
+                          className="w-5 h-5 mt-1 cursor-pointer accent-blue-600"
+                        />
+                        <label 
+                          htmlFor="acknowledge-checkbox" 
+                          className="flex-1 text-gray-800 cursor-pointer leading-relaxed select-none"
+                        >
+                          I have read and understood the above information and agree to comply with these requirements.
+                        </label>
+                      </div>
+                    </div>
                   </div>
                 )}
 
