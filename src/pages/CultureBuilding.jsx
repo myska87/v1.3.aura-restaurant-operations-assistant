@@ -20,7 +20,8 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
+}
+ from "@/components/ui/dialog";
 import { Heart, Plus, Video, CheckCircle, Trophy, ArrowLeft, Home } from "lucide-react";
 import { format } from "date-fns";
 import { Link } from "react-router-dom";
@@ -77,6 +78,10 @@ export default function CultureBuilding() {
     },
   });
 
+  const createChatMessageMutation = useMutation({
+    mutationFn: (data) => base44.entities.ChatMessage.create(data),
+  });
+
   const resetForm = () => {
     setShowForm(false);
     setEditingContent(null);
@@ -113,6 +118,31 @@ export default function CultureBuilding() {
     });
 
     alert(`✅ Thank you for acknowledging: ${content.title}`);
+  };
+
+  const postBadgeToChat = async (staffName, badgeName, points) => {
+    try {
+      // Find "All Staff" chat room
+      const chatRooms = await base44.entities.ChatRoom.list();
+      const allStaffRoom = chatRooms.find(room => room.room_name === "All Staff");
+      
+      if (!allStaffRoom) return;
+
+      const messageContent = `🏆 ${staffName} earned the "${badgeName}" badge for completing a culture quiz! +${points} points! 🎉`;
+
+      await createChatMessageMutation.mutateAsync({
+        room_id: allStaffRoom.id,
+        room_name: allStaffRoom.room_name,
+        sender_email: "system",
+        sender_name: "AURA System",
+        message_content: messageContent,
+        message_type: "announcement",
+        attachments: [],
+        read_by: [],
+      });
+    } catch (error) {
+      console.error("Error posting badge to chat:", error);
+    }
   };
 
   const handleQuizSubmit = async (content) => {
@@ -158,6 +188,11 @@ export default function CultureBuilding() {
       quiz_score: score,
       quiz_passed: passed,
     });
+
+    // If passed, post to chat
+    if (passed) {
+      await postBadgeToChat(user?.full_name, `${content.title} Champion`, 5);
+    }
 
     // Close quiz, show results
     setShowQuiz(null);

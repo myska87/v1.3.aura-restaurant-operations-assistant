@@ -96,6 +96,10 @@ export default function OnboardingTraining() {
     },
   });
 
+  const createChatMessageMutation = useMutation({
+    mutationFn: (data) => base44.entities.ChatMessage.create(data),
+  });
+
   // Initialize progress for all steps on first load
   useEffect(() => {
     if (onboardingSteps.length > 0 && myProgress.length === 0 && user?.email) {
@@ -145,6 +149,38 @@ export default function OnboardingTraining() {
     }, 2000);
   };
 
+  const postCertificateToChat = async (certificate, isMaster = false) => {
+    try {
+      // Find "All Staff" chat room
+      const chatRooms = await base44.entities.ChatRoom.list();
+      const allStaffRoom = chatRooms.find(room => room.room_name === "All Staff");
+      
+      if (!allStaffRoom) {
+        console.warn("Chat room 'All Staff' not found. Skipping chat message.");
+        return;
+      }
+
+      const messageContent = isMaster 
+        ? `🎓✨ ${certificate.staff_name} has completed the entire onboarding program and earned the Master Onboarding Certificate! Welcome to the team! 🎉`
+        : `⭐ ${certificate.staff_name} completed "${certificate.title}" and earned a certificate! 🏆 +${certificate.points_awarded} points!`;
+
+      await createChatMessageMutation.mutateAsync({
+        room_id: allStaffRoom.id,
+        room_name: allStaffRoom.room_name,
+        sender_email: "system",
+        sender_name: "AURA System",
+        message_content: messageContent,
+        message_type: "announcement",
+        attachments: [],
+        read_by: [],
+      });
+
+      triggerConfetti(); // Trigger confetti after successful post to chat
+    } catch (error) {
+      console.error("Error posting certificate to chat:", error);
+    }
+  };
+
   const generateCertificate = async (step, isMasterCertificate = false) => {
     const certificateId = `CERT-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     
@@ -186,8 +222,10 @@ export default function OnboardingTraining() {
       linked_achievement: isMasterCertificate ? 'onboarding_master' : `onboarding_step_${step?.step_number}`,
     });
 
+    // Post to All Staff chat
+    await postCertificateToChat(newCert, isMasterCertificate);
+
     setNewCertificate(newCert);
-    triggerConfetti();
 
     return newCert;
   };

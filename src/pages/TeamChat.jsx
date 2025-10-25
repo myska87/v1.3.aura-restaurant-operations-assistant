@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -135,6 +136,60 @@ export default function TeamChat() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  // Confetti animation for announcement messages
+  useEffect(() => {
+    const announcementMessages = messages.filter(
+      m => m.message_type === 'announcement' &&
+      m.sender_email === 'system' &&
+      (m.message_content.includes('certificate') || m.message_content.includes('badge') || m.message_content.includes('new hire'))
+    );
+
+    if (announcementMessages.length > 0) {
+      const latestAnnouncement = announcementMessages[announcementMessages.length - 1];
+      const isRecent = new Date(latestAnnouncement.created_date) > new Date(Date.now() - 5000); // Trigger if message is less than 5 seconds old
+
+      if (isRecent) {
+        triggerConfettiInChat();
+      }
+    }
+  }, [messages]);
+
+  const triggerConfettiInChat = () => {
+    const celebrationEl = document.createElement('div');
+    celebrationEl.innerHTML = '🎉🎊✨🌟💫⭐🏆';
+    celebrationEl.style.cssText = `
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 60px;
+      animation: celebrateChat 2s ease-out forwards;
+      z-index: 9999;
+      pointer-events: none;
+    `;
+
+    const style = document.createElement('style');
+    style.textContent = `
+      @keyframes celebrateChat {
+        0% { opacity: 1; transform: translate(-50%, -50%) scale(0) rotate(0deg); }
+        50% { opacity: 1; transform: translate(-50%, -50%) scale(1.5) rotate(180deg); }
+        100% { opacity: 0; transform: translate(-50%, -50%) scale(2) rotate(360deg); }
+      }
+    `;
+
+    document.head.appendChild(style);
+    document.body.appendChild(celebrationEl);
+
+    setTimeout(() => {
+      if (document.body.contains(celebrationEl)) {
+        document.body.removeChild(celebrationEl);
+      }
+      if (document.head.contains(style)) {
+        document.head.removeChild(style);
+      }
+    }, 2000);
+  };
+
   const handleSendMessage = async () => {
     if (!messageInput.trim() || !selectedRoom) return;
 
@@ -178,8 +233,8 @@ export default function TeamChat() {
   const handleReaction = async (messageId, reactionType) => {
     // Check if user already reacted with this type
     const existingReaction = reactions.find(
-      r => r.message_id === messageId && 
-      r.staff_email === user?.email && 
+      r => r.message_id === messageId &&
+      r.staff_email === user?.email &&
       r.reaction_type === reactionType
     );
 
@@ -289,7 +344,28 @@ export default function TeamChat() {
                 <AnimatePresence>
                   {messages.map((message) => {
                     const isOwnMessage = message.sender_email === user?.email;
+                    const isSystemMessage = message.sender_email === "system";
                     const messageReactions = getMessageReactions(message.id);
+
+                    // Special styling for system announcements
+                    if (isSystemMessage && message.message_type === "announcement") {
+                      return (
+                        <motion.div
+                          key={message.id}
+                          initial={{ opacity: 0, scale: 0.9 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          exit={{ opacity: 0 }}
+                          className="flex justify-center"
+                        >
+                          <div className="max-w-[80%] bg-gradient-to-r from-blue-500 to-green-500 text-white rounded-2xl px-6 py-4 shadow-lg">
+                            <p className="text-center font-semibold">{message.message_content}</p>
+                            <p className="text-xs text-center text-blue-100 mt-2">
+                              {format(new Date(message.created_date), 'p')}
+                            </p>
+                          </div>
+                        </motion.div>
+                      );
+                    }
 
                     return (
                       <motion.div
@@ -304,8 +380,8 @@ export default function TeamChat() {
                             <p className="text-xs text-gray-500 mb-1 px-2">{message.sender_name}</p>
                           )}
                           <div className={`rounded-2xl px-4 py-3 ${
-                            isOwnMessage 
-                              ? 'bg-blue-600 text-white' 
+                            isOwnMessage
+                              ? 'bg-blue-600 text-white'
                               : 'bg-white text-gray-900 border border-gray-200'
                           }`}>
                             <p className="text-sm whitespace-pre-wrap">{message.message_content}</p>
@@ -388,7 +464,7 @@ export default function TeamChat() {
                     className="flex-1"
                   />
 
-                  <Button 
+                  <Button
                     onClick={handleSendMessage}
                     disabled={!messageInput.trim()}
                     className="bg-blue-600 hover:bg-blue-700"

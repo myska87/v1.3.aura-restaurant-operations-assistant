@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -21,6 +22,7 @@ import {
   ClipboardList,
   GraduationCap,
 } from "lucide-react";
+import WelcomeNewHire from "./components/WelcomeNewHire";
 
 const navigationItems = [
   {
@@ -99,6 +101,9 @@ export default function Layout({ children, currentPageName }) {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+      {/* Auto-welcome new hires in background */}
+      <WelcomeNewHire />
+      
       {/* Mobile Header */}
       <div className="lg:hidden fixed top-0 left-0 right-0 bg-white border-b border-slate-200 z-40 px-4 py-3">
         <div className="flex items-center justify-between">
