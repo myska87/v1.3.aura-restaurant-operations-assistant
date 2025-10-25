@@ -874,7 +874,6 @@ export default function AdvancedChecklists() {
                   onClick={async () => {
                     const hygieneTemplate = templates.find(t => t.name.includes('Hygiene'));
                     if (!hygieneTemplate) {
-                      alert('Please create the Hygiene template first!');
                       return;
                     }
                     
@@ -893,9 +892,18 @@ export default function AdvancedChecklists() {
                       })),
                     };
                     
-                    await base44.entities.ChecklistExecution.create(testExecution);
-                    queryClient.invalidateQueries({ queryKey: ['myChecklistExecutions'] });
-                    alert('✅ Test checklist created! Switch to "My Checklists" tab to see it.');
+                    try {
+                      await base44.entities.ChecklistExecution.create(testExecution);
+                      await queryClient.invalidateQueries({ queryKey: ['myChecklistExecutions'] });
+                      
+                      // Automatically switch to My Checklists view
+                      setViewMode('my-checklists');
+                      
+                      // Scroll to top smoothly
+                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                    } catch (error) {
+                      console.error("Error creating test execution:", error);
+                    }
                   }}
                   className="bg-purple-600 hover:bg-purple-700"
                 >
