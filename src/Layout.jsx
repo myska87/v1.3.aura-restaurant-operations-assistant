@@ -21,6 +21,7 @@ import {
   ListChecks,
   ClipboardList,
   GraduationCap,
+  MessageCircle, // Added MessageCircle import
 } from "lucide-react";
 import WelcomeNewHire from "./components/WelcomeNewHire";
 
@@ -49,6 +50,11 @@ const navigationItems = [
     title: "Staff Model",
     url: createPageUrl("StaffModel"),
     icon: GraduationCap,
+  },
+  {
+    title: "Team Chat",
+    url: createPageUrl("TeamChat"),
+    icon: MessageCircle,
   },
   {
     title: "Checklist Templates",
