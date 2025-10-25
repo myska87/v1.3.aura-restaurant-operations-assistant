@@ -1,0 +1,53 @@
+{
+  "name": "DocumentVersion",
+  "type": "object",
+  "properties": {
+    "document_id": {
+      "type": "string",
+      "description": "Reference to Document"
+    },
+    "document_title": {
+      "type": "string",
+      "description": "Cached document title"
+    },
+    "version_number": {
+      "type": "number",
+      "description": "Version number"
+    },
+    "file_url": {
+      "type": "string",
+      "description": "Version file URL"
+    },
+    "file_size": {
+      "type": "number",
+      "description": "File size in bytes"
+    },
+    "changelog": {
+      "type": "string",
+      "description": "What changed in this version"
+    },
+    "updated_by": {
+      "type": "string",
+      "description": "Who updated"
+    },
+    "updated_by_name": {
+      "type": "string",
+      "description": "Name of updater"
+    },
+    "replaced_version": {
+      "type": "number",
+      "description": "Previous version number"
+    },
+    "is_current": {
+      "type": "boolean",
+      "default": true,
+      "description": "Is this the current version"
+    }
+  },
+  "required": [
+    "document_id",
+    "version_number",
+    "file_url",
+    "updated_by"
+  ]
+}
