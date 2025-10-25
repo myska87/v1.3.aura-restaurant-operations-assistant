@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -39,6 +40,7 @@ export default function InventoryManagement() {
   const [editingItem, setEditingItem] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterCategory, setFilterCategory] = useState("all");
+  const [filterSupplier, setFilterSupplier] = useState("all");
 
   const [formData, setFormData] = useState({
     name: "",
@@ -121,6 +123,12 @@ export default function InventoryManagement() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    if (!formData.supplier_id) {
+      alert('⚠️ Please select a supplier for this item. This is required for auto-ordering.');
+      return;
+    }
+    
     const supplier = suppliers.find(s => s.id === formData.supplier_id);
     
     const data = {
@@ -130,8 +138,10 @@ export default function InventoryManagement() {
       current_stock: parseFloat(formData.current_stock) || 0,
       par_level: formData.par_level ? parseFloat(formData.par_level) : null,
       reorder_point: formData.reorder_point ? parseFloat(formData.reorder_point) : null,
-      supplier_id: formData.supplier_id || null,
+      supplier_id: formData.supplier_id,
       supplier_name: supplier?.name || null,
+      supplier_email: supplier?.email || null,
+      supplier_phone: supplier?.phone || null,
       unit_cost: parseFloat(formData.unit_cost),
       auto_order_enabled: formData.auto_order_enabled,
       auto_order_quantity: formData.auto_order_quantity ? parseFloat(formData.auto_order_quantity) : null,
@@ -208,13 +218,14 @@ export default function InventoryManagement() {
   const filteredIngredients = ingredients.filter(ing => {
     const matchesSearch = ing.name.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesCategory = filterCategory === 'all' || ing.category === filterCategory;
-    return matchesSearch && matchesCategory;
+    const matchesSupplier = filterSupplier === 'all' || ing.supplier_id === filterSupplier;
+    return matchesSearch && matchesCategory && matchesSupplier;
   });
 
   const lowStockItems = ingredients.filter(ing => ing.current_stock <= (ing.reorder_point || 0));
   const totalValue = ingredients.reduce((sum, ing) => sum + (ing.current_stock * ing.unit_cost), 0);
-
   const categories = [...new Set(ingredients.map(ing => ing.category))];
+  const itemsWithoutSupplier = ingredients.filter(ing => !ing.supplier_id).length;
 
   return (
     <div className="p-6 md:p-8 bg-gray-50 min-h-screen">
@@ -251,7 +262,22 @@ export default function InventoryManagement() {
           </div>
         </div>
 
-        <div className="grid md:grid-cols-3 gap-6 mb-8">
+        {/* Alert for items without supplier */}
+        {itemsWithoutSupplier > 0 && (
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-6">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="w-5 h-5 text-amber-600 mt-0.5" />
+              <div>
+                <p className="font-semibold text-amber-900">Supplier Assignment Required</p>
+                <p className="text-sm text-amber-700">
+                  {itemsWithoutSupplier} item(s) don't have a supplier assigned. Auto-ordering won't work without a supplier.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div className="grid md:grid-cols-4 gap-6 mb-8">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-gray-600">Total Items</CardTitle>
@@ -281,6 +307,16 @@ export default function InventoryManagement() {
               <div className="text-3xl font-bold text-gray-900">£{totalValue.toFixed(2)}</div>
             </CardContent>
           </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium text-gray-600">No Supplier</CardTitle>
+              <AlertTriangle className="w-5 h-5 text-red-500" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold text-red-600">{itemsWithoutSupplier}</div>
+            </CardContent>
+          </Card>
         </div>
 
         <Card>
@@ -294,17 +330,31 @@ export default function InventoryManagement() {
                   className="max-w-sm"
                 />
               </div>
-              <Select value={filterCategory} onValueChange={setFilterCategory}>
-                <SelectTrigger className="w-48">
-                  <SelectValue placeholder="Filter by category" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Categories</SelectItem>
-                  {categories.map(cat => (
-                    <SelectItem key={cat} value={cat}>{cat}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="flex gap-3">
+                <Select value={filterCategory} onValueChange={setFilterCategory}>
+                  <SelectTrigger className="w-48">
+                    <SelectValue placeholder="All Categories" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Categories</SelectItem>
+                    {categories.map(cat => (
+                      <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                
+                <Select value={filterSupplier} onValueChange={setFilterSupplier}>
+                  <SelectTrigger className="w-48">
+                    <SelectValue placeholder="All Suppliers" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Suppliers</SelectItem>
+                    {suppliers.map(sup => (
+                      <SelectItem key={sup.id} value={sup.id}>{sup.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </CardHeader>
           <CardContent>
@@ -327,6 +377,7 @@ export default function InventoryManagement() {
                   {filteredIngredients.map((ingredient) => {
                     const isLowStock = ingredient.current_stock <= (ingredient.reorder_point || 0);
                     const totalValue = ingredient.current_stock * ingredient.unit_cost;
+                    const hasSupplier = !!ingredient.supplier_id;
                     
                     return (
                       <tr key={ingredient.id} className="border-b hover:bg-gray-50">
@@ -334,6 +385,7 @@ export default function InventoryManagement() {
                           <div className="flex items-center gap-2">
                             {ingredient.name}
                             {isLowStock && <AlertTriangle className="w-4 h-4 text-amber-500" />}
+                            {!hasSupplier && <AlertTriangle className="w-4 h-4 text-red-500" title="No supplier assigned" />}
                           </div>
                         </td>
                         <td className="p-3">
@@ -353,12 +405,29 @@ export default function InventoryManagement() {
                             {ingredient.reorder_point || '-'} {ingredient.unit}
                           </span>
                         </td>
-                        <td className="p-3">{ingredient.supplier_name || '-'}</td>
+                        <td className="p-3">
+                          {hasSupplier ? (
+                            <div>
+                              <p className="font-medium text-gray-900">{ingredient.supplier_name}</p>
+                              {ingredient.supplier_phone && (
+                                <p className="text-xs text-gray-500">{ingredient.supplier_phone}</p>
+                              )}
+                            </div>
+                          ) : (
+                            <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">
+                              Not Assigned
+                            </Badge>
+                          )}
+                        </td>
                         <td className="p-3">£{ingredient.unit_cost.toFixed(2)}</td>
                         <td className="p-3">£{totalValue.toFixed(2)}</td>
                         <td className="p-3">
-                          {ingredient.auto_order_enabled ? (
+                          {ingredient.auto_order_enabled && hasSupplier ? (
                             <Badge className="bg-green-100 text-green-800">ON</Badge>
+                          ) : !hasSupplier ? (
+                            <Badge variant="outline" className="bg-red-50 text-red-700">
+                              No Supplier
+                            </Badge>
                           ) : (
                             <Badge variant="outline">OFF</Badge>
                           )}
@@ -475,23 +544,67 @@ export default function InventoryManagement() {
                 </div>
               </div>
 
-              <div>
-                <Label>Supplier</Label>
+              {/* ENHANCED SUPPLIER SELECTION */}
+              <div className="border-2 border-blue-200 rounded-lg p-4 bg-blue-50">
+                <div className="flex items-center gap-2 mb-3">
+                  <ShoppingCart className="w-5 h-5 text-blue-600" />
+                  <Label className="text-lg font-semibold text-blue-900">Supplier Selection *</Label>
+                </div>
+                <p className="text-sm text-blue-700 mb-3">
+                  This supplier will be used when auto-ordering this item. Make sure the supplier is correct.
+                </p>
                 <Select
                   value={formData.supplier_id}
-                  onValueChange={(value) => setFormData({...formData, supplier_id: value})}
+                  onValueChange={(value) => {
+                    setFormData({
+                      ...formData, 
+                      supplier_id: value
+                    });
+                  }}
+                  required
                 >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select supplier" />
+                  <SelectTrigger className="bg-white">
+                    <SelectValue placeholder="⚠️ Select a supplier (required)" />
                   </SelectTrigger>
                   <SelectContent>
-                    {suppliers.map(supplier => (
-                      <SelectItem key={supplier.id} value={supplier.id}>
-                        {supplier.name}
-                      </SelectItem>
-                    ))}
+                    {suppliers.length === 0 ? (
+                      <div className="p-4 text-center text-gray-500">
+                        <p>No suppliers available</p>
+                        <Link to={createPageUrl("SupplierManagement")}>
+                          <Button variant="link" size="sm">Add Supplier First</Button>
+                        </Link>
+                      </div>
+                    ) : (
+                      suppliers.map(supplier => (
+                        <SelectItem key={supplier.id} value={supplier.id}>
+                          <div className="flex flex-col">
+                            <span className="font-semibold">{supplier.name}</span>
+                            <span className="text-xs text-gray-500">
+                              {supplier.email} • {supplier.phone || 'No phone'}
+                            </span>
+                          </div>
+                        </SelectItem>
+                      ))
+                    )}
                   </SelectContent>
                 </Select>
+                
+                {formData.supplier_id && (
+                  <div className="mt-3 p-3 bg-white rounded border border-blue-200">
+                    <p className="text-sm font-medium text-gray-700">Selected Supplier:</p>
+                    <p className="text-lg font-bold text-blue-900">
+                      {suppliers.find(s => s.id === formData.supplier_id)?.name}
+                    </p>
+                    <p className="text-xs text-gray-600">
+                      📧 {suppliers.find(s => s.id === formData.supplier_id)?.email}
+                    </p>
+                    {suppliers.find(s => s.id === formData.supplier_id)?.phone && (
+                      <p className="text-xs text-gray-600">
+                        📞 {suppliers.find(s => s.id === formData.supplier_id)?.phone}
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div className="border-t pt-4">
@@ -504,7 +617,7 @@ export default function InventoryManagement() {
                       onChange={(e) => setFormData({...formData, auto_order_enabled: e.target.checked})}
                       className="w-4 h-4"
                     />
-                    <Label>Enable automatic ordering</Label>
+                    <Label>Enable automatic ordering when stock is low</Label>
                   </div>
                   {formData.auto_order_enabled && (
                     <div>
@@ -516,6 +629,9 @@ export default function InventoryManagement() {
                         onChange={(e) => setFormData({...formData, auto_order_quantity: e.target.value})}
                         placeholder="Leave empty to order to par level"
                       />
+                      <p className="text-xs text-gray-500 mt-1">
+                        If empty, system will order enough to reach par level
+                      </p>
                     </div>
                   )}
                 </div>

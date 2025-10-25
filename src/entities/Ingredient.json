@@ -10,13 +10,15 @@
       "type": "string",
       "enum": [
         "produce",
-        "meat_poultry",
+        "meat",
         "seafood",
         "dairy",
         "dry_goods",
         "spices",
         "beverages",
-        "packaging"
+        "packaging",
+        "cleaning",
+        "other"
       ],
       "description": "Ingredient category"
     },
@@ -39,11 +41,19 @@
     },
     "supplier_id": {
       "type": "string",
-      "description": "Primary supplier"
+      "description": "Primary supplier ID - REQUIRED for auto-ordering"
     },
     "supplier_name": {
       "type": "string",
       "description": "Cached supplier name"
+    },
+    "supplier_email": {
+      "type": "string",
+      "description": "Cached supplier email"
+    },
+    "supplier_phone": {
+      "type": "string",
+      "description": "Cached supplier phone"
     },
     "unit_cost": {
       "type": "number",
@@ -61,6 +71,15 @@
       "type": "number",
       "description": "Days until expiry"
     },
+    "auto_order_enabled": {
+      "type": "boolean",
+      "default": true,
+      "description": "Enable automatic ordering"
+    },
+    "auto_order_quantity": {
+      "type": "number",
+      "description": "Fixed quantity to order, or null to order to par level"
+    },
     "last_cost_update": {
       "type": "string",
       "format": "date"
@@ -70,6 +89,7 @@
     "name",
     "category",
     "unit",
-    "unit_cost"
+    "unit_cost",
+    "supplier_id"
   ]
 }
