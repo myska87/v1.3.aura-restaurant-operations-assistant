@@ -22,6 +22,7 @@ import {
   ClipboardList,
   GraduationCap,
   MessageCircle,
+  CheckCircle, // Added CheckCircle import
 } from "lucide-react";
 import WelcomeNewHire from "./components/WelcomeNewHire";
 
@@ -30,6 +31,11 @@ const navigationItems = [
     title: "Dashboard",
     url: createPageUrl("Dashboard"),
     icon: LayoutDashboard,
+  },
+  {
+    title: "My Tasks", // New item
+    url: createPageUrl("MyTasks"), // New item
+    icon: CheckCircle, // New item
   },
   {
     title: "Inventory",

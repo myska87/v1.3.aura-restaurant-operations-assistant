@@ -30,21 +30,117 @@
     "daily_tasks": {
       "type": "array",
       "items": {
-        "type": "string"
+        "type": "object",
+        "properties": {
+          "task_name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "estimated_minutes": {
+            "type": "number"
+          },
+          "priority": {
+            "type": "string",
+            "enum": [
+              "low",
+              "medium",
+              "high"
+            ],
+            "default": "medium"
+          },
+          "requires_photo": {
+            "type": "boolean",
+            "default": false
+          },
+          "linked_form_id": {
+            "type": "string"
+          }
+        }
       },
       "description": "List of daily responsibilities"
     },
     "weekly_tasks": {
       "type": "array",
       "items": {
-        "type": "string"
+        "type": "object",
+        "properties": {
+          "task_name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "day_of_week": {
+            "type": "string",
+            "enum": [
+              "monday",
+              "tuesday",
+              "wednesday",
+              "thursday",
+              "friday",
+              "saturday",
+              "sunday"
+            ]
+          },
+          "estimated_minutes": {
+            "type": "number"
+          },
+          "priority": {
+            "type": "string",
+            "enum": [
+              "low",
+              "medium",
+              "high"
+            ],
+            "default": "medium"
+          },
+          "requires_photo": {
+            "type": "boolean",
+            "default": false
+          },
+          "linked_form_id": {
+            "type": "string"
+          }
+        }
       },
       "description": "List of weekly responsibilities"
     },
     "monthly_tasks": {
       "type": "array",
       "items": {
-        "type": "string"
+        "type": "object",
+        "properties": {
+          "task_name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "day_of_month": {
+            "type": "number"
+          },
+          "estimated_minutes": {
+            "type": "number"
+          },
+          "priority": {
+            "type": "string",
+            "enum": [
+              "low",
+              "medium",
+              "high"
+            ],
+            "default": "medium"
+          },
+          "requires_photo": {
+            "type": "boolean",
+            "default": false
+          },
+          "linked_form_id": {
+            "type": "string"
+          }
+        }
       },
       "description": "List of monthly responsibilities"
     },
@@ -59,21 +155,17 @@
       "type": "string",
       "description": "Manager responsible for this role"
     },
-    "linked_form_ids": {
-      "type": "array",
-      "items": {
-        "type": "string"
-      },
-      "description": "Forms assigned to this role"
+    "auto_assign_enabled": {
+      "type": "boolean",
+      "default": true,
+      "description": "Enable automatic task assignment for this role"
     },
     "last_updated": {
       "type": "string",
-      "format": "date-time",
-      "description": "Last update timestamp"
+      "format": "date-time"
     },
     "updated_by": {
-      "type": "string",
-      "description": "Who last updated"
+      "type": "string"
     },
     "is_active": {
       "type": "boolean",
