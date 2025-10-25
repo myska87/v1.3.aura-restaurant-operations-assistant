@@ -20,11 +20,11 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { 
-  Package, 
-  AlertTriangle, 
-  TrendingDown, 
-  ShoppingCart, 
+import {
+  Package,
+  AlertTriangle,
+  TrendingDown,
+  ShoppingCart,
   Plus,
   Pencil,
   ArrowLeft,
@@ -98,14 +98,14 @@ export default function InventoryManagement() {
     }
 
     const existingItem = cart.find(item => item.ingredient_id === ingredient.id);
-    
+
     // Find the current supplier details for the ingredient
     const currentSupplier = suppliers.find(s => s.id === ingredient.supplier_id);
 
     if (existingItem) {
-      setCart(cart.map(item => 
-        item.ingredient_id === ingredient.id 
-          ? {...item, quantity: item.quantity + quantity, line_total: (item.quantity + quantity) * ingredient.unit_cost}
+      setCart(cart.map(item =>
+        item.ingredient_id === ingredient.id
+          ? { ...item, quantity: item.quantity + quantity, line_total: (item.quantity + quantity) * ingredient.unit_cost }
           : item
       ));
     } else {
@@ -121,8 +121,70 @@ export default function InventoryManagement() {
         line_total: quantity * ingredient.unit_cost,
       }]);
     }
-    
+
     alert(`✅ ${ingredient.name} added to cart!`);
+  };
+
+  const addAllLowStockToCart = () => {
+    const lowStockWithSuppliers = lowStockItems.filter(item => item.supplier_id);
+    const lowStockWithoutSuppliers = lowStockItems.filter(item => !item.supplier_id);
+
+    if (lowStockItems.length === 0) {
+      alert('✅ No low stock items found!');
+      return;
+    }
+
+    if (lowStockWithoutSuppliers.length > 0) {
+      if (!confirm(`⚠️ ${lowStockWithoutSuppliers.length} low stock item(s) don't have suppliers assigned:\n\n${lowStockWithoutSuppliers.map(i => `• ${i.name}`).join('\n')}\n\nDo you want to add the remaining ${lowStockWithSuppliers.length} items with suppliers to cart?`)) {
+        return;
+      }
+    }
+
+    if (lowStockWithSuppliers.length === 0) {
+      alert('⚠️ None of the low stock items have suppliers assigned. Please assign suppliers first.');
+      return;
+    }
+
+    let itemsAddedOrUpdated = 0;
+    setCart(prevCart => {
+      let updatedCart = [...prevCart];
+      lowStockWithSuppliers.forEach(ingredient => {
+        // Calculate quantity to order (to reach par level or default to reorder point)
+        const quantityToOrder = ingredient.auto_order_quantity ||
+          (ingredient.par_level ? ingredient.par_level - ingredient.current_stock : 10);
+
+        const existingItemIndex = updatedCart.findIndex(item => item.ingredient_id === ingredient.id);
+        const currentSupplier = suppliers.find(s => s.id === ingredient.supplier_id);
+
+        if (existingItemIndex !== -1) {
+          // Update existing cart item
+          updatedCart = updatedCart.map((item, index) =>
+            index === existingItemIndex
+              ? { ...item, quantity: item.quantity + quantityToOrder, line_total: (item.quantity + quantityToOrder) * ingredient.unit_cost }
+              : item
+          );
+        } else {
+          // Add new item to cart
+          updatedCart.push({
+            ingredient_id: ingredient.id,
+            ingredient_name: ingredient.name,
+            quantity: quantityToOrder,
+            unit: ingredient.unit,
+            unit_cost: ingredient.unit_cost,
+            supplier_id: ingredient.supplier_id,
+            supplier_name: currentSupplier?.name || 'Unknown Supplier',
+            supplier_email: currentSupplier?.email || null,
+            line_total: quantityToOrder * ingredient.unit_cost,
+          });
+        }
+        itemsAddedOrUpdated++;
+      });
+      return updatedCart;
+    });
+
+
+    alert(`✅ ${itemsAddedOrUpdated} low stock item(s) added/updated in cart!`);
+    setShowCart(true);
   };
 
   const removeFromCart = (ingredientId) => {
@@ -135,10 +197,10 @@ export default function InventoryManagement() {
       removeFromCart(ingredientId);
       return;
     }
-    
-    setCart(cart.map(item => 
-      item.ingredient_id === ingredientId 
-        ? {...item, quantity: parsedQuantity, line_total: parsedQuantity * item.unit_cost}
+
+    setCart(cart.map(item =>
+      item.ingredient_id === ingredientId
+        ? { ...item, quantity: parsedQuantity, line_total: parsedQuantity * item.unit_cost }
         : item
     ));
   };
@@ -151,7 +213,7 @@ export default function InventoryManagement() {
 
     // Group cart items by supplier
     const ordersBySupplier = {};
-    
+
     cart.forEach(item => {
       if (!item.supplier_id) return; // Should not happen if check in addToCart works
 
@@ -163,7 +225,7 @@ export default function InventoryManagement() {
           items: []
         };
       }
-      
+
       ordersBySupplier[item.supplier_id].items.push({
         ingredient_id: item.ingredient_id,
         ingredient_name: item.ingredient_name,
@@ -241,14 +303,14 @@ export default function InventoryManagement() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (!formData.supplier_id) {
       alert('⚠️ Please select a supplier for this item. This is required for auto-ordering.');
       return;
     }
-    
+
     const supplier = suppliers.find(s => s.id === formData.supplier_id);
-    
+
     const data = {
       name: formData.name,
       category: formData.category,
@@ -331,22 +393,22 @@ export default function InventoryManagement() {
   };
 
   const checkAllAutoOrders = async () => {
-    const lowStockItems = ingredients.filter(ing => 
-      ing.auto_order_enabled && 
+    const lowStockItemsForAutoOrder = ingredients.filter(ing =>
+      ing.auto_order_enabled &&
       ing.current_stock <= (ing.reorder_point || 0) &&
       ing.supplier_id
     );
 
-    if (lowStockItems.length === 0) {
+    if (lowStockItemsForAutoOrder.length === 0) {
       alert('✅ All stock levels are adequate, or no auto-ordering items are set up.');
       return;
     }
 
-    for (const item of lowStockItems) {
+    for (const item of lowStockItemsForAutoOrder) {
       await triggerAutoOrder(item);
     }
 
-    alert(`Initiated auto-orders for ${lowStockItems.length} items.`);
+    alert(`Initiated auto-orders for ${lowStockItemsForAutoOrder.length} items.`);
   };
 
   const filteredIngredients = ingredients.filter(ing => {
@@ -385,9 +447,9 @@ export default function InventoryManagement() {
             <p className="text-gray-600">Track stock levels with automated reordering</p>
           </div>
           <div className="flex gap-3">
-            <Button 
-              onClick={() => setShowCart(true)} 
-              variant="outline" 
+            <Button
+              onClick={() => setShowCart(true)}
+              variant="outline"
               className="bg-blue-50 relative"
             >
               <ShoppingBasket className="w-4 h-4 mr-2" />
@@ -435,13 +497,23 @@ export default function InventoryManagement() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="border-2 border-amber-200 bg-amber-50">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">Low Stock Alerts</CardTitle>
-              <AlertTriangle className="w-5 h-5 text-amber-500" />
+              <CardTitle className="text-sm font-medium text-amber-800">Low Stock Alerts</CardTitle>
+              <AlertTriangle className="w-5 h-5 text-amber-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-amber-600">{lowStockItems.length}</div>
+              <div className="text-3xl font-bold text-amber-700 mb-2">{lowStockItems.length}</div>
+              {lowStockItems.length > 0 && (
+                <Button
+                  size="sm"
+                  onClick={addAllLowStockToCart}
+                  className="w-full bg-amber-600 hover:bg-amber-700 text-white"
+                >
+                  <ShoppingCart className="w-3 h-3 mr-1" />
+                  Add All to Cart
+                </Button>
+              )}
             </CardContent>
           </Card>
 
@@ -489,7 +561,7 @@ export default function InventoryManagement() {
                     ))}
                   </SelectContent>
                 </Select>
-                
+
                 <Select value={filterSupplier} onValueChange={setFilterSupplier}>
                   <SelectTrigger className="w-48">
                     <SelectValue placeholder="All Suppliers" />
@@ -525,7 +597,7 @@ export default function InventoryManagement() {
                     const isLowStock = ingredient.current_stock <= (ingredient.reorder_point || 0);
                     const totalValue = ingredient.current_stock * ingredient.unit_cost;
                     const hasSupplier = !!ingredient.supplier_id;
-                    
+
                     return (
                       <tr key={ingredient.id} className="border-b hover:bg-gray-50">
                         <td className="p-3">
@@ -618,7 +690,7 @@ export default function InventoryManagement() {
                   <Label>Item Name *</Label>
                   <Input
                     value={formData.name}
-                    onChange={(e) => setFormData({...formData, name: e.target.value})}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                     required
                   />
                 </div>
@@ -626,7 +698,7 @@ export default function InventoryManagement() {
                   <Label>Category *</Label>
                   <Select
                     value={formData.category}
-                    onValueChange={(value) => setFormData({...formData, category: value})}
+                    onValueChange={(value) => setFormData({ ...formData, category: value })}
                   >
                     <SelectTrigger>
                       <SelectValue />
@@ -652,7 +724,7 @@ export default function InventoryManagement() {
                     type="number"
                     step="0.01"
                     value={formData.current_stock}
-                    onChange={(e) => setFormData({...formData, current_stock: e.target.value})}
+                    onChange={(e) => setFormData({ ...formData, current_stock: e.target.value })}
                     required
                   />
                 </div>
@@ -660,7 +732,7 @@ export default function InventoryManagement() {
                   <Label>Unit *</Label>
                   <Input
                     value={formData.unit}
-                    onChange={(e) => setFormData({...formData, unit: e.target.value})}
+                    onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
                     placeholder="kg, L, pcs"
                     required
                   />
@@ -671,7 +743,7 @@ export default function InventoryManagement() {
                     type="number"
                     step="0.01"
                     value={formData.unit_cost}
-                    onChange={(e) => setFormData({...formData, unit_cost: e.target.value})}
+                    onChange={(e) => setFormData({ ...formData, unit_cost: e.target.value })}
                     required
                   />
                 </div>
@@ -684,7 +756,7 @@ export default function InventoryManagement() {
                     type="number"
                     step="0.01"
                     value={formData.par_level}
-                    onChange={(e) => setFormData({...formData, par_level: e.target.value})}
+                    onChange={(e) => setFormData({ ...formData, par_level: e.target.value })}
                     placeholder="Maximum stock level"
                   />
                 </div>
@@ -694,7 +766,7 @@ export default function InventoryManagement() {
                     type="number"
                     step="0.01"
                     value={formData.reorder_point}
-                    onChange={(e) => setFormData({...formData, reorder_point: e.target.value})}
+                    onChange={(e) => setFormData({ ...formData, reorder_point: e.target.value })}
                     placeholder="Trigger for reorder"
                     required
                   />
@@ -714,7 +786,7 @@ export default function InventoryManagement() {
                   value={formData.supplier_id}
                   onValueChange={(value) => {
                     setFormData({
-                      ...formData, 
+                      ...formData,
                       supplier_id: value
                     });
                   }}
@@ -745,7 +817,7 @@ export default function InventoryManagement() {
                     )}
                   </SelectContent>
                 </Select>
-                
+
                 {formData.supplier_id && (
                   <div className="mt-3 p-3 bg-white rounded border border-blue-200">
                     <p className="text-sm font-medium text-gray-700">Selected Supplier:</p>
@@ -771,7 +843,7 @@ export default function InventoryManagement() {
                     <input
                       type="checkbox"
                       checked={formData.auto_order_enabled}
-                      onChange={(e) => setFormData({...formData, auto_order_enabled: e.target.checked})}
+                      onChange={(e) => setFormData({ ...formData, auto_order_enabled: e.target.checked })}
                       className="w-4 h-4"
                     />
                     <Label>Enable automatic ordering when stock is low</Label>
@@ -783,7 +855,7 @@ export default function InventoryManagement() {
                         type="number"
                         step="0.01"
                         value={formData.auto_order_quantity}
-                        onChange={(e) => setFormData({...formData, auto_order_quantity: e.target.value})}
+                        onChange={(e) => setFormData({ ...formData, auto_order_quantity: e.target.value })}
                         placeholder="Leave empty to order to par level"
                       />
                       <p className="text-xs text-gray-500 mt-1">
@@ -871,7 +943,7 @@ export default function InventoryManagement() {
                   <Button variant="outline" onClick={() => setShowCart(false)}>
                     Continue Shopping
                   </Button>
-                  <Button 
+                  <Button
                     onClick={createOrderFromCart}
                     className="bg-green-600 hover:bg-green-700"
                   >
