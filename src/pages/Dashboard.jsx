@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
@@ -9,7 +10,8 @@ import {
   AlertTriangle,
   TrendingUp,
   GraduationCap,
-  Calendar
+  Calendar,
+  Sparkles
 } from "lucide-react";
 import StatCard from "../components/dashboard/StatCard";
 import ComplianceChart from "../components/dashboard/ComplianceChart";
@@ -21,6 +23,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 
 export default function Dashboard() {
+  const [dailyQuote, setDailyQuote] = useState("");
+  const [loadingQuote, setLoadingQuote] = useState(true);
+
   const { data: complianceChecks = [], isLoading: loadingCompliance } = useQuery({
     queryKey: ['complianceChecks'],
     queryFn: () => base44.entities.ComplianceCheck.list("-check_date", 100),
@@ -40,6 +45,59 @@ export default function Dashboard() {
     queryKey: ['staffTasks'],
     queryFn: () => base44.entities.StaffTask.list("-due_date", 50),
   });
+
+  const { data: cultureContent = [] } = useQuery({
+    queryKey: ['cultureContent'],
+    queryFn: () => base44.entities.CultureContent.list(),
+  });
+
+  // Get daily motivational quote
+  useEffect(() => {
+    const fetchDailyQuote = async () => {
+      setLoadingQuote(true);
+      
+      // First, check if there's a daily quote in culture content
+      const existingQuote = cultureContent.find(c => c.content_type === 'daily_quote');
+      
+      if (existingQuote) {
+        setDailyQuote(existingQuote.content);
+        setLoadingQuote(false);
+      } else {
+        // Generate a new daily quote using AI
+        try {
+          const today = new Date().toISOString().split('T')[0];
+          const cachedQuote = localStorage.getItem('dailyQuote');
+          const cachedDate = localStorage.getItem('dailyQuoteDate');
+          
+          if (cachedQuote && cachedDate === today) {
+            setDailyQuote(cachedQuote);
+          } else {
+            const response = await base44.integrations.Core.InvokeLLM({
+              prompt: `Generate one inspiring and motivational quote about hospitality, customer service, or teamwork in the restaurant industry. Make it uplifting and positive. Return only the quote text without quotes or author attribution. Keep it under 100 characters.`,
+            });
+            
+            // Assuming response can be a string or an object with a 'quote' property
+            const newQuote = typeof response === 'string' ? response : (response && response.quote) ? response.quote : "Excellence in hospitality starts with a smile and genuine care for every guest.";
+            setDailyQuote(newQuote);
+            localStorage.setItem('dailyQuote', newQuote);
+            localStorage.setItem('dailyQuoteDate', today);
+          }
+        } catch (error) {
+          console.error("Error generating quote:", error);
+          setDailyQuote("Excellence in hospitality starts with a smile and genuine care for every guest.");
+        }
+      }
+      setLoadingQuote(false);
+    };
+
+    // Only fetch if cultureContent data is loaded to prevent multiple LLM calls
+    // if cultureContent is empty initially then populates.
+    if (!loadingQuote && cultureContent !== undefined) { 
+        fetchDailyQuote();
+    }
+    // The dependency array ensures this effect runs when cultureContent changes
+    // or when the component mounts if cultureContent is already present.
+  }, [cultureContent]); 
 
   // Calculate stats
   const complianceRate = complianceChecks.length > 0
@@ -92,6 +150,35 @@ export default function Dashboard() {
   return (
     <div className="p-6 md:p-8 bg-gray-50 min-h-screen">
       <div className="max-w-7xl mx-auto space-y-8">
+        {/* Daily Motivational Quote */}
+        <Card className="bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 text-white border-none shadow-xl overflow-hidden relative">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-32 -mt-32" />
+          <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/10 rounded-full -ml-24 -mb-24" />
+          <CardContent className="p-8 relative z-10">
+            <div className="flex items-start gap-4">
+              <div className="p-3 bg-white/20 rounded-xl">
+                <Sparkles className="w-8 h-8 text-white" />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-semibold text-white/90 mb-2">✨ DAILY INSPIRATION</p>
+                {loadingQuote ? (
+                  <div className="animate-pulse">
+                    <div className="h-6 bg-white/20 rounded w-3/4 mb-2" />
+                    <div className="h-6 bg-white/20 rounded w-full" />
+                  </div>
+                ) : (
+                  <p className="text-2xl md:text-3xl font-bold leading-relaxed italic">
+                    "{dailyQuote}"
+                  </p>
+                )}
+                <p className="text-sm text-white/80 mt-3">
+                  {new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Header */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div>
