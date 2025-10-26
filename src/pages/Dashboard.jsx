@@ -229,10 +229,28 @@ export default function Dashboard() {
     <div className="p-6 md:p-8 bg-gray-50 min-h-screen">
       <div className="max-w-7xl mx-auto space-y-8">
         {/* Header */}
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-          <div>
-            <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-2">Dashboard</h1>
-            <p className="text-gray-600">Real-time restaurant operations overview</p>
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
+          <div className="flex items-center gap-4">
+            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#014D40] via-emerald-600 to-[#E0B037] flex items-center justify-center shadow-xl">
+              <svg
+                viewBox="0 0 24 24"
+                className="w-9 h-9 text-white"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M6 13.87A4 4 0 0 1 7.41 6a5.11 5.11 0 0 1 1.05-1.54 5 5 0 0 1 7.08 0A5.11 5.11 0 0 1 16.59 6 4 4 0 0 1 18 13.87V21H6Z" />
+                <line x1="6" y1="17" x2="18" y2="17" />
+              </svg>
+            </div>
+            <div>
+              <h1 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-[#014D40] to-emerald-600 bg-clip-text text-transparent mb-2">
+                Dashboard
+              </h1>
+              <p className="text-gray-600">Real-time restaurant operations overview</p>
+            </div>
           </div>
           <div className="flex items-center gap-2 px-4 py-2 bg-white rounded-xl shadow-sm border border-gray-200">
             <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />

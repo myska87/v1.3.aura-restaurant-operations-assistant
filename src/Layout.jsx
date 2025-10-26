@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -26,6 +27,8 @@ import {
 import WelcomeNewHire from "./components/WelcomeNewHire";
 import ChecklistAutomation from "./components/ChecklistAutomation";
 import NotificationBell from "./components/NotificationBell";
+import AuraLogo from "./components/AuraLogo";
+import LogoGenerator from "./components/LogoGenerator";
 
 const Badge = ({ children, className }) => (
   <span className={`inline-flex items-center justify-center rounded-full text-center font-semibold leading-none whitespace-nowrap ${className}`}>
@@ -191,11 +194,7 @@ export default function Layout({ children, currentPageName }) {
                 <Menu className="w-6 h-6 text-slate-700" />
               )}
             </button>
-            <img
-              src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/68fbb8d31770834f6bea4e9b/404b389b2_image.png"
-              alt="AURA One Pro"
-              className="h-8 w-auto"
-            />
+            <AuraLogo size="small" />
           </div>
           <div className="flex items-center gap-2">
             <NotificationBell />
@@ -216,14 +215,14 @@ export default function Layout({ children, currentPageName }) {
           {/* Logo Section */}
           <div className="p-6 border-b border-slate-200">
             <div className="flex flex-col items-center justify-center">
-              <img
-                src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/68fbb8d31770834f6bea4e9b/404b389b2_image.png"
-                alt="AURA One Pro"
-                className="w-48 h-auto mb-3"
-              />
-              <p className="text-xs text-center text-slate-600 font-medium">
+              <AuraLogo size="default" />
+              <p className="text-xs text-center text-slate-600 font-medium mt-3">
                 Restaurant Operations Assistant
               </p>
+            </div>
+            {/* Hidden logo generator */}
+            <div className="hidden">
+              <LogoGenerator />
             </div>
           </div>
 

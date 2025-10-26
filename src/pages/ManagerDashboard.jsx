@@ -66,7 +66,7 @@ export default function ManagerDashboard() {
   // Inline task editing states
   const [editingTaskId, setEditingTaskId] = useState(null);
   const [editingTaskValue, setEditingTaskValue] = useState("");
-  const [editingTaskType, setEditingTaskType] = "";
+  const [editingTaskType, setEditingTaskType] = useState("");
 
 
   const { data: user } = useQuery({
@@ -487,14 +487,19 @@ export default function ManagerDashboard() {
           </div>
         </div>
 
+        {/* Header */}
         <div className="mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 mb-3 flex items-center gap-3">
-            <Users className="w-10 h-10 text-blue-600" />
-            Manager Dashboard
-          </h1>
-          <p className="text-lg text-gray-600">
-            Manage your team, HR documents, and role responsibilities
-          </p>
+          <div className="flex items-center gap-4 mb-4">
+            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#014D40] via-emerald-600 to-[#E0B037] flex items-center justify-center shadow-xl">
+              <TrendingUp className="w-9 h-9 text-white" />
+            </div>
+            <div>
+              <h1 className="text-4xl font-bold bg-gradient-to-r from-[#014D40] to-emerald-600 bg-clip-text text-transparent">
+                Manager Dashboard
+              </h1>
+              <p className="text-gray-600 mt-1">Complete oversight of operations, staff & performance</p>
+            </div>
+          </div>
         </div>
 
         {/* Navigation to Wages Report */}
@@ -1140,7 +1145,7 @@ export default function ManagerDashboard() {
                                         <div className="flex-1 flex gap-2 items-center">
                                           <Input
                                             value={editingTaskValue}
-                                            onChange={(e) => setEditingTaskValue(e.target.value)}
+                                            onChange={(e) => setNewRoleDailyTasks(e.target.value)}
                                             className="h-7 text-sm"
                                             autoFocus
                                             onKeyPress={(e) => {
@@ -1233,7 +1238,7 @@ export default function ManagerDashboard() {
                                         <div className="flex-1 flex gap-2 items-center">
                                           <Input
                                             value={editingTaskValue}
-                                            onChange={(e) => setEditingTaskValue(e.target.value)}
+                                            onChange={(e) => setNewRoleWeeklyTasks(e.target.value)}
                                             className="h-7 text-sm"
                                             autoFocus
                                             onKeyPress={(e) => {
@@ -1329,7 +1334,7 @@ export default function ManagerDashboard() {
                                         <div className="flex-1 flex gap-2 items-center">
                                           <Input
                                             value={editingTaskValue}
-                                            onChange={(e) => setEditingTaskValue(e.target.value)}
+                                            onChange={(e) => setNewRoleMonthlyTasks(e.target.value)}
                                             className="h-7 text-sm"
                                             autoFocus
                                             onKeyPress={(e) => {
