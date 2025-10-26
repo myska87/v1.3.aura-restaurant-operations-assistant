@@ -28,7 +28,7 @@ import WelcomeNewHire from "./components/WelcomeNewHire";
 import ChecklistAutomation from "./components/ChecklistAutomation";
 import NotificationBell from "./components/NotificationBell";
 import AuraLogo from "./components/AuraLogo";
-import LogoGenerator from "./components/LogoGenerator";
+// LogoGenerator import removed for performance optimization
 
 const Badge = ({ children, className }) => (
   <span className={`inline-flex items-center justify-center rounded-full text-center font-semibold leading-none whitespace-nowrap ${className}`}>
@@ -220,10 +220,7 @@ export default function Layout({ children, currentPageName }) {
                 Restaurant Operations Assistant
               </p>
             </div>
-            {/* Hidden logo generator */}
-            <div className="hidden">
-              <LogoGenerator />
-            </div>
+            {/* Logo generator removed - using fallback logo for better performance */}
           </div>
 
           {/* Navigation */}

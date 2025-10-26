@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
@@ -12,10 +11,10 @@ import {
   GraduationCap,
   Calendar,
   Sparkles,
-  Zap, // New import for Quick Actions icon
-  LogIn, // New import for Clock In icon
-  LogOut, // New import for Clock Out icon
-  CheckCircle // New import for View My Tasks icon
+  Zap,
+  LogIn,
+  LogOut,
+  CheckCircle
 } from "lucide-react";
 import StatCard from "../components/dashboard/StatCard";
 import ComplianceChart from "../components/dashboard/ComplianceChart";
@@ -23,70 +22,62 @@ import RecentActivity from "../components/dashboard/RecentActivity";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"; // Added CardHeader, CardTitle
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 
-// Placeholder for SmartAlerts component - will likely fetch and display dynamic alerts
-const SmartAlerts = () => {
-  // This component would typically contain logic to fetch and render various alerts
-  // based on real-time data, system status, or user roles.
-  // For now, it returns null, meaning it won't render anything visually,
-  // but it's available to be populated with alert logic in the future.
-  return null;
-};
-
 export default function Dashboard() {
   const [dailyQuote, setDailyQuote] = useState("");
-  const [loadingQuote, setLoadingQuote] = useState(true);
+  const [loadingQuote, setLoadingQuote] = useState(false);
 
-  const { data: complianceChecks = [], isLoading: loadingCompliance } = useQuery({
+  // OPTIMIZED: Limit queries to only recent data needed for dashboard
+  const { data: complianceChecks = [] } = useQuery({
     queryKey: ['complianceChecks'],
-    queryFn: () => base44.entities.ComplianceCheck.list("-check_date", 100),
+    queryFn: () => base44.entities.ComplianceCheck.list("-check_date", 50), // Limit to 50
+    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
   });
 
-  const { data: inventoryItems = [], isLoading: loadingInventory } = useQuery({
+  const { data: inventoryItems = [] } = useQuery({
     queryKey: ['inventoryItems'],
-    queryFn: () => base44.entities.InventoryItem.list(),
+    queryFn: () => base44.entities.Ingredient.list("", 100), // Limit to 100
+    staleTime: 5 * 60 * 1000,
   });
 
-  const { data: maintenanceTickets = [], isLoading: loadingMaintenance } = useQuery({
+  const { data: maintenanceTickets = [] } = useQuery({
     queryKey: ['maintenanceTickets'],
-    queryFn: () => base44.entities.MaintenanceTicket.list("-created_date"),
+    queryFn: () => base44.entities.MaintenanceTicket.list("-created_date", 30), // Limit to 30
+    staleTime: 5 * 60 * 1000,
   });
 
-  const { data: staffTasks = [], isLoading: loadingTasks } = useQuery({
+  const { data: staffTasks = [] } = useQuery({
     queryKey: ['staffTasks'],
-    queryFn: () => base44.entities.StaffTask.list("-due_date", 50),
-  });
-
-  const { data: cultureContent = [], isLoading: loadingCulture } = useQuery({
-    queryKey: ['cultureContent'],
-    queryFn: () => base44.entities.CultureContent.list(),
+    queryFn: () => base44.entities.StaffTask.list("-due_date", 30), // Limit to 30
+    staleTime: 5 * 60 * 1000,
   });
 
   const { data: user } = useQuery({
     queryKey: ['currentUser'],
     queryFn: () => base44.auth.me(),
+    staleTime: 10 * 60 * 1000, // Cache for 10 minutes
   });
 
-  // Get today's shifts for current user
+  // OPTIMIZED: Only fetch today's shifts
   const today = new Date().toISOString().split('T')[0];
-  const { data: myShifts = [], isLoading: loadingMyShifts } = useQuery({
+  const { data: myShifts = [] } = useQuery({
     queryKey: ['myTodayShifts', user?.email, today],
     queryFn: () => base44.entities.Shift.filter({
       staff_email: user?.email,
       shift_date: today
     }),
     enabled: !!user?.email,
+    staleTime: 2 * 60 * 1000, // Cache for 2 minutes
   });
 
-  // Find active shift
   const activeShift = myShifts.find(s => s.status === 'in_progress');
-  // Find next scheduled shift if no active shift
   const nextShift = !activeShift ? myShifts.find(s => s.status === 'scheduled') : undefined;
 
+  // OPTIMIZED: Only fetch for managers, with limits
   const { data: upcomingChecklists = [] } = useQuery({
     queryKey: ['upcomingChecklists', user?.email],
     queryFn: async () => {
@@ -95,33 +86,31 @@ export default function Dashboard() {
       }
 
       try {
-        // Fetch all checklist executions and templates
-        const allExecutions = await base44.entities.ChecklistExecution.list('-execution_date');
-        const templates = await base44.entities.ChecklistTemplate.list();
+        const allExecutions = await base44.entities.ChecklistExecution.list('-execution_date', 50); // Limit
+        const templates = await base44.entities.ChecklistTemplate.list("", 20); // Limit
 
         const templatesMap = new Map(templates.map(t => [t.id, t]));
 
         const now = new Date();
-        now.setHours(0, 0, 0, 0); // Normalize 'now' to the start of today
+        now.setHours(0, 0, 0, 0);
         const twoWeeksFromNow = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000);
-        twoWeeksFromNow.setHours(23, 59, 59, 999); // Normalize 'twoWeeksFromNow' to end of day
+        twoWeeksFromNow.setHours(23, 59, 59, 999);
 
         return allExecutions.filter(exec => {
           const template = templatesMap.get(exec.template_id);
           if (!template) return false;
 
           const execDate = new Date(exec.execution_date);
-          execDate.setHours(0, 0, 0, 0); // Normalize 'execDate' to the start of its day
+          execDate.setHours(0, 0, 0, 0);
 
           const daysUntilDue = Math.ceil((execDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
 
-          // Filter for manager/owner-specific checklists that are due within 14 days and not completed
           return (
             template.applicable_roles?.includes(user.position) &&
             exec.status !== 'completed' &&
             exec.assigned_to_email === user.email &&
-            execDate >= now && // Ensure it's not overdue
-            execDate <= twoWeeksFromNow // Ensure it's within the next 14 days
+            execDate >= now &&
+            execDate <= twoWeeksFromNow
           );
         });
       } catch (error) {
@@ -130,52 +119,29 @@ export default function Dashboard() {
       }
     },
     enabled: !!user?.email && (user?.position === 'manager' || user?.position === 'owner'),
+    staleTime: 5 * 60 * 1000,
   });
 
-  // Get daily motivational quote
+  // OPTIMIZED: Load quote from cache immediately, no AI generation
   useEffect(() => {
-    const fetchDailyQuote = async () => {
-      setLoadingQuote(true);
+    const loadQuote = () => {
+      const today = new Date().toISOString().split('T')[0];
+      const cachedQuote = localStorage.getItem('dailyQuote');
+      const cachedDate = localStorage.getItem('dailyQuoteDate');
 
-      // First, check if there's a daily quote in culture content
-      const existingQuote = cultureContent.find(c => c.content_type === 'daily_quote');
-
-      if (existingQuote) {
-        setDailyQuote(existingQuote.content);
-        setLoadingQuote(false);
+      if (cachedQuote && cachedDate === today) {
+        setDailyQuote(cachedQuote);
       } else {
-        // Only try to generate if culture content is loaded and no existing quote
-        const today = new Date().toISOString().split('T')[0];
-        const cachedQuote = localStorage.getItem('dailyQuote');
-        const cachedDate = localStorage.getItem('dailyQuoteDate');
-
-        if (cachedQuote && cachedDate === today) {
-          setDailyQuote(cachedQuote);
-          setLoadingQuote(false);
-        } else {
-          try {
-            const response = await base44.integrations.Core.InvokeLLM({
-              prompt: `Generate one inspiring and motivational quote about hospitality, customer service, or teamwork in the restaurant industry. Make it uplifting and positive. Return only the quote text without quotes or author attribution. Keep it under 100 characters.`,
-            });
-
-            const newQuote = typeof response === 'string' ? response : (response && response.quote) ? response.quote : "Excellence in hospitality starts with a smile and genuine care for every guest.";
-            setDailyQuote(newQuote);
-            localStorage.setItem('dailyQuote', newQuote);
-            localStorage.setItem('dailyQuoteDate', today);
-            setLoadingQuote(false);
-          } catch (error) {
-            console.error("Error generating quote:", error);
-            setDailyQuote("Excellence in hospitality starts with a smile and genuine care for every guest.");
-            setLoadingQuote(false);
-          }
-        }
+        // Use default quote if cache expired
+        const defaultQuote = "Excellence in hospitality starts with a smile and genuine care for every guest.";
+        setDailyQuote(defaultQuote);
+        localStorage.setItem('dailyQuote', defaultQuote);
+        localStorage.setItem('dailyQuoteDate', today);
       }
     };
 
-    if (!loadingCulture) { // Trigger fetch when cultureContent is done loading
-      fetchDailyQuote();
-    }
-  }, [cultureContent, loadingCulture]);
+    loadQuote();
+  }, []);
 
   // Calculate stats
   const complianceRate = complianceChecks.length > 0
@@ -183,14 +149,14 @@ export default function Dashboard() {
     : 0;
 
   const lowStockItems = inventoryItems.filter(
-    item => item.current_quantity <= (item.minimum_quantity || 0)
+    item => (item.current_stock || 0) <= (item.reorder_point || 0)
   ).length;
 
   const openTickets = maintenanceTickets.filter(t => t.status === "open").length;
 
   const pendingTasks = staffTasks.filter(t => t.status === "pending" || t.status === "in_progress").length;
 
-  // Chart data
+  // Chart data - Only last 7 days
   const todayDate = new Date();
   const last7Days = Array.from({ length: 7 }, (_, i) => {
     const date = new Date(todayDate);
@@ -211,19 +177,19 @@ export default function Dashboard() {
     };
   });
 
-  // Recent activities
+  // Recent activities - Only top 5
   const recentActivities = [
     ...complianceChecks.slice(0, 3).map(check => ({
       title: `${check.check_type.replace(/_/g, ' ')} - ${check.area}`,
       date: check.check_date,
-      activity_type: 'compliance' // Changed 'type' to 'activity_type' to match expected prop for RecentActivity
+      activity_type: 'compliance'
     })),
     ...maintenanceTickets.slice(0, 2).map(ticket => ({
       title: ticket.title,
       date: ticket.created_date,
-      activity_type: 'maintenance' // Changed 'type' to 'activity_type' to match expected prop for RecentActivity
+      activity_type: 'maintenance'
     }))
-  ].sort((a, b) => new Date(b.date) - new Date(a.date));
+  ].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 5);
 
   return (
     <div className="p-6 md:p-8 bg-gray-50 min-h-screen">
@@ -258,9 +224,6 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Smart Alerts Section */}
-        <SmartAlerts />
-
         {/* Daily Motivational Quote */}
         <Card className="bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 text-white border-none shadow-xl overflow-hidden relative">
           <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-32 -mt-32" />
@@ -272,16 +235,9 @@ export default function Dashboard() {
               </div>
               <div className="flex-1">
                 <p className="text-sm font-semibold text-white/90 mb-2">✨ DAILY INSPIRATION</p>
-                {loadingQuote ? (
-                  <div className="animate-pulse">
-                    <div className="h-6 bg-white/20 rounded w-3/4 mb-2" />
-                    <div className="h-6 bg-white/20 rounded w-full" />
-                  </div>
-                ) : (
-                  <p className="text-2xl md:text-3xl font-bold leading-relaxed italic">
-                    "{dailyQuote}"
-                  </p>
-                )}
+                <p className="text-2xl md:text-3xl font-bold leading-relaxed italic">
+                  "{dailyQuote}"
+                </p>
                 <p className="text-sm text-white/80 mt-3">
                   {new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
                 </p>
@@ -306,7 +262,7 @@ export default function Dashboard() {
                     You have {upcomingChecklists.length} checklist(s) due within the next 2 weeks
                   </p>
                   <div className="space-y-2">
-                    {upcomingChecklists.map((checklist) => {
+                    {upcomingChecklists.slice(0, 3).map((checklist) => {
                       const todayDate = new Date();
                       todayDate.setHours(0,0,0,0);
                       const execDate = new Date(checklist.execution_date);
@@ -354,6 +310,11 @@ export default function Dashboard() {
                       );
                     })}
                   </div>
+                  {upcomingChecklists.length > 3 && (
+                    <p className="text-sm text-orange-700 mt-2">
+                      +{upcomingChecklists.length - 3} more checklists
+                    </p>
+                  )}
                   <Link to={createPageUrl('AdvancedChecklists')}>
                     <Button className="mt-4 bg-orange-600 hover:bg-orange-700 text-white">
                       View All Checklists
@@ -385,14 +346,7 @@ export default function Dashboard() {
             </CardTitle>
           </CardHeader>
           <CardContent className="p-6">
-            {loadingMyShifts ? (
-              <div className="space-y-4">
-                <div className="h-20 bg-gray-100 rounded-lg animate-pulse"></div>
-                <div className="h-10 bg-gray-100 rounded animate-pulse"></div>
-                <div className="h-10 bg-gray-100 rounded animate-pulse"></div>
-              </div>
-            ) : activeShift ? (
-              // User has active shift - show clock out
+            {activeShift ? (
               <div className="space-y-4">
                 <div className="p-4 bg-blue-50 rounded-lg border-2 border-blue-200">
                   <div className="flex items-center gap-2 mb-2">
@@ -419,7 +373,6 @@ export default function Dashboard() {
                 </Link>
               </div>
             ) : nextShift ? (
-              // User has scheduled shift - show clock in
               <div className="space-y-4">
                 <div className="p-4 bg-green-50 rounded-lg border-2 border-green-200">
                   <p className="font-semibold text-green-900 mb-1">Next Shift</p>
@@ -446,7 +399,6 @@ export default function Dashboard() {
                 </Link>
               </div>
             ) : (
-              // No shifts today
               <div className="space-y-4">
                 <div className="p-4 bg-gray-50 rounded-lg border-2 border-gray-200 text-center">
                   <Calendar className="w-8 h-8 text-gray-400 mx-auto mb-2" />
@@ -579,7 +531,7 @@ export default function Dashboard() {
             <ComplianceChart data={chartData} />
           </div>
           <div>
-            <RecentActivity activities={recentActivities} isLoading={loadingCompliance} />
+            <RecentActivity activities={recentActivities} isLoading={false} />
           </div>
         </div>
       </div>
