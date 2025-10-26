@@ -33,7 +33,6 @@ import { format, parseISO, isBefore, isAfter, setHours, setMinutes, isSameMinute
 import { Link, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { motion } from "framer-motion";
-import QuickBackupWidget from "../components/QuickBackupWidget";
 
 // ManagerAlertsWidget Component
 const ManagerAlertsWidget = ({ teamMembers, todayAttendance }) => {
@@ -628,7 +627,7 @@ export default function ManagerDashboard() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6 md:p-8">
-      <div className="max-w-7xl mx-auto space-y-6">
+      <div className="max-w-7xl mx-auto">
         {/* Enhanced Header with Profile, Notifications, Settings */}
         <div className="flex gap-3 mb-6">
           <Link to={createPageUrl("PerformanceGrowth")}>
@@ -700,9 +699,6 @@ export default function ManagerDashboard() {
             </div>
           </div>
         </div>
-
-        {/* Quick Backup Widget - Manager Only */}
-        <QuickBackupWidget />
 
         {/* Navigation to Wages Report */}
         <div className="mb-6">
@@ -1389,7 +1385,7 @@ export default function ManagerDashboard() {
                                           <div className="flex-1 flex gap-2 items-center">
                                             <Input
                                               value={editingTaskValue}
-                                              onChange={(e) => setNewTaskValue(e.target.value)}
+                                              onChange={(e) => setEditingTaskValue(e.target.value)}
                                               className="h-7 text-sm"
                                               autoFocus
                                               onKeyPress={(e) => {
@@ -1472,7 +1468,7 @@ export default function ManagerDashboard() {
                                           <div className="flex-1 flex gap-2 items-center">
                                             <Input
                                               value={editingTaskValue}
-                                              onChange={(e) => setNewTaskValue(e.target.value)}
+                                              onChange={(e) => setEditingTaskValue(e.target.value)}
                                               className="h-7 text-sm"
                                               autoFocus
                                               onKeyPress={(e) => {
@@ -1558,7 +1554,7 @@ export default function ManagerDashboard() {
                                           <div className="flex-1 flex gap-2 items-center">
                                             <Input
                                               value={editingTaskValue}
-                                              onChange={(e) => setNewTaskValue(e.target.value)}
+                                              onChange={(e) => setEditingTaskValue(e.target.value)}
                                               className="h-7 text-sm"
                                               autoFocus
                                               onKeyPress={(e) => {

@@ -114,10 +114,18 @@ const pages = [
   { name: 'DataManagement', path: '/data-management', file: 'DataManagement.jsx', component: DataManagement, public: false },
   { name: 'BackupSettings', path: '/backup-settings', file: 'BackupSettings.jsx', component: BackupSettings, public: false },
   { name: 'NotFound', path: '/not-found', file: 'NotFound.jsx', component: NotFound, public: false },
-  { name: 'Menu', path: '/menu', file: 'Menu.jsx', component: Menu, public: false },
+  { name: 'Menu', path: '/menu', file: 'Menu.jsx', component: Menu, public: true },
   { name: 'AllergyTable', path: '/allergy-table', file: 'AllergyTable.jsx', component: AllergyTable, public: false },
-  { name: 'EmailLog', path: '/email-log', file: 'EmailLog.jsx', component: EmailLog, public: false },
+  { name: 'EmailLog', path: '/email-log', file: 'EmailLog.jsx', component: EmailLog, public: false }
 ];
 
+export const pagesConfig = {
+  mainPage: 'Dashboard',
+  Pages: pages.reduce((acc, page) => {
+    acc[page.name] = page.component;
+    return acc;
+  }, {}),
+  Layout: Layout,
+};
+
 export { pages, Layout };
-export default pages;
