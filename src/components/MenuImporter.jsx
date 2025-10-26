@@ -409,6 +409,7 @@ export default function MenuImporter() {
 
       let successCount = 0;
       let skipCount = 0;
+      const missingIngredients = new Set();
 
       for (const itemData of menuItemsData) {
         try {
@@ -429,8 +430,14 @@ export default function MenuImporter() {
           }
 
           const recipe = createRecipe(itemData.ingredients);
-          if (recipe.length === 0) {
-            console.warn(`⚠️ No valid ingredients found for ${itemData.name}`);
+          
+          // Track missing ingredients
+          if (recipe.length < itemData.ingredients.length) {
+            itemData.ingredients.forEach(ingName => {
+              if (!ingredients.find(i => i.name === ingName)) {
+                missingIngredients.add(ingName);
+              }
+            });
           }
 
           const allergens = calculateAllergens(itemData.ingredients);
@@ -481,6 +488,10 @@ export default function MenuImporter() {
         }
       }
 
+      if (missingIngredients.size > 0) {
+        console.warn(`⚠️ Missing ingredients detected: ${Array.from(missingIngredients).join(', ')}`);
+      }
+
       sessionStorage.setItem('chai_patta_menu_imported_v2', 'true');
       queryClient.invalidateQueries({ queryKey: ['menuItems'] });
       queryClient.invalidateQueries({ queryKey: ['allergyRecords'] });
@@ -491,6 +502,7 @@ export default function MenuImporter() {
 ✅ Successfully imported: ${successCount}
 ⏭️ Skipped (duplicates): ${skipCount}
 📊 Total menu items: ${successCount + skipCount}
+⚠️ Missing ingredients: ${missingIngredients.size}
       `);
       
     } catch (error) {

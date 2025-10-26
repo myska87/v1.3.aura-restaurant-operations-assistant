@@ -84,6 +84,10 @@ export default function Menu() {
     is_active: true,
   });
 
+  // New state for reset functionality
+  const [showResetDialog, setShowResetDialog] = useState(false);
+  const [resetting, setResetting] = useState(false);
+
   const { data: user } = useQuery({
     queryKey: ['currentUser'],
     queryFn: () => base44.auth.me(),
@@ -115,6 +119,56 @@ export default function Menu() {
     queryKey: ['suppliers'],
     queryFn: () => base44.entities.Supplier.list(),
   });
+
+  // Handle Reset Menu functionality
+  const handleResetMenu = async () => {
+    if (!isManager) {
+      alert('⚠️ Only managers can reset the menu');
+      return;
+    }
+
+    if (!confirm('⚠️ This will permanently DELETE all menu items and allergy records, then re-import them from the default source. Continue?')) {
+      return;
+    }
+
+    setResetting(true);
+    try {
+      console.log('🗑️ Deleting all menu items...');
+      
+      // Delete all menu items
+      for (const item of menuItems) {
+        await base44.entities.MenuItem.delete(item.id);
+      }
+
+      console.log('🗑️ Deleting all allergy records...');
+      // Delete all allergy records
+      for (const record of allergyRecords) {
+        await base44.entities.AllergyRecord.delete(record.id);
+      }
+
+      console.log('✅ All menu items and allergy records deleted.');
+      
+      // Clear session storage to trigger re-import
+      sessionStorage.removeItem('chai_patta_menu_imported_v2');
+      
+      // Invalidate queries to clear cache and potentially refetch after reload
+      queryClient.invalidateQueries({ queryKey: ['menuItems'] });
+      queryClient.invalidateQueries({ queryKey: ['allergyRecords'] });
+      
+      setShowResetDialog(false);
+      alert('✅ Menu reset complete! Refreshing page to re-import...');
+      
+      // Reload page to trigger import logic (assumed to be in a useEffect on page load)
+      window.location.reload();
+      
+    } catch (error) {
+      console.error('❌ Reset failed:', error);
+      alert('❌ Failed to reset menu. Check console for details.');
+    } finally {
+      setResetting(false);
+    }
+  };
+
 
   // Audit Trail Mutation
   const logAuditTrail = async (action, itemName, details) => {
@@ -409,16 +463,27 @@ AURA One Pro - Menu Management
               </Button>
             </Link>
             {isManager && (
-              <Button 
-                className="bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 shadow-lg"
-                onClick={() => {
-                  resetForm();
-                  setShowItemDialog(true);
-                }}
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                Add Menu Item
-              </Button>
+              <>
+                <Button 
+                  variant="outline"
+                  size="sm"
+                  className="border-red-600 text-red-700 hover:bg-red-50"
+                  onClick={() => setShowResetDialog(true)}
+                >
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Reset & Re-import
+                </Button>
+                <Button 
+                  className="bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 shadow-lg"
+                  onClick={() => {
+                    resetForm();
+                    setShowItemDialog(true);
+                  }}
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add Menu Item
+                </Button>
+              </>
             )}
           </div>
         </div>
@@ -479,6 +544,7 @@ AURA One Pro - Menu Management
                 <div>
                   <p className="text-emerald-100 text-sm font-medium">Total Items</p>
                   <p className="text-3xl font-bold mt-1">{menuItems.length}</p>
+                  <p className="text-xs text-emerald-100 mt-1">Expected: 45 items</p>
                 </div>
                 <Utensils className="w-12 h-12 opacity-20" />
               </div>
@@ -695,6 +761,67 @@ AURA One Pro - Menu Management
             </AnimatePresence>
           </div>
         )}
+
+        {/* Reset Dialog */}
+        <Dialog open={showResetDialog} onOpenChange={setShowResetDialog}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-red-600">
+                <AlertTriangle className="w-5 h-5" />
+                Reset Menu Database
+              </DialogTitle>
+            </DialogHeader>
+
+            <div className="space-y-4 py-4">
+              <Alert className="border-red-200 bg-red-50">
+                <AlertDescription className="text-red-900">
+                  <strong>Warning:</strong> This will permanently delete all {menuItems.length} menu items and {allergyRecords.length} allergy records, then re-import the complete Chai Patta menu (45 items).
+                </AlertDescription>
+              </Alert>
+
+              <div className="space-y-2 text-sm text-gray-700">
+                <p>✅ This will fix any incomplete imports</p>
+                <p>✅ Remove duplicate entries</p>
+                <p>✅ Re-sync all allergen data</p>
+                <p>✅ Import all 45 menu items properly</p>
+              </div>
+
+              <Alert className="border-blue-200 bg-blue-50">
+                <Info className="w-4 h-4 text-blue-600" />
+                <AlertDescription className="text-blue-900">
+                  The page will reload automatically after reset to trigger the import.
+                </AlertDescription>
+              </Alert>
+            </div>
+
+            <div className="flex justify-end gap-3">
+              <Button 
+                variant="outline" 
+                onClick={() => setShowResetDialog(false)}
+                disabled={resetting}
+              >
+                Cancel
+              </Button>
+              <Button 
+                className="bg-red-600 hover:bg-red-700 text-white"
+                onClick={handleResetMenu}
+                disabled={resetting}
+              >
+                {resetting ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
+                    Resetting...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    Reset & Re-import
+                  </>
+                )}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
 
         {/* Add/Edit Menu Item Dialog */}
         <Dialog open={showItemDialog} onOpenChange={setShowItemDialog}>
