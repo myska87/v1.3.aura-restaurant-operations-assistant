@@ -28,11 +28,11 @@ import {
   CheckCircle,
   X,
 } from "lucide-react";
-import { format } = from "date-fns";
-import { Link } = from "react-router-dom";
-import { createPageUrl } = from "@/utils";
-import { useToast } = from "@/components/ui/use-toast";
-import { ScrollArea } = from "@/components/ui/scroll-area"; // Added this import from outline
+import { format } from "date-fns";
+import { Link } from "react-router-dom";
+import { createPageUrl } from "@/utils";
+import { useToast } from "@/components/ui/use-toast";
+import { ScrollArea } from "@/components/ui/scroll-area"; // Added this import from outline
 
 export default function Ordering() {
   const queryClient = useQueryClient();
