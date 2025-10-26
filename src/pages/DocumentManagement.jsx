@@ -51,6 +51,7 @@ import {
   Home,
   Filter,
   PenTool,
+  X,
 } from "lucide-react";
 import { format } from "date-fns";
 import { Link, useNavigate } from "react-router-dom";
@@ -1129,10 +1130,10 @@ export default function DocumentManagement() {
         </DialogContent>
       </Dialog>
 
-      {/* Document Viewer Dialog */}
+      {/* Document Viewer Dialog - FIXED VERSION */}
       <Dialog open={showViewerDialog} onOpenChange={setShowViewerDialog}>
-        <DialogContent className="max-w-6xl max-h-[90vh] h-[90vh] p-0 flex flex-col">
-          <DialogHeader className="p-6 pb-4 border-b">
+        <DialogContent className="max-w-6xl h-[90vh] p-0 flex flex-col">
+          <DialogHeader className="p-6 pb-4 border-b flex-shrink-0">
             <div className="flex items-start justify-between">
               <div className="flex-1 pr-4">
                 <DialogTitle className="text-2xl">{selectedDocument?.title}</DialogTitle>
@@ -1147,21 +1148,32 @@ export default function DocumentManagement() {
                   </Badge>
                 </div>
               </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  const link = document.createElement('a');
-                  link.href = selectedDocument?.file_url;
-                  link.download = selectedDocument?.title || 'document';
-                  link.target = '_blank';
-                  link.rel = 'noopener noreferrer';
-                  link.click();
-                }}
-              >
-                <Download className="w-4 h-4 mr-2" />
-                Download
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const link = document.createElement('a');
+                    link.href = selectedDocument?.file_url;
+                    link.download = selectedDocument?.title || 'document';
+                    link.target = '_blank';
+                    link.rel = 'noopener noreferrer';
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                  }}
+                >
+                  <Download className="w-4 h-4 mr-2" />
+                  Download
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setShowViewerDialog(false)}
+                >
+                  <X className="w-5 h-5" />
+                </Button>
+              </div>
             </div>
           </DialogHeader>
 
@@ -1171,8 +1183,8 @@ export default function DocumentManagement() {
                 {/* PDF Viewer */}
                 {selectedDocument.file_type === 'pdf' && (
                   <iframe
-                    src={selectedDocument.file_url}
-                    className="w-full h-full"
+                    src={`${selectedDocument.file_url}#view=FitH`}
+                    className="w-full h-full border-0"
                     title={selectedDocument.title}
                   />
                 )}
@@ -1205,7 +1217,7 @@ export default function DocumentManagement() {
                 {(selectedDocument.file_type === 'docx' || selectedDocument.file_type === 'other') && (
                   <iframe
                     src={`https://docs.google.com/viewer?url=${encodeURIComponent(selectedDocument.file_url)}&embedded=true`}
-                    className="w-full h-full"
+                    className="w-full h-full border-0"
                     title={selectedDocument.title}
                   />
                 )}
@@ -1214,7 +1226,7 @@ export default function DocumentManagement() {
           </div>
 
           {/* Document Info Footer */}
-          <div className="p-4 border-t bg-white">
+          <div className="p-4 border-t bg-white flex-shrink-0">
             <div className="flex items-center justify-between text-sm text-gray-600">
               <div className="flex items-center gap-4 flex-wrap">
                 {selectedDocument?.uploaded_by_name && <span>Uploaded by: {selectedDocument.uploaded_by_name}</span>}
@@ -1231,13 +1243,6 @@ export default function DocumentManagement() {
                   </>
                 )}
               </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setShowViewerDialog(false)}
-              >
-                Close
-              </Button>
             </div>
           </div>
         </DialogContent>
