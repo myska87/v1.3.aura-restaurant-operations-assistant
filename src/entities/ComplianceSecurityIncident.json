@@ -1,0 +1,143 @@
+{
+  "name": "ComplianceSecurityIncident",
+  "type": "object",
+  "properties": {
+    "incident_type": {
+      "type": "string",
+      "enum": [
+        "unauthorized_access",
+        "data_breach",
+        "failed_login_attempts",
+        "suspicious_activity",
+        "policy_violation",
+        "system_vulnerability",
+        "other"
+      ],
+      "description": "Type of security incident"
+    },
+    "title": {
+      "type": "string",
+      "description": "Brief incident title"
+    },
+    "description": {
+      "type": "string",
+      "description": "Detailed incident description"
+    },
+    "severity": {
+      "type": "string",
+      "enum": [
+        "low",
+        "medium",
+        "high",
+        "critical"
+      ],
+      "default": "medium",
+      "description": "Incident severity level"
+    },
+    "triggered_by_user_id": {
+      "type": "string",
+      "description": "User involved in incident"
+    },
+    "triggered_by_email": {
+      "type": "string",
+      "description": "Email of user involved"
+    },
+    "affected_users": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "List of affected user IDs"
+    },
+    "affected_data_types": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Types of data potentially compromised"
+    },
+    "detection_method": {
+      "type": "string",
+      "enum": [
+        "automated",
+        "manual_review",
+        "user_report",
+        "external_alert"
+      ],
+      "description": "How incident was detected"
+    },
+    "ip_address": {
+      "type": "string",
+      "description": "IP address involved"
+    },
+    "location": {
+      "type": "string",
+      "description": "Geographic location if available"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "open",
+        "investigating",
+        "contained",
+        "resolved",
+        "false_alarm"
+      ],
+      "default": "open"
+    },
+    "assigned_to": {
+      "type": "string",
+      "description": "Compliance officer handling incident"
+    },
+    "resolution_notes": {
+      "type": "string",
+      "description": "How incident was resolved"
+    },
+    "actions_taken": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "List of actions taken"
+    },
+    "notification_sent": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether affected users were notified"
+    },
+    "notification_sent_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "requires_gdpr_reporting": {
+      "type": "boolean",
+      "default": false,
+      "description": "Must be reported to ICO within 72h"
+    },
+    "gdpr_report_submitted": {
+      "type": "boolean",
+      "default": false
+    },
+    "gdpr_report_reference": {
+      "type": "string",
+      "description": "ICO reference number"
+    },
+    "resolved_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "evidence_urls": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Links to evidence/screenshots"
+    }
+  },
+  "required": [
+    "incident_type",
+    "title",
+    "severity",
+    "status"
+  ]
+}

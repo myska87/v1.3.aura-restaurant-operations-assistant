@@ -32,7 +32,7 @@ import NotificationBell from "./components/NotificationBell";
 import AuraLogo from "./components/AuraLogo";
 import AutoBackupScheduler from "./components/AutoBackupScheduler";
 import { StaffDataSync } from "./components/StaffDataSync";
-import MenuImporter from "./components/MenuImporter"; // Added MenuImporter import
+import MenuImporter from "./components/MenuImporter";
 import SystemStatusCheck from "./components/SystemStatusCheck";
 
 const Badge = ({ children, className }) => (
@@ -178,6 +178,12 @@ const managementItems = [
     url: createPageUrl("DataManagement"),
     icon: Database,
     badge: null,
+  },
+  {
+    title: "🔒 Compliance & Privacy",
+    url: createPageUrl("ComplianceDashboard"),
+    icon: Shield,
+    badge: "GDPR",
   },
 ];
 

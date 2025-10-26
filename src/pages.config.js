@@ -55,6 +55,9 @@ import BackupSettings from './pages/BackupSettings';
 import NotFound from './pages/NotFound';
 import Menu from './pages/Menu';
 import AllergyTable from './pages/AllergyTable';
+import PrivacyCenter from './pages/PrivacyCenter';
+import ComplianceDashboard from './pages/ComplianceDashboard';
+import EmailIntegrationHub from './pages/EmailIntegrationHub';
 import Layout from './Layout.jsx';
 
 
@@ -116,6 +119,9 @@ export const PAGES = {
     "NotFound": NotFound,
     "Menu": Menu,
     "AllergyTable": AllergyTable,
+    "PrivacyCenter": PrivacyCenter,
+    "ComplianceDashboard": ComplianceDashboard,
+    "EmailIntegrationHub": EmailIntegrationHub,
 }
 
 export const pagesConfig = {
