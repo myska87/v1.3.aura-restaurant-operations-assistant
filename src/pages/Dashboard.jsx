@@ -406,8 +406,8 @@ export default function Dashboard() {
           />
         </div>
 
-        {/* Add Quick Backup Widget for Admins */}
-        {(user?.role === 'admin' || user?.position === 'owner') && (
+        {/* Quick Backup Widget for Manager Dashboard (includes managers, owners, admins) */}
+        {(user?.position === 'manager' || user?.position === 'owner' || user?.role === 'admin') && (
           <div className="mb-8">
             <QuickBackupWidget />
           </div>
@@ -604,30 +604,6 @@ export default function Dashboard() {
           </Link>
         </div>
 
-        {/* Quick Access Cards - Staff Rota - This was moved outside the grid if it's still needed, as the grid now has only 2 items based on the outline */}
-        {/* Original Staff Rota card: */}
-        {/* <Link to={createPageUrl("StaffRota")}>
-            <Card className="bg-gradient-to-br from-green-500 to-emerald-600 text-white border-none shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer group">
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="flex items-center gap-3 mb-2">
-                      <Calendar className="w-8 h-8" />
-                      <h3 className="text-2xl font-bold">Shift & Rota</h3>
-                    </div>
-                    <p className="text-green-100">Scheduling, Clock-In/Out & Attendance</p>
-                  </div>
-                  <div className="text-white group-hover:translate-x-2 transition-transform">
-                    →
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </Link> */}
-        {/* If the Staff Rota card needs to remain, it should be placed in a separate div or its own grid entry. 
-            For now, following the outline strictly for the `grid md:grid-cols-2` section, it is implicitly removed. */}
-
-
         {/* Smart Scheduler Quick Access for Managers */}
         {(user?.position === 'manager' || user?.position === 'owner' || user?.role === 'admin') && (
           <div className="mt-6">
@@ -643,7 +619,7 @@ export default function Dashboard() {
                       <p className="text-purple-100">Visual week planner with automatic task assignment</p>
                     </div>
                     <div className="text-white group-hover:translate-x-2 transition-transform">
-                      →
+                      <ArrowRight className="w-6 h-6" />
                     </div>
                   </div>
                 </CardContent>
