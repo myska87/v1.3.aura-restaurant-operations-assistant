@@ -50,6 +50,7 @@ import ChecklistReview from './pages/ChecklistReview';
 import WeeklyPayrollReport from './pages/WeeklyPayrollReport';
 import StaffWagesReport from './pages/StaffWagesReport';
 import DocumentManagement from './pages/DocumentManagement';
+import DataManagement from './pages/DataManagement';
 import Layout from './Layout.jsx';
 
 
@@ -106,6 +107,7 @@ export const PAGES = {
     "WeeklyPayrollReport": WeeklyPayrollReport,
     "StaffWagesReport": StaffWagesReport,
     "DocumentManagement": DocumentManagement,
+    "DataManagement": DataManagement,
 }
 
 export const pagesConfig = {

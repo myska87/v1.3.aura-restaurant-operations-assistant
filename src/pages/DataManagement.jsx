@@ -1,0 +1,825 @@
+import { useState } from "react";
+import { base44 } from "@/api/base44Client";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { 
+  Download, 
+  Upload, 
+  Database, 
+  ArrowLeft, 
+  Home, 
+  Save, 
+  FileJson, 
+  FileSpreadsheet,
+  AlertTriangle,
+  CheckCircle,
+  Clock,
+  Trash2,
+  RotateCcw,
+  Shield,
+  Zap,
+  Settings,
+  Package
+} from "lucide-react";
+import { format } from "date-fns";
+import { Link } from "react-router-dom";
+import { createPageUrl } from "@/utils";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Checkbox } from "@/components/ui/checkbox";
+
+export default function DataManagement() {
+  const queryClient = useQueryClient();
+  const [isExporting, setIsExporting] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
+  const [importFile, setImportFile] = useState(null);
+  const [importData, setImportData] = useState(null);
+  const [importMode, setImportMode] = useState('merge'); // 'merge' or 'replace'
+  const [showImportPreview, setShowImportPreview] = useState(false);
+  const [backupName, setBackupName] = useState('');
+  const [backupNotes, setBackupNotes] = useState('');
+  const [selectedEntities, setSelectedEntities] = useState([]);
+  const [exportFormat, setExportFormat] = useState('json'); // 'json' or 'csv'
+
+  const { data: user } = useQuery({
+    queryKey: ['currentUser'],
+    queryFn: () => base44.auth.me(),
+  });
+
+  const { data: backups = [] } = useQuery({
+    queryKey: ['dataBackups'],
+    queryFn: () => base44.entities.DataBackup.list('-backup_date'),
+  });
+
+  const isAdmin = user?.role === 'admin' || user?.position === 'owner';
+
+  // List of all entities that can be backed up
+  const availableEntities = [
+    { name: 'Shift', label: 'Shifts & Rota', icon: '📅' },
+    { name: 'AttendanceRecord', label: 'Attendance Records', icon: '⏰' },
+    { name: 'TeamMember', label: 'Team Members', icon: '👥' },
+    { name: 'StaffProfile', label: 'Staff Profiles', icon: '📋' },
+    { name: 'TrainingRecord', label: 'Training Records', icon: '🎓' },
+    { name: 'PerformanceReview', label: 'Performance Reviews', icon: '⭐' },
+    { name: 'StaffReward', label: 'Staff Rewards', icon: '🏆' },
+    { name: 'ChecklistExecution', label: 'Checklist Executions', icon: '✅' },
+    { name: 'ChecklistTemplate', label: 'Checklist Templates', icon: '📝' },
+    { name: 'FormResponse', label: 'Form Responses', icon: '📄' },
+    { name: 'FormTemplate', label: 'Form Templates', icon: '📋' },
+    { name: 'Ingredient', label: 'Ingredients', icon: '🥗' },
+    { name: 'MenuItem', label: 'Menu Items', icon: '🍽️' },
+    { name: 'Supplier', label: 'Suppliers', icon: '🚚' },
+    { name: 'PurchaseOrder', label: 'Purchase Orders', icon: '📦' },
+    { name: 'ProductionPlan', label: 'Production Plans', icon: '📊' },
+    { name: 'ComplianceCheck', label: 'Compliance Checks', icon: '✔️' },
+    { name: 'MaintenanceTicket', label: 'Maintenance Tickets', icon: '🔧' },
+    { name: 'ManagerAlert', label: 'Manager Alerts', icon: '🚨' },
+    { name: 'Document', label: 'Documents', icon: '📁' },
+    { name: 'Announcement', label: 'Announcements', icon: '📢' },
+  ];
+
+  const createBackupMutation = useMutation({
+    mutationFn: async (backupData) => {
+      return await base44.entities.DataBackup.create(backupData);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['dataBackups'] });
+    },
+  });
+
+  const deleteBackupMutation = useMutation({
+    mutationFn: async (id) => {
+      return await base44.entities.DataBackup.delete(id);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['dataBackups'] });
+    },
+  });
+
+  const handleExportData = async () => {
+    if (selectedEntities.length === 0) {
+      alert('❌ Please select at least one entity to export');
+      return;
+    }
+
+    setIsExporting(true);
+
+    try {
+      const exportData = {};
+      let totalRecords = 0;
+
+      // Fetch data from selected entities
+      for (const entityName of selectedEntities) {
+        try {
+          const records = await base44.entities[entityName].list();
+          exportData[entityName] = records;
+          totalRecords += records.length;
+        } catch (error) {
+          console.error(`Error fetching ${entityName}:`, error);
+          exportData[entityName] = [];
+        }
+      }
+
+      // Add metadata
+      const fullExport = {
+        metadata: {
+          export_date: new Date().toISOString(),
+          exported_by: user?.email,
+          exported_by_name: user?.full_name,
+          total_records: totalRecords,
+          entities: selectedEntities,
+          app_version: '1.0.0',
+        },
+        data: exportData,
+      };
+
+      if (exportFormat === 'json') {
+        // Export as JSON
+        const jsonString = JSON.stringify(fullExport, null, 2);
+        const blob = new Blob([jsonString], { type: 'application/json' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `aura-backup-${format(new Date(), 'yyyy-MM-dd-HHmmss')}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+      } else {
+        // Export as CSV (one file per entity)
+        for (const entityName of selectedEntities) {
+          const records = exportData[entityName];
+          if (records.length === 0) continue;
+
+          const headers = Object.keys(records[0]);
+          const csvRows = [
+            headers.join(','),
+            ...records.map(record =>
+              headers.map(header => {
+                const value = record[header];
+                const stringValue = typeof value === 'object' ? JSON.stringify(value) : String(value || '');
+                return `"${stringValue.replace(/"/g, '""')}"`;
+              }).join(',')
+            )
+          ];
+
+          const csvString = csvRows.join('\n');
+          const blob = new Blob([csvString], { type: 'text/csv' });
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `${entityName}-${format(new Date(), 'yyyy-MM-dd')}.csv`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          window.URL.revokeObjectURL(url);
+        }
+      }
+
+      // Create backup record
+      const backupRecord = {
+        backup_name: backupName || `Backup ${format(new Date(), 'yyyy-MM-dd HH:mm')}`,
+        backup_type: 'manual',
+        backup_date: new Date().toISOString(),
+        created_by: user?.email,
+        created_by_name: user?.full_name,
+        entities_included: selectedEntities,
+        total_records: totalRecords,
+        file_size: new Blob([JSON.stringify(fullExport)]).size,
+        backup_url: null,
+        status: 'completed',
+        notes: backupNotes,
+      };
+
+      await createBackupMutation.mutateAsync(backupRecord);
+
+      alert(`✅ Successfully exported ${totalRecords} records from ${selectedEntities.length} entities!`);
+      setBackupName('');
+      setBackupNotes('');
+      setSelectedEntities([]);
+    } catch (error) {
+      console.error('Export error:', error);
+      alert('❌ Export failed. Please try again.');
+    }
+
+    setIsExporting(false);
+  };
+
+  const handleFileUpload = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const jsonData = JSON.parse(event.target.result);
+        setImportData(jsonData);
+        setShowImportPreview(true);
+      } catch (error) {
+        alert('❌ Invalid JSON file. Please upload a valid backup file.');
+      }
+    };
+    reader.readAsText(file);
+    setImportFile(file);
+  };
+
+  const handleImportData = async () => {
+    if (!importData) {
+      alert('❌ No data to import');
+      return;
+    }
+
+    if (!window.confirm(`⚠️ Are you sure you want to import this data in ${importMode} mode? This cannot be undone.`)) {
+      return;
+    }
+
+    setIsImporting(true);
+
+    try {
+      const dataToImport = importData.data || importData;
+      let successCount = 0;
+      let errorCount = 0;
+
+      for (const [entityName, records] of Object.entries(dataToImport)) {
+        if (!Array.isArray(records)) continue;
+
+        try {
+          if (importMode === 'replace') {
+            // Delete existing records first (WARNING: Destructive)
+            const existing = await base44.entities[entityName].list();
+            for (const record of existing) {
+              try {
+                await base44.entities[entityName].delete(record.id);
+              } catch (e) {
+                console.error(`Error deleting ${entityName} record:`, e);
+              }
+            }
+          }
+
+          // Import new records
+          for (const record of records) {
+            try {
+              // Remove system fields that shouldn't be imported
+              const { id, created_date, updated_date, created_by, ...cleanRecord } = record;
+              
+              if (importMode === 'merge') {
+                // Try to update if exists, otherwise create
+                if (id) {
+                  try {
+                    await base44.entities[entityName].update(id, cleanRecord);
+                    successCount++;
+                  } catch {
+                    await base44.entities[entityName].create(cleanRecord);
+                    successCount++;
+                  }
+                } else {
+                  await base44.entities[entityName].create(cleanRecord);
+                  successCount++;
+                }
+              } else {
+                await base44.entities[entityName].create(cleanRecord);
+                successCount++;
+              }
+            } catch (error) {
+              console.error(`Error importing ${entityName} record:`, error);
+              errorCount++;
+            }
+          }
+        } catch (error) {
+          console.error(`Error importing entity ${entityName}:`, error);
+          errorCount += records.length;
+        }
+      }
+
+      // Invalidate all queries to refresh data
+      queryClient.invalidateQueries();
+
+      alert(`✅ Import completed!\n\n${successCount} records imported successfully\n${errorCount} errors encountered`);
+      setShowImportPreview(false);
+      setImportData(null);
+      setImportFile(null);
+    } catch (error) {
+      console.error('Import error:', error);
+      alert('❌ Import failed. Please try again.');
+    }
+
+    setIsImporting(false);
+  };
+
+  const toggleEntitySelection = (entityName) => {
+    setSelectedEntities(prev =>
+      prev.includes(entityName)
+        ? prev.filter(e => e !== entityName)
+        : [...prev, entityName]
+    );
+  };
+
+  const selectAllEntities = () => {
+    setSelectedEntities(availableEntities.map(e => e.name));
+  };
+
+  const deselectAllEntities = () => {
+    setSelectedEntities([]);
+  };
+
+  if (!isAdmin) {
+    return (
+      <div className="p-6 md:p-8">
+        <Card className="max-w-md mx-auto">
+          <CardContent className="p-12 text-center">
+            <Shield className="w-16 h-16 text-red-500 mx-auto mb-4" />
+            <h2 className="text-xl font-bold text-gray-900 mb-2">Access Restricted</h2>
+            <p className="text-gray-600 mb-6">
+              Only administrators and owners can access data management features.
+            </p>
+            <Link to={createPageUrl("Dashboard")}>
+              <Button>Go to Dashboard</Button>
+            </Link>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  const getImportSummary = () => {
+    if (!importData) return null;
+
+    const dataToImport = importData.data || importData;
+    const entities = Object.keys(dataToImport);
+    const totalRecords = Object.values(dataToImport).reduce((sum, records) => 
+      sum + (Array.isArray(records) ? records.length : 0), 0
+    );
+
+    return { entities, totalRecords };
+  };
+
+  const importSummary = getImportSummary();
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6 md:p-8">
+      <div className="max-w-7xl mx-auto">
+        <div className="flex gap-3 mb-6">
+          <Link to={createPageUrl("ManagerDashboard")}>
+            <Button variant="outline" size="sm">
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back
+            </Button>
+          </Link>
+          <Link to={createPageUrl("Dashboard")}>
+            <Button variant="outline" size="sm">
+              <Home className="w-4 h-4 mr-2" />
+              Dashboard
+            </Button>
+          </Link>
+        </div>
+
+        <div className="mb-8">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="p-3 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl">
+              <Database className="w-8 h-8 text-white" />
+            </div>
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">Data Management</h1>
+              <p className="text-gray-600">Export, import, and manage your restaurant data</p>
+            </div>
+          </div>
+
+          <Alert className="bg-amber-50 border-amber-200 mt-4">
+            <AlertTriangle className="w-4 h-4 text-amber-600" />
+            <AlertDescription className="text-amber-800">
+              <strong>Important:</strong> Always create a backup before importing data. Import operations cannot be undone.
+            </AlertDescription>
+          </Alert>
+        </div>
+
+        <Tabs defaultValue="export" className="space-y-6">
+          <TabsList className="grid w-full grid-cols-3 max-w-xl">
+            <TabsTrigger value="export" className="flex items-center gap-2">
+              <Download className="w-4 h-4" />
+              Export
+            </TabsTrigger>
+            <TabsTrigger value="import" className="flex items-center gap-2">
+              <Upload className="w-4 h-4" />
+              Import
+            </TabsTrigger>
+            <TabsTrigger value="backups" className="flex items-center gap-2">
+              <Save className="w-4 h-4" />
+              Backups
+            </TabsTrigger>
+          </TabsList>
+
+          {/* EXPORT TAB */}
+          <TabsContent value="export">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Download className="w-5 h-5" />
+                  Export Database
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div>
+                  <Label htmlFor="backup_name">Backup Name (Optional)</Label>
+                  <Input
+                    id="backup_name"
+                    value={backupName}
+                    onChange={(e) => setBackupName(e.target.value)}
+                    placeholder={`Backup ${format(new Date(), 'yyyy-MM-dd HH:mm')}`}
+                    className="mt-2"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="backup_notes">Notes (Optional)</Label>
+                  <Textarea
+                    id="backup_notes"
+                    value={backupNotes}
+                    onChange={(e) => setBackupNotes(e.target.value)}
+                    placeholder="Add notes about this backup..."
+                    className="mt-2"
+                    rows={3}
+                  />
+                </div>
+
+                <div>
+                  <div className="flex justify-between items-center mb-3">
+                    <Label>Export Format</Label>
+                  </div>
+                  <div className="flex gap-3">
+                    <Button
+                      variant={exportFormat === 'json' ? 'default' : 'outline'}
+                      onClick={() => setExportFormat('json')}
+                      className="flex-1"
+                    >
+                      <FileJson className="w-4 h-4 mr-2" />
+                      JSON (Recommended)
+                    </Button>
+                    <Button
+                      variant={exportFormat === 'csv' ? 'default' : 'outline'}
+                      onClick={() => setExportFormat('csv')}
+                      className="flex-1"
+                    >
+                      <FileSpreadsheet className="w-4 h-4 mr-2" />
+                      CSV (Excel)
+                    </Button>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-2">
+                    {exportFormat === 'json' 
+                      ? 'JSON format preserves all data structure and can be re-imported' 
+                      : 'CSV format is easy to edit in Excel but may lose some data structure'}
+                  </p>
+                </div>
+
+                <div>
+                  <div className="flex justify-between items-center mb-3">
+                    <Label>Select Entities to Export ({selectedEntities.length} selected)</Label>
+                    <div className="flex gap-2">
+                      <Button size="sm" variant="outline" onClick={selectAllEntities}>
+                        Select All
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={deselectAllEntities}>
+                        Deselect All
+                      </Button>
+                    </div>
+                  </div>
+
+                  <ScrollArea className="h-[400px] border rounded-lg p-4">
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                      {availableEntities.map((entity) => (
+                        <Card
+                          key={entity.name}
+                          className={`cursor-pointer transition-all ${
+                            selectedEntities.includes(entity.name)
+                              ? 'border-2 border-blue-500 bg-blue-50'
+                              : 'hover:bg-gray-50'
+                          }`}
+                          onClick={() => toggleEntitySelection(entity.name)}
+                        >
+                          <CardContent className="p-4">
+                            <div className="flex items-center gap-2">
+                              <Checkbox
+                                checked={selectedEntities.includes(entity.name)}
+                                onCheckedChange={() => toggleEntitySelection(entity.name)}
+                              />
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xl">{entity.icon}</span>
+                                  <span className="text-sm font-medium">{entity.label}</span>
+                                </div>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                </div>
+
+                <Button
+                  onClick={handleExportData}
+                  disabled={isExporting || selectedEntities.length === 0}
+                  className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
+                  size="lg"
+                >
+                  {isExporting ? (
+                    <>
+                      <Clock className="w-5 h-5 mr-2 animate-spin" />
+                      Exporting...
+                    </>
+                  ) : (
+                    <>
+                      <Download className="w-5 h-5 mr-2" />
+                      Export {selectedEntities.length} Entities
+                    </>
+                  )}
+                </Button>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* IMPORT TAB */}
+          <TabsContent value="import">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Upload className="w-5 h-5" />
+                  Import Database
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <Alert className="bg-red-50 border-red-200">
+                  <AlertTriangle className="w-4 h-4 text-red-600" />
+                  <AlertDescription className="text-red-800">
+                    <strong>Warning:</strong> Importing data can modify or replace existing records. 
+                    Make sure you have a recent backup before proceeding.
+                  </AlertDescription>
+                </Alert>
+
+                <div>
+                  <Label>Import Mode</Label>
+                  <div className="grid grid-cols-2 gap-3 mt-3">
+                    <Button
+                      variant={importMode === 'merge' ? 'default' : 'outline'}
+                      onClick={() => setImportMode('merge')}
+                      className="h-auto py-4"
+                    >
+                      <div className="text-center">
+                        <Package className="w-6 h-6 mx-auto mb-2" />
+                        <p className="font-semibold">Merge</p>
+                        <p className="text-xs opacity-75 mt-1">
+                          Add new records, update existing
+                        </p>
+                      </div>
+                    </Button>
+                    <Button
+                      variant={importMode === 'replace' ? 'default' : 'outline'}
+                      onClick={() => setImportMode('replace')}
+                      className="h-auto py-4 bg-red-600 hover:bg-red-700"
+                    >
+                      <div className="text-center">
+                        <Trash2 className="w-6 h-6 mx-auto mb-2" />
+                        <p className="font-semibold">Replace</p>
+                        <p className="text-xs opacity-75 mt-1">
+                          Delete all, then import
+                        </p>
+                      </div>
+                    </Button>
+                  </div>
+                </div>
+
+                <div>
+                  <Label htmlFor="import_file">Upload Backup File (JSON)</Label>
+                  <Input
+                    id="import_file"
+                    type="file"
+                    accept=".json"
+                    onChange={handleFileUpload}
+                    className="mt-2"
+                  />
+                  <p className="text-xs text-gray-500 mt-2">
+                    Select a JSON backup file exported from AURA
+                  </p>
+                </div>
+
+                {importFile && (
+                  <Card className="bg-blue-50 border-blue-200">
+                    <CardContent className="p-4">
+                      <div className="flex items-start gap-3">
+                        <FileJson className="w-6 h-6 text-blue-600 flex-shrink-0 mt-1" />
+                        <div>
+                          <p className="font-semibold text-blue-900">{importFile.name}</p>
+                          <p className="text-sm text-blue-700">
+                            Size: {(importFile.size / 1024).toFixed(2)} KB
+                          </p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* BACKUPS TAB */}
+          <TabsContent value="backups">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Save className="w-5 h-5" />
+                    Backup History
+                  </div>
+                  <Badge>{backups.length} Backups</Badge>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {backups.length === 0 ? (
+                  <div className="text-center py-12">
+                    <Database className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                    <p className="text-gray-500 mb-2">No backups yet</p>
+                    <p className="text-sm text-gray-400">Create your first backup in the Export tab</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {backups.map((backup) => (
+                      <Card key={backup.id} className="border-l-4 border-l-blue-500">
+                        <CardContent className="p-4">
+                          <div className="flex justify-between items-start">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-2">
+                                <h4 className="font-bold text-gray-900">{backup.backup_name}</h4>
+                                <Badge variant="outline">
+                                  {backup.backup_type}
+                                </Badge>
+                                {backup.status === 'completed' && (
+                                  <Badge className="bg-green-100 text-green-800">
+                                    <CheckCircle className="w-3 h-3 mr-1" />
+                                    Completed
+                                  </Badge>
+                                )}
+                              </div>
+
+                              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-2">
+                                <div>
+                                  <p className="text-xs text-gray-500">Date</p>
+                                  <p className="text-sm font-medium">
+                                    {format(new Date(backup.backup_date), 'MMM d, yyyy')}
+                                  </p>
+                                  <p className="text-xs text-gray-500">
+                                    {format(new Date(backup.backup_date), 'h:mm a')}
+                                  </p>
+                                </div>
+                                <div>
+                                  <p className="text-xs text-gray-500">Records</p>
+                                  <p className="text-sm font-medium">{backup.total_records?.toLocaleString()}</p>
+                                </div>
+                                <div>
+                                  <p className="text-xs text-gray-500">Entities</p>
+                                  <p className="text-sm font-medium">{backup.entities_included?.length}</p>
+                                </div>
+                                <div>
+                                  <p className="text-xs text-gray-500">Size</p>
+                                  <p className="text-sm font-medium">
+                                    {backup.file_size ? `${(backup.file_size / 1024).toFixed(1)} KB` : 'N/A'}
+                                  </p>
+                                </div>
+                              </div>
+
+                              <p className="text-xs text-gray-500">
+                                Created by: {backup.created_by_name}
+                              </p>
+
+                              {backup.notes && (
+                                <p className="text-sm text-gray-700 mt-2 p-2 bg-gray-50 rounded">
+                                  {backup.notes}
+                                </p>
+                              )}
+                            </div>
+
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                if (window.confirm('Delete this backup record? (This will not delete the downloaded file)')) {
+                                  deleteBackupMutation.mutate(backup.id);
+                                }
+                              }}
+                              className="ml-4"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
+
+        {/* Import Preview Dialog */}
+        <Dialog open={showImportPreview} onOpenChange={setShowImportPreview}>
+          <DialogContent className="max-w-2xl max-h-[80vh]">
+            <DialogHeader>
+              <DialogTitle>Import Preview</DialogTitle>
+            </DialogHeader>
+            {importSummary && (
+              <div className="space-y-4">
+                <Alert className="bg-blue-50 border-blue-200">
+                  <AlertTriangle className="w-4 h-4 text-blue-600" />
+                  <AlertDescription className="text-blue-800">
+                    You are about to import <strong>{importSummary.totalRecords} records</strong> from <strong>{importSummary.entities.length} entities</strong> in <strong>{importMode}</strong> mode.
+                  </AlertDescription>
+                </Alert>
+
+                {importData.metadata && (
+                  <Card className="bg-gray-50">
+                    <CardContent className="p-4">
+                      <h4 className="font-semibold mb-2">Backup Information</h4>
+                      <div className="grid grid-cols-2 gap-2 text-sm">
+                        <div>
+                          <p className="text-gray-500">Export Date</p>
+                          <p className="font-medium">
+                            {format(new Date(importData.metadata.export_date), 'PPp')}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-gray-500">Exported By</p>
+                          <p className="font-medium">{importData.metadata.exported_by_name}</p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                <div>
+                  <h4 className="font-semibold mb-3">Entities to Import:</h4>
+                  <ScrollArea className="h-[300px] border rounded-lg p-4">
+                    <div className="space-y-2">
+                      {importSummary.entities.map((entityName) => {
+                        const records = (importData.data || importData)[entityName];
+                        const recordCount = Array.isArray(records) ? records.length : 0;
+                        
+                        return (
+                          <div key={entityName} className="flex justify-between items-center p-3 bg-gray-50 rounded">
+                            <span className="font-medium">{entityName}</span>
+                            <Badge>{recordCount} records</Badge>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </ScrollArea>
+                </div>
+
+                {importMode === 'replace' && (
+                  <Alert className="bg-red-50 border-red-200">
+                    <AlertTriangle className="w-4 h-4 text-red-600" />
+                    <AlertDescription className="text-red-800">
+                      <strong>DANGER:</strong> Replace mode will delete all existing data before importing. This cannot be undone!
+                    </AlertDescription>
+                  </Alert>
+                )}
+
+                <div className="flex gap-3">
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowImportPreview(false)}
+                    className="flex-1"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={handleImportData}
+                    disabled={isImporting}
+                    className={`flex-1 ${importMode === 'replace' ? 'bg-red-600 hover:bg-red-700' : 'bg-green-600 hover:bg-green-700'}`}
+                  >
+                    {isImporting ? (
+                      <>
+                        <Clock className="w-4 h-4 mr-2 animate-spin" />
+                        Importing...
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="w-4 h-4 mr-2" />
+                        Confirm Import
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
+      </div>
+    </div>
+  );
+}

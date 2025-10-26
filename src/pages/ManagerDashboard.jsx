@@ -28,7 +28,7 @@ import {
   DropdownMenuTrigger,
   DropdownMenuContent,
 } from "@/components/ui/dropdown-menu";
-import { Plus, Calendar, CheckCircle, Clock, AlertCircle, AlertTriangle, ArrowLeft, Home, Users, TrendingUp, Award, Edit, Trash2, Upload, Eye, Bell, Settings, MoreVertical, UserPlus, FileText, Target, Search, Filter, Download, ChevronUp, ChevronDown, Mail, Phone, X, DollarSign, BellOff } from "lucide-react";
+import { Plus, Calendar, CheckCircle, Clock, AlertCircle, AlertTriangle, ArrowLeft, Home, Users, TrendingUp, Award, Edit, Trash2, Upload, Eye, Bell, Settings, MoreVertical, UserPlus, FileText, Target, Search, Filter, Download, ChevronUp, ChevronDown, Mail, Phone, X, DollarSign, BellOff, Database, ArrowRight } from "lucide-react";
 import { format, parseISO, isBefore, isAfter, setHours, setMinutes, isSameMinute } from "date-fns";
 import { Link, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -828,6 +828,34 @@ export default function ManagerDashboard() {
               <p className="text-xs text-orange-700 font-medium">Maintenance</p>
             </CardContent>
           </Card>
+        </div>
+
+        {/* Add Data Management Quick Access Button - after stats grid, before alerts */}
+        <div className="mb-8">
+          <Link to={createPageUrl("DataManagement")}>
+            <Card className="bg-gradient-to-r from-indigo-500 to-purple-600 border-none shadow-lg hover:shadow-xl transition-all cursor-pointer group">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="p-3 bg-white/20 rounded-xl group-hover:scale-110 transition-transform">
+                      <Database className="w-8 h-8 text-white" />
+                    </div>
+                    <div>
+                      <h3 className="text-2xl font-bold text-white mb-1">
+                        🔧 Data Management Center
+                      </h3>
+                      <p className="text-white/90">
+                        Export backups, import data, and manage your restaurant database
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-white group-hover:translate-x-2 transition-transform">
+                    <ArrowRight className="w-8 h-8" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </Link>
         </div>
 
         {/* 🧠 INTELLIGENT ATTENDANCE ALERTS - Add after stats grids */}
