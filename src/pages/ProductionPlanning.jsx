@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -18,11 +17,13 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Plus, Calculator, ShoppingCart, ArrowLeft, Home, Send, MoreVertical, Edit, Trash2, AlertTriangle } from "lucide-react";
+import { Plus, Calculator, ShoppingCart, ArrowLeft, Home, Send, MoreVertical, Edit, Trash2, AlertTriangle, DollarSign } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 export default function ProductionPlanning() {
   const queryClient = useQueryClient();
@@ -60,7 +61,12 @@ export default function ProductionPlanning() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['productionPlans'] });
       resetForm();
+      alert('✅ Production plan created successfully!');
     },
+    onError: (error) => {
+      console.error('Error creating plan:', error);
+      alert('❌ Failed to create plan. Please try again.');
+    }
   });
 
   const createOrderMutation = useMutation({
@@ -76,13 +82,19 @@ export default function ProductionPlanning() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['productionPlans'] });
       resetForm();
+      alert('✅ Production plan updated successfully!');
     },
+    onError: (error) => {
+      console.error('Error updating plan:', error);
+      alert('❌ Failed to update plan. Please try again.');
+    }
   });
 
   const deletePlanMutation = useMutation({
     mutationFn: (id) => base44.entities.ProductionPlan.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['productionPlans'] });
+      alert('✅ Production plan deleted successfully!');
     },
   });
 
@@ -100,6 +112,11 @@ export default function ProductionPlanning() {
   };
 
   const addPlanToCart = (plan) => {
+    if (!plan || !plan.ingredients_needed) {
+      alert('⚠️ No ingredients data found for this plan!');
+      return;
+    }
+
     const ingredientsNeeded = plan.ingredients_needed || [];
     const ingredientsToAdd = ingredientsNeeded.filter(ing => ing.to_order > 0);
 
@@ -113,7 +130,13 @@ export default function ProductionPlanning() {
     ingredientsToAdd.forEach(ing => {
       const inventoryItem = ingredients.find(i => i.id === ing.ingredient_id);
       
-      if (!inventoryItem?.supplier_id) {
+      if (!inventoryItem) {
+        console.warn(`Ingredient ${ing.ingredient_name} not found in inventory`);
+        return;
+      }
+
+      if (!inventoryItem.supplier_id) {
+        console.warn(`Ingredient ${ing.ingredient_name} has no supplier`);
         return;
       }
 
@@ -139,7 +162,7 @@ export default function ProductionPlanning() {
     });
 
     setCart(updatedCart);
-    alert(`✅ Added ingredients to cart!`);
+    alert(`✅ Added ${ingredientsToAdd.length} ingredients to cart!`);
     setShowCart(true);
   };
 
@@ -162,20 +185,25 @@ export default function ProductionPlanning() {
   };
 
   const createOrderFromCart = async () => {
-    if (cart.length === 0) {
-      alert('Cart is empty!');
+    // Validation 1: Check if cart is empty
+    if (!cart || cart.length === 0) {
+      alert('⚠️ Cart is empty! Please add ingredients first.');
       return;
     }
 
+    // Validation 2: Check for missing suppliers
     const missingSuppliers = cart.filter(item => !item.supplier_id);
     if (missingSuppliers.length > 0) {
-      alert(`⚠️ Cannot create order. Some items are missing suppliers.`);
+      alert(`⚠️ Cannot create order. The following ingredients are missing suppliers:\n\n${
+        missingSuppliers.map(i => `• ${i.ingredient_name}`).join('\n')
+      }\n\nPlease assign suppliers in Inventory Management.`);
       return;
     }
 
     setCreatingOrders(true);
 
     try {
+      // Group items by supplier
       const ordersBySupplier = {};
 
       cart.forEach(item => {
@@ -198,13 +226,16 @@ export default function ProductionPlanning() {
         });
       });
 
+      // Create orders for each supplier
       let ordersCreated = 0;
+      const orderPromises = [];
+
       for (const order of Object.values(ordersBySupplier)) {
         const subtotal = order.items.reduce((sum, item) => sum + item.line_total, 0);
         const tax = subtotal * 0.2;
         const total = subtotal + tax;
 
-        await createOrderMutation.mutateAsync({
+        const orderPromise = createOrderMutation.mutateAsync({
           order_number: `PO-CART-${Date.now()}-${order.supplier_id.substring(0, 4)}`,
           supplier_id: order.supplier_id,
           supplier_name: order.supplier_name,
@@ -217,33 +248,44 @@ export default function ProductionPlanning() {
           order_date: new Date().toISOString(),
           notes: 'Created from Production Planning cart',
         });
+
+        orderPromises.push(orderPromise);
         ordersCreated++;
       }
 
+      await Promise.all(orderPromises);
+
+      // Success: Clear cart and close dialog
       setCart([]);
       setShowCart(false);
-      alert(`✅ ${ordersCreated} draft order(s) created!`);
+      alert(`✅ Successfully created ${ordersCreated} draft order(s)!\n\nView them in the Ordering page.`);
       
     } catch (error) {
       console.error('Error creating orders:', error);
-      alert('❌ Failed to create orders');
+      alert('❌ Failed to create orders. Please try again.');
+    } finally {
+      setCreatingOrders(false);
     }
-
-    setCreatingOrders(false);
   };
 
   const handleAddMenuItem = () => {
-    if (!selectedMenuItem || !portions) return;
+    if (!selectedMenuItem || !portions) {
+      alert('⚠️ Please select a menu item and enter portions');
+      return;
+    }
     
     const menuItem = menuItems.find(m => m.id === selectedMenuItem);
-    if (!menuItem) return;
+    if (!menuItem) {
+      alert('⚠️ Menu item not found');
+      return;
+    }
 
     const item = {
       menu_item_id: menuItem.id,
       menu_item_name: menuItem.name,
       portions_needed: parseInt(portions),
-      sell_price: menuItem.sell_price,
-      cost_per_portion: menuItem.total_cost,
+      sell_price: menuItem.sell_price || 0,
+      cost_per_portion: menuItem.total_cost || 0,
     };
 
     setFormData({
@@ -305,6 +347,16 @@ export default function ProductionPlanning() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    if (!formData.name || !formData.date) {
+      alert('⚠️ Please enter plan name and date');
+      return;
+    }
+
+    if (formData.menu_items.length === 0) {
+      alert('⚠️ Please add at least one menu item');
+      return;
+    }
 
     const { totalPortions, totalRevenue, totalCost, projectedProfit, ingredientsNeeded } = calculatePlanTotals();
 
@@ -403,7 +455,24 @@ export default function ProductionPlanning() {
   };
 
   const cartTotal = cart.reduce((sum, item) => sum + item.line_total, 0);
+  const cartTax = cartTotal * 0.2;
+  const cartGrandTotal = cartTotal + cartTax;
   const totals = formData.menu_items.length > 0 ? calculatePlanTotals() : null;
+
+  // Group cart items by supplier for display
+  const cartBySupplier = cart.reduce((acc, item) => {
+    const supplierId = item.supplier_id || 'no_supplier';
+    if (!acc[supplierId]) {
+      acc[supplierId] = {
+        supplier_id: item.supplier_id,
+        supplier_name: item.supplier_name || 'No Supplier',
+        supplier_email: item.supplier_email,
+        items: []
+      };
+    }
+    acc[supplierId].items.push(item);
+    return acc;
+  }, {});
 
   return (
     <div className="p-6 md:p-8 bg-gray-50 min-h-screen">
@@ -618,10 +687,12 @@ export default function ProductionPlanning() {
               {formData.menu_items.length > 0 && (
                 <div className="space-y-2">
                   {formData.menu_items.map((item, index) => (
-                    <Card key={index}>
+                    <Card key={index} className="border border-gray-200">
                       <CardContent className="p-4 flex justify-between">
                         <div>
-                          <p className="font-medium">{item.menu_item_name}</p>
+                          <p className="font-medium text-gray-900">
+                            {item.menu_item_name}
+                          </p>
                           <p className="text-sm text-gray-600">{item.portions_needed} portions</p>
                         </div>
                         <Button
@@ -642,7 +713,7 @@ export default function ProductionPlanning() {
               )}
 
               {totals && (
-                <Card className="bg-blue-50">
+                <Card className="bg-blue-50 border-blue-200">
                   <CardContent className="p-4">
                     <div className="grid grid-cols-4 gap-4 text-center">
                       <div>
@@ -666,7 +737,7 @@ export default function ProductionPlanning() {
                 </Card>
               )}
 
-              <div className="flex justify-end gap-3">
+              <div className="flex justify-end gap-3 pt-4">
                 <Button type="button" variant="outline" onClick={resetForm}>
                   Cancel
                 </Button>
@@ -678,72 +749,147 @@ export default function ProductionPlanning() {
           </DialogContent>
         </Dialog>
 
-        {/* Shopping Cart Dialog */}
+        {/* Shopping Cart Dialog - FULLY COMPLETED */}
         <Dialog open={showCart} onOpenChange={setShowCart}>
-          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="max-w-4xl max-h-[90vh]">
             <DialogHeader>
-              <DialogTitle>Shopping Cart ({cart.length} items)</DialogTitle>
+              <DialogTitle className="flex items-center justify-between">
+                <span>Shopping Cart ({cart.length} items)</span>
+                {cart.length > 0 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      if (confirm('Clear all items from cart?')) {
+                        setCart([]);
+                      }
+                    }}
+                  >
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    Clear Cart
+                  </Button>
+                )}
+              </DialogTitle>
             </DialogHeader>
 
             {cart.length === 0 ? (
               <div className="p-12 text-center">
                 <ShoppingCart className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-500">Your cart is empty</p>
+                <p className="text-gray-500 mb-2">Your cart is empty</p>
+                <p className="text-sm text-gray-400">Add ingredients from production plans</p>
               </div>
             ) : (
               <div className="space-y-4 mt-4">
-                {cart.map((item) => (
-                  <Card key={item.ingredient_id}>
-                    <CardContent className="p-4 flex items-center gap-4">
-                      <div className="flex-1">
-                        <p className="font-medium">{item.ingredient_name}</p>
-                        <p className="text-sm text-gray-600">
-                          {item.supplier_name} • £{item.unit_cost.toFixed(2)} per {item.unit}
-                        </p>
-                      </div>
-                      <Input
-                        type="number"
-                        step="0.01"
-                        value={item.quantity}
-                        onChange={(e) => updateCartQuantity(item.ingredient_id, e.target.value)}
-                        className="w-24"
-                      />
-                      <span className="text-sm w-16">{item.unit}</span>
-                      <span className="font-semibold w-24 text-right">
-                        £{item.line_total.toFixed(2)}
-                      </span>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => removeFromCart(item.ingredient_id)}
-                      >
-                        <Trash2 className="w-4 h-4 text-red-500" />
-                      </Button>
-                    </CardContent>
-                  </Card>
-                ))}
+                {/* Validation Warnings */}
+                {cart.some(item => !item.supplier_id) && (
+                  <Alert className="bg-amber-50 border-amber-200">
+                    <AlertTriangle className="w-4 h-4 text-amber-600" />
+                    <AlertDescription className="text-amber-800">
+                      Some items are missing suppliers. Please assign suppliers in Inventory Management before ordering.
+                    </AlertDescription>
+                  </Alert>
+                )}
 
-                <Card className="bg-blue-50">
-                  <CardContent className="p-4">
-                    <div className="flex justify-between items-center text-lg font-bold">
-                      <span>Total:</span>
-                      <span className="text-blue-700">£{cartTotal.toFixed(2)}</span>
+                <ScrollArea className="h-[400px] pr-4">
+                  {/* Group by Supplier */}
+                  {Object.values(cartBySupplier).map((supplierGroup) => (
+                    <div key={supplierGroup.supplier_id} className="mb-6">
+                      <div className="flex items-center gap-2 mb-3 pb-2 border-b-2 border-gray-200">
+                        <DollarSign className="w-5 h-5 text-green-600" />
+                        <h3 className="font-bold text-gray-900">{supplierGroup.supplier_name}</h3>
+                        {supplierGroup.supplier_email && (
+                          <Badge variant="outline" className="text-xs">
+                            {supplierGroup.supplier_email}
+                          </Badge>
+                        )}
+                      </div>
+
+                      <div className="space-y-2">
+                        {supplierGroup.items.map((item) => (
+                          <Card key={item.ingredient_id}>
+                            <CardContent className="p-4 flex items-center gap-4">
+                              <div className="flex-1">
+                                <p className="font-medium">{item.ingredient_name}</p>
+                                <p className="text-sm text-gray-600">
+                                  £{item.unit_cost.toFixed(2)} per {item.unit}
+                                </p>
+                                {item.from_plan && (
+                                  <p className="text-xs text-blue-600 mt-1">
+                                    From: {item.from_plan}
+                                  </p>
+                                )}
+                              </div>
+                              <Input
+                                type="number"
+                                step="0.01"
+                                min="0.01"
+                                value={item.quantity}
+                                onChange={(e) => updateCartQuantity(item.ingredient_id, e.target.value)}
+                                className="w-24"
+                              />
+                              <span className="text-sm w-16">{item.unit}</span>
+                              <span className="font-semibold w-24 text-right">
+                                £{item.line_total.toFixed(2)}
+                              </span>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => removeFromCart(item.ingredient_id)}
+                              >
+                                <Trash2 className="w-4 h-4 text-red-500" />
+                              </Button>
+                            </CardContent>
+                          </Card>
+                        ))}
+                      </div>
                     </div>
-                    <p className="text-xs text-gray-600 mt-1">+ 20% VAT will be added</p>
+                  ))}
+                </ScrollArea>
+
+                {/* Cart Summary */}
+                <Card className="bg-gradient-to-br from-blue-50 to-green-50 border-2 border-blue-200">
+                  <CardContent className="p-6">
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-600">Subtotal:</span>
+                        <span className="font-medium">£{cartTotal.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-600">VAT (20%):</span>
+                        <span className="font-medium">£{cartTax.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between text-lg font-bold pt-2 border-t border-blue-300">
+                        <span>Total:</span>
+                        <span className="text-blue-700">£{cartGrandTotal.toFixed(2)}</span>
+                      </div>
+                      <p className="text-xs text-gray-500 mt-2">
+                        {Object.keys(cartBySupplier).length} supplier(s) • {cart.length} item(s)
+                      </p>
+                    </div>
                   </CardContent>
                 </Card>
 
-                <div className="flex justify-end gap-3 pt-4">
+                {/* Action Buttons */}
+                <div className="flex justify-end gap-3 pt-4 border-t">
                   <Button variant="outline" onClick={() => setShowCart(false)}>
                     Continue Planning
                   </Button>
                   <Button
                     onClick={createOrderFromCart}
-                    className="bg-green-600"
-                    disabled={creatingOrders}
+                    className="bg-green-600 hover:bg-green-700"
+                    disabled={creatingOrders || cart.some(item => !item.supplier_id)}
                   >
-                    <ShoppingCart className="w-4 h-4 mr-2" />
-                    {creatingOrders ? 'Creating...' : 'Create Draft Orders'}
+                    {creatingOrders ? (
+                      <>
+                        <Clock className="w-4 h-4 mr-2 animate-spin" />
+                        Creating Orders...
+                      </>
+                    ) : (
+                      <>
+                        <ShoppingCart className="w-4 h-4 mr-2" />
+                        Create Draft Orders ({Object.keys(cartBySupplier).length})
+                      </>
+                    )}
                   </Button>
                 </div>
               </div>
