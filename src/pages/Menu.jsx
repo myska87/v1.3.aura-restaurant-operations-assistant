@@ -447,8 +447,8 @@ AURA One Pro - Menu Management
                 </div>
               </div>
               <Select value={filterCategory} onValueChange={setFilterCategory}>
-                <SelectTrigger className="w-64 border-gray-300">
-                  <SelectValue placeholder="Filter by category" />
+                <SelectTrigger className="w-52 border-gray-300">
+                  <SelectValue placeholder="All Categories" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Categories</SelectItem>
