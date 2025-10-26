@@ -24,6 +24,33 @@
       ],
       "description": "Form category"
     },
+    "assigned_position": {
+      "type": "string",
+      "enum": [
+        "manager",
+        "chef",
+        "line_cook",
+        "server",
+        "bartender",
+        "cleaner",
+        "maintenance",
+        "any"
+      ],
+      "description": "Role linked to this form"
+    },
+    "trigger_type": {
+      "type": "string",
+      "enum": [
+        "shift_start",
+        "shift_end",
+        "opening",
+        "closing",
+        "mid_day",
+        "manual",
+        "custom"
+      ],
+      "description": "When this form should be triggered"
+    },
     "fields": {
       "type": "array",
       "items": {
@@ -98,14 +125,36 @@
       "type": "number",
       "description": "Minimum score to pass (percentage)"
     },
+    "editable": {
+      "type": "boolean",
+      "default": true,
+      "description": "Whether managers can edit this form"
+    },
     "version_number": {
       "type": "number",
       "default": 1,
       "description": "Template version for tracking"
     },
+    "last_edited_by": {
+      "type": "string",
+      "description": "User who last edited"
+    },
+    "last_edited_at": {
+      "type": "string",
+      "format": "date-time"
+    },
     "is_active": {
       "type": "boolean",
       "default": true
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "active",
+        "archived",
+        "draft"
+      ],
+      "default": "active"
     },
     "color_theme": {
       "type": "string",
@@ -115,6 +164,21 @@
     "icon": {
       "type": "string",
       "description": "Emoji or icon for form"
+    },
+    "auto_assign_enabled": {
+      "type": "boolean",
+      "default": false,
+      "description": "Enable smart auto-assignment"
+    },
+    "notification_enabled": {
+      "type": "boolean",
+      "default": true,
+      "description": "Send notifications when assigned"
+    },
+    "reminder_hours_before_deadline": {
+      "type": "number",
+      "default": 2,
+      "description": "Hours before deadline to send reminder"
     }
   },
   "required": [

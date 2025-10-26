@@ -1,0 +1,104 @@
+{
+  "name": "FormAssignmentMetadata",
+  "type": "object",
+  "properties": {
+    "form_id": {
+      "type": "string",
+      "description": "Reference to FormTemplate"
+    },
+    "form_name": {
+      "type": "string",
+      "description": "Cached form name"
+    },
+    "assignment_type": {
+      "type": "string",
+      "enum": [
+        "shift_based",
+        "checklist_based",
+        "position_based",
+        "manual",
+        "event_triggered"
+      ],
+      "description": "How this form was assigned"
+    },
+    "trigger_event": {
+      "type": "string",
+      "description": "Event that triggered assignment (e.g., shift_started)"
+    },
+    "linked_shift_id": {
+      "type": "string",
+      "description": "Reference to Shift if shift-based"
+    },
+    "linked_checklist_id": {
+      "type": "string",
+      "description": "Reference to Checklist if checklist-based"
+    },
+    "linked_venue_id": {
+      "type": "string",
+      "description": "Reference to LeafeVenue if venue-specific"
+    },
+    "assigned_to_email": {
+      "type": "string",
+      "description": "Staff member email"
+    },
+    "assigned_to_name": {
+      "type": "string",
+      "description": "Staff member name"
+    },
+    "assigned_position": {
+      "type": "string",
+      "description": "Position/role"
+    },
+    "assigned_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When form was assigned"
+    },
+    "assigned_by": {
+      "type": "string",
+      "description": "Who assigned (user or 'system')"
+    },
+    "due_date": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When form must be completed"
+    },
+    "reminder_sent": {
+      "type": "boolean",
+      "default": false
+    },
+    "reminder_sent_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "completion_status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "in_progress",
+        "completed",
+        "overdue",
+        "cancelled"
+      ],
+      "default": "pending"
+    },
+    "completed_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "form_response_id": {
+      "type": "string",
+      "description": "Reference to FormResponse once completed"
+    },
+    "metadata": {
+      "type": "object",
+      "description": "Additional context data"
+    }
+  },
+  "required": [
+    "form_id",
+    "assignment_type",
+    "assigned_to_email",
+    "due_date"
+  ]
+}
