@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -30,6 +31,7 @@ import ChecklistAutomation from "./components/ChecklistAutomation";
 import NotificationBell from "./components/NotificationBell";
 import AuraLogo from "./components/AuraLogo";
 import AutoBackupScheduler from "./components/AutoBackupScheduler";
+import { StaffDataSync } from "./components/UnifiedStaffData";
 
 const Badge = ({ children, className }) => (
   <span className={`inline-flex items-center justify-center rounded-full text-center font-semibold leading-none whitespace-nowrap ${className}`}>
@@ -195,6 +197,7 @@ export default function Layout({ children }) {
       <AutoBackupScheduler />
       <WelcomeNewHire />
       <ChecklistAutomation />
+      <StaffDataSync />
 
       {/* Mobile Header */}
       <div className="lg:hidden fixed top-0 left-0 right-0 bg-white border-b border-slate-200 z-40 px-4 py-3">

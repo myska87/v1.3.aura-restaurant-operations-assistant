@@ -1,3 +1,4 @@
+
 import { useState, useMemo } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -28,6 +29,9 @@ import { format, startOfWeek, addDays, addWeeks, subWeeks, parseISO, parse, isSa
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { Textarea } from "@/components/ui/textarea";
+
+import { useUnifiedStaff } from "../components/UnifiedStaffData";
+import StaffSelector from "../components/StaffSelector";
 
 // Helper function to get default department based on position
 const getDefaultDepartment = (position) => {
@@ -74,66 +78,8 @@ export default function SmartScheduler() {
   const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 });
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
 
-  // Fetch all users
-  const { data: users = [] } = useQuery({
-    queryKey: ['users'],
-    queryFn: () => base44.entities.User.list(),
-  });
-
-  // Fetch all team members
-  const { data: teamMembers = [] } = useQuery({
-    queryKey: ['teamMembers'],
-    queryFn: () => base44.entities.TeamMember.list(),
-  });
-
-  // Combine users and team members into comprehensive staff list
-  const allStaff = useMemo(() => {
-    const staffMap = new Map();
-    
-    // Add all users first
-    users.forEach(user => {
-      staffMap.set(user.email, {
-        email: user.email,
-        full_name: user.full_name,
-        position: user.position,
-        phone: user.phone,
-        photo_url: user.photo_url,
-      });
-    });
-    
-    // Enrich with team member data
-    teamMembers.forEach(member => {
-      if (staffMap.has(member.staff_email)) {
-        const existingStaff = staffMap.get(member.staff_email);
-        staffMap.set(member.staff_email, {
-          ...existingStaff,
-          position: member.position || existingStaff.position,
-          department: member.department,
-          photo_url: member.photo_url || existingStaff.photo_url,
-          shift_start: member.shift_start,
-          shift_end: member.shift_end,
-          status: member.status,
-        });
-      } else {
-        // Add team member even if not in users
-        staffMap.set(member.staff_email, {
-          email: member.staff_email,
-          full_name: member.staff_name,
-          position: member.position,
-          department: member.department,
-          photo_url: member.photo_url,
-          shift_start: member.shift_start,
-          shift_end: member.shift_end,
-          status: member.status,
-        });
-      }
-    });
-    
-    // Filter out inactive staff and sort
-    return Array.from(staffMap.values())
-      .filter(staff => !staff.status || staff.status === 'active')
-      .sort((a, b) => (a.full_name || '').localeCompare(b.full_name || ''));
-  }, [users, teamMembers]);
+  // Use unified staff data
+  const { staff: allStaff, isLoading: loadingStaff } = useUnifiedStaff();
 
   // Fetch shifts for the current week
   const { data: shifts = [], refetch: refetchShifts } = useQuery({
@@ -502,43 +448,16 @@ export default function SmartScheduler() {
 
             <form onSubmit={handleSubmit} className="space-y-4 mt-4">
               <div className="grid md:grid-cols-2 gap-4">
-                {/* Staff Member Selection */}
+                {/* Staff Member Selection - Using New Component */}
                 <div>
                   <Label htmlFor="staff_email">Staff Member *</Label>
-                  <Select 
-                    value={shiftForm.staff_email} 
+                  <StaffSelector
+                    value={shiftForm.staff_email}
                     onValueChange={handleStaffChange}
-                  >
-                    <SelectTrigger id="staff_email">
-                      <SelectValue placeholder="Select staff member" />
-                    </SelectTrigger>
-                    <SelectContent className="max-h-[300px]">
-                      {allStaff.length === 0 ? (
-                        <div className="p-4 text-center text-sm text-gray-500">
-                          <p>No staff members found</p>
-                          <p className="text-xs mt-1">Add staff via Team Directory</p>
-                        </div>
-                      ) : (
-                        allStaff.map((staff) => (
-                          <SelectItem key={staff.email} value={staff.email}>
-                            <div className="flex items-center gap-2">
-                              {staff.photo_url ? (
-                                <img src={staff.photo_url} alt="" className="w-6 h-6 rounded-full object-cover" />
-                              ) : (
-                                <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center text-white text-xs font-bold">
-                                  {staff.full_name?.charAt(0)?.toUpperCase()}
-                                </div>
-                              )}
-                              <div>
-                                <span className="font-medium">{staff.full_name}</span>
-                                <span className="text-xs text-gray-500 ml-2">{staff.position}</span>
-                              </div>
-                            </div>
-                          </SelectItem>
-                        ))
-                      )}
-                    </SelectContent>
-                  </Select>
+                    placeholder="Select staff member"
+                    allowEmpty={false}
+                    className="mt-1"
+                  />
                 </div>
 
                 {/* Role Selection */}

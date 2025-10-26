@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo } from "react";
+import React, { useState } from "react"; // useMemo removed as it's no longer directly used in this component
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -62,6 +62,8 @@ import { Link, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { motion } from "framer-motion";
 
+import { useUnifiedStaff } from "../components/UnifiedStaffData"; // ADDED
+
 export default function TeamDirectory() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
@@ -104,89 +106,14 @@ export default function TeamDirectory() {
 
   const isManager = user?.position === 'manager' || user?.position === 'owner' || user?.role === 'admin';
 
-  const { data: allStaff = [] } = useQuery({
-    queryKey: ['allStaff'],
-    queryFn: () => base44.entities.User.list(),
-  });
-
-  const { data: teamMembers = [] } = useQuery({
-    queryKey: ['teamMembers'],
-    queryFn: () => base44.entities.TeamMember.list('-created_date'),
-  });
-
-  // Get performance data
-  const { data: rewards = [] } = useQuery({
-    queryKey: ['allRewards'],
-    queryFn: () => base44.entities.StaffReward.list('-awarded_date'),
-  });
-
-  const { data: coachingSessions = [] } = useQuery({
-    queryKey: ['allCoachingSessions'],
-    queryFn: () => base44.entities.CoachingSession.list('-session_date'),
-  });
-
-  // Merge staff with team member data AND include team members without user accounts
-  const enrichedStaff = useMemo(() => {
-    // First, get all staff with their team member data
-    const staffWithTeamData = allStaff.map(staff => {
-      const teamMember = teamMembers.find(tm => tm.staff_email === staff.email);
-      const staffRewards = rewards.filter(r => r.staff_email === staff.email);
-      const staffSessions = coachingSessions.filter(s => s.staff_email === staff.email);
-      const totalPoints = staffRewards.reduce((sum, r) => sum + (r.points_earned || 0), 0);
-      const completedSessions = staffSessions.filter(s => s.status === 'completed').length;
-      const tenure = teamMember?.hire_date ? differenceInMonths(new Date(), new Date(teamMember.hire_date)) : 0;
-
-      return {
-        ...staff,
-        ...teamMember, // teamMember properties will override staff properties if they share names
-        // Explicitly set these from teamMember if they exist, otherwise from staff
-        position: teamMember?.position || staff.position,
-        phone: teamMember?.phone || staff.phone,
-        status: teamMember?.status || staff.status || 'active', // Ensure status is set
-        photo_url: teamMember?.photo_url || staff.photo_url || '', // Add photo_url
-        totalPoints,
-        completedSessions,
-        tenure,
-        rewardCount: staffRewards.length,
-      };
-    });
-
-    // Then, add team members that don't have a User account yet
-    const staffEmails = allStaff.map(s => s.email);
-    const teamMembersWithoutUser = teamMembers
-      .filter(tm => !staffEmails.includes(tm.staff_email))
-      .map(tm => ({
-        id: tm.id,
-        email: tm.staff_email,
-        staff_email: tm.staff_email, // Keep staff_email for consistency with other objects
-        full_name: tm.staff_name, // Use staff_name as full_name for display
-        staff_name: tm.staff_name,
-        position: tm.position,
-        department: tm.department,
-        phone: tm.phone,
-        hire_date: tm.hire_date,
-        status: tm.status || 'active',
-        shift_start: tm.shift_start,
-        shift_end: tm.shift_end,
-        emergency_contact: tm.emergency_contact,
-        hourly_rate: tm.hourly_rate,
-        notes: tm.notes,
-        manager_email: tm.manager_email,
-        photo_url: tm.photo_url || '', // Add photo_url here
-        totalPoints: 0,
-        completedSessions: 0,
-        tenure: tm.hire_date ? differenceInMonths(new Date(), new Date(tm.hire_date)) : 0,
-        rewardCount: 0,
-        isTeamMemberOnly: true, // Flag to identify these
-      }));
-
-    return [...staffWithTeamData, ...teamMembersWithoutUser];
-  }, [allStaff, teamMembers, rewards, coachingSessions]);
+  // Use unified staff data instead of separate queries and memoization
+  const { staff: enrichedStaff, isLoading: loadingStaff } = useUnifiedStaff();
 
   // Filtering and sorting
   let filteredStaff = enrichedStaff.filter(staff => {
-    const nameToSearch = staff.full_name || staff.staff_name || '';
-    const emailToSearch = staff.email || staff.staff_email || '';
+    // The useUnifiedStaff hook ensures full_name and email are consistent.
+    const nameToSearch = staff.full_name || '';
+    const emailToSearch = staff.email || '';
     const positionToSearch = staff.position || '';
 
     const matchesSearch = 
@@ -233,8 +160,11 @@ export default function TeamDirectory() {
   // CRUD operations
   const saveMemberMutation = useMutation({
     mutationFn: async (data) => {
-      // Ensure the correct ID is used if editing a TeamMember-only entry
-      const memberId = editingMember?.isTeamMemberOnly ? editingMember.id : teamMembers.find(tm => tm.staff_email === data.staff_email)?.id;
+      // The `isTeamMemberOnly` flag and member ID logic needs to be carefully handled.
+      // `useUnifiedStaff` provides a unified view, but the mutations still operate on `TeamMember` entities.
+      // We need to find the correct `TeamMember` ID if editing, or create if new.
+      const existingTeamMember = enrichedStaff.find(tm => tm.staff_email === data.staff_email);
+      const memberId = existingTeamMember?.id; // Assuming `id` from `TeamMember` entity
 
       if (memberId) {
         return await base44.entities.TeamMember.update(memberId, data);
@@ -243,8 +173,9 @@ export default function TeamDirectory() {
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['teamMembers'] });
+      queryClient.invalidateQueries({ queryKey: ['teamMembers'] }); // Still invalidate underlying queries
       queryClient.invalidateQueries({ queryKey: ['allStaff'] }); // Invalidate allStaff in case a new user is created and merges later
+      // The useUnifiedStaff hook will re-fetch data based on these invalidations.
       closeDialog();
     },
     onError: (error) => {
@@ -257,7 +188,7 @@ export default function TeamDirectory() {
       return await base44.entities.TeamMember.update(id, { status: 'inactive' });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['teamMembers'] });
+      queryClient.invalidateQueries({ queryKey: ['teamMembers'] }); // Invalidate underlying queries
       setShowDeleteDialog(false);
       setMemberToDelete(null);
     },
@@ -289,8 +220,8 @@ export default function TeamDirectory() {
     setEditingMember(member);
     setPhotoPreview(member.photo_url || null);
     setFormData({
-      staff_email: member.staff_email || member.email,
-      staff_name: member.staff_name || member.full_name,
+      staff_email: member.email || member.staff_email, // Prefer 'email' from User if available, fallback to 'staff_email' from TeamMember
+      staff_name: member.full_name || member.staff_name, // Prefer 'full_name' from User if available, fallback to 'staff_name' from TeamMember
       position: member.position || "",
       department: member.department || "",
       phone: member.phone || "",
@@ -417,6 +348,17 @@ export default function TeamDirectory() {
     { value: "cleaning", label: "Cleaning" },
     { value: "maintenance", label: "Maintenance" },
   ];
+
+  if (loadingStaff) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100">
+        <div className="flex items-center space-x-2 text-gray-600">
+          <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+          <span className="text-xl font-semibold">Loading Team Directory...</span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6 md:p-8">
@@ -1187,7 +1129,7 @@ export default function TeamDirectory() {
             </DialogHeader>
             <div className="py-4">
               <p className="text-gray-700 mb-3">
-                Are you sure you want to remove <strong>{memberToDelete?.staff_name || memberToDelete?.full_name}</strong> from the team?
+                Are you sure you want to remove <strong>{memberToDelete?.full_name || memberToDelete?.staff_name}</strong> from the team?
               </p>
               <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded">
                 <p className="text-sm text-yellow-800">
