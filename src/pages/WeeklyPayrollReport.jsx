@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
@@ -11,7 +10,6 @@ import {
   ArrowLeft,
   Home,
   Download,
-  Calendar, // Still used for placeholder icon
   Users,
   DollarSign,
   Clock,
@@ -21,6 +19,12 @@ import {
 import { format, startOfWeek, endOfWeek, parseISO } from "date-fns";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
+
+// Safe number helper
+const safeNumber = (value, decimals = 2) => {
+  const num = parseFloat(value);
+  return isNaN(num) || num === null || num === undefined ? 0 : parseFloat(num.toFixed(decimals));
+};
 
 export default function WeeklyPayrollReport() {
   const [selectedWeek, setSelectedWeek] = useState(format(new Date(), 'yyyy-MM-dd'));
@@ -77,24 +81,23 @@ export default function WeeklyPayrollReport() {
         };
       }
 
-      const hoursWorked = Number(record.total_hours) || 0; // Use total_hours from record, ensure it's a number
+      const hoursWorked = safeNumber(record.total_hours, 2);
       const wageRateEntry = wageRates.find(w => w.staff_email === staffEmail);
-      const hourlyRate = wageRateEntry?.hourly_rate || 0; // Default to 0 if no rate found
+      const hourlyRate = safeNumber(wageRateEntry?.hourly_rate, 2);
 
-      // Simplified calculation (assuming a standard 40-hour week for regular pay if record doesn't specify)
-      // For this report, let's use the individual record's specified regular/overtime hours
-      const recordRegularHours = Number(record.regular_hours) || 0;
-      const recordOvertimeHours = Number(record.overtime_hours) || 0;
+      // Use record's specified regular/overtime hours
+      const recordRegularHours = safeNumber(record.regular_hours, 2);
+      const recordOvertimeHours = safeNumber(record.overtime_hours, 2);
 
       const regularPay = recordRegularHours * hourlyRate;
-      const overtimePay = recordOvertimeHours * hourlyRate * 1.5; // Fixed overtime rate
+      const overtimePay = recordOvertimeHours * hourlyRate * 1.5;
       const totalShiftPay = regularPay + overtimePay;
 
       payrollMap[staffEmail].total_hours += hoursWorked;
       payrollMap[staffEmail].regular_hours += recordRegularHours;
       payrollMap[staffEmail].overtime_hours += recordOvertimeHours;
       payrollMap[staffEmail].total_pay += totalShiftPay;
-      payrollMap[staffEmail].hourly_rate = hourlyRate; // Store hourly rate for display if needed
+      payrollMap[staffEmail].hourly_rate = hourlyRate;
       payrollMap[staffEmail].shifts.push({
         date: record.shift_date,
         hours: hoursWorked,
@@ -107,10 +110,9 @@ export default function WeeklyPayrollReport() {
     return Object.values(payrollMap).sort((a, b) => b.total_pay - a.total_pay);
   }, [attendanceRecords, wageRates]);
 
-  const totalPayroll = payrollArray.reduce((sum, staff) => sum + staff.total_pay, 0);
-  const totalHours = payrollArray.reduce((sum, staff) => sum + staff.total_hours, 0);
-
-  const payrollArray = staffPayrollData;
+  // Calculate totals using staffPayrollData directly
+  const totalPayroll = staffPayrollData.reduce((sum, staff) => sum + safeNumber(staff.total_pay, 2), 0);
+  const totalHours = staffPayrollData.reduce((sum, staff) => sum + safeNumber(staff.total_hours, 2), 0);
 
   const exportToCSV = () => {
     const headers = [
@@ -124,16 +126,16 @@ export default function WeeklyPayrollReport() {
       'Regular Pay',
       'Overtime Pay'
     ];
-    const rows = payrollArray.map(staff => [
+    const rows = staffPayrollData.map(staff => [
       staff.staff_name,
       staff.staff_email,
-      staff.hourly_rate.toFixed(2),
-      staff.total_hours.toFixed(2),
-      staff.regular_hours.toFixed(2),
-      staff.overtime_hours.toFixed(2),
-      `£${staff.total_pay.toFixed(2)}`,
-      `£${(staff.regular_hours * staff.hourly_rate).toFixed(2)}`,
-      `£${(staff.overtime_hours * staff.hourly_rate * 1.5).toFixed(2)}`
+      safeNumber(staff.hourly_rate, 2).toFixed(2),
+      safeNumber(staff.total_hours, 2).toFixed(2),
+      safeNumber(staff.regular_hours, 2).toFixed(2),
+      safeNumber(staff.overtime_hours, 2).toFixed(2),
+      `£${safeNumber(staff.total_pay, 2).toFixed(2)}`,
+      `£${(safeNumber(staff.regular_hours, 2) * safeNumber(staff.hourly_rate, 2)).toFixed(2)}`,
+      `£${(safeNumber(staff.overtime_hours, 2) * safeNumber(staff.hourly_rate, 2) * 1.5).toFixed(2)}`
     ]);
 
     const csvContent = [
@@ -226,7 +228,7 @@ export default function WeeklyPayrollReport() {
                 <CardContent>
                   <div className="flex items-center gap-2">
                     <Users className="w-5 h-5 text-blue-500" />
-                    <span className="text-2xl font-bold">{payrollArray.length}</span>
+                    <span className="text-2xl font-bold">{staffPayrollData.length}</span>
                   </div>
                 </CardContent>
               </Card>
@@ -263,14 +265,14 @@ export default function WeeklyPayrollReport() {
                   <div className="flex items-center gap-2">
                     <TrendingUp className="w-5 h-5 text-orange-500" />
                     <span className="text-2xl font-bold">
-                      £{payrollArray.length > 0 ? (totalPayroll / payrollArray.length).toFixed(2) : '0.00'}
+                      £{staffPayrollData.length > 0 ? (totalPayroll / staffPayrollData.length).toFixed(2) : '0.00'}
                     </span>
                   </div>
                 </CardContent>
               </Card>
             </div>
 
-            {payrollArray.length === 0 ? (
+            {staffPayrollData.length === 0 ? (
               <Card>
                 <CardContent className="p-12 text-center">
                   <AlertCircle className="w-12 h-12 text-gray-400 mx-auto mb-4" />
@@ -279,32 +281,32 @@ export default function WeeklyPayrollReport() {
               </Card>
             ) : (
               <div className="space-y-4">
-                {payrollArray.map((staff) => (
+                {staffPayrollData.map((staff) => (
                   <Card key={staff.staff_email}>
                     <CardContent className="p-6">
                       <div className="flex justify-between items-start mb-4">
                         <div>
                           <h3 className="text-lg font-bold text-gray-900">{staff.staff_name}</h3>
                           <p className="text-sm text-gray-600">{staff.staff_email}</p>
-                          <p className="text-xs text-gray-500">Hourly Rate: £{staff.hourly_rate.toFixed(2)}</p>
+                          <p className="text-xs text-gray-500">Hourly Rate: £{safeNumber(staff.hourly_rate, 2).toFixed(2)}</p>
                         </div>
                         <Badge className="bg-green-100 text-green-800 text-lg px-4 py-1">
-                          £{staff.total_pay.toFixed(2)}
+                          £{safeNumber(staff.total_pay, 2).toFixed(2)}
                         </Badge>
                       </div>
 
                       <div className="grid grid-cols-3 gap-4 p-4 bg-gray-50 rounded-lg">
                         <div>
                           <p className="text-xs text-gray-600">Total Hours</p>
-                          <p className="text-lg font-bold">{staff.total_hours.toFixed(2)}h</p>
+                          <p className="text-lg font-bold">{safeNumber(staff.total_hours, 2).toFixed(2)}h</p>
                         </div>
                         <div>
                           <p className="text-xs text-gray-600">Regular Hours</p>
-                          <p className="text-lg font-bold text-blue-700">{staff.regular_hours.toFixed(2)}h</p>
+                          <p className="text-lg font-bold text-blue-700">{safeNumber(staff.regular_hours, 2).toFixed(2)}h</p>
                         </div>
                         <div>
                           <p className="text-xs text-gray-600">Overtime Hours</p>
-                          <p className="text-lg font-bold text-orange-700">{staff.overtime_hours.toFixed(2)}h</p>
+                          <p className="text-lg font-bold text-orange-700">{safeNumber(staff.overtime_hours, 2).toFixed(2)}h</p>
                         </div>
                       </div>
 
@@ -317,7 +319,7 @@ export default function WeeklyPayrollReport() {
                                 {format(parseISO(shift.date), 'EEE, MMM d')}
                               </span>
                               <span className="text-gray-900">
-                                {shift.hours.toFixed(2)}h (R: {shift.regular_hours.toFixed(1)}h, OT: {shift.overtime_hours.toFixed(1)}h) - £{shift.pay.toFixed(2)}
+                                {safeNumber(shift.hours, 2).toFixed(2)}h (R: {safeNumber(shift.regular_hours, 1).toFixed(1)}h, OT: {safeNumber(shift.overtime_hours, 1).toFixed(1)}h) - £{safeNumber(shift.pay, 2).toFixed(2)}
                               </span>
                             </div>
                           ))}
