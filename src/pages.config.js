@@ -58,6 +58,7 @@ import AllergyTable from './pages/AllergyTable';
 import PrivacyCenter from './pages/PrivacyCenter';
 import ComplianceDashboard from './pages/ComplianceDashboard';
 import EmailIntegrationHub from './pages/EmailIntegrationHub';
+import SystemProtection from './pages/SystemProtection';
 import Layout from './Layout.jsx';
 
 
@@ -122,6 +123,7 @@ export const PAGES = {
     "PrivacyCenter": PrivacyCenter,
     "ComplianceDashboard": ComplianceDashboard,
     "EmailIntegrationHub": EmailIntegrationHub,
+    "SystemProtection": SystemProtection,
 }
 
 export const pagesConfig = {
