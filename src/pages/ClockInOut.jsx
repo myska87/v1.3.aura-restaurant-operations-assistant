@@ -591,114 +591,167 @@ export default function ClockInOut() {
           </CardContent>
         </Card>
 
-        {/* Clock In/Out Button */}
-        <div className="flex justify-center">
-          {activeShift ? (
-            <motion.div
-              whileTap={{ scale: 0.95 }}
-              className="w-full max-w-md"
+        {/* Clock In/Out Buttons - Always Show Both */}
+        <div className="grid grid-cols-2 gap-4 max-w-2xl mx-auto">
+          {/* Clock In Button */}
+          <motion.div
+            whileTap={{ scale: canClockIn ? 0.95 : 1 }}
+            className="w-full"
+          >
+            <Button
+              onClick={handleClockIn}
+              disabled={!canClockIn || isProcessing || activeShift !== null}
+              className={`w-full h-32 text-xl font-bold shadow-2xl relative overflow-hidden transition-all ${
+                canClockIn && !activeShift
+                  ? 'bg-gradient-to-br from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 border-4 border-green-400 animate-pulse'
+                  : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+              }`}
             >
-              <Button
-                onClick={handleClockOut}
-                disabled={!canClockOut || isProcessing}
-                className="w-full h-32 text-2xl font-bold shadow-2xl disabled:opacity-50 relative overflow-hidden group"
-                style={{
-                  background: 'linear-gradient(135deg, #E0B037 0%, #f59e0b 100%)',
-                  border: canClockOut ? '3px solid #dc2626' : 'none'
-                }}
-              >
-                {canClockOut && (
-                  <div className="absolute inset-0 animate-pulse bg-white opacity-20" />
+              {canClockIn && !activeShift && (
+                <div className="absolute inset-0 animate-ping bg-white opacity-20" />
+              )}
+              <div className="flex flex-col items-center justify-center gap-2">
+                <LogIn className="w-10 h-10" />
+                <span>{isProcessing ? 'Processing...' : 'Clock In'}</span>
+                {activeShift && (
+                  <span className="text-xs opacity-75">Already Clocked In</span>
                 )}
-                <div className="flex items-center justify-center gap-4">
-                  <LogOut className="w-8 h-8" />
-                  <div className="text-center">
-                    <p className="text-2xl font-bold">
-                      {isProcessing ? 'Clocking Out...' : 'Clock Out'}
-                    </p>
-                    {duration && (
-                      <p className="text-sm opacity-90 mt-1">
-                        Total: {duration.hours}h {duration.minutes}m
-                      </p>
-                    )}
-                  </div>
-                </div>
-                {canClockOut && (
-                  <div className="absolute bottom-0 left-0 right-0 h-1 bg-red-500 animate-pulse" />
+                {!activeShift && !canClockIn && nextShift && (
+                  <span className="text-xs opacity-75">Not Yet Available</span>
                 )}
-              </Button>
-              
-              {/* Quick Clock Out Info */}
-              <div className="mt-4 p-4 bg-white rounded-lg shadow-sm">
-                <div className="flex items-center justify-between text-sm">
-                  <div className="flex items-center gap-2">
-                    <Clock className="w-4 h-4 text-gray-600" />
-                    <span className="text-gray-700">Started at</span>
-                  </div>
-                  <span className="font-semibold text-gray-900">
-                    {attendanceRecord?.actual_clock_in 
-                      ? format(parseISO(attendanceRecord.actual_clock_in), 'h:mm a')
-                      : 'N/A'}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between text-sm mt-2">
-                  <div className="flex items-center gap-2">
-                    <MapPin className="w-4 h-4 text-gray-600" />
-                    <span className="text-gray-700">Location</span>
-                  </div>
-                  <span className="font-semibold text-gray-900">
-                    {location ? '✓ Captured' : '⚠️ Required'}
-                  </span>
-                </div>
               </div>
-            </motion.div>
-          ) : nextShift ? (
-            <motion.div
-              whileTap={{ scale: 0.95 }}
-              className="w-full max-w-md"
+            </Button>
+            
+            {/* Clock In Status Messages */}
+            <div className="mt-3 text-center">
+              {!activeShift && nextShift && (
+                <>
+                  {canClockIn ? (
+                    <p className="text-green-600 font-semibold text-sm animate-bounce">
+                      ✅ Ready to Clock In!
+                    </p>
+                  ) : timeUntilShift !== null && timeUntilShift > 15 ? (
+                    <p className="text-amber-600 text-sm">
+                      Opens in {timeUntilShift - 15} minute(s)
+                    </p>
+                  ) : (
+                    <p className="text-gray-500 text-sm">
+                      Not yet available
+                    </p>
+                  )}
+                </>
+              )}
+              {!nextShift && !activeShift && (
+                <p className="text-gray-500 text-sm">No shift scheduled</p>
+              )}
+              {activeShift && (
+                <p className="text-gray-500 text-sm">Already on shift</p>
+              )}
+            </div>
+          </motion.div>
+
+          {/* Clock Out Button */}
+          <motion.div
+            whileTap={{ scale: canClockOut ? 0.95 : 1 }}
+            className="w-full"
+          >
+            <Button
+              onClick={handleClockOut}
+              disabled={!canClockOut || isProcessing || !activeShift}
+              className={`w-full h-32 text-xl font-bold shadow-2xl relative overflow-hidden transition-all ${
+                canClockOut && activeShift
+                  ? 'bg-gradient-to-br from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 border-4 border-orange-400 animate-pulse'
+                  : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+              }`}
             >
-              <Button
-                onClick={handleClockIn}
-                disabled={!canClockIn || isProcessing || (!location && gettingLocation)}
-                className="w-full h-32 text-2xl font-bold shadow-2xl disabled:opacity-50 relative overflow-hidden"
-                style={{
-                  background: 'linear-gradient(135deg, #014D40 0%, #10b981 100%)',
-                  border: canClockIn ? '3px solid #E0B037' : 'none',
-                  animation: canClockIn ? 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite' : 'none'
-                }}
-              >
-                {canClockIn && (
-                  <div className="absolute inset-0 animate-ping bg-white opacity-20" />
+              {canClockOut && activeShift && (
+                <div className="absolute inset-0 animate-pulse bg-white opacity-20" />
+              )}
+              <div className="flex flex-col items-center justify-center gap-2">
+                <LogOut className="w-10 h-10" />
+                <span>{isProcessing ? 'Processing...' : 'Clock Out'}</span>
+                {duration && activeShift && (
+                  <span className="text-sm opacity-90">
+                    {duration.hours}h {duration.minutes}m worked
+                  </span>
                 )}
-                <LogIn className="w-8 h-8 mr-3" />
-                {isProcessing ? 'Clocking In...' : 'Clock In'}
-              </Button>
-              {!canClockIn && (
-                <p className="text-center text-sm text-gray-600 mt-4">
-                  {timeUntilShift !== null && timeUntilShift > 15 
-                    ? `Clock-in opens in ${timeUntilShift - 15} minutes`
-                    : 'Clock-in window closed or not yet active'}
+                {!activeShift && (
+                  <span className="text-xs opacity-75">Not Clocked In</span>
+                )}
+              </div>
+            </Button>
+
+            {/* Clock Out Status Messages */}
+            <div className="mt-3 text-center">
+              {activeShift && canClockOut && (
+                <p className="text-orange-600 font-semibold text-sm animate-bounce">
+                  ✅ Ready to Clock Out!
                 </p>
               )}
-            </motion.div>
-          ) : (
-            <Card className="bg-amber-50 border-amber-200 w-full max-w-md">
-              <CardContent className="p-6 text-center">
-                <AlertCircle className="w-12 h-12 text-amber-600 mx-auto mb-3" />
-                <p className="text-gray-900 font-medium">No Scheduled Shift Today</p>
-                <p className="text-sm text-gray-600 mt-2">
-                  You don't have any shifts scheduled for today
+              {activeShift && !canClockOut && (
+                <p className="text-gray-500 text-sm">
+                  Available during/after shift
                 </p>
-                <Link to={createPageUrl("MyShifts")}>
-                  <Button variant="outline" className="mt-4">
-                    <Calendar className="w-4 h-4 mr-2" />
-                    View My Schedule
-                  </Button>
-                </Link>
-              </CardContent>
-            </Card>
-          )}
+              )}
+              {!activeShift && (
+                <p className="text-gray-500 text-sm">No active shift</p>
+              )}
+            </div>
+          </motion.div>
         </div>
+
+        {/* Additional Info Card */}
+        {(nextShift || activeShift) && (
+          <Card className="mt-6 bg-blue-50 border-blue-200 max-w-2xl mx-auto">
+            <CardContent className="p-4">
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <p className="text-gray-600 mb-1">📅 Shift Date</p>
+                  <p className="font-semibold text-gray-900">
+                    {format(parseISO((activeShift || nextShift).shift_date), 'EEEE, MMM d')}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-gray-600 mb-1">⏰ Shift Time</p>
+                  <p className="font-semibold text-gray-900">
+                    {(activeShift || nextShift).start_time} - {(activeShift || nextShift).end_time}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-gray-600 mb-1">👤 Role</p>
+                  <p className="font-semibold text-gray-900">
+                    {(activeShift || nextShift).role}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-gray-600 mb-1">📍 Status</p>
+                  <Badge className={activeShift ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'}>
+                    {activeShift ? '🟢 Active' : '🔵 Scheduled'}
+                  </Badge>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* No Shift Today Message */}
+        {!nextShift && !activeShift && (
+          <Card className="bg-amber-50 border-amber-200 max-w-md mx-auto mt-6">
+            <CardContent className="p-6 text-center">
+              <AlertCircle className="w-12 h-12 text-amber-600 mx-auto mb-3" />
+              <p className="text-gray-900 font-medium">No Scheduled Shift Today</p>
+              <p className="text-sm text-gray-600 mt-2">
+                You don't have any shifts scheduled for today
+              </p>
+              <Link to={createPageUrl("MyShifts")}>
+                <Button variant="outline" className="mt-4">
+                  <Calendar className="w-4 h-4 mr-2" />
+                  View My Schedule
+                </Button>
+              </Link>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Attendance Stats (if available) */}
         {attendanceRecord && (
