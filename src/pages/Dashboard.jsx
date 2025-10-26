@@ -32,7 +32,6 @@ import { Badge } from "@/components/ui/badge";
 export default function Dashboard() {
   const [dailyQuote, setDailyQuote] = useState("");
 
-  // OPTIMIZED: Limit queries to only recent data needed for dashboard
   const { data: complianceChecks = [] } = useQuery({
     queryKey: ['complianceChecks'],
     queryFn: () => base44.entities.ComplianceCheck.list("-check_date", 50),
