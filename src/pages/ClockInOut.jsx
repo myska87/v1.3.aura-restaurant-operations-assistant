@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -41,7 +40,7 @@ export default function ClockInOut() {
 
   // Fetch attendance record for active shift
   const activeShift = shifts.find(s => s.status === 'in_progress');
-  const nextShift = shifts.find(s => s.status === 'scheduled');
+  const nextShift = !activeShift ? shifts.find(s => s.status === 'scheduled') : undefined;
   const currentShift = activeShift || nextShift;
 
   const { data: attendanceRecord } = useQuery({
@@ -54,12 +53,6 @@ export default function ClockInOut() {
     },
     enabled: !!currentShift?.id,
   });
-
-  // Simple celebration animation (no external library needed)
-  const celebrateShiftComplete = () => {
-    // Show success message or trigger a visual effect
-    console.log('🎉 Shift completed on time!');
-  };
 
   // Clock In Mutation
   const clockInMutation = useMutation({
@@ -126,24 +119,17 @@ export default function ClockInOut() {
         location_lng: loc?.longitude,
         location_name: loc?.name || 'Unknown',
       });
-
-      // Trigger task generation on clock-in
-      try {
-        const { TaskAutomationEngine } = await import('../components/TaskAutomationEngine');
-        await TaskAutomationEngine.generateTasksForShift(nextShift.id);
-      } catch (error) {
-        console.log('Task automation not available:', error);
-      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['myShifts'] });
       queryClient.invalidateQueries({ queryKey: ['attendanceRecord'] });
-      queryClient.invalidateQueries({ queryKey: ['checklistExecutions'] });
       alert('✅ Clocked in successfully!');
+      setIsProcessing(false);
     },
     onError: (error) => {
-      console.error('Clock in mutation error:', error);
-      // setIsProcessing(false) is handled by performClockIn's finally
+      console.error('Clock in error:', error);
+      alert('❌ Failed to clock in: ' + error.message);
+      setIsProcessing(false);
     }
   });
 
@@ -165,9 +151,6 @@ export default function ClockInOut() {
       const scheduledEnd = parseISO(`${activeShift.shift_date}T${activeShift.end_time}:00`);
       const earlyDepartureMinutes = Math.max(0, differenceInMinutes(scheduledEnd, new Date()));
 
-      // Check if shift completed on time
-      const isOnTime = attendanceRecord.lateness_minutes <= 5 && earlyDepartureMinutes === 0;
-
       // Update attendance record
       await base44.entities.AttendanceRecord.update(attendanceRecord.id, {
         actual_clock_out: clockOutTime,
@@ -179,7 +162,7 @@ export default function ClockInOut() {
         total_hours: parseFloat(totalHours.toFixed(2)),
         overtime_hours: parseFloat(overtimeHours.toFixed(2)),
         early_departure_minutes: earlyDepartureMinutes,
-        status: 'pending' // Pending manager verification
+        status: 'pending'
       });
 
       // Update shift
@@ -199,46 +182,19 @@ export default function ClockInOut() {
         location_lng: loc?.longitude,
         location_name: loc?.name || 'Unknown',
       });
-
-      // Celebrate if on time!
-      if (isOnTime) {
-        celebrateShiftComplete();
-      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['myShifts'] });
       queryClient.invalidateQueries({ queryKey: ['attendanceRecord'] });
       alert('✅ Clocked out successfully!');
+      setIsProcessing(false);
     },
     onError: (error) => {
-      console.error('Clock out mutation error:', error);
-      // setIsProcessing(false) is handled by performClockOut's finally
+      console.error('Clock out error:', error);
+      alert('❌ Failed to clock out: ' + error.message);
+      setIsProcessing(false);
     }
   });
-
-  const performClockIn = async (loc) => {
-    setIsProcessing(true);
-    try {
-      await clockInMutation.mutateAsync({ location: loc });
-    } catch (error) {
-      console.error('Clock in error:', error);
-      alert('Failed to clock in: ' + error.message);
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
-  const performClockOut = async (loc) => {
-    setIsProcessing(true);
-    try {
-      await clockOutMutation.mutateAsync({ location: loc });
-    } catch (error) {
-      console.error('Clock out error:', error);
-      alert('Failed to clock out: ' + error.message);
-    } finally {
-      setIsProcessing(false);
-    }
-  };
 
   const handleClockIn = async () => {
     if (isProcessing) return;
@@ -253,9 +209,10 @@ export default function ClockInOut() {
       return;
     }
 
-    // Get location if not already captured
-    if (!location) {
-      setGettingLocation(true);
+    setIsProcessing(true);
+
+    // Get location
+    if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         async (position) => {
           const loc = {
@@ -263,25 +220,24 @@ export default function ClockInOut() {
             longitude: position.coords.longitude,
             name: 'Current Location',
           };
-          setLocation(loc); // Update state for UI
-          setGettingLocation(false);
-          
-          // Now clock in with location
-          await performClockIn(loc);
+          setLocation(loc);
+          await clockInMutation.mutateAsync({ location: loc });
         },
         (error) => {
           console.error('Error getting location:', error);
-          setGettingLocation(false);
-          
-          // Clock in without location
           if (confirm('Unable to get location. Clock in without location tracking?')) {
-            performClockIn(null); // Use performClockIn, not async
+            clockInMutation.mutate({ location: null });
+          } else {
+            setIsProcessing(false);
           }
         }
       );
     } else {
-      // Already have location
-      await performClockIn(location);
+      if (confirm('Geolocation not supported. Clock in without location tracking?')) {
+        await clockInMutation.mutateAsync({ location: null });
+      } else {
+        setIsProcessing(false);
+      }
     }
   };
 
@@ -302,9 +258,10 @@ export default function ClockInOut() {
       return;
     }
 
-    // Get location if not already captured
-    if (!location) {
-      setGettingLocation(true);
+    setIsProcessing(true);
+
+    // Get location
+    if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         async (position) => {
           const loc = {
@@ -312,25 +269,24 @@ export default function ClockInOut() {
             longitude: position.coords.longitude,
             name: 'Current Location',
           };
-          setLocation(loc); // Update state for UI
-          setGettingLocation(false);
-          
-          // Now clock out with location
-          await performClockOut(loc);
+          setLocation(loc);
+          await clockOutMutation.mutateAsync({ location: loc });
         },
         (error) => {
           console.error('Error getting location:', error);
-          setGettingLocation(false);
-          
-          // Clock out without location
           if (confirm('Unable to get location. Clock out without location tracking?')) {
-            performClockOut(null); // Use performClockOut, not async
+            clockOutMutation.mutate({ location: null });
+          } else {
+            setIsProcessing(false);
           }
         }
       );
     } else {
-      // Already have location
-      await performClockOut(location);
+      if (confirm('Geolocation not supported. Clock out without location tracking?')) {
+        await clockOutMutation.mutateAsync({ location: null });
+      } else {
+        setIsProcessing(false);
+      }
     }
   };
 
@@ -595,19 +551,19 @@ export default function ClockInOut() {
         <div className="grid grid-cols-2 gap-4 max-w-2xl mx-auto">
           {/* Clock In Button */}
           <motion.div
-            whileTap={{ scale: canClockIn ? 0.95 : 1 }}
+            whileTap={{ scale: canClockIn && !isProcessing ? 0.95 : 1 }}
             className="w-full"
           >
             <Button
               onClick={handleClockIn}
               disabled={!canClockIn || isProcessing || activeShift !== null}
               className={`w-full h-32 text-xl font-bold shadow-2xl relative overflow-hidden transition-all ${
-                canClockIn && !activeShift
-                  ? 'bg-gradient-to-br from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 border-4 border-green-400 animate-pulse'
+                canClockIn && !activeShift && !isProcessing
+                  ? 'bg-gradient-to-br from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 border-4 border-green-400 animate-pulse text-white'
                   : 'bg-gray-300 text-gray-500 cursor-not-allowed'
               }`}
             >
-              {canClockIn && !activeShift && (
+              {canClockIn && !activeShift && !isProcessing && (
                 <div className="absolute inset-0 animate-ping bg-white opacity-20" />
               )}
               <div className="flex flex-col items-center justify-center gap-2">
@@ -652,19 +608,19 @@ export default function ClockInOut() {
 
           {/* Clock Out Button */}
           <motion.div
-            whileTap={{ scale: canClockOut ? 0.95 : 1 }}
+            whileTap={{ scale: canClockOut && !isProcessing ? 0.95 : 1 }}
             className="w-full"
           >
             <Button
               onClick={handleClockOut}
               disabled={!canClockOut || isProcessing || !activeShift}
               className={`w-full h-32 text-xl font-bold shadow-2xl relative overflow-hidden transition-all ${
-                canClockOut && activeShift
-                  ? 'bg-gradient-to-br from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 border-4 border-orange-400 animate-pulse'
+                canClockOut && activeShift && !isProcessing
+                  ? 'bg-gradient-to-br from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 border-4 border-orange-400 animate-pulse text-white'
                   : 'bg-gray-300 text-gray-500 cursor-not-allowed'
               }`}
             >
-              {canClockOut && activeShift && (
+              {canClockOut && activeShift && !isProcessing && (
                 <div className="absolute inset-0 animate-pulse bg-white opacity-20" />
               )}
               <div className="flex flex-col items-center justify-center gap-2">
@@ -819,27 +775,12 @@ export default function ClockInOut() {
               </li>
               <li className="flex items-start gap-2">
                 <span style={{color: '#014D40'}}>•</span>
-                <span>Tasks are automatically assigned when you clock in</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span style={{color: '#014D40'}}>•</span>
                 <span>Late clock-ins are flagged for manager review</span>
               </li>
             </ul>
           </CardContent>
         </Card>
       </div>
-
-      <style jsx>{`
-        @keyframes pulse {
-          0%, 100% {
-            opacity: 1;
-          }
-          50% {
-            opacity: 0.8;
-          }
-        }
-      `}</style>
     </div>
   );
 }
