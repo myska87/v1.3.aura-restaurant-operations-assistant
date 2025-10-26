@@ -1,0 +1,82 @@
+{
+  "name": "DataAuditLog",
+  "type": "object",
+  "properties": {
+    "user_id": {
+      "type": "string",
+      "description": "User who performed the action"
+    },
+    "user_email": {
+      "type": "string",
+      "description": "User email"
+    },
+    "user_name": {
+      "type": "string",
+      "description": "User full name"
+    },
+    "entity_accessed": {
+      "type": "string",
+      "description": "Entity name accessed (User, Order, Document, etc.)"
+    },
+    "entity_id": {
+      "type": "string",
+      "description": "Specific record ID accessed"
+    },
+    "action": {
+      "type": "string",
+      "enum": [
+        "view",
+        "create",
+        "edit",
+        "delete",
+        "export",
+        "print",
+        "download"
+      ],
+      "description": "Action performed"
+    },
+    "ip_address": {
+      "type": "string",
+      "description": "IP address of request"
+    },
+    "device_id": {
+      "type": "string",
+      "description": "Device identifier (hashed)"
+    },
+    "device_type": {
+      "type": "string",
+      "description": "Device type (mobile, desktop, tablet)"
+    },
+    "browser": {
+      "type": "string",
+      "description": "Browser information"
+    },
+    "location": {
+      "type": "string",
+      "description": "Approximate location (city/country)"
+    },
+    "data_snapshot": {
+      "type": "object",
+      "description": "Snapshot of data accessed (encrypted)"
+    },
+    "purpose": {
+      "type": "string",
+      "description": "Business purpose for access"
+    },
+    "session_id": {
+      "type": "string",
+      "description": "Session identifier"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When action occurred"
+    }
+  },
+  "required": [
+    "user_id",
+    "entity_accessed",
+    "action",
+    "timestamp"
+  ]
+}

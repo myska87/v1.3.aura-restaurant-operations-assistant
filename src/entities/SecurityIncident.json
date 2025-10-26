@@ -1,0 +1,158 @@
+{
+  "name": "SecurityIncident",
+  "type": "object",
+  "properties": {
+    "incident_id": {
+      "type": "string",
+      "description": "Unique incident identifier"
+    },
+    "incident_type": {
+      "type": "string",
+      "enum": [
+        "unauthorized_access",
+        "data_breach",
+        "failed_login_attempts",
+        "suspicious_activity",
+        "malware_detected",
+        "ddos_attack",
+        "privilege_escalation",
+        "data_exfiltration"
+      ],
+      "description": "Type of security incident"
+    },
+    "severity": {
+      "type": "string",
+      "enum": [
+        "low",
+        "medium",
+        "high",
+        "critical"
+      ],
+      "default": "medium",
+      "description": "Incident severity"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "detected",
+        "investigating",
+        "contained",
+        "resolved",
+        "false_positive"
+      ],
+      "default": "detected",
+      "description": "Current status"
+    },
+    "affected_user_id": {
+      "type": "string",
+      "description": "User affected by incident"
+    },
+    "affected_user_email": {
+      "type": "string",
+      "description": "Affected user email"
+    },
+    "affected_data_types": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Types of data potentially compromised"
+    },
+    "affected_records_count": {
+      "type": "number",
+      "description": "Number of records affected"
+    },
+    "detection_method": {
+      "type": "string",
+      "description": "How incident was detected"
+    },
+    "detection_timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When incident was detected"
+    },
+    "source_ip": {
+      "type": "string",
+      "description": "Source IP of incident"
+    },
+    "source_location": {
+      "type": "string",
+      "description": "Geographic location of source"
+    },
+    "attack_vector": {
+      "type": "string",
+      "description": "How attack was performed"
+    },
+    "description": {
+      "type": "string",
+      "description": "Detailed incident description"
+    },
+    "impact_assessment": {
+      "type": "string",
+      "description": "Assessment of potential impact"
+    },
+    "immediate_actions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Immediate actions taken"
+    },
+    "assigned_to": {
+      "type": "string",
+      "description": "Security team member assigned"
+    },
+    "dpo_notified": {
+      "type": "boolean",
+      "default": false,
+      "description": "Data Protection Officer notified"
+    },
+    "dpo_notified_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "ico_reportable": {
+      "type": "boolean",
+      "default": false,
+      "description": "Must be reported to ICO"
+    },
+    "ico_reported_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "users_notified": {
+      "type": "boolean",
+      "default": false,
+      "description": "Affected users notified"
+    },
+    "notification_sent_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "resolution_notes": {
+      "type": "string",
+      "description": "How incident was resolved"
+    },
+    "resolved_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "lessons_learned": {
+      "type": "string",
+      "description": "Key takeaways"
+    },
+    "preventive_measures": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Measures to prevent recurrence"
+    }
+  },
+  "required": [
+    "incident_type",
+    "severity",
+    "status",
+    "detection_timestamp"
+  ]
+}
