@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
@@ -13,6 +14,12 @@ import {
 import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { Download, TrendingUp, Calendar } from "lucide-react";
 import { format, subDays } from "date-fns";
+
+// Safe number formatting
+const safeNumber = (value, decimals = 2) => {
+  const num = parseFloat(value);
+  return isNaN(num) || num === null || num === undefined ? 0 : parseFloat(num.toFixed(decimals));
+};
 
 export default function Reports() {
   const [timeRange, setTimeRange] = useState("7days");
@@ -67,7 +74,7 @@ export default function Reports() {
 
     return {
       date: format(date, 'MMM d'),
-      rate: Math.round(passRate),
+      rate: safeNumber(passRate, 0),
     };
   });
 

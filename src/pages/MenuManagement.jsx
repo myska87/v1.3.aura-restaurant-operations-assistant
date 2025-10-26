@@ -25,6 +25,23 @@ import {
 import { Plus, Pencil, Trash2, ChefHat, Camera, Image as ImageIcon, Folder, Calculator, ShoppingCart } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
+// Safe number formatting helper
+const safeNumber = (value, decimals = -1) => {
+  const num = parseFloat(value);
+  if (isNaN(num) || num === null || num === undefined) {
+    return 0;
+  }
+  return decimals >= 0 ? parseFloat(num.toFixed(decimals)) : num;
+};
+
+const formatPrice = (price) => {
+  return safeNumber(price, 2).toFixed(2);
+};
+
+const formatPercent = (percent) => {
+  return safeNumber(percent, 1).toFixed(1);
+};
+
 export default function MenuManagement() {
   const queryClient = useQueryClient();
   const [showItemForm, setShowItemForm] = useState(false);
@@ -161,10 +178,10 @@ export default function MenuManagement() {
       name: item.name,
       category_id: item.category_id,
       description: item.description || "",
-      sell_price: item.sell_price?.toString() || "", // Ensure it's a string for input
+      sell_price: safeNumber(item.sell_price).toString() || "", // Ensure it's a string for input
       image_url: item.image_url || "",
       recipe: item.recipe || [],
-      prep_time_minutes: item.prep_time_minutes?.toString() || "",
+      prep_time_minutes: safeNumber(item.prep_time_minutes).toString() || "",
       cooking_instructions: item.cooking_instructions || "",
       allergens: item.allergens || [],
     });
@@ -176,7 +193,7 @@ export default function MenuManagement() {
     setCategoryFormData({
       name: category.name,
       description: category.description || "",
-      display_order: category.display_order?.toString() || "", // Ensure it's a string for input
+      display_order: safeNumber(category.display_order).toString() || "", // Ensure it's a string for input
     });
     setShowCategoryForm(true);
   };
@@ -197,8 +214,8 @@ export default function MenuManagement() {
   };
 
   const handleAddIngredient = () => {
-    const quantity = parseFloat(ingredientQty);
-    if (!selectedIngredient || isNaN(quantity) || quantity <= 0) {
+    const quantity = safeNumber(ingredientQty);
+    if (!selectedIngredient || quantity <= 0) {
       alert("Please select an ingredient and enter a valid quantity greater than 0.");
       return;
     }
@@ -215,14 +232,14 @@ export default function MenuManagement() {
       return;
     }
 
-    const cost = (ingredient.unit_cost * quantity);
+    const cost = safeNumber(ingredient.unit_cost) * quantity;
 
     const recipeItem = {
       ingredient_id: ingredient.id,
       ingredient_name: ingredient.name,
       quantity: quantity,
       unit: ingredient.unit,
-      cost: cost, // This is the total cost for this specific quantity of ingredient for ONE serving
+      cost: safeNumber(cost), // This is the total cost for this specific quantity of ingredient for ONE serving
     };
 
     setItemFormData({
@@ -242,12 +259,16 @@ export default function MenuManagement() {
   };
 
   const calculateTotals = () => {
-    const totalCost = itemFormData.recipe.reduce((sum, r) => sum + r.cost, 0); // r.cost is already total for one serving
-    const sellPrice = parseFloat(itemFormData.sell_price) || 0;
+    const totalCost = itemFormData.recipe.reduce((sum, r) => sum + safeNumber(r.cost), 0);
+    const sellPrice = safeNumber(itemFormData.sell_price);
     const profitMargin = sellPrice - totalCost;
     const foodCostPercentage = sellPrice > 0 ? (totalCost / sellPrice) * 100 : 0;
 
-    return { totalCost, profitMargin, foodCostPercentage };
+    return { 
+      totalCost: safeNumber(totalCost), 
+      profitMargin: safeNumber(profitMargin), 
+      foodCostPercentage: safeNumber(foodCostPercentage) 
+    };
   };
 
   const handleSubmitItem = async (e) => {
@@ -256,7 +277,7 @@ export default function MenuManagement() {
     const category = categories.find(c => c.id === itemFormData.category_id);
 
     // Validate essential fields
-    if (!itemFormData.name || !itemFormData.category_id || parseFloat(itemFormData.sell_price) <= 0) {
+    if (!itemFormData.name || !itemFormData.category_id || safeNumber(itemFormData.sell_price) <= 0) {
         alert("Please fill in item name, category, and a valid sell price.");
         return;
     }
@@ -270,13 +291,13 @@ export default function MenuManagement() {
       category_id: itemFormData.category_id,
       category_name: category?.name || "Uncategorized", // Default if category not found for some reason
       description: itemFormData.description,
-      sell_price: parseFloat(itemFormData.sell_price),
+      sell_price: safeNumber(itemFormData.sell_price),
       image_url: itemFormData.image_url,
       recipe: itemFormData.recipe,
       total_cost: totalCost,
       profit_margin: profitMargin,
       food_cost_percentage: foodCostPercentage,
-      prep_time_minutes: itemFormData.prep_time_minutes ? parseInt(itemFormData.prep_time_minutes) : null,
+      prep_time_minutes: safeNumber(itemFormData.prep_time_minutes) > 0 ? safeNumber(itemFormData.prep_time_minutes) : null,
       cooking_instructions: itemFormData.cooking_instructions,
       allergens: itemFormData.allergens,
       is_active: true, // Assuming new items are active by default
@@ -305,7 +326,7 @@ export default function MenuManagement() {
     const data = {
       name: categoryFormData.name,
       description: categoryFormData.description,
-      display_order: categoryFormData.display_order ? parseInt(categoryFormData.display_order) : (categories.length > 0 ? Math.max(...categories.map(c => c.display_order || 0)) + 1 : 1),
+      display_order: safeNumber(categoryFormData.display_order) > 0 ? safeNumber(categoryFormData.display_order) : (categories.length > 0 ? Math.max(...categories.map(c => safeNumber(c.display_order))) + 1 : 1),
       is_active: true, // Assuming new categories are active by default
     };
 
@@ -333,7 +354,7 @@ export default function MenuManagement() {
     if (!calculatorItem) return null;
 
     const recipe = calculatorItem.recipe || [];
-    const sellPricePerServing = parseFloat(calculatorItem.sell_price || 0);
+    const sellPricePerServing = safeNumber(calculatorItem.sell_price);
     
     let costPerServingBeforeWaste = 0;
     const ingredientsNeededDetails = recipe.map(recipeItem => {
@@ -351,52 +372,52 @@ export default function MenuManagement() {
       let isMissingFromInventory = false;
 
       if (ingredientDetail) {
-        effectiveUnitCost = ingredientDetail.unit_cost > 0 
-          ? ingredientDetail.unit_cost 
-          : (recipeItem.quantity > 0 ? recipeItem.cost / recipeItem.quantity : 0); // Fallback to recipe cost if inventory unit_cost is zero/invalid
-        individualServingCost = effectiveUnitCost * recipeItem.quantity; // Cost for this ingredient for ONE serving
+        effectiveUnitCost = safeNumber(ingredientDetail.unit_cost) > 0 
+          ? safeNumber(ingredientDetail.unit_cost) 
+          : (safeNumber(recipeItem.quantity) > 0 ? safeNumber(recipeItem.cost) / safeNumber(recipeItem.quantity) : 0); // Fallback to recipe cost if inventory unit_cost is zero/invalid
+        individualServingCost = effectiveUnitCost * safeNumber(recipeItem.quantity); // Cost for this ingredient for ONE serving
         costPerServingBeforeWaste += individualServingCost;
       } else {
         isMissingFromInventory = true;
         // If ingredient is not found in inventory at all, use the cost stored in the recipe.
         // This is a fallback to ensure some cost is calculated, even if not fully up-to-date.
-        individualServingCost = recipeItem.cost || 0; 
+        individualServingCost = safeNumber(recipeItem.cost); 
         costPerServingBeforeWaste += individualServingCost;
-        console.error(`Ingredient "${recipeItem.ingredient_name}" (ID: ${recipeItem.ingredient_id}) not found in inventory! Using stored recipe cost: £${individualServingCost.toFixed(2)}`);
+        console.error(`Ingredient "${recipeItem.ingredient_name}" (ID: ${recipeItem.ingredient_id}) not found in inventory! Using stored recipe cost: £${formatPrice(individualServingCost)}`);
       }
 
       return {
         ...recipeItem, // Keep original recipe item data
         ingredientDetail: ingredientDetail, // Attach the found inventory detail
         effectiveUnitCost: effectiveUnitCost,
-        individualServingCost: individualServingCost, // Cost for this ingredient for ONE serving
+        individualServingCost: safeNumber(individualServingCost), // Cost for this ingredient for ONE serving
         missingFromInventory: isMissingFromInventory,
       };
     });
 
-    const costPerServingWithWaste = costPerServingBeforeWaste * (1 + wastePercentage / 100);
+    const costPerServingWithWaste = safeNumber(costPerServingBeforeWaste * (1 + safeNumber(wastePercentage) / 100));
 
-    const totalCost = costPerServingWithWaste * servings;
-    const totalRevenue = sellPricePerServing * servings;
-    const profitPerServing = sellPricePerServing - costPerServingWithWaste;
-    const totalProfit = totalRevenue - totalCost;
+    const totalCost = safeNumber(costPerServingWithWaste * servings);
+    const totalRevenue = safeNumber(sellPricePerServing * servings);
+    const profitPerServing = safeNumber(sellPricePerServing - costPerServingWithWaste);
+    const totalProfit = safeNumber(totalRevenue - totalCost);
     const profitMargin = sellPricePerServing > 0 
-      ? (profitPerServing / sellPricePerServing) * 100 
+      ? safeNumber((profitPerServing / sellPricePerServing) * 100) 
       : 0;
 
     // Calculate ingredient quantities needed for all servings, with waste
     const ingredientsNeeded = ingredientsNeededDetails.map(itemDetail => {
       const { recipeItem, ingredientDetail, missingFromInventory } = itemDetail;
 
-      const quantityNeededRaw = recipeItem.quantity * servings;
-      const quantityNeededWithWaste = quantityNeededRaw * (1 + wastePercentage / 100);
+      const quantityNeededRaw = safeNumber(recipeItem.quantity) * servings;
+      const quantityNeededWithWaste = safeNumber(quantityNeededRaw * (1 + safeNumber(wastePercentage) / 100));
 
       // Unit cost for reporting should reflect what we're basing the total cost on.
       let unitCostToReport = missingFromInventory 
-        ? (recipeItem.quantity > 0 ? recipeItem.cost / recipeItem.quantity : 0) 
-        : (ingredientDetail?.unit_cost || 0);
+        ? (safeNumber(recipeItem.quantity) > 0 ? safeNumber(recipeItem.cost) / safeNumber(recipeItem.quantity) : 0) 
+        : safeNumber(ingredientDetail?.unit_cost);
       
-      const totalIngredientCostWithWaste = quantityNeededWithWaste * unitCostToReport;
+      const totalIngredientCostWithWaste = safeNumber(quantityNeededWithWaste * unitCostToReport);
 
       return {
         ingredient_id: recipeItem.ingredient_id,
@@ -413,12 +434,12 @@ export default function MenuManagement() {
     });
 
     return {
-      costPerServing: costPerServingWithWaste,
-      totalCost,
-      totalRevenue,
-      profitPerServing,
-      totalProfit,
-      profitMargin,
+      costPerServing: safeNumber(costPerServingWithWaste),
+      totalCost: safeNumber(totalCost),
+      totalRevenue: safeNumber(totalRevenue),
+      profitPerServing: safeNumber(profitPerServing),
+      totalProfit: safeNumber(totalProfit),
+      profitMargin: safeNumber(profitMargin),
       ingredientsNeeded,
     };
   };
@@ -471,10 +492,10 @@ export default function MenuManagement() {
       ordersBySupplier[item.supplier_id].items.push({
         ingredient_id: item.ingredient_id,
         ingredient_name: item.ingredient_name,
-        quantity_ordered: parseFloat(item.quantity_needed.toFixed(2)), // Round for purchase order
+        quantity_ordered: safeNumber(item.quantity_needed, 2), // Round for purchase order
         unit: item.unit,
-        unit_cost: parseFloat(item.unit_cost.toFixed(2)), // Round for purchase order
-        line_total: parseFloat(item.total_cost.toFixed(2)), // Round for purchase order
+        unit_cost: safeNumber(item.unit_cost, 2), // Round for purchase order
+        line_total: safeNumber(item.total_cost, 2), // Round for purchase order
       });
     }
 
@@ -486,10 +507,10 @@ export default function MenuManagement() {
     try {
       let ordersCreated = 0;
       for (const order of Object.values(ordersBySupplier)) {
-        const subtotal = order.items.reduce((sum, item) => sum + item.line_total, 0);
+        const subtotal = safeNumber(order.items.reduce((sum, item) => sum + safeNumber(item.line_total), 0));
         const taxRate = 0.20; // 20% tax
-        const tax = subtotal * taxRate;
-        const total = subtotal + tax;
+        const tax = safeNumber(subtotal * taxRate);
+        const total = safeNumber(subtotal + tax);
 
         await createPurchaseOrderMutation.mutateAsync({
           order_number: `PO-MENU-${Date.now()}-${order.supplier_id.substring(0, 4)}`,
@@ -498,9 +519,9 @@ export default function MenuManagement() {
           supplier_email: order.supplier_email,
           status: 'draft',
           items: order.items,
-          subtotal: parseFloat(subtotal.toFixed(2)),
-          tax: parseFloat(tax.toFixed(2)),
-          total: parseFloat(total.toFixed(2)),
+          subtotal: subtotal,
+          tax: tax,
+          total: total,
           order_date: new Date().toISOString(),
           notes: `Order for ${calculatorItem.name} (${servings} servings) - Generated from Profit Calculator`,
         });
@@ -613,96 +634,103 @@ export default function MenuManagement() {
               </Card>
             </div>
           ) : (
-            filteredMenuItems.map((item) => (
-              <Card key={item.id} className="bg-white border-none shadow-sm hover:shadow-lg transition-shadow overflow-hidden group">
-                {/* Dish Image */}
-                <div className="relative h-48 bg-gray-100 overflow-hidden">
-                  {item.image_url ? (
-                    <img 
-                      src={item.image_url} 
-                      alt={item.name} 
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center">
-                      <ImageIcon className="w-16 h-16 text-gray-300" />
-                    </div>
-                  )}
-                  <div className="absolute top-2 right-2 flex gap-1">
-                    <Button
-                      variant="secondary"
-                      size="icon"
-                      className="bg-white/90 hover:bg-white shadow-md"
-                      onClick={() => handleEditItem(item)}
-                    >
-                      <Pencil className="w-4 h-4" />
-                    </Button>
-                    <Button
-                      variant="secondary"
-                      size="icon"
-                      className="bg-white/90 hover:bg-white shadow-md"
-                      onClick={() => {
-                        if (confirm(`Are you sure you want to delete "${item.name}"?`)) {
-                          deleteMenuItemMutation.mutate(item.id);
-                        }
-                      }}
-                    >
-                      <Trash2 className="w-4 h-4 text-red-500" />
-                    </Button>
-                  </div>
-                </div>
+            filteredMenuItems.map((item) => {
+              const sellPrice = safeNumber(item.sell_price);
+              const totalCost = safeNumber(item.total_cost);
+              const profitMargin = safeNumber(item.profit_margin);
+              const foodCostPercentage = safeNumber(item.food_cost_percentage);
 
-                <CardContent className="p-4">
-                  <div className="mb-3">
-                    <h3 className="text-lg font-bold text-gray-900 mb-1">{item.name}</h3>
-                    <Badge className="bg-green-100 text-green-800 text-xs">
-                      {item.category_name || "Uncategorized"}
-                    </Badge>
+              return (
+                <Card key={item.id} className="bg-white border-none shadow-sm hover:shadow-lg transition-shadow overflow-hidden group">
+                  {/* Dish Image */}
+                  <div className="relative h-48 bg-gray-100 overflow-hidden">
+                    {item.image_url ? (
+                      <img 
+                        src={item.image_url} 
+                        alt={item.name} 
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <ImageIcon className="w-16 h-16 text-gray-300" />
+                      </div>
+                    )}
+                    <div className="absolute top-2 right-2 flex gap-1">
+                      <Button
+                        variant="secondary"
+                        size="icon"
+                        className="bg-white/90 hover:bg-white shadow-md"
+                        onClick={() => handleEditItem(item)}
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        size="icon"
+                        className="bg-white/90 hover:bg-white shadow-md"
+                        onClick={() => {
+                          if (confirm(`Are you sure you want to delete "${item.name}"?`)) {
+                            deleteMenuItemMutation.mutate(item.id);
+                          }
+                        }}
+                      >
+                        <Trash2 className="w-4 h-4 text-red-500" />
+                      </Button>
+                    </div>
                   </div>
 
-                  {item.description && (
-                    <p className="text-sm text-gray-600 mb-3 line-clamp-2">{item.description}</p>
-                  )}
-
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-gray-600">Sell Price:</span>
-                      <span className="text-xl font-bold text-gray-900">£{(item.sell_price || 0).toFixed(2)}</span>
-                    </div>
-                    <div className="flex justify-between items-center text-sm">
-                      <span className="text-gray-600">Cost:</span>
-                      <span className="font-semibold text-gray-900">£{(item.total_cost || 0).toFixed(2)}</span>
-                    </div>
-                    <div className="flex justify-between items-center text-sm">
-                      <span className="text-gray-600">Profit:</span>
-                      <span className={`font-semibold ${(item.profit_margin || 0) > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                        £{(item.profit_margin || 0).toFixed(2)}
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center text-sm pt-2 border-t border-gray-100">
-                      <span className="text-gray-600">Food Cost %:</span>
-                      <Badge variant="outline" className={(item.food_cost_percentage || 0) < 35 ? 'text-green-700 border-green-300' : 'text-amber-700 border-amber-300'}>
-                        {(item.food_cost_percentage || 0).toFixed(1)}%
+                  <CardContent className="p-4">
+                    <div className="mb-3">
+                      <h3 className="text-lg font-bold text-gray-900 mb-1">{item.name}</h3>
+                      <Badge className="bg-green-100 text-green-800 text-xs">
+                        {item.category_name || "Uncategorized"}
                       </Badge>
                     </div>
-                  </div>
 
-                  <div className="text-xs text-gray-500 mt-3 pt-3 border-t border-gray-100">
-                    {(item.recipe?.length || 0)} ingredients • {(item.prep_time_minutes || 0)} min prep
-                  </div>
+                    {item.description && (
+                      <p className="text-sm text-gray-600 mb-3 line-clamp-2">{item.description}</p>
+                    )}
 
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="w-full mt-3 bg-indigo-50 text-indigo-700 hover:bg-indigo-100"
-                    onClick={() => openProfitCalculator(item)}
-                  >
-                    <Calculator className="w-4 h-4 mr-2" />
-                    Profit Calculator
-                  </Button>
-                </CardContent>
-              </Card>
-            ))
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-gray-600">Sell Price:</span>
+                        <span className="text-xl font-bold text-gray-900">£{formatPrice(sellPrice)}</span>
+                      </div>
+                      <div className="flex justify-between items-center text-sm">
+                        <span className="text-gray-600">Cost:</span>
+                        <span className="font-semibold text-gray-900">£{formatPrice(totalCost)}</span>
+                      </div>
+                      <div className="flex justify-between items-center text-sm">
+                        <span className="text-gray-600">Profit:</span>
+                        <span className={`font-semibold ${profitMargin > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                          £{formatPrice(profitMargin)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center text-sm pt-2 border-t border-gray-100">
+                        <span className="text-gray-600">Food Cost %:</span>
+                        <Badge variant="outline" className={foodCostPercentage < 35 ? 'text-green-700 border-green-300' : 'text-amber-700 border-amber-300'}>
+                          {formatPercent(foodCostPercentage)}%
+                        </Badge>
+                      </div>
+                    </div>
+
+                    <div className="text-xs text-gray-500 mt-3 pt-3 border-t border-gray-100">
+                      {(item.recipe?.length || 0)} ingredients • {(item.prep_time_minutes || 0)} min prep
+                    </div>
+
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full mt-3 bg-indigo-50 text-indigo-700 hover:bg-indigo-100"
+                      onClick={() => openProfitCalculator(item)}
+                    >
+                      <Calculator className="w-4 h-4 mr-2" />
+                      Profit Calculator
+                    </Button>
+                  </CardContent>
+                </Card>
+              );
+            })
           )}
         </div>
 
@@ -870,7 +898,7 @@ export default function MenuManagement() {
                           <SelectContent>
                             {ingredients.map(ing => (
                               <SelectItem key={ing.id} value={ing.id}>
-                                {ing.name} ({ing.unit}) - £{ing.unit_cost?.toFixed(2) || '0.00'}
+                                {ing.name} ({ing.unit}) - £{formatPrice(ing.unit_cost)}
                               </SelectItem>
                             ))}
                           </SelectContent>
@@ -889,7 +917,7 @@ export default function MenuManagement() {
                       onClick={handleAddIngredient} 
                       className="w-full"
                       size="sm"
-                      disabled={!selectedIngredient || parseFloat(ingredientQty) <= 0}
+                      disabled={!selectedIngredient || safeNumber(ingredientQty) <= 0}
                     >
                       <Plus className="w-4 h-4 mr-2" />
                       Add Ingredient
@@ -908,7 +936,7 @@ export default function MenuManagement() {
                                 {item.ingredient_name}
                               </p>
                               <p className="text-sm text-gray-600">
-                                {item.quantity} {item.unit} × £{(item.quantity > 0 ? (item.cost / item.quantity) : 0).toFixed(2)} = £{item.cost.toFixed(2)}
+                                {item.quantity} {item.unit} × £{formatPrice(safeNumber(item.quantity) > 0 ? (safeNumber(item.cost) / safeNumber(item.quantity)) : 0)} = £{formatPrice(item.cost)}
                               </p>
                             </div>
                             <Button
@@ -927,27 +955,27 @@ export default function MenuManagement() {
                 )}
 
                 {/* Cost Summary */}
-                {itemFormData.recipe.length > 0 && parseFloat(itemFormData.sell_price) > 0 && (
+                {itemFormData.recipe.length > 0 && safeNumber(itemFormData.sell_price) > 0 && (
                   <Card className="bg-blue-50 border-blue-200">
                     <CardContent className="p-4 space-y-2">
                       <div className="flex justify-between text-sm">
                         <span className="font-medium">Total Cost:</span>
-                        <span className="font-bold">£{totals.totalCost.toFixed(2)}</span>
+                        <span className="font-bold">£{formatPrice(totals.totalCost)}</span>
                       </div>
                       <div className="flex justify-between text-sm">
                         <span className="font-medium">Sell Price:</span>
-                        <span className="font-bold">£{parseFloat(itemFormData.sell_price).toFixed(2)}</span>
+                        <span className="font-bold">£{formatPrice(itemFormData.sell_price)}</span>
                       </div>
                       <div className="flex justify-between text-sm border-t border-blue-300 pt-2">
                         <span className="font-medium">Profit Margin:</span>
                         <span className={`font-bold ${totals.profitMargin > 0 ? 'text-green-700' : 'text-red-700'}`}>
-                          £{totals.profitMargin.toFixed(2)}
+                          £{formatPrice(totals.profitMargin)}
                         </span>
                       </div>
                       <div className="flex justify-between text-sm">
                         <span className="font-medium">Food Cost %:</span>
                         <span className={`font-bold ${totals.foodCostPercentage < 35 ? 'text-green-700' : 'text-amber-700'}`}>
-                          {totals.foodCostPercentage.toFixed(1)}%
+                          {formatPercent(totals.foodCostPercentage)}%
                         </span>
                       </div>
                     </CardContent>
@@ -961,7 +989,7 @@ export default function MenuManagement() {
                 </Button>
                 <Button 
                   type="submit" 
-                  disabled={createMenuItemMutation.isPending || updateMenuItemMutation.isPending || itemFormData.recipe.length === 0 || parseFloat(itemFormData.sell_price) <= 0 || !itemFormData.name || !itemFormData.category_id}
+                  disabled={createMenuItemMutation.isPending || updateMenuItemMutation.isPending || itemFormData.recipe.length === 0 || safeNumber(itemFormData.sell_price) <= 0 || !itemFormData.name || !itemFormData.category_id}
                   className="bg-green-600 hover:bg-green-700"
                 >
                   {editingItem ? 'Update Item' : 'Create Item'}
@@ -1027,9 +1055,9 @@ export default function MenuManagement() {
               <div className="mt-6 border-t pt-4">
                 <h4 className="font-semibold text-gray-900 mb-3">Existing Categories</h4>
                 <div className="space-y-2">
-                  {categories.sort((a, b) => (a.display_order || 0) - (b.display_order || 0)).map(cat => (
+                  {categories.sort((a, b) => safeNumber(a.display_order) - safeNumber(b.display_order)).map(cat => (
                     <div key={cat.id} className="flex items-center justify-between p-2 bg-gray-50 rounded">
-                      <span className="font-medium text-gray-900">{cat.name} ({cat.display_order || '-'})</span>
+                      <span className="font-medium text-gray-900">{cat.name} ({safeNumber(cat.display_order) || '-'})</span>
                       <div className="flex gap-1">
                         <Button variant="ghost" size="icon" onClick={() => handleEditCategory(cat)}>
                           <Pencil className="w-4 h-4" />
@@ -1082,7 +1110,7 @@ export default function MenuManagement() {
                   <div className="space-y-2">
                     <Label>Sale Price per Serving</Label>
                     <div className="text-2xl font-bold text-gray-900">
-                      £{(parseFloat(calculatorItem?.sell_price) || 0).toFixed(2)}
+                      £{formatPrice(calculatorItem?.sell_price)}
                     </div>
                   </div>
 
@@ -1104,19 +1132,19 @@ export default function MenuManagement() {
                     <div className="grid md:grid-cols-4 gap-4">
                       <div>
                         <p className="text-sm font-medium mb-1">Cost/Serving</p>
-                        <p className="text-2xl font-bold">£{metrics.costPerServing.toFixed(2)}</p>
+                        <p className="text-2xl font-bold">£{formatPrice(metrics.costPerServing)}</p>
                       </div>
                       <div>
                         <p className="text-sm font-medium mb-1">Profit/Serving</p>
-                        <p className="text-2xl font-bold">£{metrics.profitPerServing.toFixed(2)}</p>
+                        <p className="text-2xl font-bold">£{formatPrice(metrics.profitPerServing)}</p>
                       </div>
                       <div>
                         <p className="text-sm font-medium mb-1">Profit Margin</p>
-                        <p className="text-2xl font-bold">{metrics.profitMargin.toFixed(1)}%</p>
+                        <p className="text-2xl font-bold">{formatPercent(metrics.profitMargin)}%</p>
                       </div>
                       <div>
                         <p className="text-sm font-medium mb-1">Total Profit ({servings}x)</p>
-                        <p className="text-2xl font-bold">£{metrics.totalProfit.toFixed(2)}</p>
+                        <p className="text-2xl font-bold">£{formatPrice(metrics.totalProfit)}</p>
                       </div>
                     </div>
                   </CardContent>
@@ -1174,9 +1202,9 @@ export default function MenuManagement() {
                                     )}
                                   </div>
                                   <p className="text-sm text-gray-600">
-                                    {item.quantity_needed.toFixed(2)} {item.unit} × £{(item.unit_cost || 0).toFixed(2)}
+                                    {formatPrice(item.quantity_needed)} {item.unit} × £{formatPrice(item.unit_cost)}
                                     {wastePercentage > 0 && (
-                                      <span className="text-amber-600 ml-1"> (+{wastePercentage}% waste)</span>
+                                      <span className="text-amber-600 ml-1"> (+{formatPercent(wastePercentage)}% waste)</span>
                                     )}
                                   </p>
                                   {!item.missing && item.supplier_name && (
@@ -1194,7 +1222,7 @@ export default function MenuManagement() {
                                   )}
                                 </div>
                                 <span className="font-semibold text-gray-900">
-                                  £{item.total_cost.toFixed(2)}
+                                  £{formatPrice(item.total_cost)}
                                 </span>
                               </div>
                             </CardContent>
@@ -1210,15 +1238,15 @@ export default function MenuManagement() {
                   <CardContent className="p-4 space-y-2">
                     <div className="flex justify-between text-sm">
                       <span className="font-medium">Total Ingredients Cost:</span>
-                      <span className="font-bold">£{metrics.totalCost.toFixed(2)}</span>
+                      <span className="font-bold">£{formatPrice(metrics.totalCost)}</span>
                     </div>
                     <div className="flex justify-between text-sm">
                       <span className="font-medium">Total Revenue:</span>
-                      <span className="font-bold text-green-700">£{metrics.totalRevenue.toFixed(2)}</span>
+                      <span className="font-bold text-green-700">£{formatPrice(metrics.totalRevenue)}</span>
                     </div>
                     <div className="flex justify-between text-lg border-t border-gray-300 pt-2">
                       <span className="font-semibold">Total Profit:</span>
-                      <span className="font-bold text-indigo-700">£{metrics.totalProfit.toFixed(2)}</span>
+                      <span className="font-bold text-indigo-700">£{formatPrice(metrics.totalProfit)}</span>
                     </div>
                   </CardContent>
                 </Card>
@@ -1249,3 +1277,4 @@ export default function MenuManagement() {
     </div>
   );
 }
+
