@@ -11,11 +11,15 @@ import { ShoppingCart, Send, Trash2, ArrowLeft, Home, Mail, Truck, Clock } from 
 import { format } from "date-fns";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
+import { logEmailSent } from "../components/ComplianceEmailLogger"; // Added import
 
 export default function Ordering() {
   const queryClient = useQueryClient();
   const [sendingOrder, setSendingOrder] = useState(null);
   const [deliveryDates, setDeliveryDates] = useState({});
+
+  // Mock user for compliance logging. In a real app, this would come from an authentication context.
+  const user = { id: 'current-user-id', email: 'manager@aurarestaurant.com', name: 'Restaurant Manager' };
 
   const { data: allOrders = [], isLoading } = useQuery({
     queryKey: ['purchaseOrders'],
@@ -117,6 +121,21 @@ AURA Restaurant Management Team`;
     try {
       // Generate email content
       const { subject, body } = generateEmailContent(order, deliveryDate);
+
+      // 🔹 ComplianceCore: Log email before sending
+      await logEmailSent({
+        emailType: 'order',
+        relatedEntity: 'PurchaseOrder',
+        relatedRecordId: order.id,
+        recipientEmail: order.supplier_email,
+        recipientName: order.supplier_name,
+        subject: subject,
+        bodyPreview: body,
+        containsPersonalData: false,
+        sentBy: user,
+        sentVia: 'manual',
+        deliveryStatus: 'sent',
+      });
 
       // Create mailto: link
       const mailtoLink = `mailto:${order.supplier_email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
