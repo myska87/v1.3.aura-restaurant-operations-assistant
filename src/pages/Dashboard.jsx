@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
@@ -36,35 +35,34 @@ export default function Dashboard() {
   // OPTIMIZED: Limit queries to only recent data needed for dashboard
   const { data: complianceChecks = [] } = useQuery({
     queryKey: ['complianceChecks'],
-    queryFn: () => base44.entities.ComplianceCheck.list("-check_date", 50), // Limit to 50
-    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
+    queryFn: () => base44.entities.ComplianceCheck.list("-check_date", 50),
+    staleTime: 5 * 60 * 1000,
   });
 
   const { data: inventoryItems = [] } = useQuery({
     queryKey: ['inventoryItems'],
-    queryFn: () => base44.entities.Ingredient.list("", 100), // Limit to 100
+    queryFn: () => base44.entities.Ingredient.list("", 100),
     staleTime: 5 * 60 * 1000,
   });
 
   const { data: maintenanceTickets = [] } = useQuery({
     queryKey: ['maintenanceTickets'],
-    queryFn: () => base44.entities.MaintenanceTicket.list("-created_date", 30), // Limit to 30
+    queryFn: () => base44.entities.MaintenanceTicket.list("-created_date", 30),
     staleTime: 5 * 60 * 1000,
   });
 
   const { data: staffTasks = [] } = useQuery({
     queryKey: ['staffTasks'],
-    queryFn: () => base44.entities.StaffTask.list("-due_date", 30), // Limit to 30
+    queryFn: () => base44.entities.StaffTask.list("-due_date", 30),
     staleTime: 5 * 60 * 1000,
   });
 
   const { data: user } = useQuery({
     queryKey: ['currentUser'],
     queryFn: () => base44.auth.me(),
-    staleTime: 10 * 60 * 1000, // Cache for 10 minutes
+    staleTime: 10 * 60 * 1000,
   });
 
-  // Fetch user's checklists
   const { data: myChecklists = [] } = useQuery({
     queryKey: ['myChecklistsDashboard', user?.email],
     queryFn: async () => {
@@ -87,13 +85,12 @@ export default function Dashboard() {
           execDate >= today &&
           execDate <= sevenDaysFromNow
         );
-      }).slice(0, 5); // Show max 5 upcoming checklists
+      }).slice(0, 5);
     },
     enabled: !!user?.email,
     staleTime: 2 * 60 * 1000,
   });
 
-  // OPTIMIZED: Only fetch today's shifts
   const today = new Date().toISOString().split('T')[0];
   const { data: myShifts = [] } = useQuery({
     queryKey: ['myTodayShifts', user?.email, today],
@@ -102,13 +99,12 @@ export default function Dashboard() {
       shift_date: today
     }),
     enabled: !!user?.email,
-    staleTime: 2 * 60 * 1000, // Cache for 2 minutes
+    staleTime: 2 * 60 * 1000,
   });
 
   const activeShift = myShifts.find(s => s.status === 'in_progress');
   const nextShift = !activeShift ? myShifts.find(s => s.status === 'scheduled') : undefined;
 
-  // OPTIMIZED: Only fetch for managers, with limits
   const { data: upcomingChecklists = [] } = useQuery({
     queryKey: ['upcomingChecklists', user?.email],
     queryFn: async () => {
@@ -117,8 +113,8 @@ export default function Dashboard() {
       }
 
       try {
-        const allExecutions = await base44.entities.ChecklistExecution.list('-execution_date', 50); // Limit
-        const templates = await base44.entities.ChecklistTemplate.list("", 20); // Limit
+        const allExecutions = await base44.entities.ChecklistExecution.list('-execution_date', 50);
+        const templates = await base44.entities.ChecklistTemplate.list("", 20);
 
         const templatesMap = new Map(templates.map(t => [t.id, t]));
 
@@ -133,8 +129,6 @@ export default function Dashboard() {
 
           const execDate = new Date(exec.execution_date);
           execDate.setHours(0, 0, 0, 0);
-
-          const daysUntilDue = Math.ceil((execDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
 
           return (
             template.applicable_roles?.includes(user.position) &&
@@ -153,7 +147,6 @@ export default function Dashboard() {
     staleTime: 5 * 60 * 1000,
   });
 
-  // OPTIMIZED: Load quote from cache immediately, no AI generation
   useEffect(() => {
     const loadQuote = () => {
       const today = new Date().toISOString().split('T')[0];
@@ -163,7 +156,6 @@ export default function Dashboard() {
       if (cachedQuote && cachedDate === today) {
         setDailyQuote(cachedQuote);
       } else {
-        // Use default quote if cache expired
         const defaultQuote = "Excellence in hospitality starts with a smile and genuine care for every guest.";
         setDailyQuote(defaultQuote);
         localStorage.setItem('dailyQuote', defaultQuote);
@@ -174,7 +166,6 @@ export default function Dashboard() {
     loadQuote();
   }, []);
 
-  // Calculate stats
   const complianceRate = complianceChecks.length > 0
     ? Math.round((complianceChecks.filter(c => c.status === "passed").length / complianceChecks.length) * 100)
     : 0;
@@ -187,7 +178,6 @@ export default function Dashboard() {
 
   const pendingTasks = staffTasks.filter(t => t.status === "pending" || t.status === "in_progress").length;
 
-  // Chart data - Only last 7 days
   const todayDate = new Date();
   const last7Days = Array.from({ length: 7 }, (_, i) => {
     const date = new Date(todayDate);
@@ -208,7 +198,6 @@ export default function Dashboard() {
     };
   });
 
-  // Recent activities - Only top 5
   const recentActivities = [
     ...complianceChecks.slice(0, 3).map(check => ({
       title: `${check.check_type.replace(/_/g, ' ')} - ${check.area}`,
@@ -369,7 +358,7 @@ export default function Dashboard() {
         )}
 
         {/* Stats Grid */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-8"> {/* Changed from lg:grid-cols-4 and mt-6 */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-8">
           <StatCard
             title="Compliance Rate"
             value={`${complianceRate}%`}
@@ -493,7 +482,6 @@ export default function Dashboard() {
 
         {/* Quick Access Cards */}
         <div className="grid md:grid-cols-2 gap-6 mt-6">
-          {/* My Checklists Card */}
           <Link to={createPageUrl("MyChecklists")}>
             <Card className="bg-gradient-to-br from-blue-500 to-indigo-600 text-white border-none shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer group h-full">
               <CardContent className="p-6">
@@ -512,7 +500,6 @@ export default function Dashboard() {
                   </div>
                 </div>
 
-                {/* Checklist Summary */}
                 <div className="space-y-3 mt-4">
                   {myChecklists.length === 0 ? (
                     <div className="bg-white/10 rounded-lg p-4 text-center">
@@ -528,7 +515,6 @@ export default function Dashboard() {
                         </Badge>
                       </div>
 
-                      {/* Show next 3 checklists */}
                       {myChecklists.slice(0, 3).map((checklist) => {
                         const today = new Date();
                         today.setHours(0, 0, 0, 0);
@@ -575,7 +561,6 @@ export default function Dashboard() {
             </Card>
           </Link>
 
-          {/* Staff Model Card */}
           <Link to={createPageUrl("StaffModel")}>
             <Card className="bg-gradient-to-br from-green-500 to-emerald-600 text-white border-none shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer group h-full">
               <CardContent className="p-6">
