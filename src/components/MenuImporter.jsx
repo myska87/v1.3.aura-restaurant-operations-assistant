@@ -11,7 +11,7 @@ export default function MenuImporter() {
     if (!hasImported && !importing) {
       setTimeout(() => {
         importMenu();
-      }, 2000);
+      }, 2000); // Wait for categories and ingredients to be ready
     }
   }, []);
 
@@ -21,79 +21,51 @@ export default function MenuImporter() {
     try {
       console.log('🔄 Starting menu import...');
       
+      // Wait for dependencies
       const categories = await base44.entities.MenuCategory.list();
       const ingredients = await base44.entities.Ingredient.list();
 
       if (categories.length === 0) {
         console.log('⏳ Waiting for categories...');
         setTimeout(importMenu, 3000);
-        setImporting(false);
         return;
       }
 
       if (ingredients.length < 10) {
         console.log('⏳ Waiting for ingredients...');
         setTimeout(importMenu, 3000);
-        setImporting(false);
         return;
       }
 
       console.log(`✅ Found ${categories.length} categories and ${ingredients.length} ingredients`);
 
-      const getCategoryId = (name) => {
-        const category = categories.find(c => c.name === name);
-        return category ? category.id : null;
-      };
+      const getCategoryId = (name) => categories.find(c => c.name === name)?.id;
 
       const createRecipe = (ingredientNames) => {
-        if (!Array.isArray(ingredientNames)) {
-          console.error('❌ ingredientNames is not an array:', ingredientNames);
-          return [];
-        }
-
-        return ingredientNames
-          .map(name => {
-            if (!name) {
-              console.warn('⚠️ Empty ingredient name found');
-              return null;
-            }
-
-            const ingredient = ingredients.find(i => i.name === name);
-            
-            if (!ingredient) {
-              console.warn(`⚠️ Ingredient not found: ${name}`);
-              return null;
-            }
-
-            // Ensure all required properties exist
-            return {
-              ingredient_id: ingredient.id || '',
-              ingredient_name: ingredient.name || name,
-              quantity: 1, // Default quantity
-              unit: ingredient.unit || 'unit',
-              cost: (ingredient.unit_cost || 0) * 1,
-            };
-          })
-          .filter(item => item !== null); // Remove null entries
+        return ingredientNames.map(name => {
+          const ingredient = ingredients.find(i => i.name === name);
+          if (!ingredient) {
+            console.warn(`⚠️ Ingredient not found: ${name}`);
+            return null;
+          }
+          return {
+            ingredient_id: ingredient.id,
+            ingredient_name: ingredient.name,
+            quantity: 1,
+            unit: ingredient.unit,
+            cost: (ingredient.unit_cost || 0) * 1,
+          };
+        }).filter(Boolean);
       };
 
       const calculateAllergens = (ingredientNames) => {
-        if (!Array.isArray(ingredientNames)) {
-          return [];
-        }
-
         const allergens = new Set();
-        
         ingredientNames.forEach(name => {
-          if (!name) return;
-          
           const ingredient = ingredients.find(i => i.name === name);
-          
-          if (ingredient && Array.isArray(ingredient.allergen_tags)) {
+          if (ingredient?.allergen_tags) {
             ingredient.allergen_tags.forEach(a => allergens.add(a));
           }
         });
-        
         return Array.from(allergens);
       };
 
@@ -437,7 +409,6 @@ export default function MenuImporter() {
 
       let successCount = 0;
       let skipCount = 0;
-      const missingIngredients = new Set();
 
       for (const itemData of menuItemsData) {
         try {
@@ -458,21 +429,8 @@ export default function MenuImporter() {
           }
 
           const recipe = createRecipe(itemData.ingredients);
-          
-          // Track missing ingredients
-          if (recipe.length < itemData.ingredients.length) {
-            itemData.ingredients.forEach(ingName => {
-              if (!ingredients.find(i => i.name === ingName)) {
-                missingIngredients.add(ingName);
-              }
-            });
-          }
-
-          // Skip if no valid recipe
           if (recipe.length === 0) {
-            console.warn(`⏭️ Skipping ${itemData.name} - no valid ingredients found`);
-            skipCount++;
-            continue;
+            console.warn(`⚠️ No valid ingredients found for ${itemData.name}`);
           }
 
           const allergens = calculateAllergens(itemData.ingredients);
@@ -523,10 +481,6 @@ export default function MenuImporter() {
         }
       }
 
-      if (missingIngredients.size > 0) {
-        console.warn(`⚠️ Missing ingredients detected: ${Array.from(missingIngredients).join(', ')}`);
-      }
-
       sessionStorage.setItem('chai_patta_menu_imported_v2', 'true');
       queryClient.invalidateQueries({ queryKey: ['menuItems'] });
       queryClient.invalidateQueries({ queryKey: ['allergyRecords'] });
@@ -537,7 +491,6 @@ export default function MenuImporter() {
 ✅ Successfully imported: ${successCount}
 ⏭️ Skipped (duplicates): ${skipCount}
 📊 Total menu items: ${successCount + skipCount}
-⚠️ Missing ingredients: ${missingIngredients.size}
       `);
       
     } catch (error) {

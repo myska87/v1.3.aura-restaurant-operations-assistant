@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -21,7 +20,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { FileText, Package, CheckCircle, XCircle, Clock, Camera, ArrowLeft, Home, Truck, Mail } from "lucide-react";
+import { FileText, Package, CheckCircle, XCircle, Clock, Camera, ArrowLeft, Home, Truck } from "lucide-react";
 import { format } from "date-fns";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -51,13 +50,6 @@ export default function OrderHistory() {
   const { data: user } = useQuery({
     queryKey: ['currentUser'],
     queryFn: () => base44.auth.me(),
-  });
-
-  // Add email logs query
-  const { data: emailLogs = [] } = useQuery({
-    queryKey: ['emailLogs'],
-    queryFn: () => base44.entities.EmailLog.list('-sent_at', 100),
-    staleTime: 2 * 60 * 1000,
   });
 
   const updateOrderMutation = useMutation({
@@ -203,10 +195,6 @@ export default function OrderHistory() {
     }
   };
 
-  const getOrderEmailLogs = (orderId) => {
-    return emailLogs.filter(log => log.related_order_id === orderId);
-  };
-
   return (
     <div className="p-6 md:p-8 bg-gray-50 min-h-screen">
       <div className="max-w-7xl mx-auto">
@@ -275,10 +263,7 @@ export default function OrderHistory() {
               </CardContent>
             </Card>
           ) : (
-            filteredOrders.map((order) => {
-            const orderLogs = getOrderEmailLogs(order.id);
-            
-            return (
+            filteredOrders.map((order) => (
               <Card key={order.id} className="bg-white border-none shadow-sm">
                 <CardHeader className="border-b border-gray-100">
                   <div className="flex justify-between items-start">
@@ -367,65 +352,6 @@ export default function OrderHistory() {
                     </div>
                   )}
 
-                  {/* Email Communication Log */}
-                  {orderLogs.length > 0 && (
-                    <div className="mt-4 pt-4 border-t border-gray-200">
-                      <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
-                        <Mail className="w-4 h-4" />
-                        Email Communication History
-                      </h4>
-                      <div className="space-y-2">
-                        {orderLogs.map((log) => (
-                          <div 
-                            key={log.id} 
-                            className={`p-3 rounded-lg text-sm ${
-                              log.status === 'sent' ? 'bg-green-50 border border-green-200' :
-                              log.status === 'failed' ? 'bg-red-50 border border-red-200' :
-                              'bg-gray-50 border border-gray-200'
-                            }`}
-                          >
-                            <div className="flex items-start justify-between gap-2">
-                              <div className="flex-1">
-                                <p className="font-medium text-gray-900 flex items-center gap-2">
-                                  {log.status === 'sent' && <span className="text-green-600">✅</span>}
-                                  {log.status === 'failed' && <span className="text-red-600">❌</span>}
-                                  {log.status === 'pending' && <span className="text-amber-600">⏳</span>}
-                                  {log.subject}
-                                </p>
-                                <p className="text-xs text-gray-600 mt-1">
-                                  To: {log.recipient_email}
-                                </p>
-                                <p className="text-xs text-gray-500 mt-1">
-                                  📤 Sent by {log.sender_name} on {format(new Date(log.sent_at), 'PPP')} at {format(new Date(log.sent_at), 'p')}
-                                </p>
-                                {log.delivery_confirmed_at && (
-                                  <p className="text-xs text-green-600 mt-1">
-                                    ✓ Delivered on {format(new Date(log.delivery_confirmed_at), 'PPP p')}
-                                  </p>
-                                )}
-                                {log.error_message && (
-                                  <p className="text-xs text-red-600 mt-1 font-medium">
-                                    ⚠️ Error: {log.error_message}
-                                  </p>
-                                )}
-                              </div>
-                              {log.status === 'sent' && (
-                                <Badge className="bg-green-100 text-green-800 text-xs whitespace-nowrap">
-                                  Sent Successfully
-                                </Badge>
-                              )}
-                              {log.status === 'failed' && (
-                                <Badge className="bg-red-100 text-red-800 text-xs whitespace-nowrap">
-                                  Failed
-                                </Badge>
-                              )}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
                   {/* Status Actions */}
                   {order.status === 'pending_approval' && (
                     <div className="mt-4 bg-amber-50 border border-amber-200 rounded-lg p-4">
@@ -478,8 +404,7 @@ export default function OrderHistory() {
                   )}
                 </CardContent>
               </Card>
-            );
-          })
+            ))
           )}
         </div>
 

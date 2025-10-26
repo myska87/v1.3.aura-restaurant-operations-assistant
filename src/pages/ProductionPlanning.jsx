@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -18,7 +17,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Plus, Calculator, ShoppingCart, ArrowLeft, Home, Send, MoreVertical, Edit, Trash2, AlertTriangle, DollarSign, Clock } from "lucide-react";
+import { Plus, Calculator, ShoppingCart, ArrowLeft, Home, Send, MoreVertical, Edit, Trash2, AlertTriangle, DollarSign } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { Link } from "react-router-dom";
@@ -308,13 +307,10 @@ export default function ProductionPlanning() {
 
     formData.menu_items.forEach(planItem => {
       const menuItem = menuItems.find(m => m.id === planItem.menu_item_id);
-      if (!menuItem?.recipe || !Array.isArray(menuItem.recipe)) return;
+      if (!menuItem?.recipe) return;
 
       menuItem.recipe.forEach(recipeItem => {
-        // Add safety checks for recipeItem
-        if (!recipeItem || !recipeItem.ingredient_id) return;
-        
-        const quantityNeeded = (recipeItem.quantity || 0) * planItem.portions_needed;
+        const quantityNeeded = recipeItem.quantity * planItem.portions_needed;
         const existingIngredient = ingredientsMap.get(recipeItem.ingredient_id);
 
         if (existingIngredient) {
@@ -323,9 +319,9 @@ export default function ProductionPlanning() {
           const inventoryItem = ingredients.find(i => i.id === recipeItem.ingredient_id);
           ingredientsMap.set(recipeItem.ingredient_id, {
             ingredient_id: recipeItem.ingredient_id,
-            ingredient_name: recipeItem.ingredient_name || 'Unknown Ingredient', // Default name
+            ingredient_name: recipeItem.ingredient_name,
             quantity_needed: quantityNeeded,
-            unit: recipeItem.unit || 'unit', // Default unit
+            unit: recipeItem.unit,
             current_stock: inventoryItem?.current_stock || 0,
             to_order: Math.max(0, quantityNeeded - (inventoryItem?.current_stock || 0)),
           });
@@ -578,7 +574,7 @@ export default function ProductionPlanning() {
                     </div>
                     <div>
                       <p className="text-xs text-gray-600">Revenue</p>
-                      <p className="text-lg font-bold">£{plan.total_revenue?.toFixed(2)}</p>
+                      <p className="text-lg font-bold text-green-700">£{plan.total_revenue?.toFixed(2)}</p>
                     </div>
                     <div>
                       <p className="text-xs text-gray-600">Cost</p>
@@ -591,7 +587,7 @@ export default function ProductionPlanning() {
                   </div>
 
                   <div className="flex gap-2">
-                    {plan.status === 'approved' && !plan.orders_created ? (
+                    {plan.status === 'approved' && !plan.orders_created && (
                       <>
                         <Button
                           onClick={() => handleOrderIngredients(plan)}
@@ -610,16 +606,6 @@ export default function ProductionPlanning() {
                           Add to Cart
                         </Button>
                       </>
-                    ) : (
-                      <Button
-                        onClick={() => addPlanToCart(plan)}
-                        variant="outline"
-                        className="flex-1"
-                        disabled={creatingOrders}
-                      >
-                        <ShoppingCart className="w-4 h-4 mr-2" />
-                        Add to Cart
-                      </Button>
                     )}
                   </div>
 
@@ -646,18 +632,16 @@ export default function ProductionPlanning() {
             <form onSubmit={handleSubmit} className="space-y-6 mt-4">
               <div className="grid md:grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="planName">Plan Name</Label>
+                  <Label>Plan Name</Label>
                   <Input
-                    id="planName"
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                     required
                   />
                 </div>
                 <div>
-                  <Label htmlFor="planDate">Date</Label>
+                  <Label>Date</Label>
                   <Input
-                    id="planDate"
                     type="date"
                     value={formData.date}
                     onChange={(e) => setFormData({ ...formData, date: e.target.value })}
@@ -667,10 +651,9 @@ export default function ProductionPlanning() {
               </div>
 
               <div>
-                <Label htmlFor="menuItemSelect">Add Menu Items</Label>
+                <Label>Add Menu Items</Label>
                 <div className="grid grid-cols-3 gap-3 mt-2">
                   <select
-                    id="menuItemSelect"
                     value={selectedMenuItem}
                     onChange={(e) => setSelectedMenuItem(e.target.value)}
                     className="col-span-2 p-2 border rounded"

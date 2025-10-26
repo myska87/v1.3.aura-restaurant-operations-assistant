@@ -1,4 +1,3 @@
-
 import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Package, Truck, ChefHat, BarChart3, ArrowRight, Warehouse, ShoppingCart, FileText } from "lucide-react";
@@ -15,6 +14,15 @@ const inventoryModules = [
     color: "from-emerald-500 to-emerald-600",
     bgColor: "bg-emerald-50",
     iconColor: "text-emerald-600",
+  },
+  {
+    title: "Suppliers",
+    description: "Manage supplier contacts, pricing, and ingredient relationships",
+    icon: Truck,
+    url: createPageUrl("SupplierManagement"),
+    color: "from-green-500 to-green-600",
+    bgColor: "bg-green-50",
+    iconColor: "text-green-600",
   },
   {
     title: "Menu Management",
@@ -51,15 +59,6 @@ const inventoryModules = [
     color: "from-indigo-500 to-indigo-600",
     bgColor: "bg-indigo-50",
     iconColor: "text-indigo-600",
-  },
-  {
-    title: "Suppliers",
-    description: "Manage supplier contacts, pricing, and ingredient relationships",
-    icon: Truck,
-    url: createPageUrl("SupplierManagement"),
-    color: "from-green-500 to-green-600",
-    bgColor: "bg-green-50",
-    iconColor: "text-green-600",
   },
 ];
 
