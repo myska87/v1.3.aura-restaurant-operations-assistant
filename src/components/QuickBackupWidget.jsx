@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
@@ -260,6 +261,15 @@ export default function QuickBackupWidget() {
             <Button variant="ghost" className="w-full text-sm" size="sm">
               <Settings className="w-4 h-4 mr-2" />
               Advanced Data Management
+              <ArrowRight className="w-4 h-4 ml-auto" />
+            </Button>
+          </Link>
+
+          {/* Add link to Backup Settings */}
+          <Link to={createPageUrl("BackupSettings")}>
+            <Button variant="ghost" className="w-full text-sm" size="sm">
+              <Clock className="w-4 h-4 mr-2" />
+              Auto-Backup Settings
               <ArrowRight className="w-4 h-4 ml-auto" />
             </Button>
           </Link>

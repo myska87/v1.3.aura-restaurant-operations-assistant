@@ -51,6 +51,7 @@ import WeeklyPayrollReport from './pages/WeeklyPayrollReport';
 import StaffWagesReport from './pages/StaffWagesReport';
 import DocumentManagement from './pages/DocumentManagement';
 import DataManagement from './pages/DataManagement';
+import BackupSettings from './pages/BackupSettings';
 import Layout from './Layout.jsx';
 
 
@@ -108,6 +109,7 @@ export const PAGES = {
     "StaffWagesReport": StaffWagesReport,
     "DocumentManagement": DocumentManagement,
     "DataManagement": DataManagement,
+    "BackupSettings": BackupSettings,
 }
 
 export const pagesConfig = {
