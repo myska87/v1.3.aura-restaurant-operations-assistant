@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation } from "@tanstack/react-query";
@@ -5,7 +6,7 @@ import { differenceInMinutes, format, parseISO } from "date-fns";
 
 // Enhanced automatic backup scheduler component
 // Runs twice daily at configured times
-export default function AutoBackupScheduler() {
+function AutoBackupScheduler() {
   const [lastCheck, setLastCheck] = useState(new Date());
 
   const { data: user } = useQuery({
@@ -268,3 +269,5 @@ AURA Restaurant System
 
   return null; // Silent component, no UI
 }
+
+export default AutoBackupScheduler;
