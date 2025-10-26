@@ -60,7 +60,7 @@ import PrivacyCenter from './pages/PrivacyCenter';
 import PrivacyPolicy from './pages/PrivacyPolicy';
 import Layout from './Layout.jsx';
 
-const pages = [
+const pagesConfig = [
   { name: 'Dashboard', path: '/', file: 'Dashboard.jsx', component: Dashboard, public: false },
   { name: 'Compliance', path: '/compliance', file: 'Compliance.jsx', component: Compliance, public: false },
   { name: 'Inventory', path: '/inventory', file: 'Inventory.jsx', component: Inventory, public: false },
@@ -123,4 +123,5 @@ const pages = [
   { name: 'NotFound', path: '/404', file: 'NotFound.jsx', component: NotFound, public: true },
 ];
 
-export { pages, Layout };
+export { pagesConfig, Layout };
+export const pages = pagesConfig;
