@@ -28,19 +28,19 @@ import {
   CheckCircle,
   X,
 } from "lucide-react";
-import { format } = from "date-fns";
-import { Link } = from "react-router-dom";
-import { createPageUrl } = from "@/utils";
-import { useToast } = from "@/components/ui/use-toast";
-import { ScrollArea } = from "@/components/ui/scroll-area"; // Added this import from outline
+import { format } from "date-fns";
+import { Link } from "react-router-dom";
+import { createPageUrl } from "@/utils";
+import { useToast } from "@/components/ui/use-toast";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 export default function Ordering() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  const [sendingEmail, setSendingEmail] = useState(null); // Renamed from sendingOrder
-  const [showEmailDialog, setShowEmailDialog] = useState(false); // New state for email dialog
-  const [selectedOrder, setSelectedOrder] = useState(null); // New state for selected order in dialog
-  const [deliveryDate, setDeliveryDate] = useState(""); // New state for delivery date in dialog
+  const [sendingEmail, setSendingEmail] = useState(null);
+  const [showEmailDialog, setShowEmailDialog] = useState(false);
+  const [selectedOrder, setSelectedOrder] = useState(null);
+  const [deliveryDate, setDeliveryDate] = useState("");
 
   // Dummy user object for email logging. In a real app, this would come from an AuthContext or similar.
   const { data: user } = useQuery({
