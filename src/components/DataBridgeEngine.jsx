@@ -157,6 +157,40 @@ export default function DataBridgeEngine() {
   const handleTaskCreated = async (event) => {
     const { payload } = event;
     
+    // 🎯 SMART TASK INTEGRATION
+    // If role = Chef and type = Opening Checklist → push to LeafeCore
+    if (payload.role === 'chef' && payload.task_type === 'opening_checklist' && payload.venue_id) {
+      try {
+        // Find matching LeafeCore template
+        const templates = await base44.entities.LeafeChecklistTemplate.filter({
+          category: 'opening',
+          venue_id: payload.venue_id,
+          is_active: true
+        });
+
+        if (templates.length > 0) {
+          const template = templates[0];
+          
+          // Create LeafeCore checklist entry
+          await base44.entities.LeafeChecklistEntry.create({
+            template_id: template.id,
+            template_name: template.name,
+            venue_id: payload.venue_id,
+            venue_name: payload.venue_name,
+            staff_email: payload.assigned_to_email,
+            staff_name: payload.assigned_to_name,
+            due_date: payload.due_date || new Date().toISOString(),
+            status: 'not_started',
+            task_results: []
+          });
+
+          console.log(`[DataBridge] Auto-linked task to LeafeCore checklist: ${template.name}`);
+        }
+      } catch (error) {
+        console.error('DataBridge: Error creating LeafeCore checklist from task', error);
+      }
+    }
+
     // Notify staff member about new task
     try {
       await base44.entities.TaskNotification.create({
