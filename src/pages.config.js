@@ -116,7 +116,7 @@ const pages = [
   { name: 'NotFound', path: '/404', file: 'NotFound.jsx', component: NotFound, public: true },
   { name: 'Menu', path: '/menu', file: 'Menu.jsx', component: Menu, public: true },
   { name: 'AllergyTable', path: '/allergy-table', file: 'AllergyTable.jsx', component: AllergyTable, public: true },
-  { name: 'EmailLog', path: '/email-log', file: 'EmailLog.jsx', component: EmailLog, public: false },
+  { name: 'EmailLog', path: '/email-log', file: 'EmailLog.jsx', component: EmailLog, public: false }
 ];
 
 export { pages, Layout };
