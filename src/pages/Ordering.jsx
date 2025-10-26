@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -7,46 +7,18 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
-import {
-  ShoppingCart,
-  Send,
-  Trash2,
-  ArrowLeft,
-  Home,
-  Mail,
-  Truck,
-  Clock,
-  AlertTriangle,
-  Loader2,
-  CheckCircle,
-  X,
-} from "lucide-react";
+import { ShoppingCart, Send, Trash2, ArrowLeft, Home, Mail, Truck, Clock } from "lucide-react";
 import { format } from "date-fns";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
-import { useToast } from "@/components/ui/use-toast";
-import { ScrollArea } from "@/components/ui/scroll-area"; // Added this import from outline
 
 export default function Ordering() {
   const queryClient = useQueryClient();
-  const { toast } = useToast();
-  const [sendingEmail, setSendingEmail] = useState(null); // Renamed from sendingOrder
-  const [showEmailDialog, setShowEmailDialog] = useState(false); // New state for email dialog
-  const [selectedOrder, setSelectedOrder] = useState(null); // New state for selected order in dialog
-  const [deliveryDate, setDeliveryDate] = useState(""); // New state for delivery date in dialog
+  const [sendingOrder, setSendingOrder] = useState(null);
+  const [deliveryDates, setDeliveryDates] = useState({});
 
   // Dummy user object for email logging. In a real app, this would come from an AuthContext or similar.
-  const { data: user } = useQuery({
-    queryKey: ['currentUser'],
-    queryFn: () => base44.auth.me(),
-  });
+  const user = { email: 'admin@aurarestaurant.com', full_name: 'AURA Admin' };
 
   const { data: allOrders = [], isLoading } = useQuery({
     queryKey: ['purchaseOrders'],
@@ -80,72 +52,53 @@ export default function Ordering() {
   const clearDraftOrdersMutation = useMutation({
     mutationFn: async () => {
       const drafts = allOrders.filter(o => o.status === 'draft');
-      await Promise.all(drafts.map(draft =>
+      await Promise.all(drafts.map(draft => 
         base44.entities.PurchaseOrder.delete(draft.id)
       ));
       return drafts.length;
     },
     onSuccess: (count) => {
       queryClient.invalidateQueries({ queryKey: ['purchaseOrders'] });
-      toast({
-        title: "✅ Drafts Cleared",
-        description: `Successfully cleared ${count} draft order(s)`,
-        duration: 3000,
-      });
+      alert(`✅ Successfully cleared ${count} draft order(s)`);
     },
     onError: (error) => {
       console.error('Error clearing drafts:', error);
-      toast({
-        title: "❌ Failed to Clear Drafts",
-        description: "Please try again",
-        variant: "destructive",
-        duration: 4000,
-      });
+      alert('❌ Failed to clear draft orders. Please try again.');
     }
   });
 
-  // NEW: Auto-send email mutation with retry logic
   const sendOrderEmailMutation = useMutation({
-    mutationFn: async ({ order, deliveryDate, retryCount = 0 }) => {
+    mutationFn: async ({ order, deliveryDate }) => {
       // Generate professional HTML email
       const emailBody = `
 <!DOCTYPE html>
 <html>
 <head>
   <style>
-    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 800px; margin: 0 auto; }
+    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
     .header { background: linear-gradient(135deg, #014D40 0%, #10b981 100%); color: white; padding: 30px; text-align: center; }
-    .logo { font-size: 32px; font-weight: bold; margin-bottom: 10px; display: flex; align-items: center; justify-content: center; gap: 10px; }
+    .logo { font-size: 32px; font-weight: bold; margin-bottom: 10px; }
     .content { padding: 30px; background: #f9fafb; }
     .order-box { background: white; padding: 25px; border-radius: 10px; margin: 20px 0; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
     .order-header { border-bottom: 2px solid #014D40; padding-bottom: 15px; margin-bottom: 20px; }
     .order-number { font-size: 24px; font-weight: bold; color: #014D40; }
-    .order-date { color: #6b7280; font-size: 14px; margin-top: 5px; }
+    .order-date { color: #6b7280; font-size: 14px; }
     table { width: 100%; border-collapse: collapse; margin: 20px 0; }
     th { background: #f3f4f6; padding: 12px; text-align: left; font-weight: 600; border-bottom: 2px solid #e5e7eb; }
     td { padding: 12px; border-bottom: 1px solid #e5e7eb; }
     .item-name { font-weight: 500; color: #111827; }
     .totals { background: #f9fafb; padding: 20px; border-radius: 8px; margin-top: 20px; }
-    .total-row { display: flex; justify-content: space-between; padding: 8px 0; font-size: 16px; }
+    .total-row { display: flex; justify-content: space-between; padding: 8px 0; }
     .grand-total { font-size: 24px; font-weight: bold; color: #014D40; border-top: 2px solid #014D40; padding-top: 15px; margin-top: 10px; }
-    .delivery-info { background: #dbeafe; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #3b82f6; }
-    .footer { text-align: center; padding: 30px 20px; color: #6b7280; font-size: 12px; background: #014D40; color: white; margin-top: 30px; }
+    .delivery-info { background: #dbeafe; padding: 15px; border-radius: 8px; margin: 20px 0; }
+    .footer { text-align: center; padding: 20px; color: #6b7280; font-size: 12px; }
     .action-required { background: #fef3c7; border-left: 4px solid #f59e0b; padding: 15px; margin: 20px 0; }
-    .signature-line { border-top: 2px solid #014D40; margin-top: 40px; padding-top: 20px; }
-    .signature-label { color: #6b7280; font-size: 12px; margin-bottom: 5px; }
-    .signature-box { border-bottom: 2px solid #333; width: 300px; height: 60px; display: inline-block; }
   </style>
 </head>
 <body>
   <div class="header">
-    <div class="logo">
-      <svg viewBox="0 0 24 24" width="40" height="40" fill="white">
-        <path d="M6 13.87A4 4 0 0 1 7.41 6a5.11 5.11 0 0 1 1.05-1.54 5 5 0 0 1 7.08 0A5.11 5.11 0 0 1 16.59 6 4 4 0 0 1 18 13.87V21H6Z" />
-        <line x1="6" y1="17" x2="18" y2="17" stroke="white" stroke-width="2"/>
-      </svg>
-      AURA Restaurant
-    </div>
-    <p style="margin: 0; font-size: 18px; opacity: 0.9;">Purchase Order Request</p>
+    <div class="logo">🌟 AURA Restaurant</div>
+    <p style="margin: 0; font-size: 18px;">Purchase Order Request</p>
   </div>
   
   <div class="content">
@@ -213,44 +166,35 @@ export default function Ordering() {
       ${order.notes ? `
       <div style="margin-top: 20px; padding: 15px; background: #f3f4f6; border-radius: 8px;">
         <strong>Additional Notes:</strong>
-        <p style="margin: 5px 0 0 0;">${order.notes}</p>
+        <p style="margin: 10px 0 0 0;">${order.notes}</p>
       </div>
       ` : ''}
-
-      <div class="signature-line">
-        <div class="signature-label">Authorized Signature:</div>
-        <div class="signature-box"></div>
-        <div style="margin-top: 10px; font-size: 12px; color: #6b7280;">
-          Date: _________________
-        </div>
-      </div>
     </div>
 
-    <div style="background: #e0f2fe; padding: 15px; border-radius: 8px; margin-top: 20px;">
-      <p style="margin: 0; font-size: 14px;"><strong>📞 Need to discuss this order?</strong></p>
-      <p style="margin: 5px 0 0 0; font-size: 13px;">
-        Please reply to this email or contact us at your earliest convenience.
-      </p>
-    </div>
+    <p>If you have any questions or concerns about this order, please contact us immediately.</p>
+    
+    <p>Thank you for your continued service.</p>
+    
+    <p><strong>Best regards,</strong><br>
+    AURA Restaurant Management Team</p>
   </div>
 
   <div class="footer">
-    <p style="margin: 0 0 10px 0; font-weight: bold;">AURA Restaurant Operations</p>
-    <p style="margin: 0; opacity: 0.8;">Powered by AURA One Pro 🌟</p>
-    <p style="margin: 10px 0 0 0; opacity: 0.8;">
-      This is an automated email. Please do not reply directly to this message.
-    </p>
+    <p>This is an automated message from AURA Restaurant Operations System.</p>
+    <p>Order generated at ${format(new Date(), "PPP 'at' p")}</p>
   </div>
 </body>
 </html>
       `;
 
+      const emailSubject = `Purchase Order ${order.order_number} from AURA Restaurant`;
+
+      // Send email using base44 integration
       try {
-        // Send email using base44 integration
         await base44.integrations.Core.SendEmail({
           from_name: 'AURA Restaurant',
           to: order.supplier_email,
-          subject: `🛒 Purchase Order ${order.order_number} - ${order.supplier_name}`,
+          subject: emailSubject,
           body: emailBody,
         });
 
@@ -259,9 +203,9 @@ export default function Ordering() {
           email_type: 'purchase_order',
           recipient_email: order.supplier_email,
           recipient_name: order.supplier_name,
-          sender_email: user?.email || 'system@aura.com', // Using fetched user
-          sender_name: user?.full_name || 'AURA System', // Using fetched user
-          subject: `🛒 Purchase Order ${order.order_number} - ${order.supplier_name}`,
+          sender_email: user.email, // Assuming 'user' object is available from context/auth
+          sender_name: user.full_name, // Assuming 'user' object is available from context/auth
+          subject: emailSubject,
           body_html: emailBody,
           related_order_id: order.id,
           sent_at: new Date().toISOString(),
@@ -270,7 +214,6 @@ export default function Ordering() {
             order_number: order.order_number,
             order_total: order.total,
             delivery_date: deliveryDate,
-            retry_count: retryCount,
           }
         });
 
@@ -287,23 +230,14 @@ export default function Ordering() {
 
         return { success: true };
       } catch (error) {
-        console.error('Email send error:', error);
-
-        // Retry logic - up to 3 attempts
-        if (retryCount < 3) {
-          console.log(`Retrying email send for order ${order.order_number} (attempt ${retryCount + 1}/3)...`);
-          await new Promise(resolve => setTimeout(resolve, 60000)); // Wait 60 seconds before retrying
-          return sendOrderEmailMutation.mutateAsync({ order, deliveryDate, retryCount: retryCount + 1 });
-        }
-
-        // Log failed email after all retries
+        // Log failed email
         await base44.entities.EmailLog.create({
           email_type: 'purchase_order',
           recipient_email: order.supplier_email,
           recipient_name: order.supplier_name,
-          sender_email: user?.email || 'system@aura.com', // Using fetched user
-          sender_name: user?.full_name || 'AURA System', // Using fetched user
-          subject: `🛒 Purchase Order ${order.order_number} - ${order.supplier_name}`,
+          sender_email: user.email, // Assuming 'user' object is available
+          sender_name: user.full_name, // Assuming 'user' object is available
+          subject: emailSubject,
           body_html: emailBody,
           related_order_id: order.id,
           sent_at: new Date().toISOString(),
@@ -311,67 +245,45 @@ export default function Ordering() {
           error_message: error.message,
           metadata: {
             order_number: order.order_number,
-            retry_count: retryCount,
           }
         });
 
         throw error;
       }
     },
-    onSuccess: (_, variables) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['purchaseOrders'] });
       queryClient.invalidateQueries({ queryKey: ['emailLogs'] });
-      setSendingEmail(null); // Updated state
-      toast({
-        title: "✅ Order Sent Successfully!",
-        description: `Email delivered to ${variables.order.supplier_name} with order details`,
-        duration: 4000,
-      });
-      setShowEmailDialog(false); // Close dialog
-      setSelectedOrder(null); // Clear selected order
-      setDeliveryDate(""); // Clear delivery date
+      setSendingOrder(null);
+      alert('✅ Order sent successfully to supplier!');
     },
     onError: (error) => {
       console.error('Failed to send order:', error);
-      setSendingEmail(null); // Updated state
-      toast({
-        title: "⚠️ Email Failed to Send",
-        description: "Please try again or contact the supplier directly",
-        variant: "destructive",
-        duration: 5000,
-      });
+      setSendingOrder(null);
+      alert('❌ Failed to send order. Please try again or contact the supplier directly.');
     }
   });
 
+  const handleSendOrder = async (order) => {
+    const deliveryDate = deliveryDates[order.id];
 
-  const handleSendEmail = (order) => {
-    setSelectedOrder(order);
-    setDeliveryDate(""); // Clear any previous date
-    setShowEmailDialog(true);
-  };
+    if (!deliveryDate) {
+      if (!confirm('⚠️ No delivery date specified. Send order anyway?')) {
+        return;
+      }
+    }
 
-  const confirmSendEmail = async () => {
-    if (!selectedOrder) return;
-
-    if (!selectedOrder.supplier_email) {
-      toast({
-        title: "❌ Missing Supplier Email",
-        description: "Please add supplier email before sending",
-        variant: "destructive",
-        duration: 4000,
-      });
+    if (!order.supplier_email) {
+      alert('❌ Supplier email not found. Please add supplier email before sending.');
       return;
     }
 
-    setSendingEmail(selectedOrder.id);
+    setSendingOrder(order.id);
+    
     try {
-      await sendOrderEmailMutation.mutateAsync({
-        order: selectedOrder,
-        deliveryDate: deliveryDate || null,
-        retryCount: 0,
-      });
+      await sendOrderEmailMutation.mutateAsync({ order, deliveryDate });
     } catch (error) {
-      // Error handled by mutation's onError
+      console.error('Error:', error);
     }
   };
 
@@ -392,11 +304,7 @@ export default function Ordering() {
     const draftCount = draftOrders.length;
     
     if (draftCount === 0) {
-      toast({
-        title: "No Draft Orders",
-        description: "There are no draft orders to clear.",
-        duration: 2000,
-      });
+      alert('No draft orders to clear');
       return;
     }
 
@@ -462,7 +370,7 @@ export default function Ordering() {
     const orderLogs = getOrderEmailLogs(order.id);
 
     return (
-      <Card className="bg-white border-none shadow-sm hover:shadow-md transition-shadow">
+      <Card className="bg-white border-none shadow-sm">
         <CardHeader className="border-b border-gray-100">
           <div className="flex justify-between items-start">
             <div>
@@ -475,12 +383,9 @@ export default function Ordering() {
                 <p className="text-xs text-gray-500 mt-1 italic">{order.notes}</p>
               )}
               {order.email_sent_at && (
-                <div className="flex items-center gap-2 mt-2">
-                  <Mail className="w-4 h-4 text-green-600" />
-                  <p className="text-xs text-green-600 font-medium">
-                    Email sent: {format(new Date(order.email_sent_at), 'PPP p')}
-                  </p>
-                </div>
+                <p className="text-xs text-green-600 mt-1">
+                  ✉️ Email sent: {format(new Date(order.email_sent_at), 'PPP p')}
+                </p>
               )}
             </div>
             <div className="flex items-center gap-2">
@@ -498,7 +403,6 @@ export default function Ordering() {
                   variant="ghost"
                   size="icon"
                   onClick={() => handleDeleteOrder(order.id)}
-                  className="hover:bg-red-50"
                 >
                   <Trash2 className="w-4 h-4 text-red-500" />
                 </Button>
@@ -565,32 +469,38 @@ export default function Ordering() {
           </div>
 
           {showActions && order.status === 'draft' && (
-            <div className="mt-6 space-y-4">
-              {/* Removed delivery date input from here, now in dialog */}
-              <Button
-                onClick={() => handleSendEmail(order)}
-                disabled={sendingEmail === order.id || !order.supplier_email}
-                className="w-full bg-gradient-to-r from-[#014D40] to-[#016854] hover:from-[#016854] hover:to-[#014D40] text-white font-semibold shadow-lg"
-                size="lg"
-              >
-                {sendingEmail === order.id ? (
-                  <>
-                    <div className="animate-spin mr-2 h-5 w-5 border-2 border-white border-t-transparent rounded-full" />
-                    Sending Email...
-                  </>
-                ) : (
-                  <>
-                    <Mail className="w-5 h-5 mr-2" />
-                    Send Order via Email
-                  </>
-                )}
-              </Button>
-              {!order.supplier_email && (
-                <p className="w-full text-xs text-amber-600 flex items-center gap-1">
-                  <AlertTriangle className="w-3 h-3" />
-                  No supplier email found. Please update supplier contact details.
-                </p>
-              )}
+            <div className="mt-6 flex gap-4">
+              <div className="flex-1">
+                <Label htmlFor={`delivery-${order.id}`} className="text-sm text-gray-700">
+                  Expected Delivery Date
+                </Label>
+                <Input
+                  id={`delivery-${order.id}`}
+                  type="date"
+                  value={deliveryDates[order.id] || ''}
+                  onChange={(e) => setDeliveryDates({ ...deliveryDates, [order.id]: e.target.value })}
+                  className="mt-1"
+                />
+              </div>
+              <div className="flex items-end">
+                <Button
+                  onClick={() => handleSendOrder(order)}
+                  disabled={sendingOrder === order.id || !order.supplier_email}
+                  className="bg-green-600 hover:bg-green-700"
+                >
+                  {sendingOrder === order.id ? (
+                    <>
+                      <div className="animate-spin mr-2 h-4 w-4 border-2 border-white border-t-transparent rounded-full" />
+                      Sending Email...
+                    </>
+                  ) : (
+                    <>
+                      <Send className="w-4 h-4 mr-2" />
+                      Send Order via Email
+                    </>
+                  )}
+                </Button>
+              </div>
             </div>
           )}
 
@@ -614,15 +524,13 @@ export default function Ordering() {
               <p className="text-sm text-blue-800 mb-3">
                 📦 Order confirmed by supplier. Waiting for delivery.
               </p>
-              <Link to={createPageUrl("OrderHistory")}> {/* Assuming OrderHistory is where delivery actions happen */}
-                <Button
-                  size="sm"
-                  // onClick={() => handleStatusChange(order.id, 'partially_received')} // This should ideally be done in OrderHistory
-                  className="bg-purple-600 hover:bg-purple-700"
-                >
-                  Mark as Delivered
-                </Button>
-              </Link>
+              <Button
+                size="sm"
+                onClick={() => handleStatusChange(order.id, 'partially_received')}
+                className="bg-purple-600 hover:bg-purple-700"
+              >
+                Mark as Delivered
+              </Button>
             </div>
           )}
 
@@ -643,17 +551,17 @@ export default function Ordering() {
           {orderLogs.length > 0 && (
             <div className="mt-6 pt-4 border-t border-gray-200">
               <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
-                <Mail className="w-4 h-4 text-[#014D40]" />
+                <Mail className="w-4 h-4" />
                 Email Communication Log
               </h4>
               <div className="space-y-2">
                 {orderLogs.map((log) => (
-                  <div
-                    key={log.id}
-                    className={`p-3 rounded-lg text-sm border ${
-                      log.status === 'sent' ? 'bg-green-50 border-green-200' :
-                      log.status === 'failed' ? 'bg-red-50 border-red-200' :
-                      'bg-gray-50 border-gray-200'
+                  <div 
+                    key={log.id} 
+                    className={`p-3 rounded-lg text-sm ${
+                      log.status === 'sent' ? 'bg-green-50 border border-green-200' :
+                      log.status === 'failed' ? 'bg-red-50 border border-red-200' :
+                      'bg-gray-50 border border-gray-200'
                     }`}
                   >
                     <div className="flex items-start justify-between gap-2">
@@ -675,20 +583,10 @@ export default function Ordering() {
                             Error: {log.error_message}
                           </p>
                         )}
-                        {log.metadata?.retry_count > 0 && (
-                          <p className="text-xs text-amber-600 mt-1">
-                            🔄 Retried {log.metadata.retry_count} time(s)
-                          </p>
-                        )}
                       </div>
                       {log.status === 'sent' && (
-                        <Badge className="bg-green-100 text-green-800 text-xs border-green-200">
+                        <Badge className="bg-green-100 text-green-800 text-xs">
                           Delivered
-                        </Badge>
-                      )}
-                      {log.status === 'failed' && (
-                        <Badge variant="destructive" className="text-xs">
-                          Failed
                         </Badge>
                       )}
                     </div>
@@ -795,77 +693,6 @@ export default function Ordering() {
           </div>
         )}
       </div>
-
-      {/* Send Email Confirmation Dialog */}
-      <Dialog open={showEmailDialog} onOpenChange={setShowEmailDialog}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Mail className="w-5 h-5 text-[#EA4335]" />
-              Send Purchase Order via Email
-            </DialogTitle>
-          </DialogHeader>
-          
-          <div className="space-y-4 py-4">
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <p className="text-sm font-medium text-blue-900 mb-2">
-                Order: {selectedOrder?.order_number}
-              </p>
-              <p className="text-sm text-blue-700">
-                To: {selectedOrder?.supplier_name} ({selectedOrder?.supplier_email})
-              </p>
-              <p className="text-sm text-blue-700 mt-1">
-                Total: £{selectedOrder?.total?.toFixed(2)}
-              </p>
-            </div>
-
-            <div>
-              <Label htmlFor="deliveryDate">Requested Delivery Date (Optional)</Label>
-              <Input
-                id="deliveryDate"
-                type="date"
-                value={deliveryDate}
-                onChange={(e) => setDeliveryDate(e.target.value)}
-                min={format(new Date(), 'yyyy-MM-dd')}
-                className="mt-1"
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                If specified, this will be included in the email to the supplier
-              </p>
-            </div>
-
-            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
-              <p className="text-xs text-amber-800 flex items-center gap-1">
-                <AlertTriangle className="w-3 h-3" />
-                A professional branded email will be sent with your order details and a signature line for confirmation.
-              </p>
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowEmailDialog(false)}>
-              Cancel
-            </Button>
-            <Button
-              onClick={confirmSendEmail}
-              disabled={sendingEmail === selectedOrder?.id}
-              className="bg-gradient-to-r from-[#EA4335] to-[#D93025] hover:from-[#D93025] hover:to-[#C5221F] text-white"
-            >
-              {sendingEmail === selectedOrder?.id ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Sending...
-                </>
-              ) : (
-                <>
-                  <Send className="w-4 h-4 mr-2" />
-                  Send Email
-                </>
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

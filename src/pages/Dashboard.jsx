@@ -417,7 +417,7 @@ export default function Dashboard() {
         <Card className="bg-white border-none shadow-sm hover:shadow-md transition-shadow">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg">
-              <Zap className="w-5 h-5 mr-2 text-yellow-600" />
+              <Zap className="w-5 h-5 text-yellow-600" />
               Quick Actions
             </CardTitle>
           </CardHeader>

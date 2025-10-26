@@ -56,7 +56,6 @@ import NotFound from './pages/NotFound';
 import Menu from './pages/Menu';
 import AllergyTable from './pages/AllergyTable';
 import EmailLog from './pages/EmailLog';
-import AccessLog from './pages/AccessLog';
 import Layout from './Layout.jsx';
 
 const pages = [
@@ -114,11 +113,19 @@ const pages = [
   { name: 'DocumentManagement', path: '/document-management', file: 'DocumentManagement.jsx', component: DocumentManagement, public: false },
   { name: 'DataManagement', path: '/data-management', file: 'DataManagement.jsx', component: DataManagement, public: false },
   { name: 'BackupSettings', path: '/backup-settings', file: 'BackupSettings.jsx', component: BackupSettings, public: false },
-  { name: 'NotFound', path: '/not-found', file: 'NotFound.jsx', component: NotFound, public: true },
+  { name: 'NotFound', path: '/not-found', file: 'NotFound.jsx', component: NotFound, public: false },
   { name: 'Menu', path: '/menu', file: 'Menu.jsx', component: Menu, public: true },
   { name: 'AllergyTable', path: '/allergy-table', file: 'AllergyTable.jsx', component: AllergyTable, public: false },
-  { name: 'EmailLog', path: '/email-log', file: 'EmailLog.jsx', component: EmailLog, public: false },
-  { name: 'AccessLog', path: '/access-log', file: 'AccessLog.jsx', component: AccessLog, public: false },
+  { name: 'EmailLog', path: '/email-log', file: 'EmailLog.jsx', component: EmailLog, public: false }
 ];
+
+export const pagesConfig = {
+  mainPage: 'Dashboard',
+  Pages: pages.reduce((acc, page) => {
+    acc[page.name] = page.component;
+    return acc;
+  }, {}),
+  Layout: Layout,
+};
 
 export { pages, Layout };
