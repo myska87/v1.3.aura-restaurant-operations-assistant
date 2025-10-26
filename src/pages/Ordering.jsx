@@ -45,10 +45,16 @@ export default function Ordering() {
       await Promise.all(drafts.map(draft => 
         base44.entities.PurchaseOrder.delete(draft.id)
       ));
+      return drafts.length;
     },
-    onSuccess: () => {
+    onSuccess: (count) => {
       queryClient.invalidateQueries({ queryKey: ['purchaseOrders'] });
+      alert(`✅ Successfully cleared ${count} draft order(s)`);
     },
+    onError: (error) => {
+      console.error('Error clearing drafts:', error);
+      alert('❌ Failed to clear draft orders. Please try again.');
+    }
   });
 
   const generateEmailContent = (order, deliveryDate) => {
@@ -168,13 +174,7 @@ AURA Restaurant Management Team`;
     }
 
     if (confirm(`⚠️ Are you sure you want to clear all ${draftCount} draft order(s)?\n\nThis action cannot be undone.`)) {
-      try {
-        await clearDraftOrdersMutation.mutateAsync();
-        alert(`✅ Successfully cleared ${draftCount} draft order(s)`);
-      } catch (error) {
-        console.error('Error clearing drafts:', error);
-        alert('❌ Failed to clear draft orders. Please try again.');
-      }
+      await clearDraftOrdersMutation.mutateAsync();
     }
   };
 

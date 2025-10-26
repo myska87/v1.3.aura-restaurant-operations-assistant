@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -30,8 +29,8 @@ export default function ProductionPlanning() {
   const [showForm, setShowForm] = useState(false);
   const [creatingOrders, setCreatingOrders] = useState(false);
   const [editingPlan, setEditingPlan] = useState(null);
-  const [showCart, setShowCart] = useState(false); // New state for cart dialog
-  const [cart, setCart] = useState([]); // New state for shopping cart items
+  const [showCart, setShowCart] = useState(false);
+  const [cart, setCart] = useState([]);
   const [formData, setFormData] = useState({
     name: "",
     date: format(new Date(), 'yyyy-MM-dd'),
@@ -154,7 +153,7 @@ export default function ProductionPlanning() {
   const updateCartQuantity = (ingredientId, newQuantity) => {
     const parsedQuantity = parseFloat(newQuantity);
     if (isNaN(parsedQuantity) || parsedQuantity <= 0) {
-      setCart(cart.filter(item => item.ingredient_id !== ingredientId)); // Remove if quantity is invalid
+      setCart(cart.filter(item => item.ingredient_id !== ingredientId));
       return;
     }
 
@@ -213,7 +212,7 @@ export default function ProductionPlanning() {
           supplier_id: order.supplier_id,
           supplier_name: order.supplier_name,
           supplier_email: order.supplier_email,
-          status: 'draft', // Orders from cart are created as drafts
+          status: 'draft',
           items: order.items,
           subtotal: parseFloat(subtotal.toFixed(2)),
           tax: parseFloat(tax.toFixed(2)),
