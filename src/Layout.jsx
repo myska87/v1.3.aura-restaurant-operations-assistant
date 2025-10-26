@@ -75,6 +75,12 @@ const navigationItems = [
         icon: Clock,
         badge: null,
       },
+      {
+        title: "Hygiene Central",
+        url: createPageUrl("HygieneDashboard"),
+        icon: Activity,
+        badge: null,
+      },
     ]
   },
   {

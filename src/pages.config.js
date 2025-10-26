@@ -63,6 +63,7 @@ import LeafeDashboard from './pages/LeafeDashboard';
 import LeafeVenues from './pages/LeafeVenues';
 import DataBridgeMonitor from './pages/DataBridgeMonitor';
 import FormIntelligence from './pages/FormIntelligence';
+import HygieneDashboard from './pages/HygieneDashboard';
 import Layout from './Layout.jsx';
 
 
@@ -132,6 +133,7 @@ export const PAGES = {
     "LeafeVenues": LeafeVenues,
     "DataBridgeMonitor": DataBridgeMonitor,
     "FormIntelligence": FormIntelligence,
+    "HygieneDashboard": HygieneDashboard,
 }
 
 export const pagesConfig = {

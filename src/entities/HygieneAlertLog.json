@@ -1,0 +1,138 @@
+{
+  "name": "HygieneAlertLog",
+  "type": "object",
+  "properties": {
+    "record_id": {
+      "type": "string",
+      "description": "Related hygiene record"
+    },
+    "alert_type": {
+      "type": "string",
+      "enum": [
+        "temperature_high",
+        "temperature_low",
+        "missing_record",
+        "critical_failure",
+        "repeated_issue",
+        "equipment_malfunction"
+      ],
+      "description": "Type of alert"
+    },
+    "severity": {
+      "type": "string",
+      "enum": [
+        "info",
+        "warning",
+        "critical",
+        "urgent"
+      ],
+      "default": "warning"
+    },
+    "item_name": {
+      "type": "string",
+      "description": "Item or equipment involved"
+    },
+    "location": {
+      "type": "string",
+      "description": "Where issue occurred"
+    },
+    "venue_id": {
+      "type": "string"
+    },
+    "venue_name": {
+      "type": "string"
+    },
+    "recorded_value": {
+      "type": "number",
+      "description": "Actual reading"
+    },
+    "expected_range": {
+      "type": "string",
+      "description": "Safe range description"
+    },
+    "variance_amount": {
+      "type": "number",
+      "description": "How far out of range"
+    },
+    "triggered_by_email": {
+      "type": "string",
+      "description": "Staff who recorded the reading"
+    },
+    "triggered_by_name": {
+      "type": "string"
+    },
+    "notified_manager_email": {
+      "type": "string",
+      "description": "Manager who was alerted"
+    },
+    "notified_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "open",
+        "acknowledged",
+        "investigating",
+        "resolved",
+        "escalated"
+      ],
+      "default": "open"
+    },
+    "acknowledged_by": {
+      "type": "string",
+      "description": "Who acknowledged the alert"
+    },
+    "acknowledged_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "resolution_notes": {
+      "type": "string",
+      "description": "How issue was resolved"
+    },
+    "resolution_photo": {
+      "type": "string",
+      "description": "Photo of corrective action"
+    },
+    "resolved_by": {
+      "type": "string"
+    },
+    "resolved_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "escalated_to": {
+      "type": "string",
+      "description": "Who alert was escalated to"
+    },
+    "escalated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "created_maintenance_ticket": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether maintenance ticket was auto-created"
+    },
+    "maintenance_ticket_id": {
+      "type": "string"
+    },
+    "repeat_count": {
+      "type": "number",
+      "default": 1,
+      "description": "Number of times this issue occurred"
+    },
+    "requires_eho_notification": {
+      "type": "boolean",
+      "default": false,
+      "description": "Critical issue requiring EHO report"
+    }
+  },
+  "required": [
+    "record_id",
+    "alert_type",
+    "severity"
+  ]
+}

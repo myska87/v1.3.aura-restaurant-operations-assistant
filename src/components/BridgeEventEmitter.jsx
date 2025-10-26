@@ -1,3 +1,4 @@
+
 /**
  * 🔔 BRIDGE EVENT EMITTER
  * Helper class for modules to emit events to DataBridge
@@ -209,6 +210,107 @@ export class BridgeEventEmitter {
       referenceId: audit.id,
       referenceType: 'LeafeAuditRecord',
     });
+  }
+
+  /**
+   * Emit hygiene record created event
+   */
+  static async emitHygieneRecordCreated(record, user) {
+    try {
+      await base44.entities.BridgeEventLog.create({
+        event_id: `hygiene_record_${record.id}_${Date.now()}`,
+        source_module: 'hygiene',
+        event_type: 'hygiene_record_created',
+        reference_id: record.id,
+        reference_type: 'HygieneRecord',
+        payload: {
+          record_id: record.id,
+          record_type: record.record_type,
+          item_name: record.item_name,
+          recorded_value: record.recorded_value,
+          is_in_range: record.is_in_range,
+          variance_alert: record.variance_alert,
+          staff_email: record.recorded_by_email,
+          staff_name: record.recorded_by_name,
+          venue_id: record.venue_id,
+          shift_id: record.shift_id,
+          linked_form_id: record.linked_form_id,
+          linked_checklist_id: record.linked_checklist_id,
+        },
+        target_modules: ['compliance', 'leafe', 'forms', 'workforce'],
+        status: 'pending',
+        priority: record.variance_alert ? 'high' : 'normal',
+        triggered_by_user: user?.email,
+        triggered_by_name: user?.full_name,
+      });
+    } catch (error) {
+      console.error('[HygieneRecords] Failed to emit event:', error);
+    }
+  }
+
+  /**
+   * Emit temperature alert event
+   */
+  static async emitTemperatureAlert(alert, record, user) {
+    try {
+      await base44.entities.BridgeEventLog.create({
+        event_id: `temp_alert_${alert.id}_${Date.now()}`,
+        source_module: 'hygiene',
+        event_type: 'temperature_alert',
+        reference_id: alert.id,
+        reference_type: 'HygieneAlertLog',
+        payload: {
+          alert_id: alert.id,
+          alert_type: alert.alert_type,
+          severity: alert.severity,
+          item_name: alert.item_name,
+          location: alert.location,
+          recorded_value: alert.recorded_value,
+          expected_range: alert.expected_range,
+          variance_amount: alert.variance_amount,
+          venue_id: alert.venue_id,
+          record_id: record?.id,
+          requires_maintenance: alert.repeat_count > 2,
+        },
+        target_modules: ['compliance', 'workforce', 'maintenance'],
+        status: 'pending',
+        priority: alert.severity === 'critical' ? 'critical' : 'high',
+        triggered_by_user: user?.email,
+        triggered_by_name: user?.full_name,
+      });
+    } catch (error) {
+      console.error('[HygieneRecords] Failed to emit alert event:', error);
+    }
+  }
+
+  /**
+   * Emit achievement unlocked event
+   */
+  static async emitAchievementUnlocked(staff, badge) {
+    try {
+      await base44.entities.BridgeEventLog.create({
+        event_id: `achievement_${staff.staff_email}_${Date.now()}`,
+        source_module: 'hygiene',
+        event_type: 'achievement_unlocked',
+        reference_id: staff.id,
+        reference_type: 'HygieneUserScore',
+        payload: {
+          staff_email: staff.staff_email,
+          staff_name: staff.staff_name,
+          badge_name: badge.badge_name,
+          badge_icon: badge.badge_icon,
+          points_earned: badge.points_value || 0,
+          total_points: staff.total_points,
+        },
+        target_modules: ['workforce', 'compliance'],
+        status: 'pending',
+        priority: 'normal',
+        triggered_by_user: staff.staff_email,
+        triggered_by_name: staff.staff_name,
+      });
+    } catch (error) {
+      console.error('[HygieneRecords] Failed to emit achievement event:', error);
+    }
   }
 }
 
