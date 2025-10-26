@@ -52,6 +52,7 @@ import StaffWagesReport from './pages/StaffWagesReport';
 import DocumentManagement from './pages/DocumentManagement';
 import DataManagement from './pages/DataManagement';
 import BackupSettings from './pages/BackupSettings';
+import NotFound from './pages/NotFound';
 import Layout from './Layout.jsx';
 
 
@@ -110,6 +111,7 @@ export const PAGES = {
     "DocumentManagement": DocumentManagement,
     "DataManagement": DataManagement,
     "BackupSettings": BackupSettings,
+    "NotFound": NotFound,
 }
 
 export const pagesConfig = {

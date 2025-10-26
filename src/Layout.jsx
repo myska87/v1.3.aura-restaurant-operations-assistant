@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -23,13 +22,14 @@ import {
   TrendingUp,
   Clock,
   Shield,
+  FileText,
+  Database,
 } from "lucide-react";
 import WelcomeNewHire from "./components/WelcomeNewHire";
 import ChecklistAutomation from "./components/ChecklistAutomation";
 import NotificationBell from "./components/NotificationBell";
 import AuraLogo from "./components/AuraLogo";
 import AutoBackupScheduler from "./components/AutoBackupScheduler";
-// LogoGenerator import removed for performance optimization
 
 const Badge = ({ children, className }) => (
   <span className={`inline-flex items-center justify-center rounded-full text-center font-semibold leading-none whitespace-nowrap ${className}`}>
@@ -157,9 +157,21 @@ const managementItems = [
     icon: BarChart3,
     badge: null,
   },
+  {
+    title: "Document Management",
+    url: createPageUrl("DocumentManagement"),
+    icon: FileText,
+    badge: null,
+  },
+  {
+    title: "Data Management",
+    url: createPageUrl("DataManagement"),
+    icon: Database,
+    badge: null,
+  },
 ];
 
-export default function Layout({ children, currentPageName }) {
+export default function Layout({ children }) {
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -175,6 +187,8 @@ export default function Layout({ children, currentPageName }) {
   const isActive = (url) => {
     return location.pathname === url;
   };
+
+  const isManager = user?.position === 'manager' || user?.position === 'owner' || user?.role === 'admin';
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
@@ -222,7 +236,6 @@ export default function Layout({ children, currentPageName }) {
                 Restaurant Operations Assistant
               </p>
             </div>
-            {/* Logo generator removed - using fallback logo for better performance */}
           </div>
 
           {/* Navigation */}
@@ -265,7 +278,7 @@ export default function Layout({ children, currentPageName }) {
               </div>
             ))}
 
-            {(user?.position === 'manager' || user?.position === 'owner' || user?.role === 'admin') && (
+            {isManager && (
               <div>
                 <div className="px-3 mb-2 mt-6 pt-6 border-t border-slate-200">
                   <p className="text-xs font-semibold text-purple-600 uppercase tracking-wider flex items-center gap-1.5">
