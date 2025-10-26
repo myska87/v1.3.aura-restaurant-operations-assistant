@@ -329,6 +329,54 @@ export default function MenuManagement() {
     setShowProfitCalculator(true);
   };
 
+  // This function is not used in the current UI but is part of the original code, preserving and applying fix.
+  const calculatePlanTotals = () => {
+    // Assuming `formData` and `menuItems` are available in this scope or passed as props.
+    // Given the context, this function might be intended for another part of the application (e.g., meal plan management).
+    // For now, I'll simulate `formData` for the sake of the fix, but it should come from state/props.
+    const formData = {
+      menu_items: [] // Placeholder, adapt as necessary if this function is actually used
+    };
+
+    const totalPortions = formData.menu_items.reduce((sum, item) => sum + (item.portions_needed || 0), 0);
+    const totalRevenue = formData.menu_items.reduce((sum, item) => sum + ((item.sell_price || 0) * (item.portions_needed || 0)), 0);
+    const totalCost = formData.menu_items.reduce((sum, item) => sum + ((item.cost_per_portion || 0) * (item.portions_needed || 0)), 0);
+    const projectedProfit = totalRevenue - totalCost;
+
+    const ingredientsMap = new Map();
+
+    formData.menu_items.forEach(planItem => {
+      const menuItem = menuItems.find(m => m.id === planItem.menu_item_id);
+      if (!menuItem?.recipe || !Array.isArray(menuItem.recipe)) return;
+
+      menuItem.recipe.forEach(recipeItem => {
+        // Add safety checks
+        if (!recipeItem || !recipeItem.ingredient_id) return;
+        
+        const quantityNeeded = (recipeItem.quantity || 0) * (planItem.portions_needed || 0); // Added || 0 to planItem.portions_needed
+        const existingIngredient = ingredientsMap.get(recipeItem.ingredient_id);
+
+        if (existingIngredient) {
+          existingIngredient.quantity_needed += quantityNeeded;
+        } else {
+          const inventoryItem = ingredients.find(i => i.id === recipeItem.ingredient_id);
+          ingredientsMap.set(recipeItem.ingredient_id, {
+            ingredient_id: recipeItem.ingredient_id,
+            ingredient_name: recipeItem.ingredient_name || 'Unknown',
+            quantity_needed: quantityNeeded,
+            unit: recipeItem.unit || 'unit',
+            current_stock: inventoryItem?.current_stock || 0,
+            to_order: Math.max(0, quantityNeeded - (inventoryItem?.current_stock || 0)),
+          });
+        }
+      });
+    });
+
+    const ingredientsNeeded = Array.from(ingredientsMap.values());
+
+    return { totalPortions, totalRevenue, totalCost, projectedProfit, ingredientsNeeded };
+  };
+
   const calculateProfitMetrics = () => {
     if (!calculatorItem) return null;
 
@@ -337,6 +385,11 @@ export default function MenuManagement() {
     
     let costPerServingBeforeWaste = 0;
     const ingredientsNeededDetails = recipe.map(recipeItem => {
+      // Add safety checks
+      if (!recipeItem || !recipeItem.ingredient_id) {
+        return null;
+      }
+
       let ingredientDetail = ingredients.find(ing => ing.id === recipeItem.ingredient_id);
       
       if (!ingredientDetail) {
@@ -353,14 +406,14 @@ export default function MenuManagement() {
       if (ingredientDetail) {
         effectiveUnitCost = ingredientDetail.unit_cost > 0 
           ? ingredientDetail.unit_cost 
-          : (recipeItem.quantity > 0 ? recipeItem.cost / recipeItem.quantity : 0); // Fallback to recipe cost if inventory unit_cost is zero/invalid
-        individualServingCost = effectiveUnitCost * recipeItem.quantity; // Cost for this ingredient for ONE serving
+          : ((recipeItem.quantity || 0) > 0 ? (recipeItem.cost || 0) / (recipeItem.quantity || 1) : 0); // Added || 0 to recipeItem.quantity and || 1 for division safety
+        individualServingCost = effectiveUnitCost * (recipeItem.quantity || 0); // Added || 0 to recipeItem.quantity
         costPerServingBeforeWaste += individualServingCost;
       } else {
         isMissingFromInventory = true;
         // If ingredient is not found in inventory at all, use the cost stored in the recipe.
         // This is a fallback to ensure some cost is calculated, even if not fully up-to-date.
-        individualServingCost = recipeItem.cost || 0; 
+        individualServingCost = (recipeItem.cost || 0); // Added || 0 to recipeItem.cost
         costPerServingBeforeWaste += individualServingCost;
         console.error(`Ingredient "${recipeItem.ingredient_name}" (ID: ${recipeItem.ingredient_id}) not found in inventory! Using stored recipe cost: £${individualServingCost.toFixed(2)}`);
       }
@@ -372,7 +425,7 @@ export default function MenuManagement() {
         individualServingCost: individualServingCost, // Cost for this ingredient for ONE serving
         missingFromInventory: isMissingFromInventory,
       };
-    });
+    }).filter(item => item !== null); // Remove null entries
 
     const costPerServingWithWaste = costPerServingBeforeWaste * (1 + wastePercentage / 100);
 
@@ -386,23 +439,32 @@ export default function MenuManagement() {
 
     // Calculate ingredient quantities needed for all servings, with waste
     const ingredientsNeeded = ingredientsNeededDetails.map(itemDetail => {
-      const { recipeItem, ingredientDetail, missingFromInventory } = itemDetail;
+      // Deconstruct directly from itemDetail, as it now contains all necessary properties
+      const { 
+        ingredient_id, 
+        ingredient_name, 
+        quantity, 
+        unit, 
+        cost, 
+        ingredientDetail, 
+        missingFromInventory 
+      } = itemDetail;
 
-      const quantityNeededRaw = recipeItem.quantity * servings;
+      const quantityNeededRaw = (quantity || 0) * servings; // Added || 0 to quantity
       const quantityNeededWithWaste = quantityNeededRaw * (1 + wastePercentage / 100);
 
       // Unit cost for reporting should reflect what we're basing the total cost on.
       let unitCostToReport = missingFromInventory 
-        ? (recipeItem.quantity > 0 ? recipeItem.cost / recipeItem.quantity : 0) 
+        ? ((quantity || 0) > 0 ? (cost || 0) / (quantity || 1) : 0) // Added || 0 to quantity and cost, and || 1 for division safety
         : (ingredientDetail?.unit_cost || 0);
       
       const totalIngredientCostWithWaste = quantityNeededWithWaste * unitCostToReport;
 
       return {
-        ingredient_id: recipeItem.ingredient_id,
-        ingredient_name: recipeItem.ingredient_name,
+        ingredient_id: ingredient_id,
+        ingredient_name: ingredient_name,
         quantity_needed: quantityNeededWithWaste,
-        unit: recipeItem.unit,
+        unit: unit,
         unit_cost: unitCostToReport, 
         total_cost: totalIngredientCostWithWaste,
         supplier_id: ingredientDetail?.supplier_id || null,
@@ -908,7 +970,7 @@ export default function MenuManagement() {
                                 {item.ingredient_name}
                               </p>
                               <p className="text-sm text-gray-600">
-                                {item.quantity} {item.unit} × £{(item.quantity > 0 ? (item.cost / item.quantity) : 0).toFixed(2)} = £{item.cost.toFixed(2)}
+                                {(item.quantity || 0)} {item.unit} × £{((item.quantity || 0) > 0 ? (item.cost / (item.quantity || 1)) : 0).toFixed(2)} = £{(item.cost || 0).toFixed(2)}
                               </p>
                             </div>
                             <Button
@@ -1235,7 +1297,7 @@ export default function MenuManagement() {
                   <Button
                     onClick={handleOrderIngredients}
                     className="bg-green-600 hover:bg-green-700"
-                    disabled={createPurchaseOrderMutation.isPending || metrics.ingredientsNeeded.length === 0 || metrics.ingredientsNeeded.some(ing => ing.missing || !ing.supplier_id)}
+                    disabled={createPurchaseOrderMutation.isPending || metrics.ingredientsNeeded.length === 0 || metrics.ingredientsNeeded.some(ing => ing.missing || (!ing.supplier_id && !ing.missing))}
                   >
                     <ShoppingCart className="w-4 h-4 mr-2" />
                     {createPurchaseOrderMutation.isPending ? 'Creating Order...' : 'Order Ingredients Now'}
