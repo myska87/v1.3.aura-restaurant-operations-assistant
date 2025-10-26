@@ -25,6 +25,7 @@ import {
   Shield,
   FileText,
   Database,
+  Mail, // Added Mail icon import
 } from "lucide-react";
 import WelcomeNewHire from "./components/WelcomeNewHire";
 import ChecklistAutomation from "./components/ChecklistAutomation";
@@ -176,6 +177,12 @@ const managementItems = [
     title: "Data Management",
     url: createPageUrl("DataManagement"),
     icon: Database,
+    badge: null,
+  },
+  {
+    title: "Email Log",
+    url: createPageUrl("EmailLog"),
+    icon: Mail,
     badge: null,
   },
 ];
