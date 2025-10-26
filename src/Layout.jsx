@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -24,7 +25,7 @@ import {
   Shield,
   FileText,
   Database,
-  Mail,
+  Mail, // Added Mail icon import
 } from "lucide-react";
 import WelcomeNewHire from "./components/WelcomeNewHire";
 import ChecklistAutomation from "./components/ChecklistAutomation";
@@ -32,10 +33,9 @@ import NotificationBell from "./components/NotificationBell";
 import AuraLogo from "./components/AuraLogo";
 import AutoBackupScheduler from "./components/AutoBackupScheduler";
 import { StaffDataSync } from "./components/StaffDataSync";
-import MenuImporter from "./components/MenuImporter";
+import MenuImporter from "./components/MenuImporter"; // Added MenuImporter import
 import DataRetentionAutomation from "./components/DataRetentionAutomation";
 import SecurityMonitoring from "./components/SecurityMonitoring";
-import DataRetentionPolicySeeder from "./components/DataRetentionPolicySeeder";
 
 const Badge = ({ children, className }) => (
   <span className={`inline-flex items-center justify-center rounded-full text-center font-semibold leading-none whitespace-nowrap ${className}`}>
@@ -108,7 +108,7 @@ const navigationItems = [
       {
         title: "🍽️ Menu",
         url: createPageUrl("Menu"),
-        icon: Package,
+        icon: Package, // Reusing Package icon for Menu as it fits well for products/items
         badge: null,
       },
       {
@@ -217,7 +217,6 @@ export default function Layout({ children }) {
       <MenuImporter />
       <DataRetentionAutomation />
       <SecurityMonitoring />
-      <DataRetentionPolicySeeder />
 
       {/* Mobile Header */}
       <div className="lg:hidden fixed top-0 left-0 right-0 bg-white border-b border-slate-200 z-40 px-4 py-3">

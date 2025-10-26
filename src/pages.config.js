@@ -60,7 +60,7 @@ import PrivacyCenter from './pages/PrivacyCenter';
 import PrivacyPolicy from './pages/PrivacyPolicy';
 import Layout from './Layout.jsx';
 
-const pagesConfig = [
+const pages = [
   { name: 'Dashboard', path: '/', file: 'Dashboard.jsx', component: Dashboard, public: false },
   { name: 'Compliance', path: '/compliance', file: 'Compliance.jsx', component: Compliance, public: false },
   { name: 'Inventory', path: '/inventory', file: 'Inventory.jsx', component: Inventory, public: false },
@@ -115,13 +115,15 @@ const pagesConfig = [
   { name: 'DocumentManagement', path: '/document-management', file: 'DocumentManagement.jsx', component: DocumentManagement, public: false },
   { name: 'DataManagement', path: '/data-management', file: 'DataManagement.jsx', component: DataManagement, public: false },
   { name: 'BackupSettings', path: '/backup-settings', file: 'BackupSettings.jsx', component: BackupSettings, public: false },
-  { name: 'Menu', path: '/menu', file: 'Menu.jsx', component: Menu, public: false },
-  { name: 'AllergyTable', path: '/allergy-table', file: 'AllergyTable.jsx', component: AllergyTable, public: false },
+  { name: 'NotFound', path: '/not-found', file: 'NotFound.jsx', component: NotFound, public: true },
+  { name: 'Menu', path: '/menu', file: 'Menu.jsx', component: Menu, public: true },
+  { name: 'AllergyTable', path: '/allergy-table', file: 'AllergyTable.jsx', component: AllergyTable, public: true },
   { name: 'EmailLog', path: '/email-log', file: 'EmailLog.jsx', component: EmailLog, public: false },
   { name: 'PrivacyCenter', path: '/privacy-center', file: 'PrivacyCenter.jsx', component: PrivacyCenter, public: false },
   { name: 'PrivacyPolicy', path: '/privacy-policy', file: 'PrivacyPolicy.jsx', component: PrivacyPolicy, public: true },
-  { name: 'NotFound', path: '/404', file: 'NotFound.jsx', component: NotFound, public: true },
 ];
 
-export { pagesConfig, Layout };
-export const pages = pagesConfig;
+export default {
+  pages,
+  layout: Layout,
+};
