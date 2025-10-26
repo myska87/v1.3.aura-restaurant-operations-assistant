@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
@@ -39,14 +40,44 @@ export default function WeeklyRotaSchedule() {
     },
   });
 
-  const { data: users = [] } = useQuery({
-    queryKey: ['users'],
+  const { data: allUsers = [] } = useQuery({
+    queryKey: ['allUsers'],
     queryFn: () => base44.entities.User.list(),
   });
 
+  const { data: teamMembers = [] } = useQuery({
+    queryKey: ['teamMembers'],
+    queryFn: () => base44.entities.TeamMember.list(),
+  });
+
+  // Combine users and team members for complete staff list
+  const allStaff = React.useMemo(() => {
+    const staffMap = new Map();
+    
+    allUsers.forEach(user => {
+      staffMap.set(user.email, {
+        email: user.email,
+        full_name: user.full_name,
+        position: user.position,
+      });
+    });
+    
+    teamMembers.forEach(member => {
+      if (staffMap.has(member.staff_email)) {
+        staffMap.set(member.staff_email, {
+          ...staffMap.get(member.staff_email),
+          position: member.position || staffMap.get(member.staff_email).position,
+        });
+      }
+    });
+    
+    return Array.from(staffMap.values());
+  }, [allUsers, teamMembers]);
+
   const getShiftsByPositionAndDate = (position, date) => {
     return shifts.filter(shift => {
-      const user = users.find(u => u.email === shift.staff_email);
+      // The 'user' variable was previously defined here but not used in the filter logic.
+      // const user = users.find(u => u.email === shift.staff_email);
       return (
         shift.role === position &&
         isSameDay(parseISO(shift.shift_date), date)

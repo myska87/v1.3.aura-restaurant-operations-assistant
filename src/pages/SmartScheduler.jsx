@@ -215,6 +215,51 @@ export default function SmartScheduler() {
     queryFn: () => base44.entities.User.list(),
   });
 
+  const { data: teamMembers = [] } = useQuery({
+    queryKey: ['teamMembers'],
+    queryFn: () => base44.entities.TeamMember.list(),
+  });
+
+  // Combine users and team members to get complete staff list
+  const allStaff = React.useMemo(() => {
+    const staffMap = new Map();
+    
+    // Add all users
+    users.forEach(user => {
+      staffMap.set(user.email, {
+        email: user.email,
+        full_name: user.full_name,
+        position: user.position,
+        phone: user.phone,
+      });
+    });
+    
+    // Merge with team member data (if exists)
+    teamMembers.forEach(member => {
+      if (staffMap.has(member.staff_email)) {
+        staffMap.set(member.staff_email, {
+          ...staffMap.get(member.staff_email),
+          position: member.position || staffMap.get(member.staff_email).position, // Prefer team member position if available
+          department: member.department,
+          photo_url: member.photo_url,
+        });
+      } else {
+        // If a team member exists but not as a user, add them
+        staffMap.set(member.staff_email, {
+          email: member.staff_email,
+          full_name: member.staff_name,
+          position: member.position,
+          department: member.department,
+          photo_url: member.photo_url,
+        });
+      }
+    });
+    
+    return Array.from(staffMap.values()).sort((a, b) => 
+      (a.full_name || '').localeCompare(b.full_name || '')
+    );
+  }, [users, teamMembers]);
+
   const { data: responsibilities = [] } = useQuery({
     queryKey: ['responsibilities'],
     queryFn: () => base44.entities.RoleResponsibility.list(),
@@ -552,7 +597,7 @@ export default function SmartScheduler() {
       return;
     }
 
-    const staffMember = users.find(u => u.email === shiftForm.staff_email);
+    const staffMember = allStaff.find(u => u.email === shiftForm.staff_email);
     const data = {
       ...shiftForm,
       staff_name: staffMember?.full_name || shiftForm.staff_name,
@@ -713,14 +758,19 @@ export default function SmartScheduler() {
                 </div>
                 <div className="flex gap-6">
                   <div className="text-center">
-                    <p className="text-2xl font-bold text-blue-600">{shifts.length}</p>
-                    <p className="text-xs text-gray-600">Total Shifts</p>
+                    <p className="text-2xl font-bold text-blue-600">{shifts.reduce((total, shift) => {
+                      const [startH, startM] = shift.start_time.split(':').map(Number);
+                      const [endH, endM] = shift.end_time.split(':').map(Number);
+                      const hours = ((endH * 60 + endM) - (startH * 60 + startM)) / 60;
+                      return total + hours;
+                    }, 0).toFixed(1)}h</p>
+                    <p className="text-xs text-gray-600">Total Weekly Hours</p>
                   </div>
                   <div className="text-center">
                     <p className="text-2xl font-bold text-green-600">
-                      {shifts.filter(s => s.auto_generated_tasks).length}
+                      {shifts.length}
                     </p>
-                    <p className="text-xs text-gray-600">With Tasks</p>
+                    <p className="text-xs text-gray-600">Total Shifts</p>
                   </div>
                 </div>
               </div>
@@ -1149,7 +1199,7 @@ export default function SmartScheduler() {
                 <Select 
                   value={shiftForm.staff_email} 
                   onValueChange={(value) => {
-                    const staff = users.find(u => u.email === value);
+                    const staff = allStaff.find(s => s.email === value);
                     setShiftForm({
                       ...shiftForm,
                       staff_email: value,
@@ -1160,14 +1210,33 @@ export default function SmartScheduler() {
                   }}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Select staff" />
+                    <SelectValue placeholder="Select staff member" />
                   </SelectTrigger>
-                  <SelectContent>
-                    {users.map((u) => (
-                      <SelectItem key={u.email} value={u.email}>
-                        {u.full_name} ({u.position})
-                      </SelectItem>
-                    ))}
+                  <SelectContent className="max-h-[300px]">
+                    {allStaff.length === 0 ? (
+                      <div className="p-4 text-center text-sm text-gray-500">
+                        <p>No staff members found</p>
+                        <p className="text-xs mt-1">Please add staff members first</p>
+                      </div>
+                    ) : (
+                      allStaff.map((staff) => (
+                        <SelectItem key={staff.email} value={staff.email}>
+                          <div className="flex items-center gap-2">
+                            {staff.photo_url ? (
+                              <img src={staff.photo_url} alt="" className="w-6 h-6 rounded-full" />
+                            ) : (
+                              <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center text-white text-xs font-bold">
+                                {staff.full_name?.charAt(0)?.toUpperCase()}
+                              </div>
+                            )}
+                            <div className="flex flex-col">
+                              <span className="font-medium">{staff.full_name}</span>
+                              <span className="text-xs text-gray-500">{staff.position}</span>
+                            </div>
+                          </div>
+                        </SelectItem>
+                      ))
+                    )}
                   </SelectContent>
                 </Select>
               </div>
@@ -1282,14 +1351,23 @@ export default function SmartScheduler() {
             {shiftForm.staff_email && (
               <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white font-bold">
-                    {shiftForm.staff_name?.charAt(0)}
-                  </div>
+                  {allStaff.find(s => s.email === shiftForm.staff_email)?.photo_url ? (
+                    <img 
+                      src={allStaff.find(s => s.email === shiftForm.staff_email)?.photo_url} 
+                      alt="" 
+                      className="w-10 h-10 rounded-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white font-bold text-lg">
+                      {shiftForm.staff_name?.charAt(0)?.toUpperCase()}
+                    </div>
+                  )}
                   <div>
                     <p className="font-semibold text-blue-900">{shiftForm.staff_name}</p>
                     <p className="text-sm text-blue-700">
                       {shiftForm.role} • {shiftForm.department}
                     </p>
+                    <p className="text-xs text-blue-600">{shiftForm.staff_email}</p>
                   </div>
                 </div>
               </div>
