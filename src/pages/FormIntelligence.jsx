@@ -1,0 +1,550 @@
+import React, { useState } from "react";
+import { base44 } from "@/api/base44Client";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
+  Plus,
+  Edit3,
+  Eye,
+  Lock,
+  Unlock,
+  Copy,
+  Trash2,
+  User,
+  Clock,
+  Calendar,
+  AlertCircle,
+  CheckCircle,
+  Search,
+  Filter,
+  Home,
+  ArrowLeft,
+  Settings,
+} from "lucide-react";
+import { format } from "date-fns";
+import { Link, useNavigate } from "react-router-dom";
+import { createPageUrl } from "@/utils";
+import FormEditor from "../components/FormEditor";
+import { motion } from "framer-motion";
+
+export default function FormIntelligence() {
+  const queryClient = useQueryClient();
+  const navigate = useNavigate();
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filterTrigger, setFilterTrigger] = useState("all");
+  const [filterPosition, setFilterPosition] = useState("all");
+  const [showEditor, setShowEditor] = useState(false);
+  const [selectedForm, setSelectedForm] = useState(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [formToDelete, setFormToDelete] = useState(null);
+  const [viewMode, setViewMode] = useState("grid"); // grid or list
+
+  const { data: user } = useQuery({
+    queryKey: ['currentUser'],
+    queryFn: () => base44.auth.me(),
+  });
+
+  const { data: forms = [], isLoading } = useQuery({
+    queryKey: ['formTemplates'],
+    queryFn: () => base44.entities.FormTemplate.list('-created_date'),
+  });
+
+  const { data: assignments = [] } = useQuery({
+    queryKey: ['formAssignments'],
+    queryFn: () => base44.entities.FormAssignmentMetadata.list(),
+  });
+
+  const { data: responses = [] } = useQuery({
+    queryKey: ['formResponses'],
+    queryFn: () => base44.entities.FormResponse.list('-submitted_at'),
+  });
+
+  const isManager = user?.position === 'manager' || user?.position === 'owner' || user?.role === 'admin';
+
+  const deleteFormMutation = useMutation({
+    mutationFn: (id) => base44.entities.FormTemplate.update(id, { status: 'archived', is_active: false }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['formTemplates'] });
+      setShowDeleteConfirm(false);
+      setFormToDelete(null);
+    },
+  });
+
+  const duplicateFormMutation = useMutation({
+    mutationFn: async (form) => {
+      const newForm = {
+        ...form,
+        form_name: `${form.form_name} (Copy)`,
+        version_number: 1,
+        status: 'draft',
+        created_date: undefined,
+        id: undefined,
+      };
+      return await base44.entities.FormTemplate.create(newForm);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['formTemplates'] });
+    },
+  });
+
+  const toggleActiveMutation = useMutation({
+    mutationFn: ({ id, isActive }) => 
+      base44.entities.FormTemplate.update(id, { is_active: !isActive }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['formTemplates'] });
+    },
+  });
+
+  // Filter forms
+  const filteredForms = forms.filter(form => {
+    const matchesSearch = form.form_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         form.description?.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesTrigger = filterTrigger === 'all' || form.trigger_type === filterTrigger;
+    const matchesPosition = filterPosition === 'all' || form.assigned_position === filterPosition;
+    return matchesSearch && matchesTrigger && matchesPosition && form.status !== 'archived';
+  });
+
+  // Group forms by position
+  const formsByPosition = filteredForms.reduce((acc, form) => {
+    const position = form.assigned_position || 'any';
+    if (!acc[position]) acc[position] = [];
+    acc[position].push(form);
+    return acc;
+  }, {});
+
+  const getTriggerColor = (triggerType) => {
+    switch (triggerType) {
+      case 'opening':
+        return 'bg-green-100 text-green-800 border-green-200';
+      case 'mid_day':
+        return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+      case 'closing':
+        return 'bg-red-100 text-red-800 border-red-200';
+      case 'shift_start':
+        return 'bg-blue-100 text-blue-800 border-blue-200';
+      case 'shift_end':
+        return 'bg-purple-100 text-purple-800 border-purple-200';
+      default:
+        return 'bg-gray-100 text-gray-800 border-gray-200';
+    }
+  };
+
+  const getFormStats = (formId) => {
+    const formAssignments = assignments.filter(a => a.form_id === formId);
+    const formResponses = responses.filter(r => r.form_id === formId);
+    const completedResponses = formResponses.filter(r => r.status === 'submitted' || r.status === 'approved');
+    
+    return {
+      assigned: formAssignments.length,
+      completed: completedResponses.length,
+      pending: formAssignments.length - completedResponses.length,
+      completionRate: formAssignments.length > 0 
+        ? Math.round((completedResponses.length / formAssignments.length) * 100) 
+        : 0
+    };
+  };
+
+  const handleEdit = (form) => {
+    setSelectedForm(form);
+    setShowEditor(true);
+  };
+
+  const handleDuplicate = (form) => {
+    duplicateFormMutation.mutate(form);
+  };
+
+  const handleDelete = (form) => {
+    setFormToDelete(form);
+    setShowDeleteConfirm(true);
+  };
+
+  const handleToggleActive = (form) => {
+    toggleActiveMutation.mutate({ id: form.id, isActive: form.is_active });
+  };
+
+  if (!isManager) {
+    return (
+      <div className="p-6 md:p-8">
+        <Card className="bg-red-50 border-red-200">
+          <CardContent className="p-6 text-center">
+            <AlertCircle className="w-12 h-12 text-red-600 mx-auto mb-4" />
+            <h3 className="text-lg font-semibold text-red-900 mb-2">Access Restricted</h3>
+            <p className="text-red-700">Form Intelligence is only accessible to managers.</p>
+            <Link to={createPageUrl("Dashboard")}>
+              <Button className="mt-4">
+                <Home className="w-4 h-4 mr-2" />
+                Go to Dashboard
+              </Button>
+            </Link>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (showEditor) {
+    return (
+      <div className="p-6 md:p-8">
+        <FormEditor
+          template={selectedForm}
+          onSave={() => {
+            setShowEditor(false);
+            setSelectedForm(null);
+          }}
+          onCancel={() => {
+            setShowEditor(false);
+            setSelectedForm(null);
+          }}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6 md:p-8">
+      <div className="max-w-7xl mx-auto">
+        {/* Header */}
+        <div className="flex gap-3 mb-6">
+          <Link to={createPageUrl("AdvancedChecklists")}>
+            <Button variant="outline" size="sm">
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back
+            </Button>
+          </Link>
+          <Link to={createPageUrl("Dashboard")}>
+            <Button variant="outline" size="sm">
+              <Home className="w-4 h-4 mr-2" />
+              Dashboard
+            </Button>
+          </Link>
+        </div>
+
+        <div className="flex justify-between items-start mb-8">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
+              <Settings className="w-8 h-8 text-[#014D40]" />
+              Form Intelligence
+            </h1>
+            <p className="text-gray-600 mt-2">Smart forms that adapt to positions, shifts & operations</p>
+          </div>
+          <Button
+            onClick={() => {
+              setSelectedForm(null);
+              setShowEditor(true);
+            }}
+            className="bg-[#014D40] hover:bg-[#013830]"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Create New Form
+          </Button>
+        </div>
+
+        {/* Stats Overview */}
+        <div className="grid md:grid-cols-4 gap-4 mb-8">
+          <Card className="border-l-4 border-l-blue-500">
+            <CardContent className="p-4">
+              <div className="flex justify-between items-start">
+                <div>
+                  <p className="text-sm text-gray-600 mb-1">Total Forms</p>
+                  <p className="text-2xl font-bold text-gray-900">{forms.filter(f => f.status !== 'archived').length}</p>
+                </div>
+                <CheckCircle className="w-8 h-8 text-blue-500" />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-l-4 border-l-green-500">
+            <CardContent className="p-4">
+              <div className="flex justify-between items-start">
+                <div>
+                  <p className="text-sm text-gray-600 mb-1">Active Forms</p>
+                  <p className="text-2xl font-bold text-gray-900">{forms.filter(f => f.is_active && f.status === 'active').length}</p>
+                </div>
+                <Unlock className="w-8 h-8 text-green-500" />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-l-4 border-l-purple-500">
+            <CardContent className="p-4">
+              <div className="flex justify-between items-start">
+                <div>
+                  <p className="text-sm text-gray-600 mb-1">Auto-Assigned</p>
+                  <p className="text-2xl font-bold text-gray-900">{forms.filter(f => f.auto_assign_enabled).length}</p>
+                </div>
+                <Clock className="w-8 h-8 text-purple-500" />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-l-4 border-l-amber-500">
+            <CardContent className="p-4">
+              <div className="flex justify-between items-start">
+                <div>
+                  <p className="text-sm text-gray-600 mb-1">Completed Today</p>
+                  <p className="text-2xl font-bold text-gray-900">
+                    {responses.filter(r => 
+                      r.submitted_at && new Date(r.submitted_at).toDateString() === new Date().toDateString()
+                    ).length}
+                  </p>
+                </div>
+                <Calendar className="w-8 h-8 text-amber-500" />
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Filters */}
+        <Card className="mb-6">
+          <CardContent className="p-4">
+            <div className="flex flex-wrap gap-4 items-center">
+              <div className="flex-1 min-w-[200px]">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <Input
+                    placeholder="Search forms..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+              </div>
+
+              <select
+                value={filterTrigger}
+                onChange={(e) => setFilterTrigger(e.target.value)}
+                className="px-3 py-2 border rounded-lg text-sm"
+              >
+                <option value="all">All Triggers</option>
+                <option value="opening">Opening</option>
+                <option value="mid_day">Mid-Day</option>
+                <option value="closing">Closing</option>
+                <option value="shift_start">Shift Start</option>
+                <option value="shift_end">Shift End</option>
+                <option value="manual">Manual</option>
+              </select>
+
+              <select
+                value={filterPosition}
+                onChange={(e) => setFilterPosition(e.target.value)}
+                className="px-3 py-2 border rounded-lg text-sm"
+              >
+                <option value="all">All Positions</option>
+                <option value="any">Any Position</option>
+                <option value="manager">Manager</option>
+                <option value="chef">Chef</option>
+                <option value="line_cook">Line Cook</option>
+                <option value="server">Server</option>
+                <option value="bartender">Bartender</option>
+                <option value="cleaner">Cleaner</option>
+                <option value="maintenance">Maintenance</option>
+              </select>
+
+              <Button
+                variant={viewMode === 'grid' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setViewMode(viewMode === 'grid' ? 'list' : 'grid')}
+              >
+                {viewMode === 'grid' ? 'Grid View' : 'List View'}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Forms Display */}
+        {isLoading ? (
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {[1, 2, 3, 4, 5, 6].map(i => (
+              <Card key={i} className="animate-pulse">
+                <CardContent className="p-6">
+                  <div className="h-4 bg-gray-200 rounded w-3/4 mb-4"></div>
+                  <div className="h-3 bg-gray-200 rounded w-full mb-2"></div>
+                  <div className="h-3 bg-gray-200 rounded w-5/6"></div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        ) : Object.entries(formsByPosition).length === 0 ? (
+          <Card>
+            <CardContent className="p-12 text-center">
+              <Settings className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+              <h3 className="text-xl font-semibold text-gray-900 mb-2">No Forms Found</h3>
+              <p className="text-gray-600 mb-6">Get started by creating your first smart form</p>
+              <Button
+                onClick={() => {
+                  setSelectedForm(null);
+                  setShowEditor(true);
+                }}
+                className="bg-[#014D40] hover:bg-[#013830]"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Create Form
+              </Button>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="space-y-8">
+            {Object.entries(formsByPosition).map(([position, positionForms]) => (
+              <div key={position}>
+                <h2 className="text-xl font-bold text-gray-900 mb-4 capitalize flex items-center gap-2">
+                  <User className="w-5 h-5 text-[#014D40]" />
+                  {position === 'any' ? 'All Positions' : position.replace('_', ' ')}
+                  <Badge variant="outline">{positionForms.length} forms</Badge>
+                </h2>
+
+                <div className={viewMode === 'grid' ? 'grid md:grid-cols-2 lg:grid-cols-3 gap-6' : 'space-y-4'}>
+                  {positionForms.map((form, index) => {
+                    const stats = getFormStats(form.id);
+                    
+                    return (
+                      <motion.div
+                        key={form.id}
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: index * 0.05 }}
+                      >
+                        <Card className={`${
+                          form.is_active 
+                            ? 'border-l-4 border-l-[#014D40]' 
+                            : 'border-l-4 border-l-gray-300 opacity-60'
+                        } hover:shadow-lg transition-all`}>
+                          <CardContent className="p-6">
+                            <div className="flex justify-between items-start mb-4">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <h3 className="text-lg font-bold text-gray-900">{form.form_name}</h3>
+                                  {form.is_active ? (
+                                    <Unlock className="w-4 h-4 text-green-600" title="Editable" />
+                                  ) : (
+                                    <Lock className="w-4 h-4 text-gray-400" title="Locked" />
+                                  )}
+                                </div>
+                                {form.description && (
+                                  <p className="text-sm text-gray-600 mb-3">{form.description}</p>
+                                )}
+                              </div>
+                            </div>
+
+                            <div className="flex flex-wrap gap-2 mb-4">
+                              <Badge className={getTriggerColor(form.trigger_type)}>
+                                {form.trigger_type?.replace('_', ' ')}
+                              </Badge>
+                              {form.auto_assign_enabled && (
+                                <Badge className="bg-purple-100 text-purple-800">
+                                  Auto-Assign
+                                </Badge>
+                              )}
+                              {form.requires_signature && (
+                                <Badge variant="outline">
+                                  Signature Required
+                                </Badge>
+                              )}
+                              <Badge variant="outline">
+                                v{form.version_number || 1}
+                              </Badge>
+                            </div>
+
+                            {/* Stats */}
+                            <div className="grid grid-cols-3 gap-2 mb-4 p-3 bg-gray-50 rounded-lg">
+                              <div className="text-center">
+                                <p className="text-xs text-gray-600">Assigned</p>
+                                <p className="text-lg font-bold text-gray-900">{stats.assigned}</p>
+                              </div>
+                              <div className="text-center">
+                                <p className="text-xs text-gray-600">Completed</p>
+                                <p className="text-lg font-bold text-green-600">{stats.completed}</p>
+                              </div>
+                              <div className="text-center">
+                                <p className="text-xs text-gray-600">Rate</p>
+                                <p className="text-lg font-bold text-blue-600">{stats.completionRate}%</p>
+                              </div>
+                            </div>
+
+                            {/* Actions */}
+                            <div className="flex gap-2">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleEdit(form)}
+                                className="flex-1"
+                              >
+                                <Edit3 className="w-4 h-4 mr-1" />
+                                Edit
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleDuplicate(form)}
+                              >
+                                <Copy className="w-4 h-4" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleToggleActive(form)}
+                                className={form.is_active ? 'text-gray-600' : 'text-green-600'}
+                              >
+                                {form.is_active ? <Lock className="w-4 h-4" /> : <Unlock className="w-4 h-4" />}
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleDelete(form)}
+                                className="text-red-600 hover:bg-red-50"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </motion.div>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Delete Confirmation Dialog */}
+        <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Archive Form?</DialogTitle>
+            </DialogHeader>
+            <div className="py-4">
+              <p className="text-gray-700">
+                Are you sure you want to archive "<strong>{formToDelete?.form_name}</strong>"?
+              </p>
+              <p className="text-sm text-gray-600 mt-2">
+                This form will be moved to archived status and no longer appear in active forms.
+              </p>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowDeleteConfirm(false)}>
+                Cancel
+              </Button>
+              <Button
+                onClick={() => deleteFormMutation.mutate(formToDelete.id)}
+                disabled={deleteFormMutation.isPending}
+                className="bg-red-600 hover:bg-red-700"
+              >
+                {deleteFormMutation.isPending ? 'Archiving...' : 'Archive Form'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
+    </div>
+  );
+}

@@ -26,6 +26,7 @@ import {
   FileText,
   Database,
   Activity, // Added Activity icon
+  Settings, // Added Settings icon for Form Intelligence
 } from "lucide-react";
 import WelcomeNewHire from "./components/WelcomeNewHire";
 import ChecklistAutomation from "./components/ChecklistAutomation";
@@ -102,6 +103,12 @@ const navigationItems = [
         url: createPageUrl("Maintenance"),
         icon: Wrench,
         badge: null,
+      },
+      {
+        title: "Form Intelligence",
+        url: createPageUrl("FormIntelligence"),
+        icon: Settings,
+        badge: "AI",
       },
     ]
   },

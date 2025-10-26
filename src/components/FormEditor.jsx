@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -132,6 +133,20 @@ export default function FormEditor({ template, onSave, onCancel }) {
   const updateField = (index, updates) => {
     const updatedFields = [...formData.fields];
     updatedFields[index] = { ...updatedFields[index], ...updates };
+    
+    // Handle conditional logic setup
+    if (updates.field_type) {
+      // Add validation rules for specific field types
+      if (updates.field_type === 'number' && updatedFields[index].field_label?.toLowerCase().includes('temp')) {
+        updatedFields[index].validation_rules = {
+          type: 'temperature',
+          critical_threshold: 8,
+          requires_comment_if_critical: true,
+          requires_photo_if_critical: true
+        };
+      }
+    }
+    
     setFormData({
       ...formData,
       fields: updatedFields
@@ -184,6 +199,239 @@ export default function FormEditor({ template, onSave, onCancel }) {
 
   const handleSave = () => {
     saveFormMutation.mutate(formData);
+  };
+
+  // Add conditional logic section in field editor
+  const renderFieldEditor = (field, index) => {
+    return (
+      <Card
+        key={field.field_id}
+        draggable={editMode}
+        onDragStart={() => handleDragStart(index)}
+        onDragOver={(e) => handleDragOver(e, index)}
+        onDragEnd={handleDragEnd}
+        className={`${
+          draggedFieldIndex === index ? 'opacity-50' : ''
+        } ${editMode ? 'cursor-move' : ''}`}
+      >
+        <CardContent className="p-4">
+          <div className="flex gap-3">
+            {editMode && (
+              <div className="flex items-center">
+                <GripVertical className="w-5 h-5 text-gray-400" />
+              </div>
+            )}
+
+            <div className="flex-1 space-y-3">
+              {/* Existing field editor code */}
+              <div className="flex gap-3">
+                <div className="flex-1">
+                  <Input
+                    value={field.field_label}
+                    onChange={(e) => updateField(index, { field_label: e.target.value })}
+                    placeholder="Field Label"
+                    disabled={!editMode}
+                  />
+                </div>
+                <div className="w-48">
+                  <Select
+                    value={field.field_type}
+                    onValueChange={(value) => updateField(index, { field_type: value })}
+                    disabled={!editMode}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {fieldTypes.map(type => (
+                        <SelectItem key={type.value} value={type.value}>
+                          {type.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <Input
+                value={field.field_hint}
+                onChange={(e) => updateField(index, { field_hint: e.target.value })}
+                placeholder="Hint text (optional)"
+                disabled={!editMode}
+                className="text-sm"
+              />
+
+              {(field.field_type === 'dropdown' || field.field_type === 'radio') && (
+                <Input
+                  value={field.options?.join(', ') || ''}
+                  onChange={(e) => updateField(index, { options: e.target.value.split(',').map(o => o.trim()) })}
+                  placeholder="Options (comma separated)"
+                  disabled={!editMode}
+                  className="text-sm"
+                />
+              )}
+
+              <div className="flex items-center gap-4">
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={field.required}
+                    onChange={(e) => updateField(index, { required: e.target.checked })}
+                    disabled={!editMode}
+                    className="rounded"
+                  />
+                  Required
+                </label>
+                
+                {field.required && (
+                  <Badge variant="outline" className="text-xs">
+                    Required Field
+                  </Badge>
+                )}
+              </div>
+
+              {/* Conditional Logic Section */}
+              {field.field_type === 'number' && (
+                <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                  <Label className="text-xs font-semibold text-blue-900 mb-2 block">
+                    Conditional Logic
+                  </Label>
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Input
+                        type="number"
+                        placeholder="Critical threshold"
+                        value={field.validation_rules?.critical_threshold || ''}
+                        onChange={(e) => updateField(index, {
+                          validation_rules: {
+                            ...field.validation_rules,
+                            critical_threshold: parseFloat(e.target.value),
+                            type: 'temperature'
+                          }
+                        })}
+                        disabled={!editMode}
+                        className="text-sm"
+                      />
+                      <span className="text-xs text-gray-600">°C</span>
+                    </div>
+                    
+                    <label className="flex items-center gap-2 text-xs">
+                      <input
+                        type="checkbox"
+                        checked={field.validation_rules?.requires_comment_if_critical || false}
+                        onChange={(e) => updateField(index, {
+                          validation_rules: {
+                            ...field.validation_rules,
+                            requires_comment_if_critical: e.target.checked
+                          }
+                        })}
+                        disabled={!editMode}
+                        className="rounded"
+                      />
+                      Require comment if above threshold
+                    </label>
+
+                    <label className="flex items-center gap-2 text-xs">
+                      <input
+                        type="checkbox"
+                        checked={field.validation_rules?.requires_photo_if_critical || false}
+                        onChange={(e) => updateField(index, {
+                          validation_rules: {
+                            ...field.validation_rules,
+                            requires_photo_if_critical: e.target.checked
+                          }
+                        })}
+                        disabled={!editMode}
+                        className="rounded"
+                      />
+                      Require photo if above threshold
+                    </label>
+
+                    {field.validation_rules?.critical_threshold !== undefined && (
+                      <div className="text-xs text-blue-700 bg-blue-100 p-2 rounded">
+                        ⚠️ If value {'>'} {field.validation_rules.critical_threshold}°C: 
+                        {field.validation_rules.requires_comment_if_critical && ' + Comment'}
+                        {field.validation_rules.requires_photo_if_critical && ' + Photo'}
+                        {(!field.validation_rules.requires_comment_if_critical && !field.validation_rules.requires_photo_if_critical) && ' (No additional actions configured)'}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Show/Hide Conditional Logic */}
+              {field.field_type !== 'section_header' && (
+                <div className="p-3 bg-purple-50 border border-purple-200 rounded-lg">
+                  <Label className="text-xs font-semibold text-purple-900 mb-2 block">
+                    Show/Hide Rules
+                  </Label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <select
+                      value={field.conditional_logic?.show_if_field || ''}
+                      onChange={(e) => updateField(index, {
+                        conditional_logic: {
+                          ...field.conditional_logic,
+                          show_if_field: e.target.value
+                        }
+                      })}
+                      disabled={!editMode}
+                      className="text-xs px-2 py-1 border rounded"
+                    >
+                      <option value="">Always show</option>
+                      {formData.fields
+                        .filter((f, i) => i < index && f.field_type !== 'section_header')
+                        .map(f => (
+                          <option key={f.field_id} value={f.field_id}>
+                            If "{f.field_label}"...
+                          </option>
+                        ))}
+                    </select>
+
+                    <Input
+                      placeholder="equals value..."
+                      value={field.conditional_logic?.show_if_value || ''}
+                      onChange={(e) => updateField(index, {
+                        conditional_logic: {
+                          ...field.conditional_logic,
+                          show_if_value: e.target.value
+                        }
+                      })}
+                      disabled={!editMode || !field.conditional_logic?.show_if_field}
+                      className="text-xs"
+                    />
+                  </div>
+                  {field.conditional_logic?.show_if_field && (
+                    <p className="text-xs text-purple-700 mt-2">
+                      This field appears only when the selected condition is met.
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {editMode && (
+              <div className="flex flex-col gap-2">
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  onClick={() => duplicateField(index)}
+                >
+                  <Copy className="w-4 h-4" />
+                </Button>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  onClick={() => removeField(index)}
+                  className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </Button>
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+    );
   };
 
   return (
@@ -389,116 +637,7 @@ export default function FormEditor({ template, onSave, onCancel }) {
                 )}
               </div>
             ) : (
-              formData.fields.map((field, index) => (
-                <Card
-                  key={field.field_id}
-                  draggable={editMode}
-                  onDragStart={() => handleDragStart(index)}
-                  onDragOver={(e) => handleDragOver(e, index)}
-                  onDragEnd={handleDragEnd}
-                  className={`${
-                    draggedFieldIndex === index ? 'opacity-50' : ''
-                  } ${editMode ? 'cursor-move' : ''}`}
-                >
-                  <CardContent className="p-4">
-                    <div className="flex gap-3">
-                      {editMode && (
-                        <div className="flex items-center">
-                          <GripVertical className="w-5 h-5 text-gray-400" />
-                        </div>
-                      )}
-
-                      <div className="flex-1 space-y-3">
-                        <div className="flex gap-3">
-                          <div className="flex-1">
-                            <Input
-                              value={field.field_label}
-                              onChange={(e) => updateField(index, { field_label: e.target.value })}
-                              placeholder="Field Label"
-                              disabled={!editMode}
-                            />
-                          </div>
-                          <div className="w-48">
-                            <Select
-                              value={field.field_type}
-                              onValueChange={(value) => updateField(index, { field_type: value })}
-                              disabled={!editMode}
-                            >
-                              <SelectTrigger>
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {fieldTypes.map(type => (
-                                  <SelectItem key={type.value} value={type.value}>
-                                    {type.label}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        </div>
-
-                        <Input
-                          value={field.field_hint}
-                          onChange={(e) => updateField(index, { field_hint: e.target.value })}
-                          placeholder="Hint text (optional)"
-                          disabled={!editMode}
-                          className="text-sm"
-                        />
-
-                        {(field.field_type === 'dropdown' || field.field_type === 'radio') && (
-                          <Input
-                            value={field.options?.join(', ') || ''}
-                            onChange={(e) => updateField(index, { options: e.target.value.split(',').map(o => o.trim()) })}
-                            placeholder="Options (comma separated)"
-                            disabled={!editMode}
-                            className="text-sm"
-                          />
-                        )}
-
-                        <div className="flex items-center gap-4">
-                          <label className="flex items-center gap-2 text-sm">
-                            <input
-                              type="checkbox"
-                              checked={field.required}
-                              onChange={(e) => updateField(index, { required: e.target.checked })}
-                              disabled={!editMode}
-                              className="rounded"
-                            />
-                            Required
-                          </label>
-                          
-                          {field.required && (
-                            <Badge variant="outline" className="text-xs">
-                              Required Field
-                            </Badge>
-                          )}
-                        </div>
-                      </div>
-
-                      {editMode && (
-                        <div className="flex flex-col gap-2">
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            onClick={() => duplicateField(index)}
-                          >
-                            <Copy className="w-4 h-4" />
-                          </Button>
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            onClick={() => removeField(index)}
-                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              ))
+              formData.fields.map(renderFieldEditor)
             )}
           </div>
         </CardContent>
