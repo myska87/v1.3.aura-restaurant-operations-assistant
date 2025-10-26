@@ -119,4 +119,6 @@ const pages = [
   { name: 'EmailLog', path: '/email-log', file: 'EmailLog.jsx', component: EmailLog, public: false }
 ];
 
-export { pages, Layout };
+const pagesConfig = pages;
+
+export { pages, pagesConfig, Layout };
