@@ -73,6 +73,12 @@ const navigationItems = [
     section: "Operations",
     items: [
       {
+        title: "🍽️ Menu",
+        url: createPageUrl("Menu"),
+        icon: Package, // Reusing Package icon for Menu as it fits well for products/items
+        badge: null,
+      },
+      {
         title: "Daily Checklists",
         url: createPageUrl("DailyChecklists"),
         icon: ClipboardCheck,
@@ -99,7 +105,7 @@ const navigationItems = [
     ]
   },
   {
-    section: "Inventory & Menu",
+    section: "Inventory",
     items: [
       {
         title: "Inventory Hub",

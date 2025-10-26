@@ -71,6 +71,27 @@
       "type": "number",
       "description": "Days until expiry"
     },
+    "allergen_tags": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "milk",
+          "nuts",
+          "gluten",
+          "soy",
+          "egg",
+          "fish",
+          "shellfish",
+          "sesame",
+          "celery",
+          "mustard",
+          "sulphites",
+          "lupin"
+        ]
+      },
+      "description": "Allergens contained in this ingredient"
+    },
     "auto_order_enabled": {
       "type": "boolean",
       "default": true,
