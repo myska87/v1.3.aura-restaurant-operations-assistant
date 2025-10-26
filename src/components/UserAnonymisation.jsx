@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { UserX, AlertTriangle, CheckCircle, Loader2 } from "lucide-react";
-import { anonymiseUserData, hashData } from "@/lib/encryption";
+import { anonymiseUserData, hashData } from "./encryption";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 

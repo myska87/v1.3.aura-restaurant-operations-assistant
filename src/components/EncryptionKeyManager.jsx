@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Shield, Key, RefreshCw, AlertTriangle, CheckCircle } from "lucide-react";
-import { checkKeyRotation, getEncryptionKey } from "@/lib/encryption";
+import { checkKeyRotation, getEncryptionKey } from "./encryption";
 
 /**
  * Encryption Key Manager - Admin Component
@@ -101,7 +101,7 @@ export default function EncryptionKeyManager() {
         <div className="text-xs text-gray-500 space-y-1 pt-2 border-t">
           <p>🔐 Last Rotation: {new Date(keyStatus.lastRotation).toLocaleDateString()}</p>
           <p>🔑 Algorithm: AES-256-GCM</p>
-          <p>📦 Storage: Environment-level (Secure)</p>
+          <p>📦 Storage: Client-side (Upgrade to server-side for production)</p>
         </div>
       </CardContent>
     </Card>
