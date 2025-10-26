@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQueryClient } from "@tanstack/react-query";
 
-export function MenuImporter() {
+export default function MenuImporter() {
   const queryClient = useQueryClient();
   const [importing, setImporting] = useState(false);
 
@@ -27,7 +27,6 @@ export function MenuImporter() {
       }
 
       const getCategoryId = (name) => categories.find(c => c.name === name)?.id;
-      const getIngredientId = (name) => ingredients.find(i => i.name === name)?.id;
 
       const createRecipe = (ingredientNames) => {
         return ingredientNames.map(name => {
@@ -55,7 +54,58 @@ export function MenuImporter() {
       };
 
       const menuItemsData = [
-        // ... menu items data from previous action ...
+        // Chai Specials
+        {
+          name: "Masala Chai",
+          category_id: getCategoryId("Chai Specials"),
+          category_name: "Chai Specials",
+          sell_price: 3.50,
+          description: "Classic Indian spiced tea with aromatic masala blend",
+          recipe: createRecipe(["Black Tea Leaves", "Water", "Milk (Whole)", "Sugar (White)", "Masala Chai Spice Blend"]),
+          prep_time_minutes: 5,
+          is_active: true,
+        },
+        {
+          name: "Saffron Chai",
+          category_id: getCategoryId("Chai Specials"),
+          category_name: "Chai Specials",
+          sell_price: 4.00,
+          description: "Luxurious chai infused with premium saffron strands",
+          recipe: createRecipe(["Black Tea Leaves", "Milk (Whole)", "Saffron Strands", "Sugar (White)", "Water"]),
+          prep_time_minutes: 6,
+          is_active: true,
+        },
+        {
+          name: "Ginger Chai",
+          category_id: getCategoryId("Chai Specials"),
+          category_name: "Chai Specials",
+          sell_price: 3.75,
+          description: "Warming chai with fresh ginger kick",
+          recipe: createRecipe(["Black Tea Leaves", "Milk (Whole)", "Fresh Ginger Root", "Sugar (White)", "Water"]),
+          prep_time_minutes: 5,
+          is_active: true,
+        },
+        {
+          name: "Cardamom Chai",
+          category_id: getCategoryId("Chai Specials"),
+          category_name: "Chai Specials",
+          sell_price: 3.75,
+          description: "Aromatic chai with crushed cardamom pods",
+          recipe: createRecipe(["Black Tea Leaves", "Milk (Whole)", "Cardamom Pods", "Sugar (White)", "Water"]),
+          prep_time_minutes: 5,
+          is_active: true,
+        },
+        {
+          name: "Chai Latte",
+          category_id: getCategoryId("Chai Specials"),
+          category_name: "Chai Specials",
+          sell_price: 3.50,
+          description: "Creamy latte-style chai with steamed milk",
+          recipe: createRecipe(["Masala Chai Spice Blend", "Milk (Whole)", "Sugar (White)"]),
+          prep_time_minutes: 4,
+          is_active: true,
+        },
+        // Add remaining menu items...
       ];
 
       for (const item of menuItemsData) {
