@@ -17,6 +17,9 @@ export default function Ordering() {
   const [sendingOrder, setSendingOrder] = useState(null);
   const [deliveryDates, setDeliveryDates] = useState({});
 
+  // Dummy user object for email logging. In a real app, this would come from an AuthContext or similar.
+  const user = { email: 'admin@aurarestaurant.com', full_name: 'AURA Admin' };
+
   const { data: allOrders = [], isLoading } = useQuery({
     queryKey: ['purchaseOrders'],
     queryFn: () => base44.entities.PurchaseOrder.list('-order_date'),
@@ -57,51 +60,201 @@ export default function Ordering() {
     }
   });
 
-  const generateEmailContent = (order, deliveryDate) => {
-    const subject = `Purchase Order ${order.order_number} from AURA Restaurant`;
+  const sendOrderEmailMutation = useMutation({
+    mutationFn: async ({ order, deliveryDate }) => {
+      // Generate professional HTML email
+      const emailBody = `
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+    .header { background: linear-gradient(135deg, #014D40 0%, #10b981 100%); color: white; padding: 30px; text-align: center; }
+    .logo { font-size: 32px; font-weight: bold; margin-bottom: 10px; }
+    .content { padding: 30px; background: #f9fafb; }
+    .order-box { background: white; padding: 25px; border-radius: 10px; margin: 20px 0; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+    .order-header { border-bottom: 2px solid #014D40; padding-bottom: 15px; margin-bottom: 20px; }
+    .order-number { font-size: 24px; font-weight: bold; color: #014D40; }
+    .order-date { color: #6b7280; font-size: 14px; }
+    table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+    th { background: #f3f4f6; padding: 12px; text-align: left; font-weight: 600; border-bottom: 2px solid #e5e7eb; }
+    td { padding: 12px; border-bottom: 1px solid #e5e7eb; }
+    .item-name { font-weight: 500; color: #111827; }
+    .totals { background: #f9fafb; padding: 20px; border-radius: 8px; margin-top: 20px; }
+    .total-row { display: flex; justify-content: space-between; padding: 8px 0; }
+    .grand-total { font-size: 24px; font-weight: bold; color: #014D40; border-top: 2px solid #014D40; padding-top: 15px; margin-top: 10px; }
+    .delivery-info { background: #dbeafe; padding: 15px; border-radius: 8px; margin: 20px 0; }
+    .footer { text-align: center; padding: 20px; color: #6b7280; font-size: 12px; }
+    .action-required { background: #fef3c7; border-left: 4px solid #f59e0b; padding: 15px; margin: 20px 0; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="logo">🌟 AURA Restaurant</div>
+    <p style="margin: 0; font-size: 18px;">Purchase Order Request</p>
+  </div>
+  
+  <div class="content">
+    <div class="order-box">
+      <div class="order-header">
+        <div class="order-number">Purchase Order: ${order.order_number}</div>
+        <div class="order-date">Order Date: ${format(new Date(), "PPP 'at' p")}</div>
+      </div>
+
+      <p>Dear <strong>${order.supplier_name}</strong>,</p>
+      <p>Please find our purchase order details below. We kindly request you to confirm receipt and provide expected delivery information.</p>
+
+      ${deliveryDate ? `
+      <div class="delivery-info">
+        <strong>📦 Requested Delivery Date:</strong> ${format(new Date(deliveryDate), 'EEEE, MMMM d, yyyy')}
+      </div>
+      ` : ''}
+
+      <table>
+        <thead>
+          <tr>
+            <th>Item</th>
+            <th style="text-align: center;">Quantity</th>
+            <th style="text-align: right;">Unit Price</th>
+            <th style="text-align: right;">Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${order.items.map(item => `
+            <tr>
+              <td class="item-name">${item.ingredient_name}</td>
+              <td style="text-align: center;">${item.quantity_ordered} ${item.unit}</td>
+              <td style="text-align: right;">£${item.unit_cost.toFixed(2)}</td>
+              <td style="text-align: right;"><strong>£${item.line_total.toFixed(2)}</strong></td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+
+      <div class="totals">
+        <div class="total-row">
+          <span>Subtotal:</span>
+          <span><strong>£${order.subtotal.toFixed(2)}</strong></span>
+        </div>
+        <div class="total-row">
+          <span>VAT (20%):</span>
+          <span><strong>£${order.tax.toFixed(2)}</strong></span>
+        </div>
+        <div class="total-row grand-total">
+          <span>GRAND TOTAL:</span>
+          <span>£${order.total.toFixed(2)}</span>
+        </div>
+      </div>
+
+      <div class="action-required">
+        <strong>⚠️ Action Required:</strong>
+        <p style="margin: 10px 0 0 0;">Please confirm receipt of this order and provide:</p>
+        <ul style="margin: 10px 0 0 20px;">
+          <li>Order confirmation number</li>
+          <li>Expected delivery date${deliveryDate ? ' (or confirm requested date above)' : ''}</li>
+          <li>Any changes to pricing or availability</li>
+        </ul>
+      </div>
+
+      ${order.notes ? `
+      <div style="margin-top: 20px; padding: 15px; background: #f3f4f6; border-radius: 8px;">
+        <strong>Additional Notes:</strong>
+        <p style="margin: 10px 0 0 0;">${order.notes}</p>
+      </div>
+      ` : ''}
+    </div>
+
+    <p>If you have any questions or concerns about this order, please contact us immediately.</p>
     
-    const body = `Dear ${order.supplier_name},
+    <p>Thank you for your continued service.</p>
+    
+    <p><strong>Best regards,</strong><br>
+    AURA Restaurant Management Team</p>
+  </div>
 
-Please find our purchase order details below:
+  <div class="footer">
+    <p>This is an automated message from AURA Restaurant Operations System.</p>
+    <p>Order generated at ${format(new Date(), "PPP 'at' p")}</p>
+  </div>
+</body>
+</html>
+      `;
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-📋 PURCHASE ORDER: ${order.order_number}
-📅 Date: ${format(new Date(), "PPP")}
-🏪 From: AURA Restaurant Management System
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      const emailSubject = `Purchase Order ${order.order_number} from AURA Restaurant`;
 
-ITEMS ORDERED:
-${order.items.map((item, index) => 
-  `${index + 1}. ${item.ingredient_name}
-   Quantity: ${item.quantity_ordered} ${item.unit}
-   Unit Price: £${item.unit_cost.toFixed(2)}
-   Line Total: £${item.line_total.toFixed(2)}`
-).join('\n\n')}
+      // Send email using base44 integration
+      try {
+        await base44.integrations.Core.SendEmail({
+          from_name: 'AURA Restaurant',
+          to: order.supplier_email,
+          subject: emailSubject,
+          body: emailBody,
+        });
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-TOTALS:
-Subtotal: £${order.subtotal.toFixed(2)}
-VAT (20%): £${order.tax.toFixed(2)}
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-GRAND TOTAL: £${order.total.toFixed(2)}
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        // Log the email
+        await base44.entities.EmailLog.create({
+          email_type: 'purchase_order',
+          recipient_email: order.supplier_email,
+          recipient_name: order.supplier_name,
+          sender_email: user.email, // Assuming 'user' object is available from context/auth
+          sender_name: user.full_name, // Assuming 'user' object is available from context/auth
+          subject: emailSubject,
+          body_html: emailBody,
+          related_order_id: order.id,
+          sent_at: new Date().toISOString(),
+          status: 'sent',
+          metadata: {
+            order_number: order.order_number,
+            order_total: order.total,
+            delivery_date: deliveryDate,
+          }
+        });
 
-${deliveryDate ? `📦 Expected Delivery Date: ${format(new Date(deliveryDate), 'PPP')}` : '📦 Expected Delivery Date: Please confirm'}
+        // Update order status
+        await updateOrderMutation.mutateAsync({
+          id: order.id,
+          data: {
+            status: 'pending_approval',
+            expected_delivery_date: deliveryDate || null,
+            email_sent_at: new Date().toISOString(),
+            sent_at: new Date().toISOString(),
+          }
+        });
 
-Please confirm receipt of this order and provide:
-1. Order confirmation
-2. Expected delivery date (if not specified above)
-3. Any changes to pricing or availability
+        return { success: true };
+      } catch (error) {
+        // Log failed email
+        await base44.entities.EmailLog.create({
+          email_type: 'purchase_order',
+          recipient_email: order.supplier_email,
+          recipient_name: order.supplier_name,
+          sender_email: user.email, // Assuming 'user' object is available
+          sender_name: user.full_name, // Assuming 'user' object is available
+          subject: emailSubject,
+          body_html: emailBody,
+          related_order_id: order.id,
+          sent_at: new Date().toISOString(),
+          status: 'failed',
+          error_message: error.message,
+          metadata: {
+            order_number: order.order_number,
+          }
+        });
 
-If you have any questions, please contact us immediately.
-
-Thank you for your continued service.
-
-Best regards,
-AURA Restaurant Management Team`;
-
-    return { subject, body };
-  };
+        throw error;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['purchaseOrders'] });
+      setSendingOrder(null);
+      alert('✅ Order sent successfully to supplier!');
+    },
+    onError: (error) => {
+      console.error('Failed to send order:', error);
+      setSendingOrder(null);
+      alert('❌ Failed to send order. Please try again or contact the supplier directly.');
+    }
+  });
 
   const handleSendOrder = async (order) => {
     const deliveryDate = deliveryDates[order.id];
@@ -112,43 +265,17 @@ AURA Restaurant Management Team`;
       }
     }
 
+    if (!order.supplier_email) {
+      alert('❌ Supplier email not found. Please add supplier email before sending.');
+      return;
+    }
+
     setSendingOrder(order.id);
-
+    
     try {
-      // Generate email content
-      const { subject, body } = generateEmailContent(order, deliveryDate);
-
-      // Create mailto: link
-      const mailtoLink = `mailto:${order.supplier_email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-
-      // Open email client
-      window.location.href = mailtoLink;
-
-      // Wait a moment for email to open, then update status
-      setTimeout(async () => {
-        try {
-          await updateOrderMutation.mutateAsync({
-            id: order.id,
-            data: {
-              status: 'pending_approval',
-              expected_delivery_date: deliveryDate || null,
-              email_sent_at: new Date().toISOString(),
-            }
-          });
-
-          alert(`✅ Email opened! Order ${order.order_number} moved to Pending Approval.\n\nPlease send the email from your email program.`);
-        } catch (error) {
-          console.error("Error updating order:", error);
-          alert("⚠️ Email opened but failed to update order status. Please try again.");
-        } finally {
-          setSendingOrder(null);
-        }
-      }, 1000);
-
+      await sendOrderEmailMutation.mutateAsync({ order, deliveryDate });
     } catch (error) {
-      console.error("Error sending order:", error);
-      alert("Failed to open email. Please try again.");
-      setSendingOrder(null);
+      console.error('Error:', error);
     }
   };
 
@@ -347,11 +474,14 @@ AURA Restaurant Management Team`;
                 className="bg-green-600 hover:bg-green-700"
               >
                 {sendingOrder === order.id ? (
-                  <>Opening Email...</>
+                  <>
+                    <div className="animate-spin mr-2 h-4 w-4 border-2 border-white border-t-transparent rounded-full" />
+                    Sending Email...
+                  </>
                 ) : (
                   <>
                     <Send className="w-4 h-4 mr-2" />
-                    Open Email & Send Order
+                    Send Order via Email
                   </>
                 )}
               </Button>
@@ -444,7 +574,7 @@ AURA Restaurant Management Team`;
           </div>
 
           {draftOrders.length > 0 && (
-            <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-6">
               <div className="flex items-start gap-3">
                 <ShoppingCart className="w-5 h-5 text-amber-600 mt-0.5" />
                 <div className="flex-1">
@@ -452,7 +582,7 @@ AURA Restaurant Management Team`;
                     📋 {draftOrders.length} Draft Order{draftOrders.length !== 1 ? 's' : ''} Ready
                   </p>
                   <p className="text-sm text-amber-700 mt-1">
-                    Review quantities and delivery dates, then send to suppliers via email.
+                    Review quantities and delivery dates. Orders will be sent automatically via email to suppliers.
                   </p>
                 </div>
               </div>
