@@ -14,7 +14,10 @@ import {
   Zap,
   LogIn,
   LogOut,
-  CheckCircle
+  CheckCircle,
+  ListChecks,
+  Clock,
+  ArrowRight
 } from "lucide-react";
 import StatCard from "../components/dashboard/StatCard";
 import ComplianceChart from "../components/dashboard/ComplianceChart";
@@ -60,6 +63,35 @@ export default function Dashboard() {
     queryKey: ['currentUser'],
     queryFn: () => base44.auth.me(),
     staleTime: 10 * 60 * 1000, // Cache for 10 minutes
+  });
+
+  // Fetch user's checklists
+  const { data: myChecklists = [] } = useQuery({
+    queryKey: ['myChecklistsDashboard', user?.email],
+    queryFn: async () => {
+      if (!user?.email) return [];
+      
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const sevenDaysFromNow = new Date(today);
+      sevenDaysFromNow.setDate(today.getDate() + 7);
+
+      const allChecklists = await base44.entities.ChecklistExecution.list('-execution_date', 50);
+      
+      return allChecklists.filter(c => {
+        const execDate = new Date(c.execution_date);
+        execDate.setHours(0, 0, 0, 0);
+        
+        return (
+          c.assigned_to_email === user.email &&
+          c.status !== 'completed' &&
+          execDate >= today &&
+          execDate <= sevenDaysFromNow
+        );
+      }).slice(0, 5); // Show max 5 upcoming checklists
+    },
+    enabled: !!user?.email,
+    staleTime: 2 * 60 * 1000,
   });
 
   // OPTIMIZED: Only fetch today's shifts
@@ -469,8 +501,91 @@ export default function Dashboard() {
 
         {/* Quick Access Cards */}
         <div className="grid md:grid-cols-2 gap-6 mt-6">
+          {/* My Checklists Card */}
+          <Link to={createPageUrl("MyChecklists")}>
+            <Card className="bg-gradient-to-br from-blue-500 to-indigo-600 text-white border-none shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer group h-full">
+              <CardContent className="p-6">
+                <div className="flex items-start justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="p-3 bg-white/20 rounded-xl">
+                      <ListChecks className="w-8 h-8" />
+                    </div>
+                    <div>
+                      <h3 className="text-2xl font-bold">My Checklists</h3>
+                      <p className="text-blue-100 text-sm">Upcoming tasks & checklists</p>
+                    </div>
+                  </div>
+                  <div className="text-white group-hover:translate-x-2 transition-transform">
+                    <ArrowRight className="w-6 h-6" />
+                  </div>
+                </div>
+
+                {/* Checklist Summary */}
+                <div className="space-y-3 mt-4">
+                  {myChecklists.length === 0 ? (
+                    <div className="bg-white/10 rounded-lg p-4 text-center">
+                      <CheckCircle className="w-8 h-8 mx-auto mb-2 opacity-70" />
+                      <p className="text-sm">All caught up! No pending checklists</p>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="flex items-center justify-between bg-white/10 rounded-lg p-3">
+                        <span className="text-sm font-medium">Upcoming Checklists</span>
+                        <Badge className="bg-white text-blue-600 hover:bg-white">
+                          {myChecklists.length}
+                        </Badge>
+                      </div>
+
+                      {/* Show next 3 checklists */}
+                      {myChecklists.slice(0, 3).map((checklist) => {
+                        const today = new Date();
+                        today.setHours(0, 0, 0, 0);
+                        const execDate = new Date(checklist.execution_date);
+                        execDate.setHours(0, 0, 0, 0);
+                        
+                        const daysUntil = Math.ceil(
+                          (execDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
+                        );
+
+                        return (
+                          <div key={checklist.id} className="bg-white/10 rounded-lg p-3 hover:bg-white/20 transition-colors">
+                            <div className="flex items-start justify-between">
+                              <div className="flex-1">
+                                <p className="font-medium text-sm">{checklist.template_name}</p>
+                                <div className="flex items-center gap-2 mt-1">
+                                  <Clock className="w-3 h-3" />
+                                  <span className="text-xs opacity-90">
+                                    {daysUntil === 0 ? 'Due Today' : 
+                                     daysUntil === 1 ? 'Due Tomorrow' : 
+                                     `Due in ${daysUntil} days`}
+                                  </span>
+                                </div>
+                              </div>
+                              {checklist.status === 'in_progress' && (
+                                <Badge className="bg-yellow-400 text-yellow-900 text-xs">
+                                  In Progress
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+
+                      {myChecklists.length > 3 && (
+                        <p className="text-xs text-center opacity-75 mt-2">
+                          +{myChecklists.length - 3} more checklist{myChecklists.length - 3 > 1 ? 's' : ''}
+                        </p>
+                      )}
+                    </>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </Link>
+
+          {/* Staff Model Card */}
           <Link to={createPageUrl("StaffModel")}>
-            <Card className="bg-gradient-to-br from-blue-500 to-indigo-600 text-white border-none shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer group">
+            <Card className="bg-gradient-to-br from-green-500 to-emerald-600 text-white border-none shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer group h-full">
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div>
@@ -478,17 +593,20 @@ export default function Dashboard() {
                       <GraduationCap className="w-8 h-8" />
                       <h3 className="text-2xl font-bold">Staff Model</h3>
                     </div>
-                    <p className="text-blue-100">Culture, Training, Performance & Recognition</p>
+                    <p className="text-green-100">Culture, Training, Performance & Recognition</p>
                   </div>
                   <div className="text-white group-hover:translate-x-2 transition-transform">
-                    →
+                    <ArrowRight className="w-6 h-6" />
                   </div>
                 </div>
               </CardContent>
             </Card>
           </Link>
+        </div>
 
-          <Link to={createPageUrl("StaffRota")}>
+        {/* Quick Access Cards - Staff Rota - This was moved outside the grid if it's still needed, as the grid now has only 2 items based on the outline */}
+        {/* Original Staff Rota card: */}
+        {/* <Link to={createPageUrl("StaffRota")}>
             <Card className="bg-gradient-to-br from-green-500 to-emerald-600 text-white border-none shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer group">
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
@@ -505,8 +623,10 @@ export default function Dashboard() {
                 </div>
               </CardContent>
             </Card>
-          </Link>
-        </div>
+          </Link> */}
+        {/* If the Staff Rota card needs to remain, it should be placed in a separate div or its own grid entry. 
+            For now, following the outline strictly for the `grid md:grid-cols-2` section, it is implicitly removed. */}
+
 
         {/* Smart Scheduler Quick Access for Managers */}
         {(user?.position === 'manager' || user?.position === 'owner' || user?.role === 'admin') && (
