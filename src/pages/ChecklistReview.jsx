@@ -1,219 +1,230 @@
-
-import React, { useState } from "react";
+import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { useQuery } from "@tanstack/react-query";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Label } from "@/components/ui/label"; // Added this import
-import { Textarea } from "@/components/ui/textarea";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { CheckCircle, XCircle, ArrowLeft, Eye, Sun, Moon, Clock } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { 
+  ArrowLeft, 
+  User, 
+  Calendar, 
+  Clock,
+  CheckCircle,
+  XCircle,
+  FileText,
+  Download,
+  AlertTriangle
+} from "lucide-react";
 import { format } from "date-fns";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 export default function ChecklistReview() {
-  const navigate = useNavigate();
-  const queryClient = useQueryClient();
-  const [selectedChecklist, setSelectedChecklist] = useState(null);
-  const [showDialog, setShowDialog] = useState(false);
-  const [managerNotes, setManagerNotes] = useState('');
+  const [executionId, setExecutionId] = useState(null);
 
-  const { data: user } = useQuery({
-    queryKey: ['currentUser'],
-    queryFn: () => base44.auth.me(),
-  });
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const id = params.get('id');
+    if (id) {
+      setExecutionId(id);
+    }
+  }, []);
 
-  const { data: checklists = [] } = useQuery({
-    queryKey: ['reviewChecklists'],
-    queryFn: () => base44.entities.DailyChecklist.filter({
-      status: 'completed'
-    }, '-completed_time'),
-  });
-
-  const verifyMutation = useMutation({
-    mutationFn: async ({ id, approved }) => {
-      await base44.entities.DailyChecklist.update(id, {
-        status: approved ? 'verified' : 'rejected',
-        verified_by_email: user?.email,
-        verified_by_name: user?.full_name,
-        verified_at: new Date().toISOString(),
-        ...((!approved) && { rejection_reason: managerNotes })
+  const { data: execution, isLoading } = useQuery({
+    queryKey: ['checklistExecution', executionId],
+    queryFn: async () => {
+      if (!executionId) return null;
+      const executions = await base44.entities.ChecklistExecution.filter({
+        id: executionId
       });
+      return executions[0] || null;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['reviewChecklists'] });
-      setShowDialog(false);
-      setSelectedChecklist(null);
-      setManagerNotes('');
-    },
+    enabled: !!executionId,
   });
+
+  const { data: template } = useQuery({
+    queryKey: ['checklistTemplate', execution?.template_id],
+    queryFn: async () => {
+      if (!execution?.template_id) return null;
+      const templates = await base44.entities.ChecklistTemplate.filter({
+        id: execution.template_id
+      });
+      return templates[0] || null;
+    },
+    enabled: !!execution?.template_id,
+  });
+
+  const handleExportPDF = () => {
+    window.print();
+  };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6">
+        <div className="max-w-4xl mx-auto">
+          <div className="text-center py-12">
+            <Clock className="w-12 h-12 animate-spin text-blue-600 mx-auto mb-4" />
+            <p className="text-gray-600">Loading checklist review...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!execution || !template) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6">
+        <div className="max-w-4xl mx-auto">
+          <Alert className="bg-red-50 border-red-200">
+            <AlertTriangle className="h-5 w-5 text-red-600" />
+            <AlertDescription className="text-red-800">
+              Checklist not found. Please select a valid checklist to review.
+            </AlertDescription>
+          </Alert>
+          <Link to={createPageUrl('ChecklistMonitor')}>
+            <Button className="mt-4">
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back to Monitor
+            </Button>
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  const completedTasks = execution.task_results?.filter(t => t.status === 'completed').length || 0;
+  const totalTasks = execution.task_results?.length || 0;
 
   return (
-    <div className="p-6 md:p-8 bg-gray-50 min-h-screen">
-      <div className="max-w-6xl mx-auto">
-        <Link to={createPageUrl("DailyChecklists")}>
-          <Button variant="outline" className="mb-6">
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Checklists
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6">
+      <div className="max-w-4xl mx-auto space-y-6">
+        {/* Header */}
+        <div className="flex items-center justify-between print:hidden">
+          <Link to={createPageUrl('ChecklistMonitor')}>
+            <Button variant="outline" size="sm">
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back to Monitor
+            </Button>
+          </Link>
+          <Button onClick={handleExportPDF} variant="outline">
+            <Download className="w-4 h-4 mr-2" />
+            Export PDF
           </Button>
-        </Link>
-
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 mb-3">
-            Checklist Review Queue
-          </h1>
-          <p className="text-lg text-gray-600">
-            {checklists.length} checklists awaiting verification
-          </p>
         </div>
 
-        {checklists.length === 0 ? (
-          <Card className="bg-green-50 border-green-200">
-            <CardContent className="p-12 text-center">
-              <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
-              <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                All Caught Up!
-              </h3>
-              <p className="text-gray-600">
-                No checklists pending review
-              </p>
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="space-y-4">
-            {checklists.map((checklist) => {
-              const TypeIcon = checklist.checklist_type === 'opening' ? Sun : Moon;
-              
-              return (
-                <Card key={checklist.id} className="bg-white">
-                  <CardContent className="p-6">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-4">
-                        <div className={`p-3 rounded-lg ${
-                          checklist.checklist_type === 'opening' 
-                            ? 'bg-green-100' 
-                            : 'bg-blue-100'
-                        }`}>
-                          <TypeIcon className={`w-6 h-6 ${
-                            checklist.checklist_type === 'opening'
-                              ? 'text-green-600'
-                              : 'text-blue-600'
-                          }`} />
-                        </div>
-
-                        <div>
-                          <h3 className="font-bold text-lg capitalize">
-                            {checklist.checklist_type} - {checklist.department.replace('_', ' ')}
-                          </h3>
-                          <div className="flex items-center gap-4 text-sm text-gray-600 mt-1">
-                            <span className="flex items-center gap-1">
-                              <Clock className="w-4 h-4" />
-                              {format(new Date(checklist.checklist_date), 'MMM d, yyyy')}
-                            </span>
-                            {checklist.assigned_staff?.[0] && (
-                              <span>By: {checklist.assigned_staff[0].staff_name}</span>
-                            )}
-                            <Badge className="bg-blue-100 text-blue-800">
-                              {checklist.completed_tasks}/{checklist.total_tasks} tasks
-                            </Badge>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="flex gap-2">
-                        <Button
-                          onClick={() => navigate(createPageUrl(`ActiveChecklist?id=${checklist.id}&view=true`))}
-                          variant="outline"
-                        >
-                          <Eye className="w-4 h-4 mr-2" />
-                          View Details
-                        </Button>
-                        <Button
-                          onClick={() => {
-                            setSelectedChecklist(checklist);
-                            setShowDialog(true);
-                          }}
-                          className="bg-green-600"
-                        >
-                          <CheckCircle className="w-4 h-4 mr-2" />
-                          Review
-                        </Button>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
-        )}
-
-        {/* Review Dialog */}
-        <Dialog open={showDialog} onOpenChange={setShowDialog}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Review Checklist</DialogTitle>
-            </DialogHeader>
-            {selectedChecklist && (
-              <div className="space-y-4 mt-4">
-                <div className="p-4 bg-gray-50 rounded-lg">
-                  <h3 className="font-semibold capitalize mb-2">
-                    {selectedChecklist.checklist_type} - {selectedChecklist.department.replace('_', ' ')}
-                  </h3>
-                  <p className="text-sm text-gray-600">
-                    Completed by {selectedChecklist.assigned_staff?.[0]?.staff_name}
-                  </p>
-                  <p className="text-sm text-gray-600">
-                    on {format(new Date(selectedChecklist.completed_time), 'PPP')} at{' '}
-                    {format(new Date(selectedChecklist.completed_time), 'p')}
-                  </p>
-                </div>
-
-                <div>
-                  <Label className="mb-2 block">Manager Notes (Optional)</Label>
-                  <Textarea
-                    value={managerNotes}
-                    onChange={(e) => setManagerNotes(e.target.value)}
-                    rows={3}
-                    placeholder="Add any feedback or comments..."
-                  />
-                </div>
-
-                <div className="flex gap-3">
-                  <Button
-                    onClick={() => verifyMutation.mutate({ 
-                      id: selectedChecklist.id, 
-                      approved: false 
-                    })}
-                    variant="outline"
-                    className="flex-1 border-red-300 text-red-600"
-                    disabled={verifyMutation.isPending}
-                  >
-                    <XCircle className="w-4 h-4 mr-2" />
-                    Reject
-                  </Button>
-                  <Button
-                    onClick={() => verifyMutation.mutate({ 
-                      id: selectedChecklist.id, 
-                      approved: true 
-                    })}
-                    className="flex-1 bg-green-600"
-                    disabled={verifyMutation.isPending}
-                  >
-                    <CheckCircle className="w-4 h-4 mr-2" />
-                    Approve
-                  </Button>
-                </div>
+        {/* Summary Card */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-start justify-between">
+              <div>
+                <CardTitle className="text-2xl">{template.name}</CardTitle>
+                <p className="text-gray-600 mt-2">{template.description}</p>
               </div>
-            )}
-          </DialogContent>
-        </Dialog>
+              <Badge className={
+                execution.status === 'completed' ? 'bg-green-500' :
+                execution.status === 'in_progress' ? 'bg-blue-500' :
+                'bg-gray-400'
+              }>
+                {execution.status === 'completed' ? 'Completed' :
+                 execution.status === 'in_progress' ? 'In Progress' :
+                 'Pending'}
+              </Badge>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <div className="flex items-center gap-2 text-sm text-gray-600 mb-1">
+                  <User className="w-4 h-4" />
+                  <span className="font-medium">Assigned To</span>
+                </div>
+                <p className="text-gray-900">{execution.assigned_to_name}</p>
+              </div>
+              <div>
+                <div className="flex items-center gap-2 text-sm text-gray-600 mb-1">
+                  <Calendar className="w-4 h-4" />
+                  <span className="font-medium">Date</span>
+                </div>
+                <p className="text-gray-900">{format(new Date(execution.created_date), 'MMM d, yyyy')}</p>
+              </div>
+              <div>
+                <div className="flex items-center gap-2 text-sm text-gray-600 mb-1">
+                  <Clock className="w-4 h-4" />
+                  <span className="font-medium">Completion Time</span>
+                </div>
+                <p className="text-gray-900">
+                  {execution.completed_at ? format(new Date(execution.completed_at), 'h:mm a') : 'Not completed'}
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-6">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-medium text-gray-700">Progress</span>
+                <span className="text-sm font-medium text-gray-900">{completedTasks} / {totalTasks} tasks</span>
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-3">
+                <div 
+                  className="bg-gradient-to-r from-blue-600 to-green-600 h-3 rounded-full transition-all"
+                  style={{ width: `${execution.progress || 0}%` }}
+                />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Tasks Review */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Task Results</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {execution.task_results?.map((task, index) => (
+                <div 
+                  key={index} 
+                  className={`p-4 rounded-lg border-2 ${
+                    task.status === 'completed' 
+                      ? 'bg-green-50 border-green-200' 
+                      : 'bg-gray-50 border-gray-200'
+                  }`}
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-2">
+                        {task.status === 'completed' ? (
+                          <CheckCircle className="w-5 h-5 text-green-600" />
+                        ) : (
+                          <XCircle className="w-5 h-5 text-gray-400" />
+                        )}
+                        <h4 className="font-medium text-gray-900">
+                          {index + 1}. {task.task_title}
+                        </h4>
+                      </div>
+                      
+                      {task.notes && (
+                        <div className="ml-7 mt-2 p-3 bg-white rounded border border-gray-200">
+                          <div className="flex items-center gap-2 text-xs text-gray-600 mb-1">
+                            <FileText className="w-3 h-3" />
+                            <span className="font-medium">Notes</span>
+                          </div>
+                          <p className="text-sm text-gray-700">{task.notes}</p>
+                        </div>
+                      )}
+                      
+                      {task.completed_at && (
+                        <p className="ml-7 mt-2 text-xs text-gray-500">
+                          Completed: {format(new Date(task.completed_at), 'MMM d, yyyy h:mm a')}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );
