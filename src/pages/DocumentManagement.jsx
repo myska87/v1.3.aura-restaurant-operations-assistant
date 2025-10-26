@@ -67,6 +67,7 @@ export default function DocumentManagement() {
   const [showUploadDialog, setShowUploadDialog] = useState(false);
   const [showAssignDialog, setShowAssignDialog] = useState(false);
   const [showVersionDialog, setShowVersionDialog] = useState(false);
+  const [showViewerDialog, setShowViewerDialog] = useState(false); // New state for viewer dialog
   const [selectedDocument, setSelectedDocument] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -134,7 +135,7 @@ export default function DocumentManagement() {
         file_type: file.type.includes('pdf') ? 'pdf' : 
                    file.type.includes('image') ? 'image' : 
                    file.type.includes('video') ? 'video' :
-                   file.type.includes('word') || file.type.includes('docx') ? 'docx' : 'other',
+                   file.type.includes('wordprocessingml') || file.type.includes('msword') ? 'docx' : 'other',
         file_size: file.size,
         uploaded_by: user.email,
         uploaded_by_name: user.full_name,
@@ -194,6 +195,10 @@ export default function DocumentManagement() {
         version_number: newVersionNumber,
         file_size: file.size,
         last_updated: new Date().toISOString(),
+        file_type: file.type.includes('pdf') ? 'pdf' : 
+                   file.type.includes('image') ? 'image' : 
+                   file.type.includes('video') ? 'video' :
+                   file.type.includes('wordprocessingml') || file.type.includes('msword') ? 'docx' : 'other',
       });
 
       // Mark previous version as not current
@@ -349,6 +354,11 @@ export default function DocumentManagement() {
       console.error('Error updating version:', error);
       alert('Failed to update document version');
     }
+  };
+
+  const handleViewDocument = (doc) => {
+    setSelectedDocument(doc);
+    setShowViewerDialog(true);
   };
 
   // Filter documents
@@ -628,7 +638,7 @@ export default function DocumentManagement() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => window.open(doc.file_url, '_blank')}>
+                            <DropdownMenuItem onClick={() => handleViewDocument(doc)}> {/* Modified */}
                               <Eye className="w-4 h-4 mr-2" />
                               View Document
                             </DropdownMenuItem>
@@ -1116,6 +1126,120 @@ export default function DocumentManagement() {
               Cancel
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Document Viewer Dialog */}
+      <Dialog open={showViewerDialog} onOpenChange={setShowViewerDialog}>
+        <DialogContent className="max-w-6xl max-h-[90vh] h-[90vh] p-0 flex flex-col">
+          <DialogHeader className="p-6 pb-4 border-b">
+            <div className="flex items-start justify-between">
+              <div className="flex-1 pr-4">
+                <DialogTitle className="text-2xl">{selectedDocument?.title}</DialogTitle>
+                <p className="text-sm text-gray-600 mt-1">{selectedDocument?.description}</p>
+                <div className="flex flex-wrap gap-2 mt-3">
+                  <Badge className={getConfidentialityBadge(selectedDocument?.confidentiality_level)}>
+                    {selectedDocument?.confidentiality_level}
+                  </Badge>
+                  <Badge variant="outline">v{selectedDocument?.version_number}</Badge>
+                  <Badge variant="outline" className="capitalize">
+                    {selectedDocument?.file_type}
+                  </Badge>
+                </div>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  const link = document.createElement('a');
+                  link.href = selectedDocument?.file_url;
+                  link.download = selectedDocument?.title || 'document';
+                  link.target = '_blank';
+                  link.rel = 'noopener noreferrer';
+                  link.click();
+                }}
+              >
+                <Download className="w-4 h-4 mr-2" />
+                Download
+              </Button>
+            </div>
+          </DialogHeader>
+
+          <div className="flex-1 overflow-hidden bg-gray-100">
+            {selectedDocument && (
+              <div className="h-full w-full">
+                {/* PDF Viewer */}
+                {selectedDocument.file_type === 'pdf' && (
+                  <iframe
+                    src={selectedDocument.file_url}
+                    className="w-full h-full"
+                    title={selectedDocument.title}
+                  />
+                )}
+
+                {/* Image Viewer */}
+                {selectedDocument.file_type === 'image' && (
+                  <div className="flex items-center justify-center h-full p-6">
+                    <img
+                      src={selectedDocument.file_url}
+                      alt={selectedDocument.title}
+                      className="max-w-full max-h-full object-contain rounded-lg shadow-lg"
+                    />
+                  </div>
+                )}
+
+                {/* Video Viewer */}
+                {selectedDocument.file_type === 'video' && (
+                  <div className="flex items-center justify-center h-full p-6">
+                    <video
+                      src={selectedDocument.file_url}
+                      controls
+                      className="max-w-full max-h-full rounded-lg shadow-lg"
+                    >
+                      Your browser does not support the video tag.
+                    </video>
+                  </div>
+                )}
+
+                {/* DOCX/Other Files - Use Google Docs Viewer */}
+                {(selectedDocument.file_type === 'docx' || selectedDocument.file_type === 'other') && (
+                  <iframe
+                    src={`https://docs.google.com/viewer?url=${encodeURIComponent(selectedDocument.file_url)}&embedded=true`}
+                    className="w-full h-full"
+                    title={selectedDocument.title}
+                  />
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Document Info Footer */}
+          <div className="p-4 border-t bg-white">
+            <div className="flex items-center justify-between text-sm text-gray-600">
+              <div className="flex items-center gap-4 flex-wrap">
+                {selectedDocument?.uploaded_by_name && <span>Uploaded by: {selectedDocument.uploaded_by_name}</span>}
+                {selectedDocument?.created_date && (
+                  <>
+                    <span>•</span>
+                    <span>{format(new Date(selectedDocument.created_date), 'PPP')}</span>
+                  </>
+                )}
+                {selectedDocument?.file_size && (
+                  <>
+                    <span>•</span>
+                    <span>{(selectedDocument.file_size / 1024 / 1024).toFixed(2)} MB</span>
+                  </>
+                )}
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowViewerDialog(false)}
+              >
+                Close
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
