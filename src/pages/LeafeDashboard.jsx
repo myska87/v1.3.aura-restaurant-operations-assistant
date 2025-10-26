@@ -47,7 +47,7 @@ export default function LeafeDashboard() {
 
   const { data: audits = [] } = useQuery({
     queryKey: ['auditRecords'],
-    queryFn() => base44.entities.LeafeAuditRecord.list('-audit_date'),
+    queryFn: () => base44.entities.LeafeAuditRecord.list('-audit_date'),
   });
 
   // Access control
