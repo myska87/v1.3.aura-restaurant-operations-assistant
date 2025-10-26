@@ -18,7 +18,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Mail, Search, Calendar, User, CheckCircle, XCircle, Clock, Eye, ArrowLeft, Home } from "lucide-react";
+import { Mail, Search, Calendar, User, CheckCircle, XCircle, Clock, Eye, ArrowLeft, Home, Download } from "lucide-react";
 import { format } from "date-fns";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -29,6 +29,11 @@ export default function EmailLog() {
   const [filterType, setFilterType] = useState("all");
   const [selectedEmail, setSelectedEmail] = useState(null);
   const [showDetailDialog, setShowDetailDialog] = useState(false);
+
+  const { data: user } = useQuery({
+    queryKey: ['currentUser'],
+    queryFn: () => base44.auth.me(),
+  });
 
   const { data: emailLogs = [], isLoading } = useQuery({
     queryKey: ['emailLogs'],
@@ -42,7 +47,16 @@ export default function EmailLog() {
     staleTime: 2 * 60 * 1000,
   });
 
+  const isManager = user?.position === 'manager' || user?.position === 'owner' || user?.role === 'admin';
+
   const filteredLogs = emailLogs.filter(log => {
+    // Permission check - staff can only see emails they sent or received
+    if (!isManager) {
+      if (log.sender_email !== user?.email && log.recipient_email !== user?.email) {
+        return false;
+      }
+    }
+
     const matchesSearch = 
       log.subject?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       log.recipient_email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -93,6 +107,30 @@ export default function EmailLog() {
     return orders.find(o => o.id === orderId);
   };
 
+  const handleExportLogs = () => {
+    const csvContent = [
+      ['Date', 'Type', 'Recipient', 'Subject', 'Status', 'Sender'].join(','),
+      ...filteredLogs.map(log => [
+        format(new Date(log.sent_at), 'yyyy-MM-dd HH:mm:ss'),
+        log.email_type,
+        log.recipient_email,
+        `"${log.subject}"`,
+        log.status,
+        log.sender_name
+      ].join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `email-log-${format(new Date(), 'yyyy-MM-dd')}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+  };
+
   const stats = {
     total: emailLogs.length,
     sent: emailLogs.filter(l => l.status === 'sent').length,
@@ -121,15 +159,31 @@ export default function EmailLog() {
 
         {/* Header */}
         <div className="mb-8">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="p-3 bg-blue-100 rounded-xl">
-              <Mail className="w-8 h-8 text-blue-600" />
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <div className="p-3 bg-blue-100 rounded-xl">
+                <Mail className="w-8 h-8 text-blue-600" />
+              </div>
+              <div>
+                <h1 className="text-3xl font-bold text-gray-900">Email Communication Log</h1>
+                <p className="text-gray-600">Track all sent emails and delivery status</p>
+              </div>
             </div>
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">Email Communication Log</h1>
-              <p className="text-gray-600">Track all sent emails and delivery status</p>
-            </div>
+            {isManager && filteredLogs.length > 0 && (
+              <Button onClick={handleExportLogs} variant="outline">
+                <Download className="w-4 h-4 mr-2" />
+                Export CSV
+              </Button>
+            )}
           </div>
+
+          {!isManager && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+              <p className="text-sm text-blue-800">
+                📧 You can only view emails you've sent or received. Managers can view all communication logs.
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Stats Cards */}
@@ -355,7 +409,7 @@ export default function EmailLog() {
                 {/* Email Info */}
                 <div className="grid md:grid-cols-2 gap-4">
                   <div>
-                    <Label className="text-sm font-medium text-gray-700">Status</Label>
+                    <label className="text-sm font-medium text-gray-700">Status</label>
                     <div className="mt-1">
                       <Badge className={getStatusColor(selectedEmail.status)}>
                         {selectedEmail.status}
@@ -363,7 +417,7 @@ export default function EmailLog() {
                     </div>
                   </div>
                   <div>
-                    <Label className="text-sm font-medium text-gray-700">Type</Label>
+                    <label className="text-sm font-medium text-gray-700">Type</label>
                     <div className="mt-1">
                       <Badge variant="outline">
                         {selectedEmail.email_type.replace(/_/g, ' ')}
@@ -371,26 +425,26 @@ export default function EmailLog() {
                     </div>
                   </div>
                   <div>
-                    <Label className="text-sm font-medium text-gray-700">To</Label>
+                    <label className="text-sm font-medium text-gray-700">To</label>
                     <p className="text-sm text-gray-900 mt-1">
                       {selectedEmail.recipient_name} ({selectedEmail.recipient_email})
                     </p>
                   </div>
                   <div>
-                    <Label className="text-sm font-medium text-gray-700">From</Label>
+                    <label className="text-sm font-medium text-gray-700">From</label>
                     <p className="text-sm text-gray-900 mt-1">
                       {selectedEmail.sender_name} ({selectedEmail.sender_email})
                     </p>
                   </div>
                   <div>
-                    <Label className="text-sm font-medium text-gray-700">Sent At</Label>
+                    <label className="text-sm font-medium text-gray-700">Sent At</label>
                     <p className="text-sm text-gray-900 mt-1">
                       {format(new Date(selectedEmail.sent_at), 'PPP p')}
                     </p>
                   </div>
                   {selectedEmail.delivery_confirmed_at && (
                     <div>
-                      <Label className="text-sm font-medium text-gray-700">Delivered At</Label>
+                      <label className="text-sm font-medium text-gray-700">Delivered At</label>
                       <p className="text-sm text-gray-900 mt-1">
                         {format(new Date(selectedEmail.delivery_confirmed_at), 'PPP p')}
                       </p>
@@ -400,7 +454,7 @@ export default function EmailLog() {
 
                 {/* Subject */}
                 <div>
-                  <Label className="text-sm font-medium text-gray-700">Subject</Label>
+                  <label className="text-sm font-medium text-gray-700">Subject</label>
                   <p className="text-sm text-gray-900 mt-1 font-semibold">
                     {selectedEmail.subject}
                   </p>
@@ -409,7 +463,7 @@ export default function EmailLog() {
                 {/* Error Message */}
                 {selectedEmail.error_message && (
                   <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                    <Label className="text-sm font-medium text-red-900">Error Message</Label>
+                    <label className="text-sm font-medium text-red-900">Error Message</label>
                     <p className="text-sm text-red-700 mt-1">
                       {selectedEmail.error_message}
                     </p>
@@ -418,9 +472,9 @@ export default function EmailLog() {
 
                 {/* Email Body Preview */}
                 <div>
-                  <Label className="text-sm font-medium text-gray-700 mb-2 block">
+                  <label className="text-sm font-medium text-gray-700 mb-2 block">
                     Email Body Preview
-                  </Label>
+                  </label>
                   <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 max-h-96 overflow-y-auto">
                     <div dangerouslySetInnerHTML={{ __html: selectedEmail.body_html }} />
                   </div>
@@ -431,9 +485,9 @@ export default function EmailLog() {
                   const order = getRelatedOrder(selectedEmail.related_order_id);
                   return order ? (
                     <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                      <Label className="text-sm font-medium text-blue-900 mb-2 block">
+                      <label className="text-sm font-medium text-blue-900 mb-2 block">
                         Related Purchase Order
-                      </Label>
+                      </label>
                       <div className="space-y-1 text-sm text-blue-800">
                         <p><strong>Order Number:</strong> {order.order_number}</p>
                         <p><strong>Supplier:</strong> {order.supplier_name}</p>
@@ -452,9 +506,9 @@ export default function EmailLog() {
                 {/* Metadata */}
                 {selectedEmail.metadata && Object.keys(selectedEmail.metadata).length > 0 && (
                   <div>
-                    <Label className="text-sm font-medium text-gray-700 mb-2 block">
+                    <label className="text-sm font-medium text-gray-700 mb-2 block">
                       Additional Metadata
-                    </Label>
+                    </label>
                     <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
                       <pre className="text-xs text-gray-700 overflow-x-auto">
                         {JSON.stringify(selectedEmail.metadata, null, 2)}
