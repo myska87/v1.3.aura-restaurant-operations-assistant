@@ -1,4 +1,3 @@
-
 import { useState, useMemo } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -24,11 +23,16 @@ import {
   X,
   Clock,
   CheckCircle,
+  Wand2,
+  Users,
+  TrendingUp,
+  Calendar as CalendarIcon,
 } from "lucide-react";
-import { format, startOfWeek, addDays, addWeeks, subWeeks, parseISO, parse, isSameDay, isWithinInterval } from "date-fns";
+import { format, startOfWeek, addDays, addWeeks, subWeeks, parseISO, parse, isSameDay } from "date-fns";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { Textarea } from "@/components/ui/textarea";
+import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 
 import { useUnifiedStaff } from "@/components/UnifiedStaffData";
 
@@ -59,6 +63,10 @@ export default function SmartScheduler() {
   const [showAddShiftDialog, setShowAddShiftDialog] = useState(false);
   const [selectedShift, setSelectedShift] = useState(null);
   const [validationError, setValidationError] = useState(null);
+  const [showAIDialog, setShowAIDialog] = useState(false);
+  const [aiSuggestions, setAiSuggestions] = useState([]);
+  const [generatingAI, setGeneratingAI] = useState(false);
+
   const [shiftForm, setShiftForm] = useState({
     staff_email: "",
     staff_name: "",
@@ -93,23 +101,33 @@ export default function SmartScheduler() {
     },
   });
 
+  // Fetch availability data
+  const { data: availabilities = [] } = useQuery({
+    queryKey: ['availabilities', format(weekStart, 'yyyy-MM-dd')],
+    queryFn: async () => {
+      const weekEnd = addDays(weekStart, 6);
+      const allAvail = await base44.entities.Availability.list();
+      return allAvail.filter(avail => {
+        const availDate = parseISO(avail.date);
+        return availDate >= weekStart && availDate <= weekEnd;
+      });
+    },
+  });
+
   // Check for overlapping shifts
   const checkForOverlaps = (formData, editingShiftId = null) => {
     const newShiftDate = formData.shift_date;
     const newStartTime = formData.start_time;
     const newEndTime = formData.end_time;
 
-    // Parse times for comparison
     const newStart = parse(newStartTime, 'HH:mm', new Date());
     const newEnd = parse(newEndTime, 'HH:mm', new Date());
 
     const overlappingShifts = shifts.filter(shift => {
-      // Skip the shift being edited
       if (editingShiftId && shift.id === editingShiftId) {
         return false;
       }
 
-      // Check same staff and same date
       if (shift.staff_email !== formData.staff_email || shift.shift_date !== newShiftDate) {
         return false;
       }
@@ -117,7 +135,6 @@ export default function SmartScheduler() {
       const existingStart = parse(shift.start_time, 'HH:mm', new Date());
       const existingEnd = parse(shift.end_time, 'HH:mm', new Date());
 
-      // Check for time overlap
       return (
         (newStart >= existingStart && newStart < existingEnd) ||
         (newEnd > existingStart && newEnd <= existingEnd) ||
@@ -295,6 +312,167 @@ export default function SmartScheduler() {
     }
   };
 
+  // ============ DRAG AND DROP LOGIC ============
+  const handleDragEnd = async (result) => {
+    const { source, destination, draggableId } = result;
+
+    // Dropped outside valid area
+    if (!destination) return;
+
+    // Dropped in same place
+    if (source.droppableId === destination.droppableId && source.index === destination.index) {
+      return;
+    }
+
+    // Find the shift being dragged
+    const shiftId = draggableId;
+    const shift = shifts.find(s => s.id === shiftId);
+    if (!shift) return;
+
+    // Extract new date from destination droppableId (format: "day-YYYY-MM-DD")
+    const newDate = destination.droppableId.replace('day-', '');
+
+    // Check if staff is available on new date
+    const staffAvailability = availabilities.find(
+      a => a.staff_email === shift.staff_email && a.date === newDate
+    );
+
+    if (staffAvailability && !staffAvailability.is_available) {
+      alert(`⚠️ ${shift.staff_name} is not available on ${format(parseISO(newDate), 'MMM d')}`);
+      return;
+    }
+
+    // Check for conflicts on new date
+    const conflictCheck = checkForOverlaps({
+      ...shift,
+      shift_date: newDate,
+    }, shift.id);
+
+    if (conflictCheck.length > 0) {
+      alert(`⚠️ ${shift.staff_name} already has a shift on ${format(parseISO(newDate), 'MMM d')}`);
+      return;
+    }
+
+    // Update shift with new date
+    try {
+      await updateShiftMutation.mutateAsync({
+        id: shift.id,
+        data: {
+          ...shift,
+          shift_date: newDate,
+        }
+      });
+      console.log(`✅ Moved ${shift.staff_name} to ${newDate}`);
+    } catch (error) {
+      console.error('Drag update failed:', error);
+      alert('Failed to move shift');
+    }
+  };
+
+  // ============ AI SUGGESTIONS ============
+  const generateAISuggestions = async () => {
+    setGeneratingAI(true);
+    setShowAIDialog(true);
+
+    try {
+      // Calculate workload distribution
+      const staffWorkload = {};
+      allStaff.forEach(s => {
+        staffWorkload[s.email] = shifts.filter(shift => shift.staff_email === s.email).length;
+      });
+
+      // Find understaffed days
+      const understaffedDays = weekDays.filter(day => {
+        const dayShifts = getShiftsForDay(day);
+        return dayShifts.length < 3; // Less than 3 shifts = understaffed
+      });
+
+      // Find overworked staff
+      const overworkedStaff = allStaff.filter(s => (staffWorkload[s.email] || 0) > 5);
+
+      // Generate suggestions
+      const suggestions = [];
+
+      // Suggestion 1: Balance workload
+      if (overworkedStaff.length > 0) {
+        suggestions.push({
+          type: 'warning',
+          title: 'Workload Imbalance Detected',
+          description: `${overworkedStaff.map(s => s.full_name).join(', ')} working ${overworkedStaff[0] ? staffWorkload[overworkedStaff[0].email] : 0}+ shifts this week`,
+          action: 'Redistribute shifts to reduce burnout',
+        });
+      }
+
+      // Suggestion 2: Understaffed days
+      if (understaffedDays.length > 0) {
+        suggestions.push({
+          type: 'alert',
+          title: 'Understaffed Days',
+          description: `${understaffedDays.map(d => format(d, 'EEE MMM d')).join(', ')} need more coverage`,
+          action: 'Add shifts for these days',
+        });
+      }
+
+      // Suggestion 3: Skill matching
+      const kitchenShifts = shifts.filter(s => s.department === 'kitchen');
+      const kitchenStaff = allStaff.filter(s => s.department === 'kitchen');
+      if (kitchenShifts.length > kitchenStaff.length * 3) {
+        suggestions.push({
+          type: 'info',
+          title: 'Kitchen Staff Capacity',
+          description: 'Kitchen shifts may exceed staff capacity',
+          action: 'Consider cross-training or hiring',
+        });
+      }
+
+      // Suggestion 4: Availability optimization
+      const availableButNotScheduled = allStaff.filter(s => {
+        const staffShifts = shifts.filter(shift => shift.staff_email === s.email);
+        const staffAvails = availabilities.filter(a => a.staff_email === s.email && a.is_available);
+        return staffAvails.length > staffShifts.length + 2;
+      });
+
+      if (availableButNotScheduled.length > 0) {
+        suggestions.push({
+          type: 'success',
+          title: 'Underutilized Staff',
+          description: `${availableButNotScheduled.map(s => s.full_name).join(', ')} available but not fully scheduled`,
+          action: 'Add more shifts for these staff members',
+        });
+      }
+
+      // Suggestion 5: Pattern detection
+      const mondayShifts = getShiftsForDay(weekDays[0]);
+      const fridayShifts = getShiftsForDay(weekDays[4]);
+      if (fridayShifts.length < mondayShifts.length * 0.7) {
+        suggestions.push({
+          type: 'info',
+          title: 'Weekend Staffing Pattern',
+          description: 'Friday has significantly fewer shifts than Monday',
+          action: 'Ensure adequate weekend coverage',
+        });
+      }
+
+      setAiSuggestions(suggestions.length > 0 ? suggestions : [{
+        type: 'success',
+        title: 'Schedule Looks Good!',
+        description: 'No major issues detected in current schedule',
+        action: 'Keep up the good work',
+      }]);
+
+    } catch (error) {
+      console.error('AI generation error:', error);
+      setAiSuggestions([{
+        type: 'warning',
+        title: 'Analysis Error',
+        description: 'Could not complete analysis',
+        action: 'Try again later',
+      }]);
+    }
+
+    setGeneratingAI(false);
+  };
+
   return (
     <div className="p-6 md:p-8 bg-gray-50 min-h-screen">
       <div className="max-w-7xl mx-auto">
@@ -315,25 +493,34 @@ export default function SmartScheduler() {
         </div>
 
         {/* Page Header */}
-        <div className="flex justify-between items-center mb-8">
+        <div className="flex flex-wrap justify-between items-start gap-4 mb-8">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-2 flex items-center gap-2">
+            <h1 className="text-3xl font-bold text-gray-900 mb-2 flex items-center gap-3">
               <Sparkles className="w-8 h-8 text-purple-600" />
-              Smart Gantt Scheduler
+              Smart Drag & Drop Scheduler
             </h1>
-            <p className="text-gray-600">Visual week planner with automatic task assignment</p>
+            <p className="text-gray-600">Drag shifts between days • AI-powered scheduling assistance</p>
           </div>
-          <Button 
-            onClick={() => {
-              setSelectedShift(null);
-              setValidationError(null);
-              setShowAddShiftDialog(true);
-            }} 
-            className="bg-purple-600 hover:bg-purple-700"
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            Add Shift
-          </Button>
+          <div className="flex gap-2">
+            <Button 
+              onClick={generateAISuggestions}
+              className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
+            >
+              <Wand2 className="w-4 h-4 mr-2" />
+              AI Insights
+            </Button>
+            <Button 
+              onClick={() => {
+                setSelectedShift(null);
+                setValidationError(null);
+                setShowAddShiftDialog(true);
+              }} 
+              className="bg-purple-600 hover:bg-purple-700"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Add Shift
+            </Button>
+          </div>
         </div>
 
         {/* Week Navigation */}
@@ -343,9 +530,12 @@ export default function SmartScheduler() {
               <Button variant="outline" size="icon" onClick={() => setCurrentDate(subWeeks(currentDate, 1))}>
                 <ChevronLeft className="w-4 h-4" />
               </Button>
-              <h2 className="text-xl font-bold">
-                {format(weekStart, 'MMM d')} - {format(addDays(weekStart, 6), 'MMM d, yyyy')}
-              </h2>
+              <div className="text-center">
+                <h2 className="text-xl font-bold">
+                  {format(weekStart, 'MMM d')} - {format(addDays(weekStart, 6), 'MMM d, yyyy')}
+                </h2>
+                <p className="text-sm text-gray-600">Week {format(weekStart, 'w')}</p>
+              </div>
               <Button variant="outline" size="icon" onClick={() => setCurrentDate(addWeeks(currentDate, 1))}>
                 <ChevronRight className="w-4 h-4" />
               </Button>
@@ -353,75 +543,160 @@ export default function SmartScheduler() {
           </CardContent>
         </Card>
 
-        {/* Gantt Chart - Weekly View */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-4">
-          {weekDays.map((day) => {
-            const dayShifts = getShiftsForDay(day);
-            const isToday = isSameDay(day, new Date());
-
-            return (
-              <Card key={day.toISOString()} className={isToday ? 'border-2 border-purple-500 shadow-lg' : ''}>
-                <CardHeader className="p-3 bg-gradient-to-br from-purple-50 to-blue-50 rounded-t-lg">
-                  <CardTitle className="text-sm font-semibold text-gray-800 text-center">
-                    {format(day, 'EEE')}
-                    <br />
-                    {format(day, 'MMM d')}
-                    {isToday && <Badge className="ml-2 bg-purple-600 text-xs">Today</Badge>}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="p-2 space-y-2 min-h-[150px]">
-                  {dayShifts.length > 0 ? (
-                    dayShifts.map((shift) => (
-                      <div
-                        key={shift.id}
-                        className="p-2 bg-gradient-to-r from-purple-50 to-blue-50 rounded border border-purple-200 cursor-pointer hover:shadow-md transition-all"
-                        onClick={() => handleEditShift(shift)}
-                      >
-                        <div className="flex items-start gap-2">
-                          {allStaff.find(s => s.email === shift.staff_email)?.photo_url ? (
-                            <img 
-                              src={allStaff.find(s => s.email === shift.staff_email).photo_url} 
-                              alt="" 
-                              className="w-6 h-6 rounded-full object-cover flex-shrink-0"
-                            />
-                          ) : (
-                            <div className="w-6 h-6 rounded-full bg-purple-500 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
-                              {shift.staff_name?.charAt(0)?.toUpperCase() || '?'}
-                            </div>
-                          )}
-                          <div className="flex-1 min-w-0">
-                            <p className="text-xs font-semibold truncate text-gray-900">{shift.staff_name}</p>
-                            <Badge variant="secondary" className="text-[10px] px-1 py-0.5 mt-1">
-                              {shift.role}
-                            </Badge>
-                            <p className="text-xs text-gray-600 mt-1 flex items-center gap-1">
-                              <Clock className="w-3 h-3" />
-                              {shift.start_time} - {shift.end_time}
-                            </p>
-                            {shift.status === 'completed' && (
-                              <Badge className="text-[10px] bg-green-100 text-green-800 mt-1">
-                                <CheckCircle className="w-3 h-3 mr-1" />
-                                Completed
-                              </Badge>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    ))
-                  ) : (
-                    <p className="text-xs text-gray-400 text-center py-6">No shifts</p>
-                  )}
-                </CardContent>
-              </Card>
-            );
-          })}
+        {/* Stats Cards */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <Users className="w-8 h-8 text-blue-600" />
+                <div>
+                  <p className="text-2xl font-bold">{shifts.length}</p>
+                  <p className="text-xs text-gray-600">Total Shifts</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <CalendarIcon className="w-8 h-8 text-green-600" />
+                <div>
+                  <p className="text-2xl font-bold">{new Set(shifts.map(s => s.staff_email)).size}</p>
+                  <p className="text-xs text-gray-600">Staff Scheduled</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <Clock className="w-8 h-8 text-purple-600" />
+                <div>
+                  <p className="text-2xl font-bold">
+                    {Math.round(shifts.reduce((total, s) => {
+                      const start = parse(s.start_time, 'HH:mm', new Date());
+                      const end = parse(s.end_time, 'HH:mm', new Date());
+                      return total + (end - start) / (1000 * 60 * 60);
+                    }, 0))}h
+                  </p>
+                  <p className="text-xs text-gray-600">Total Hours</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <TrendingUp className="w-8 h-8 text-amber-600" />
+                <div>
+                  <p className="text-2xl font-bold">{availabilities.filter(a => a.is_available).length}</p>
+                  <p className="text-xs text-gray-600">Available Slots</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </div>
+
+        {/* Drag and Drop Weekly View */}
+        <DragDropContext onDragEnd={handleDragEnd}>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-4">
+            {weekDays.map((day) => {
+              const dayShifts = getShiftsForDay(day);
+              const isToday = isSameDay(day, new Date());
+              const dateStr = format(day, 'yyyy-MM-dd');
+
+              return (
+                <Droppable key={dateStr} droppableId={`day-${dateStr}`}>
+                  {(provided, snapshot) => (
+                    <Card 
+                      {...provided.droppableProps}
+                      ref={provided.innerRef}
+                      className={`
+                        ${isToday ? 'border-2 border-purple-500 shadow-lg' : ''}
+                        ${snapshot.isDraggingOver ? 'bg-purple-50 border-purple-300' : ''}
+                        transition-all duration-200
+                      `}
+                    >
+                      <CardHeader className="p-3 bg-gradient-to-br from-purple-50 to-blue-50 rounded-t-lg">
+                        <CardTitle className="text-sm font-semibold text-gray-800 text-center">
+                          {format(day, 'EEE')}
+                          <br />
+                          {format(day, 'MMM d')}
+                          {isToday && <Badge className="ml-2 bg-purple-600 text-xs">Today</Badge>}
+                        </CardTitle>
+                        <p className="text-xs text-center text-gray-600 mt-1">
+                          {dayShifts.length} {dayShifts.length === 1 ? 'shift' : 'shifts'}
+                        </p>
+                      </CardHeader>
+                      <CardContent className="p-2 space-y-2 min-h-[200px]">
+                        {dayShifts.length > 0 ? (
+                          dayShifts.map((shift, index) => (
+                            <Draggable key={shift.id} draggableId={shift.id} index={index}>
+                              {(provided, snapshot) => (
+                                <div
+                                  ref={provided.innerRef}
+                                  {...provided.draggableProps}
+                                  {...provided.dragHandleProps}
+                                  className={`
+                                    p-2 bg-gradient-to-r from-purple-50 to-blue-50 rounded border border-purple-200 
+                                    cursor-move hover:shadow-md transition-all
+                                    ${snapshot.isDragging ? 'shadow-lg opacity-80 rotate-2 scale-105' : ''}
+                                  `}
+                                  onClick={() => handleEditShift(shift)}
+                                >
+                                  <div className="flex items-start gap-2">
+                                    {allStaff.find(s => s.email === shift.staff_email)?.photo_url ? (
+                                      <img 
+                                        src={allStaff.find(s => s.email === shift.staff_email).photo_url} 
+                                        alt="" 
+                                        className="w-6 h-6 rounded-full object-cover flex-shrink-0"
+                                      />
+                                    ) : (
+                                      <div className="w-6 h-6 rounded-full bg-purple-500 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+                                        {shift.staff_name?.charAt(0)?.toUpperCase() || '?'}
+                                      </div>
+                                    )}
+                                    <div className="flex-1 min-w-0">
+                                      <p className="text-xs font-semibold truncate text-gray-900">{shift.staff_name}</p>
+                                      <Badge variant="secondary" className="text-[10px] px-1 py-0.5 mt-1">
+                                        {shift.role}
+                                      </Badge>
+                                      <p className="text-xs text-gray-600 mt-1 flex items-center gap-1">
+                                        <Clock className="w-3 h-3" />
+                                        {shift.start_time} - {shift.end_time}
+                                      </p>
+                                      {shift.status === 'completed' && (
+                                        <Badge className="text-[10px] bg-green-100 text-green-800 mt-1">
+                                          <CheckCircle className="w-3 h-3 mr-1" />
+                                          Done
+                                        </Badge>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+                            </Draggable>
+                          ))
+                        ) : (
+                          <p className="text-xs text-gray-400 text-center py-8">
+                            Drag shifts here
+                          </p>
+                        )}
+                        {provided.placeholder}
+                      </CardContent>
+                    </Card>
+                  )}
+                </Droppable>
+              );
+            })}
+          </div>
+        </DragDropContext>
 
         {/* Add/Edit Shift Dialog */}
         <Dialog open={showAddShiftDialog} onOpenChange={(open) => !open && resetForm()}>
           <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
+              <DialogTitle className="text-2xl flex items-center gap-2">
                 {selectedShift ? (
                   <>
                     <Edit className="w-5 h-5 text-purple-600" />
@@ -447,7 +722,7 @@ export default function SmartScheduler() {
 
             <form onSubmit={handleSubmit} className="space-y-4 mt-4">
               <div className="grid md:grid-cols-2 gap-4">
-                {/* Staff Member Selection - Using New Component */}
+                {/* Staff Member Selection */}
                 <div>
                   <Label htmlFor="staff_email">Staff Member *</Label>
                   <Select
@@ -497,9 +772,6 @@ export default function SmartScheduler() {
                       )}
                     </SelectContent>
                   </Select>
-                  {validationError && validationError.includes('Staff') && (
-                    <p className="text-xs text-red-600 mt-1">{validationError}</p>
-                  )}
                 </div>
 
                 {/* Role Selection */}
@@ -664,6 +936,61 @@ export default function SmartScheduler() {
                 </div>
               </DialogFooter>
             </form>
+          </DialogContent>
+        </Dialog>
+
+        {/* AI Insights Dialog */}
+        <Dialog open={showAIDialog} onOpenChange={setShowAIDialog}>
+          <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="text-2xl flex items-center gap-2">
+                <Wand2 className="w-6 h-6 text-purple-600" />
+                AI Schedule Insights
+              </DialogTitle>
+            </DialogHeader>
+
+            {generatingAI ? (
+              <div className="py-12 text-center">
+                <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-purple-600 mx-auto mb-4"></div>
+                <p className="text-gray-600">Analyzing your schedule...</p>
+              </div>
+            ) : (
+              <div className="space-y-4 mt-4">
+                {aiSuggestions.map((suggestion, index) => (
+                  <Card 
+                    key={index} 
+                    className={`
+                      ${suggestion.type === 'warning' ? 'border-yellow-300 bg-yellow-50' : ''}
+                      ${suggestion.type === 'alert' ? 'border-red-300 bg-red-50' : ''}
+                      ${suggestion.type === 'info' ? 'border-blue-300 bg-blue-50' : ''}
+                      ${suggestion.type === 'success' ? 'border-green-300 bg-green-50' : ''}
+                    `}
+                  >
+                    <CardContent className="p-4">
+                      <div className="flex items-start gap-3">
+                        {suggestion.type === 'warning' && <AlertTriangle className="w-6 h-6 text-yellow-600 flex-shrink-0 mt-1" />}
+                        {suggestion.type === 'alert' && <AlertTriangle className="w-6 h-6 text-red-600 flex-shrink-0 mt-1" />}
+                        {suggestion.type === 'info' && <Sparkles className="w-6 h-6 text-blue-600 flex-shrink-0 mt-1" />}
+                        {suggestion.type === 'success' && <CheckCircle className="w-6 h-6 text-green-600 flex-shrink-0 mt-1" />}
+                        <div className="flex-1">
+                          <h3 className="font-bold text-gray-900 mb-1">{suggestion.title}</h3>
+                          <p className="text-sm text-gray-700 mb-2">{suggestion.description}</p>
+                          <Badge variant="outline" className="text-xs">
+                            💡 {suggestion.action}
+                          </Badge>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+
+            <DialogFooter>
+              <Button onClick={() => setShowAIDialog(false)}>
+                Close
+              </Button>
+            </DialogFooter>
           </DialogContent>
         </Dialog>
       </div>
