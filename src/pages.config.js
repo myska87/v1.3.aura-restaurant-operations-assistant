@@ -119,4 +119,13 @@ const pages = [
   { name: 'EmailLog', path: '/email-log', file: 'EmailLog.jsx', component: EmailLog, public: false }
 ];
 
+export const pagesConfig = {
+  mainPage: 'Dashboard',
+  Pages: pages.reduce((acc, page) => {
+    acc[page.name] = page.component;
+    return acc;
+  }, {}),
+  Layout: Layout,
+};
+
 export { pages, Layout };
