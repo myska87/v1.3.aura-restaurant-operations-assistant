@@ -31,6 +31,12 @@ import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import QuickBackupWidget from "../components/QuickBackupWidget"; // Added import
 
+// Safe number helpers
+const safeNumber = (value, decimals = 2) => {
+  const num = parseFloat(value);
+  return isNaN(num) || num === null || num === undefined ? 0 : parseFloat(num.toFixed(decimals));
+};
+
 export default function Dashboard() {
   const [dailyQuote, setDailyQuote] = useState("");
 
@@ -181,7 +187,7 @@ export default function Dashboard() {
     : 0;
 
   const lowStockItems = inventoryItems.filter(
-    item => (item.current_stock || 0) <= (item.reorder_point || 0)
+    item => safeNumber(item.current_stock) <= safeNumber(item.reorder_point)
   ).length;
 
   const openTickets = maintenanceTickets.filter(t => t.status === "open").length;
@@ -603,30 +609,6 @@ export default function Dashboard() {
             </Card>
           </Link>
         </div>
-
-        {/* Quick Access Cards - Staff Rota - This was moved outside the grid if it's still needed, as the grid now has only 2 items based on the outline */}
-        {/* Original Staff Rota card: */}
-        {/* <Link to={createPageUrl("StaffRota")}>
-            <Card className="bg-gradient-to-br from-green-500 to-emerald-600 text-white border-none shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer group">
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="flex items-center gap-3 mb-2">
-                      <Calendar className="w-8 h-8" />
-                      <h3 className="text-2xl font-bold">Shift & Rota</h3>
-                    </div>
-                    <p className="text-green-100">Scheduling, Clock-In/Out & Attendance</p>
-                  </div>
-                  <div className="text-white group-hover:translate-x-2 transition-transform">
-                    →
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </Link> */}
-        {/* If the Staff Rota card needs to remain, it should be placed in a separate div or its own grid entry. 
-            For now, following the outline strictly for the `grid md:grid-cols-2` section, it is implicitly removed. */}
-
 
         {/* Smart Scheduler Quick Access for Managers */}
         {(user?.position === 'manager' || user?.position === 'owner' || user?.role === 'admin') && (

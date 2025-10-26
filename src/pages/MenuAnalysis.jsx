@@ -16,6 +16,15 @@ import { TrendingUp, TrendingDown, DollarSign, Package, ShoppingCart } from "luc
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 
+// Safe number helpers
+const safeNumber = (value, decimals = 2) => {
+  const num = parseFloat(value);
+  return isNaN(num) || num === null || num === undefined ? 0 : parseFloat(num.toFixed(decimals));
+};
+
+const formatPrice = (price) => safeNumber(price, 2).toFixed(2);
+const formatPercent = (percent) => safeNumber(percent, 1).toFixed(1);
+
 export default function MenuAnalysis() {
   const [wastage, setWastage] = useState(6);
   const [overhead, setOverhead] = useState(10);
@@ -32,20 +41,21 @@ export default function MenuAnalysis() {
   });
 
   const calculateAdjustedCosts = (item) => {
-    const baseCost = item.total_cost || 0;
-    const wastageAmount = baseCost * (wastage / 100);
-    const overheadAmount = baseCost * (overhead / 100);
+    const baseCost = safeNumber(item.total_cost);
+    const wastageAmount = baseCost * (safeNumber(wastage) / 100);
+    const overheadAmount = baseCost * (safeNumber(overhead) / 100);
     const adjustedCost = baseCost + wastageAmount + overheadAmount;
-    const profit = item.sell_price - adjustedCost;
-    const margin = item.sell_price > 0 ? ((profit / item.sell_price) * 100) : 0;
+    const sellPrice = safeNumber(item.sell_price);
+    const profit = sellPrice - adjustedCost;
+    const margin = sellPrice > 0 ? ((profit / sellPrice) * 100) : 0;
     
     return {
-      baseCost,
-      wastageAmount,
-      overheadAmount,
-      adjustedCost,
-      profit,
-      margin,
+      baseCost: safeNumber(baseCost),
+      wastageAmount: safeNumber(wastageAmount),
+      overheadAmount: safeNumber(overheadAmount),
+      adjustedCost: safeNumber(adjustedCost),
+      profit: safeNumber(profit),
+      margin: safeNumber(margin),
     };
   };
 
@@ -61,12 +71,12 @@ export default function MenuAnalysis() {
   const poorPerformers = sortedByMargin.slice(-5).reverse();
 
   const totalInventoryValue = ingredients.reduce(
-    (sum, ing) => sum + ((ing.current_stock || 0) * (ing.unit_cost || 0)),
+    (sum, ing) => sum + (safeNumber(ing.current_stock) * safeNumber(ing.unit_cost)),
     0
   );
 
   const lowStockCount = ingredients.filter(
-    ing => ing.current_stock <= (ing.reorder_point || 0)
+    ing => safeNumber(ing.current_stock) <= safeNumber(ing.reorder_point)
   ).length;
 
   return (
@@ -109,7 +119,7 @@ export default function MenuAnalysis() {
                 </div>
                 <div>
                   <p className="text-sm text-gray-600">Total Inventory Value</p>
-                  <p className="text-2xl font-bold text-gray-900">£{totalInventoryValue.toFixed(2)}</p>
+                  <p className="text-2xl font-bold text-gray-900">£{formatPrice(totalInventoryValue)}</p>
                 </div>
               </div>
             </CardContent>
@@ -170,19 +180,23 @@ export default function MenuAnalysis() {
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {topPerformers.map((item, index) => (
-                  <div key={item.id} className="flex justify-between items-center p-3 bg-green-50 rounded-lg">
-                    <div>
-                      <p className="font-medium text-gray-900">{item.name}</p>
-                      <p className="text-xs text-gray-600">
-                        Cost: £{item.adjustedCost.toFixed(2)} | Sell: £{item.sell_price.toFixed(2)}
-                      </p>
+                {topPerformers.length === 0 ? (
+                  <p className="text-center text-gray-500 py-8">No menu items found</p>
+                ) : (
+                  topPerformers.map((item, index) => (
+                    <div key={item.id} className="flex justify-between items-center p-3 bg-green-50 rounded-lg">
+                      <div>
+                        <p className="font-medium text-gray-900">{item.name}</p>
+                        <p className="text-xs text-gray-600">
+                          Cost: £{formatPrice(item.adjustedCost)} | Sell: £{formatPrice(item.sell_price)}
+                        </p>
+                      </div>
+                      <Badge className="bg-green-100 text-green-800">
+                        {formatPercent(item.margin)}%
+                      </Badge>
                     </div>
-                    <Badge className="bg-green-100 text-green-800">
-                      {item.margin.toFixed(1)}%
-                    </Badge>
-                  </div>
-                ))}
+                  ))
+                )}
               </div>
             </CardContent>
           </Card>
@@ -196,19 +210,23 @@ export default function MenuAnalysis() {
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {poorPerformers.map((item, index) => (
-                  <div key={item.id} className="flex justify-between items-center p-3 bg-red-50 rounded-lg">
-                    <div>
-                      <p className="font-medium text-gray-900">{item.name}</p>
-                      <p className="text-xs text-gray-600">
-                        Cost: £{item.adjustedCost.toFixed(2)} | Sell: £{item.sell_price.toFixed(2)}
-                      </p>
+                {poorPerformers.length === 0 ? (
+                  <p className="text-center text-gray-500 py-8">No menu items found</p>
+                ) : (
+                  poorPerformers.map((item, index) => (
+                    <div key={item.id} className="flex justify-between items-center p-3 bg-red-50 rounded-lg">
+                      <div>
+                        <p className="font-medium text-gray-900">{item.name}</p>
+                        <p className="text-xs text-gray-600">
+                          Cost: £{formatPrice(item.adjustedCost)} | Sell: £{formatPrice(item.sell_price)}
+                        </p>
+                      </div>
+                      <Badge className="bg-red-100 text-red-800">
+                        {formatPercent(item.margin)}%
+                      </Badge>
                     </div>
-                    <Badge className="bg-red-100 text-red-800">
-                      {item.margin.toFixed(1)}%
-                    </Badge>
-                  </div>
-                ))}
+                  ))
+                )}
               </div>
             </CardContent>
           </Card>
@@ -237,44 +255,48 @@ export default function MenuAnalysis() {
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
-              {sortedByMargin.map((item) => (
-                <div key={item.id} className="p-4 bg-gray-50 rounded-lg">
-                  <div className="flex justify-between items-start mb-2">
-                    <div>
-                      <h4 className="font-semibold text-gray-900">{item.name}</h4>
-                      <Badge className="mt-1">
-                        {item.category}
-                      </Badge>
+              {sortedByMargin.length === 0 ? (
+                <p className="text-center text-gray-500 py-12">No menu items found</p>
+              ) : (
+                sortedByMargin.map((item) => (
+                  <div key={item.id} className="p-4 bg-gray-50 rounded-lg">
+                    <div className="flex justify-between items-start mb-2">
+                      <div>
+                        <h4 className="font-semibold text-gray-900">{item.name}</h4>
+                        <Badge className="mt-1">
+                          {item.category || 'Uncategorized'}
+                        </Badge>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-xl font-bold text-gray-900">£{formatPrice(item.sell_price)}</p>
+                        <Badge className={item.margin > 60 ? 'bg-green-100 text-green-800' : 'bg-amber-100 text-amber-800'}>
+                          {formatPercent(item.margin)}% margin
+                        </Badge>
+                      </div>
                     </div>
-                    <div className="text-right">
-                      <p className="text-xl font-bold text-gray-900">£{item.sell_price.toFixed(2)}</p>
-                      <Badge className={item.margin > 60 ? 'bg-green-100 text-green-800' : 'bg-amber-100 text-amber-800'}>
-                        {item.margin.toFixed(1)}% margin
-                      </Badge>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                      <div>
+                        <p className="text-gray-600">Base Cost</p>
+                        <p className="font-semibold text-gray-900">£{formatPrice(item.baseCost)}</p>
+                      </div>
+                      <div>
+                        <p className="text-gray-600">Wastage</p>
+                        <p className="font-semibold text-gray-900">£{formatPrice(item.wastageAmount)}</p>
+                      </div>
+                      <div>
+                        <p className="text-gray-600">Overhead</p>
+                        <p className="font-semibold text-gray-900">£{formatPrice(item.overheadAmount)}</p>
+                      </div>
+                      <div>
+                        <p className="text-gray-600">Profit</p>
+                        <p className={`font-semibold ${item.profit > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                          £{formatPrice(item.profit)}
+                        </p>
+                      </div>
                     </div>
                   </div>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                    <div>
-                      <p className="text-gray-600">Base Cost</p>
-                      <p className="font-semibold text-gray-900">£{item.baseCost.toFixed(2)}</p>
-                    </div>
-                    <div>
-                      <p className="text-gray-600">Wastage</p>
-                      <p className="font-semibold text-gray-900">£{item.wastageAmount.toFixed(2)}</p>
-                    </div>
-                    <div>
-                      <p className="text-gray-600">Overhead</p>
-                      <p className="font-semibold text-gray-900">£{item.overheadAmount.toFixed(2)}</p>
-                    </div>
-                    <div>
-                      <p className="text-gray-600">Profit</p>
-                      <p className={`font-semibold ${item.profit > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                        £{item.profit.toFixed(2)}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              ))}
+                ))
+              )}
             </div>
           </CardContent>
         </Card>
