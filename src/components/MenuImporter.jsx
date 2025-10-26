@@ -11,7 +11,7 @@ export default function MenuImporter() {
     if (!hasImported && !importing) {
       setTimeout(() => {
         importMenu();
-      }, 2000); // Wait for categories and ingredients to be ready
+      }, 3000);
     }
   }, []);
 
@@ -21,18 +21,11 @@ export default function MenuImporter() {
     try {
       console.log('🔄 Starting menu import...');
       
-      // Wait for dependencies
       const categories = await base44.entities.MenuCategory.list();
       const ingredients = await base44.entities.Ingredient.list();
 
-      if (categories.length === 0) {
-        console.log('⏳ Waiting for categories...');
-        setTimeout(importMenu, 3000);
-        return;
-      }
-
-      if (ingredients.length < 10) {
-        console.log('⏳ Waiting for ingredients...');
+      if (categories.length === 0 || ingredients.length < 10) {
+        console.log('⏳ Waiting for dependencies...');
         setTimeout(importMenu, 3000);
         return;
       }
@@ -44,10 +37,7 @@ export default function MenuImporter() {
       const createRecipe = (ingredientNames) => {
         return ingredientNames.map(name => {
           const ingredient = ingredients.find(i => i.name === name);
-          if (!ingredient) {
-            console.warn(`⚠️ Ingredient not found: ${name}`);
-            return null;
-          }
+          if (!ingredient) return null;
           return {
             ingredient_id: ingredient.id,
             ingredient_name: ingredient.name,
@@ -69,434 +59,83 @@ export default function MenuImporter() {
         return Array.from(allergens);
       };
 
-      const menuItemsData = [
-        // Chai Specials (5 items)
-        {
-          name: "Masala Chai",
-          category: "Chai Specials",
-          sell_price: 3.50,
-          description: "Classic Indian spiced tea with aromatic masala blend",
-          ingredients: ["Black Tea Leaves", "Water", "Milk (Whole)", "Sugar (White)", "Masala Chai Spice Blend"],
-          prep_time_minutes: 5,
-        },
-        {
-          name: "Saffron Chai",
-          category: "Chai Specials",
-          sell_price: 4.00,
-          description: "Luxurious chai infused with premium saffron strands",
-          ingredients: ["Black Tea Leaves", "Milk (Whole)", "Saffron Strands", "Sugar (White)", "Water"],
-          prep_time_minutes: 6,
-        },
-        {
-          name: "Ginger Chai",
-          category: "Chai Specials",
-          sell_price: 3.75,
-          description: "Warming chai with fresh ginger kick",
-          ingredients: ["Black Tea Leaves", "Milk (Whole)", "Fresh Ginger Root", "Sugar (White)", "Water"],
-          prep_time_minutes: 5,
-        },
-        {
-          name: "Cardamom Chai",
-          category: "Chai Specials",
-          sell_price: 3.75,
-          description: "Aromatic chai with crushed cardamom pods",
-          ingredients: ["Black Tea Leaves", "Milk (Whole)", "Cardamom Pods", "Sugar (White)", "Water"],
-          prep_time_minutes: 5,
-        },
-        {
-          name: "Chai Latte",
-          category: "Chai Specials",
-          sell_price: 3.50,
-          description: "Creamy latte-style chai with steamed milk",
-          ingredients: ["Masala Chai Spice Blend", "Milk (Whole)", "Sugar (White)"],
-          prep_time_minutes: 4,
-        },
-
-        // Signature Karak Chai (3 items)
-        {
-          name: "Original Karak Chai",
-          category: "Signature Karak Chai",
-          sell_price: 3.50,
-          description: "Strong, milky chai with Middle Eastern influence",
-          ingredients: ["Black Tea Leaves", "Evaporated Milk", "Sugar (White)", "Water"],
-          prep_time_minutes: 5,
-        },
-        {
-          name: "Saffron Karak",
-          category: "Signature Karak Chai",
-          sell_price: 4.25,
-          description: "Karak chai elevated with saffron strands",
-          ingredients: ["Black Tea Leaves", "Evaporated Milk", "Saffron Strands", "Sugar (White)", "Water"],
-          prep_time_minutes: 6,
-        },
-        {
-          name: "Ginger Karak",
-          category: "Signature Karak Chai",
-          sell_price: 3.75,
-          description: "Karak chai with a ginger twist",
-          ingredients: ["Black Tea Leaves", "Evaporated Milk", "Fresh Ginger Root", "Sugar (White)", "Water"],
-          prep_time_minutes: 5,
-        },
-
-        // Eastern Fusion Pastries (8 items)
-        {
-          name: "Cinnamon Cardamom Croissant",
-          category: "Eastern Fusion Pastries",
-          sell_price: 3.00,
-          description: "Buttery croissant infused with cinnamon and cardamom",
-          ingredients: ["Croissant Dough (Raw)", "Butter (Unsalted)", "Cinnamon Powder", "Cardamom Pods", "Sugar (White)"],
-          prep_time_minutes: 20,
-        },
-        {
-          name: "Saffron Pistachio Twist",
-          category: "Eastern Fusion Pastries",
-          sell_price: 3.50,
-          description: "Golden pastry twist with saffron glaze and pistachios",
-          ingredients: ["Pastry Twist Dough", "Saffron Glaze", "Pistachios (Chopped)"],
-          prep_time_minutes: 18,
-        },
-        {
-          name: "Rose Almond Danish",
-          category: "Eastern Fusion Pastries",
-          sell_price: 3.25,
-          description: "Flaky Danish with rose syrup and toasted almonds",
-          ingredients: ["Danish Pastry Dough", "Rose Syrup", "Almonds (Sliced)"],
-          prep_time_minutes: 18,
-        },
-        {
-          name: "Chai-Spiced Chocolate Croissant",
-          category: "Eastern Fusion Pastries",
-          sell_price: 3.50,
-          description: "Chocolate croissant with chai spice infusion",
-          ingredients: ["Croissant Dough (Raw)", "Chocolate Ganache", "Masala Chai Spice Blend"],
-          prep_time_minutes: 20,
-        },
-        {
-          name: "Honey & Nut Baklava Croissant",
-          category: "Eastern Fusion Pastries",
-          sell_price: 3.75,
-          description: "Croissant layered with honey syrup and mixed nuts",
-          ingredients: ["Croissant Dough (Raw)", "Honey Syrup", "Mixed Nuts (Chopped)"],
-          prep_time_minutes: 22,
-        },
-        {
-          name: "Date & Fig Crescent",
-          category: "Eastern Fusion Pastries",
-          sell_price: 3.25,
-          description: "Crescent pastry filled with sweet date and fig paste",
-          ingredients: ["Pastry Twist Dough", "Date & Fig Paste", "Powdered Sugar"],
-          prep_time_minutes: 18,
-        },
-        {
-          name: "Rose Pistachio Croissant",
-          category: "Eastern Fusion Pastries",
-          sell_price: 3.50,
-          description: "Croissant with rosewater glaze and crushed pistachios",
-          ingredients: ["Croissant Dough (Raw)", "Rosewater", "Pistachios (Chopped)"],
-          prep_time_minutes: 20,
-        },
-        {
-          name: "Chai Latte Roll",
-          category: "Eastern Fusion Pastries",
-          sell_price: 3.00,
-          description: "Soft roll with chai glaze and cinnamon swirl",
-          ingredients: ["Roll Pastry Dough", "Chai Glaze", "Cinnamon Powder"],
-          prep_time_minutes: 15,
-        },
-
-        // Coffee Selection (6 items)
-        {
-          name: "Espresso",
-          category: "Coffee Selection",
-          sell_price: 2.00,
-          description: "Single shot of premium espresso",
-          ingredients: ["Coffee Beans (Espresso)", "Water"],
-          prep_time_minutes: 2,
-        },
-        {
-          name: "Americano",
-          category: "Coffee Selection",
-          sell_price: 2.50,
-          description: "Espresso with hot water",
-          ingredients: ["Coffee Beans (Espresso)", "Water"],
-          prep_time_minutes: 3,
-        },
-        {
-          name: "Cappuccino",
-          category: "Coffee Selection",
-          sell_price: 3.00,
-          description: "Espresso with steamed milk and foam",
-          ingredients: ["Coffee Beans (Espresso)", "Milk (Whole)", "Water"],
-          prep_time_minutes: 4,
-        },
-        {
-          name: "Latte",
-          category: "Coffee Selection",
-          sell_price: 3.00,
-          description: "Espresso with steamed milk",
-          ingredients: ["Coffee Beans (Espresso)", "Milk (Whole)", "Water"],
-          prep_time_minutes: 4,
-        },
-        {
-          name: "Flat White",
-          category: "Coffee Selection",
-          sell_price: 3.00,
-          description: "Espresso with micro-foamed milk",
-          ingredients: ["Coffee Beans (Espresso)", "Milk (Whole)", "Water"],
-          prep_time_minutes: 4,
-        },
-        {
-          name: "Karak Coffee",
-          category: "Coffee Selection",
-          sell_price: 3.75,
-          description: "Espresso with cardamom and evaporated milk",
-          ingredients: ["Coffee Beans (Espresso)", "Cardamom Pods", "Evaporated Milk", "Water"],
-          prep_time_minutes: 5,
-        },
-
-        // Cold Drinks (5 items)
-        {
-          name: "Iced Karak Chai",
-          category: "Cold Drinks",
-          sell_price: 4.00,
-          description: "Chilled karak chai over ice",
-          ingredients: ["Black Tea Leaves", "Evaporated Milk", "Sugar (White)", "Ice Cubes", "Water"],
-          prep_time_minutes: 5,
-        },
-        {
-          name: "Iced Chai Latte",
-          category: "Cold Drinks",
-          sell_price: 4.00,
-          description: "Masala chai concentrate with cold milk over ice",
-          ingredients: ["Masala Chai Spice Blend", "Milk (Whole)", "Ice Cubes"],
-          prep_time_minutes: 4,
-        },
-        {
-          name: "Iced Spanish Latte",
-          category: "Cold Drinks",
-          sell_price: 4.50,
-          description: "Espresso with condensed milk and cold milk over ice",
-          ingredients: ["Coffee Beans (Espresso)", "Condensed Milk", "Milk (Whole)", "Ice Cubes", "Water"],
-          prep_time_minutes: 5,
-        },
-        {
-          name: "Rose Lemonade",
-          category: "Cold Drinks",
-          sell_price: 3.50,
-          description: "Refreshing rose-infused lemonade",
-          ingredients: ["Rose Syrup", "Lemon Juice", "Sparkling Water", "Ice Cubes"],
-          prep_time_minutes: 3,
-        },
-        {
-          name: "Mint Mojito Cooler",
-          category: "Cold Drinks",
-          sell_price: 3.75,
-          description: "Non-alcoholic mojito with fresh mint and lime",
-          ingredients: ["Mint Leaves (Fresh)", "Lime (Fresh)", "Sparkling Water", "Sugar Syrup (Simple)", "Ice Cubes"],
-          prep_time_minutes: 4,
-        },
-
-        // Small Bites (5 items)
-        {
-          name: "Samosas (3 pcs)",
-          category: "Small Bites",
-          sell_price: 4.00,
-          description: "Crispy samosas served with mint chutney",
-          ingredients: ["Samosa (Frozen)", "Mint Chutney", "Cooking Oil"],
-          prep_time_minutes: 10,
-        },
-        {
-          name: "Spicy Masala Fries",
-          category: "Small Bites",
-          sell_price: 3.50,
-          description: "Crispy fries tossed in masala seasoning",
-          ingredients: ["Fries (Frozen)", "Masala Seasoning", "Salt", "Cooking Oil"],
-          prep_time_minutes: 8,
-        },
-        {
-          name: "Cheese Paratha",
-          category: "Small Bites",
-          sell_price: 3.75,
-          description: "Flaky paratha stuffed with melted cheese",
-          ingredients: ["Paratha Dough", "Cheese (Grated)", "Butter (Unsalted)"],
-          prep_time_minutes: 12,
-        },
-        {
-          name: "Aloo Paratha",
-          category: "Small Bites",
-          sell_price: 3.50,
-          description: "Traditional paratha with spiced potato filling",
-          ingredients: ["Paratha Dough", "Potatoes (Diced)", "Masala Seasoning", "Butter (Unsalted)"],
-          prep_time_minutes: 15,
-        },
-        {
-          name: "Chili Cheese Paratha",
-          category: "Small Bites",
-          sell_price: 4.00,
-          description: "Spicy paratha with cheese and chili flakes",
-          ingredients: ["Paratha Dough", "Cheese (Grated)", "Chili Flakes", "Butter (Unsalted)"],
-          prep_time_minutes: 12,
-        },
-
-        // Additions (8 items)
-        {
-          name: "Vanilla Flavor Shot",
-          category: "Additions",
-          sell_price: 0.50,
-          description: "Add vanilla syrup to any drink",
-          ingredients: ["Vanilla Syrup"],
-          prep_time_minutes: 1,
-        },
-        {
-          name: "Caramel Flavor Shot",
-          category: "Additions",
-          sell_price: 0.50,
-          description: "Add caramel syrup to any drink",
-          ingredients: ["Caramel Syrup"],
-          prep_time_minutes: 1,
-        },
-        {
-          name: "Hazelnut Flavor Shot",
-          category: "Additions",
-          sell_price: 0.50,
-          description: "Add hazelnut syrup to any drink",
-          ingredients: ["Hazelnut Syrup"],
-          prep_time_minutes: 1,
-        },
-        {
-          name: "Extra Cinnamon",
-          category: "Additions",
-          sell_price: 0.75,
-          description: "Add cinnamon powder to your drink",
-          ingredients: ["Cinnamon Powder"],
-          prep_time_minutes: 1,
-        },
-        {
-          name: "Extra Saffron",
-          category: "Additions",
-          sell_price: 0.75,
-          description: "Add saffron strands to your drink",
-          ingredients: ["Saffron Strands"],
-          prep_time_minutes: 1,
-        },
-        {
-          name: "Extra Cardamom",
-          category: "Additions",
-          sell_price: 0.75,
-          description: "Add cardamom to your drink",
-          ingredients: ["Cardamom Pods"],
-          prep_time_minutes: 1,
-        },
-        {
-          name: "Whipped Cream",
-          category: "Additions",
-          sell_price: 0.50,
-          description: "Add whipped cream topping",
-          ingredients: ["Whipped Cream"],
-          prep_time_minutes: 1,
-        },
-        {
-          name: "Extra Espresso Shot",
-          category: "Additions",
-          sell_price: 1.00,
-          description: "Add an extra shot of espresso",
-          ingredients: ["Coffee Beans (Espresso)", "Water"],
-          prep_time_minutes: 2,
-        },
+      const menuItems = [
+        { name: "Masala Chai", category: "Chai Specials", price: 3.50, desc: "Classic Indian spiced tea", ingredients: ["Black Tea Leaves", "Water", "Milk (Whole)", "Sugar (White)", "Masala Chai Spice Blend"] },
+        { name: "Saffron Chai", category: "Chai Specials", price: 4.00, desc: "Luxurious chai with saffron", ingredients: ["Black Tea Leaves", "Milk (Whole)", "Saffron Strands", "Sugar (White)", "Water"] },
+        { name: "Ginger Chai", category: "Chai Specials", price: 3.75, desc: "Warming chai with ginger", ingredients: ["Black Tea Leaves", "Milk (Whole)", "Fresh Ginger Root", "Sugar (White)", "Water"] },
+        { name: "Cardamom Chai", category: "Chai Specials", price: 3.75, desc: "Aromatic cardamom chai", ingredients: ["Black Tea Leaves", "Milk (Whole)", "Cardamom Pods", "Sugar (White)", "Water"] },
+        { name: "Chai Latte", category: "Chai Specials", price: 3.50, desc: "Creamy latte-style chai", ingredients: ["Masala Chai Spice Blend", "Milk (Whole)", "Sugar (White)"] },
+        
+        { name: "Original Karak Chai", category: "Signature Karak Chai", price: 3.50, desc: "Strong milky chai", ingredients: ["Black Tea Leaves", "Evaporated Milk", "Sugar (White)", "Water"] },
+        { name: "Saffron Karak", category: "Signature Karak Chai", price: 4.25, desc: "Karak with saffron", ingredients: ["Black Tea Leaves", "Evaporated Milk", "Saffron Strands", "Sugar (White)", "Water"] },
+        { name: "Ginger Karak", category: "Signature Karak Chai", price: 3.75, desc: "Karak with ginger", ingredients: ["Black Tea Leaves", "Evaporated Milk", "Fresh Ginger Root", "Sugar (White)", "Water"] },
+        
+        { name: "Cinnamon Cardamom Croissant", category: "Eastern Fusion Pastries", price: 3.00, desc: "Spiced croissant", ingredients: ["Croissant Dough (Raw)", "Butter (Unsalted)", "Cinnamon Powder", "Cardamom Pods", "Sugar (White)"] },
+        { name: "Saffron Pistachio Twist", category: "Eastern Fusion Pastries", price: 3.50, desc: "Pastry with saffron glaze", ingredients: ["Pastry Twist Dough", "Saffron Glaze", "Pistachios (Chopped)"] },
+        { name: "Rose Almond Danish", category: "Eastern Fusion Pastries", price: 3.25, desc: "Rose-flavored danish", ingredients: ["Danish Pastry Dough", "Rose Syrup", "Almonds (Sliced)"] },
+        { name: "Chai-Spiced Chocolate Croissant", category: "Eastern Fusion Pastries", price: 3.50, desc: "Croissant with chai chocolate", ingredients: ["Croissant Dough (Raw)", "Chocolate Ganache", "Masala Chai Spice Blend"] },
+        { name: "Honey & Nut Baklava Croissant", category: "Eastern Fusion Pastries", price: 3.75, desc: "Baklava-inspired pastry", ingredients: ["Croissant Dough (Raw)", "Honey Syrup", "Mixed Nuts (Baklava)"] },
+        { name: "Date & Fig Crescent", category: "Eastern Fusion Pastries", price: 3.25, desc: "Sweet date-fig pastry", ingredients: ["Pastry Twist Dough", "Date-Fig Paste", "Powdered Sugar"] },
+        { name: "Rose Pistachio Croissant", category: "Eastern Fusion Pastries", price: 3.50, desc: "Rose and pistachio", ingredients: ["Croissant Dough (Raw)", "Rose Syrup", "Pistachios (Chopped)"] },
+        { name: "Chai Latte Roll", category: "Eastern Fusion Pastries", price: 3.00, desc: "Chai-glazed roll", ingredients: ["Roll Pastry Dough", "Masala Chai Spice Blend", "Cinnamon Powder"] },
+        
+        { name: "Espresso", category: "Coffee Selection", price: 2.00, desc: "Strong espresso shot", ingredients: ["Coffee Beans (Espresso)", "Water"] },
+        { name: "Americano", category: "Coffee Selection", price: 2.50, desc: "Espresso with water", ingredients: ["Coffee Beans (Espresso)", "Water"] },
+        { name: "Cappuccino", category: "Coffee Selection", price: 3.00, desc: "Espresso with foam", ingredients: ["Coffee Beans (Espresso)", "Milk (Whole)"] },
+        { name: "Latte", category: "Coffee Selection", price: 3.00, desc: "Espresso with milk", ingredients: ["Coffee Beans (Espresso)", "Milk (Whole)"] },
+        { name: "Flat White", category: "Coffee Selection", price: 3.00, desc: "Smooth espresso drink", ingredients: ["Coffee Beans (Espresso)", "Milk (Whole)"] },
+        { name: "Karak Coffee", category: "Coffee Selection", price: 3.75, desc: "Cardamom-spiced coffee", ingredients: ["Coffee Beans (Espresso)", "Cardamom Pods", "Evaporated Milk"] },
+        
+        { name: "Iced Karak Chai", category: "Cold Drinks", price: 4.00, desc: "Chilled karak chai", ingredients: ["Black Tea Leaves", "Evaporated Milk", "Sugar (White)", "Ice Cubes"] },
+        { name: "Iced Chai Latte", category: "Cold Drinks", price: 4.00, desc: "Cold chai latte", ingredients: ["Masala Chai Spice Blend", "Milk (Whole)", "Ice Cubes"] },
+        { name: "Iced Spanish Latte", category: "Cold Drinks", price: 4.50, desc: "Sweet iced latte", ingredients: ["Coffee Beans (Espresso)", "Condensed Milk", "Milk (Whole)", "Ice Cubes"] },
+        { name: "Rose Lemonade", category: "Cold Drinks", price: 3.50, desc: "Floral lemonade", ingredients: ["Rose Syrup", "Lemon Juice (Fresh)", "Sparkling Water", "Ice Cubes"] },
+        { name: "Mint Mojito Cooler", category: "Cold Drinks", price: 3.75, desc: "Refreshing mint drink", ingredients: ["Mint Leaves (Fresh)", "Lime Juice", "Sparkling Water", "Sugar Syrup (Simple)", "Ice Cubes"] },
+        
+        { name: "Samosas (3 pcs)", category: "Small Bites", price: 4.00, desc: "Crispy samosas", ingredients: ["Samosa Pastry", "Spiced Potato Filling", "Mint Chutney", "Vegetable Oil (Frying)"] },
+        { name: "Spicy Masala Fries", category: "Small Bites", price: 3.50, desc: "Seasoned fries", ingredients: ["French Fries (Frozen)", "Masala Seasoning Mix", "Salt", "Vegetable Oil (Frying)"] },
+        { name: "Cheese Paratha", category: "Small Bites", price: 3.75, desc: "Cheese-stuffed flatbread", ingredients: ["Paratha Dough", "Cheddar Cheese (Shredded)", "Butter (Unsalted)"] },
+        { name: "Aloo Paratha", category: "Small Bites", price: 3.50, desc: "Potato-stuffed flatbread", ingredients: ["Paratha Dough", "Spiced Potato Filling", "Butter (Unsalted)"] },
+        { name: "Chili Cheese Paratha", category: "Small Bites", price: 4.00, desc: "Spicy cheese paratha", ingredients: ["Paratha Dough", "Cheddar Cheese (Shredded)", "Green Chilies (Chopped)", "Butter (Unsalted)"] },
+        
+        { name: "Vanilla Flavor Shot", category: "Additions", price: 0.50, desc: "Add vanilla", ingredients: ["Vanilla Syrup"] },
+        { name: "Caramel Flavor Shot", category: "Additions", price: 0.50, desc: "Add caramel", ingredients: ["Caramel Syrup"] },
+        { name: "Hazelnut Flavor Shot", category: "Additions", price: 0.50, desc: "Add hazelnut", ingredients: ["Hazelnut Syrup"] },
+        { name: "Extra Cinnamon", category: "Additions", price: 0.75, desc: "Extra spice", ingredients: ["Cinnamon Powder"] },
+        { name: "Extra Saffron", category: "Additions", price: 0.75, desc: "Extra saffron", ingredients: ["Saffron Strands"] },
+        { name: "Extra Cardamom", category: "Additions", price: 0.75, desc: "Extra cardamom", ingredients: ["Cardamom Pods"] },
+        { name: "Whipped Cream", category: "Additions", price: 0.50, desc: "Cream topping", ingredients: ["Whipping Cream (Heavy)", "Sugar (White)"] },
+        { name: "Extra Espresso Shot", category: "Additions", price: 1.00, desc: "Extra caffeine", ingredients: ["Coffee Beans (Espresso)"] },
       ];
 
-      console.log(`🍽️ Preparing to import ${menuItemsData.length} menu items...`);
+      console.log(`📝 Creating ${menuItems.length} menu items...`);
 
-      let successCount = 0;
-      let skipCount = 0;
+      for (const item of menuItems) {
+        const categoryId = getCategoryId(item.category);
+        if (!categoryId) continue;
 
-      for (const itemData of menuItemsData) {
-        try {
-          const categoryId = getCategoryId(itemData.category);
-          
-          if (!categoryId) {
-            console.warn(`⏭️ Skipping ${itemData.name} - category "${itemData.category}" not found`);
-            skipCount++;
-            continue;
-          }
+        const recipe = createRecipe(item.ingredients);
+        const allergens = calculateAllergens(item.ingredients);
 
-          // Check if item already exists
-          const existing = await base44.entities.MenuItem.filter({ name: itemData.name });
-          if (existing.length > 0) {
-            console.log(`⏭️ Skipping ${itemData.name} - already exists`);
-            skipCount++;
-            continue;
-          }
-
-          const recipe = createRecipe(itemData.ingredients);
-          if (recipe.length === 0) {
-            console.warn(`⚠️ No valid ingredients found for ${itemData.name}`);
-          }
-
-          const allergens = calculateAllergens(itemData.ingredients);
-          const totalCost = recipe.reduce((sum, r) => sum + (r.cost || 0), 0);
-          const profitMargin = itemData.sell_price - totalCost;
-          const foodCostPercentage = itemData.sell_price > 0 ? (totalCost / itemData.sell_price) * 100 : 0;
-
-          const menuItem = await base44.entities.MenuItem.create({
-            name: itemData.name,
-            category_id: categoryId,
-            category_name: itemData.category,
-            sell_price: itemData.sell_price,
-            description: itemData.description,
-            recipe: recipe,
-            allergens: allergens,
-            total_cost: totalCost,
-            profit_margin: profitMargin,
-            food_cost_percentage: foodCostPercentage,
-            prep_time_minutes: itemData.prep_time_minutes,
-            is_active: true,
-          });
-
-          // Create allergy record
-          const riskLevel = allergens.length === 0 ? 'none' :
-                            allergens.some(a => ['nuts', 'shellfish', 'fish'].includes(a)) ? 'high' :
-                            allergens.length >= 3 ? 'medium' : 'low';
-
-          await base44.entities.AllergyRecord.create({
-            menu_item_id: menuItem.id,
-            menu_item_name: menuItem.name,
-            category: itemData.category,
-            allergens_detected: allergens,
-            ingredient_sources: recipe.map(r => ({
-              ingredient_id: r.ingredient_id,
-              ingredient_name: r.ingredient_name,
-              allergens: ingredients.find(i => i.id === r.ingredient_id)?.allergen_tags || [],
-            })),
-            auto_generated: true,
-            risk_level: riskLevel,
-            last_synced: new Date().toISOString(),
-          });
-
-          successCount++;
-          console.log(`✅ [${successCount}/${menuItemsData.length}] Imported: ${menuItem.name}`);
-
-        } catch (error) {
-          console.error(`❌ Failed to import ${itemData.name}:`, error.message);
-        }
+        await base44.entities.MenuItem.create({
+          name: item.name,
+          category_id: categoryId,
+          category_name: item.category,
+          sell_price: item.price,
+          description: item.desc,
+          recipe: recipe,
+          allergen_tags: allergens,
+          prep_time_minutes: 5,
+          is_active: true,
+        });
       }
 
+      console.log('✅ Menu import complete!');
       sessionStorage.setItem('chai_patta_menu_imported_v2', 'true');
       queryClient.invalidateQueries({ queryKey: ['menuItems'] });
-      queryClient.invalidateQueries({ queryKey: ['allergyRecords'] });
-      
-      console.log(`
-🎉 MENU IMPORT COMPLETE
-━━━━━━━━━━━━━━━━━━━━━━━
-✅ Successfully imported: ${successCount}
-⏭️ Skipped (duplicates): ${skipCount}
-📊 Total menu items: ${successCount + skipCount}
-      `);
       
     } catch (error) {
-      console.error('❌ Menu import error:', error);
-      sessionStorage.removeItem('chai_patta_menu_imported_v2');
-    } finally {
+      console.error('❌ Menu import failed:', error);
       setImporting(false);
     }
   };
