@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -25,7 +24,7 @@ import {
   Shield,
   FileText,
   Database,
-  Mail, // Added Mail icon import
+  Mail,
 } from "lucide-react";
 import WelcomeNewHire from "./components/WelcomeNewHire";
 import ChecklistAutomation from "./components/ChecklistAutomation";
@@ -33,10 +32,10 @@ import NotificationBell from "./components/NotificationBell";
 import AuraLogo from "./components/AuraLogo";
 import AutoBackupScheduler from "./components/AutoBackupScheduler";
 import { StaffDataSync } from "./components/StaffDataSync";
-import MenuImporter from "./components/MenuImporter"; // Added MenuImporter import
+import MenuImporter from "./components/MenuImporter";
 import DataRetentionAutomation from "./components/DataRetentionAutomation";
 import SecurityMonitoring from "./components/SecurityMonitoring";
-import DataRetentionPolicySeeder from "./components/DataRetentionPolicySeeder"; // Added DataRetentionPolicySeeder import
+import DataRetentionPolicySeeder from "./components/DataRetentionPolicySeeder";
 
 const Badge = ({ children, className }) => (
   <span className={`inline-flex items-center justify-center rounded-full text-center font-semibold leading-none whitespace-nowrap ${className}`}>
@@ -109,7 +108,7 @@ const navigationItems = [
       {
         title: "🍽️ Menu",
         url: createPageUrl("Menu"),
-        icon: Package, // Reusing Package icon for Menu as it fits well for products/items
+        icon: Package,
         badge: null,
       },
       {
