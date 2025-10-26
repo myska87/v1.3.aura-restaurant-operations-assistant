@@ -59,6 +59,8 @@ import PrivacyCenter from './pages/PrivacyCenter';
 import ComplianceDashboard from './pages/ComplianceDashboard';
 import EmailIntegrationHub from './pages/EmailIntegrationHub';
 import SystemProtection from './pages/SystemProtection';
+import LeafeDashboard from './pages/LeafeDashboard';
+import LeafeVenues from './pages/LeafeVenues';
 import Layout from './Layout.jsx';
 
 
@@ -124,6 +126,8 @@ export const PAGES = {
     "ComplianceDashboard": ComplianceDashboard,
     "EmailIntegrationHub": EmailIntegrationHub,
     "SystemProtection": SystemProtection,
+    "LeafeDashboard": LeafeDashboard,
+    "LeafeVenues": LeafeVenues,
 }
 
 export const pagesConfig = {
