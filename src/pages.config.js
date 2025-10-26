@@ -57,8 +57,6 @@ import Menu from './pages/Menu';
 import AllergyTable from './pages/AllergyTable';
 import EmailLog from './pages/EmailLog';
 import AccessLog from './pages/AccessLog';
-import DataRetentionSettings from './pages/DataRetentionSettings';
-import UserAnonymisation from './pages/UserAnonymisation';
 import Layout from './Layout.jsx';
 
 const pages = [
@@ -118,11 +116,9 @@ const pages = [
   { name: 'BackupSettings', path: '/backup-settings', file: 'BackupSettings.jsx', component: BackupSettings, public: false },
   { name: 'NotFound', path: '/404', file: 'NotFound.jsx', component: NotFound, public: false },
   { name: 'Menu', path: '/menu', file: 'Menu.jsx', component: Menu, public: true },
-  { name: 'AllergyTable', path: '/allergy-table', file: 'AllergyTable.jsx', component: AllergyTable, public: false },
+  { name: 'AllergyTable', path: '/allergy-table', file: 'AllergyTable.jsx', component: AllergyTable, public: true },
   { name: 'EmailLog', path: '/email-log', file: 'EmailLog.jsx', component: EmailLog, public: false },
   { name: 'AccessLog', path: '/access-log', file: 'AccessLog.jsx', component: AccessLog, public: false },
-  { name: 'DataRetentionSettings', path: '/data-retention-settings', file: 'DataRetentionSettings.jsx', component: DataRetentionSettings, public: false },
-  { name: 'UserAnonymisation', path: '/user-anonymisation', file: 'UserAnonymisation.jsx', component: UserAnonymisation, public: false },
 ];
 
 export { pages, Layout };
