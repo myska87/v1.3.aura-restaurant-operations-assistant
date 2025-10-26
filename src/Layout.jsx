@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -15,26 +14,19 @@ import {
   X,
   LogOut,
   Calculator,
-  ShoppingCart,
-  FileText,
-  Truck,
-  ListChecks,
   ClipboardList,
   GraduationCap,
   MessageCircle,
   CheckCircle,
   Calendar,
   TrendingUp,
-  UserCircle,
-  ChevronRight,
-  Clock, // Added from outline
-  Shield, // Added from outline
+  Clock,
+  Shield,
 } from "lucide-react";
 import WelcomeNewHire from "./components/WelcomeNewHire";
 import ChecklistAutomation from "./components/ChecklistAutomation";
 import NotificationBell from "./components/NotificationBell";
 
-// Simple Badge component for reusability within the sidebar
 const Badge = ({ children, className }) => (
   <span className={`inline-flex items-center justify-center rounded-full text-center font-semibold leading-none whitespace-nowrap ${className}`}>
     {children}
@@ -42,7 +34,6 @@ const Badge = ({ children, className }) => (
 );
 
 const navigationItems = [
-  // === DAILY ESSENTIALS ===
   {
     section: "Daily Essentials",
     items: [
@@ -72,8 +63,6 @@ const navigationItems = [
       },
     ]
   },
-  
-  // === OPERATIONS ===
   {
     section: "Operations",
     items: [
@@ -103,8 +92,6 @@ const navigationItems = [
       },
     ]
   },
-  
-  // === INVENTORY & MENU ===
   {
     section: "Inventory & Menu",
     items: [
@@ -122,8 +109,6 @@ const navigationItems = [
       },
     ]
   },
-  
-  // === TEAM & PEOPLE ===
   {
     section: "Team & People",
     items: [
@@ -189,10 +174,7 @@ export default function Layout({ children, currentPageName }) {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
-      {/* Auto-welcome new hires in background */}
       <WelcomeNewHire />
-
-      {/* Auto-generate daily checklists in background */}
       <ChecklistAutomation />
 
       {/* Mobile Header */}
@@ -249,14 +231,12 @@ export default function Layout({ children, currentPageName }) {
           <nav className="flex-1 overflow-y-auto p-4 space-y-6">
             {navigationItems.map((section, sectionIdx) => (
               <div key={sectionIdx}>
-                {/* Section Header */}
                 <div className="px-3 mb-2">
                   <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
                     {section.section}
                   </p>
                 </div>
                 
-                {/* Section Items */}
                 <div className="space-y-1">
                   {section.items.map((item) => {
                     const Icon = item.icon;
@@ -287,7 +267,6 @@ export default function Layout({ children, currentPageName }) {
               </div>
             ))}
 
-            {/* Management Tools Section - Only for Managers/Owners */}
             {(user?.position === 'manager' || user?.position === 'owner' || user?.role === 'admin') && (
               <div>
                 <div className="px-3 mb-2 mt-6 pt-6 border-t border-slate-200">
@@ -359,7 +338,6 @@ export default function Layout({ children, currentPageName }) {
         </div>
       </aside>
 
-      {/* Overlay for mobile */}
       {sidebarOpen && (
         <div
           className="fixed inset-0 bg-black/50 z-40 lg:hidden"
@@ -367,7 +345,6 @@ export default function Layout({ children, currentPageName }) {
         />
       )}
 
-      {/* Main Content */}
       <main className="lg:ml-64 pt-16 lg:pt-0 min-h-screen">
         {children}
       </main>

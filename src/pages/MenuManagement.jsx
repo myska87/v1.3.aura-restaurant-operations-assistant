@@ -109,7 +109,7 @@ export default function MenuManagement() {
     mutationFn: ({ id, data }) => base44.entities.MenuCategory.update(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['menuCategories'] });
-      queryClient.invalidateQueries({ queryKey: ['menuItems'] });
+      queryClient.invalidateQueries({ queryKey: ['menuItems'] }); // Invalidate menu items as their category_name might change
       resetCategoryForm();
     },
   });
@@ -118,6 +118,7 @@ export default function MenuManagement() {
     mutationFn: (id) => base44.entities.MenuCategory.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['menuCategories'] });
+      queryClient.invalidateQueries({ queryKey: ['menuItems'] }); // Invalidate menu items as some might lose categories
     },
   });
 
@@ -125,7 +126,6 @@ export default function MenuManagement() {
     mutationFn: (data) => base44.entities.PurchaseOrder.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['purchaseOrders'] });
-      // alert('✅ Draft order created successfully! Check Orders page.'); // Old alert, replaced below.
     },
   });
 
@@ -161,7 +161,7 @@ export default function MenuManagement() {
       name: item.name,
       category_id: item.category_id,
       description: item.description || "",
-      sell_price: item.sell_price.toString(),
+      sell_price: item.sell_price?.toString() || "", // Ensure it's a string for input
       image_url: item.image_url || "",
       recipe: item.recipe || [],
       prep_time_minutes: item.prep_time_minutes?.toString() || "",
@@ -176,7 +176,7 @@ export default function MenuManagement() {
     setCategoryFormData({
       name: category.name,
       description: category.description || "",
-      display_order: category.display_order?.toString() || "",
+      display_order: category.display_order?.toString() || "", // Ensure it's a string for input
     });
     setShowCategoryForm(true);
   };
@@ -197,12 +197,24 @@ export default function MenuManagement() {
   };
 
   const handleAddIngredient = () => {
-    if (!selectedIngredient || !ingredientQty) return;
+    const quantity = parseFloat(ingredientQty);
+    if (!selectedIngredient || isNaN(quantity) || quantity <= 0) {
+      alert("Please select an ingredient and enter a valid quantity greater than 0.");
+      return;
+    }
     
     const ingredient = ingredients.find(i => i.id === selectedIngredient);
-    if (!ingredient) return;
+    if (!ingredient) {
+      alert("Selected ingredient not found in inventory.");
+      return;
+    }
 
-    const quantity = parseFloat(ingredientQty);
+    // Check if ingredient already exists in recipe
+    if (itemFormData.recipe.some(r => r.ingredient_id === ingredient.id)) {
+      alert("This ingredient is already in the recipe. Please edit the existing entry.");
+      return;
+    }
+
     const cost = (ingredient.unit_cost * quantity);
 
     const recipeItem = {
@@ -210,7 +222,7 @@ export default function MenuManagement() {
       ingredient_name: ingredient.name,
       quantity: quantity,
       unit: ingredient.unit,
-      cost: cost,
+      cost: cost, // This is the total cost for this specific quantity of ingredient for ONE serving
     };
 
     setItemFormData({
@@ -230,7 +242,7 @@ export default function MenuManagement() {
   };
 
   const calculateTotals = () => {
-    const totalCost = itemFormData.recipe.reduce((sum, r) => sum + r.cost, 0);
+    const totalCost = itemFormData.recipe.reduce((sum, r) => sum + r.cost, 0); // r.cost is already total for one serving
     const sellPrice = parseFloat(itemFormData.sell_price) || 0;
     const profitMargin = sellPrice - totalCost;
     const foodCostPercentage = sellPrice > 0 ? (totalCost / sellPrice) * 100 : 0;
@@ -243,10 +255,20 @@ export default function MenuManagement() {
     const { totalCost, profitMargin, foodCostPercentage } = calculateTotals();
     const category = categories.find(c => c.id === itemFormData.category_id);
 
+    // Validate essential fields
+    if (!itemFormData.name || !itemFormData.category_id || parseFloat(itemFormData.sell_price) <= 0) {
+        alert("Please fill in item name, category, and a valid sell price.");
+        return;
+    }
+    if (itemFormData.recipe.length === 0) {
+        alert("Please add at least one ingredient to the recipe.");
+        return;
+    }
+
     const data = {
       name: itemFormData.name,
       category_id: itemFormData.category_id,
-      category_name: category?.name,
+      category_name: category?.name || "Uncategorized", // Default if category not found for some reason
       description: itemFormData.description,
       sell_price: parseFloat(itemFormData.sell_price),
       image_url: itemFormData.image_url,
@@ -257,29 +279,46 @@ export default function MenuManagement() {
       prep_time_minutes: itemFormData.prep_time_minutes ? parseInt(itemFormData.prep_time_minutes) : null,
       cooking_instructions: itemFormData.cooking_instructions,
       allergens: itemFormData.allergens,
-      is_active: true,
+      is_active: true, // Assuming new items are active by default
     };
 
-    if (editingItem) {
-      await updateMenuItemMutation.mutateAsync({ id: editingItem.id, data });
-    } else {
-      await createMenuItemMutation.mutateAsync(data);
+    try {
+      if (editingItem) {
+        await updateMenuItemMutation.mutateAsync({ id: editingItem.id, data });
+      } else {
+        await createMenuItemMutation.mutateAsync(data);
+      }
+      alert(`✅ Menu item ${editingItem ? 'updated' : 'created'} successfully!`);
+    } catch (error) {
+      console.error("Failed to save menu item:", error);
+      alert(`❌ Failed to save menu item. ${error.message || ''}`);
     }
   };
 
   const handleSubmitCategory = async (e) => {
     e.preventDefault();
+    if (!categoryFormData.name) {
+        alert("Category name is required.");
+        return;
+    }
+
     const data = {
       name: categoryFormData.name,
       description: categoryFormData.description,
-      display_order: categoryFormData.display_order ? parseInt(categoryFormData.display_order) : categories.length + 1,
-      is_active: true,
+      display_order: categoryFormData.display_order ? parseInt(categoryFormData.display_order) : (categories.length > 0 ? Math.max(...categories.map(c => c.display_order || 0)) + 1 : 1),
+      is_active: true, // Assuming new categories are active by default
     };
 
-    if (editingCategory) {
-      await updateCategoryMutation.mutateAsync({ id: editingCategory.id, data });
-    } else {
-      await createCategoryMutation.mutateAsync(data);
+    try {
+      if (editingCategory) {
+        await updateCategoryMutation.mutateAsync({ id: editingCategory.id, data });
+      } else {
+        await createCategoryMutation.mutateAsync(data);
+      }
+      alert(`✅ Category ${editingCategory ? 'updated' : 'created'} successfully!`);
+    } catch (error) {
+      console.error("Failed to save category:", error);
+      alert(`❌ Failed to save category. ${error.message || ''}`);
     }
   };
 
@@ -296,34 +335,47 @@ export default function MenuManagement() {
     const recipe = calculatorItem.recipe || [];
     const sellPricePerServing = parseFloat(calculatorItem.sell_price || 0);
     
-    // Calculate cost per serving with waste
-    const costPerServing = recipe.reduce((sum, item) => {
-      // Try to find ingredient by ID
-      let ingredientDetail = ingredients.find(ing => ing.id === item.ingredient_id);
+    let costPerServingBeforeWaste = 0;
+    const ingredientsNeededDetails = recipe.map(recipeItem => {
+      let ingredientDetail = ingredients.find(ing => ing.id === recipeItem.ingredient_id);
       
-      // If not found by ID, try by name (fallback for older or manually added items)
       if (!ingredientDetail) {
-        ingredientDetail = ingredients.find(ing => ing.name === item.ingredient_name);
+        ingredientDetail = ingredients.find(ing => ing.name === recipeItem.ingredient_name);
         if (ingredientDetail) {
-          console.warn(`Ingredient "${item.ingredient_name}" (ID: ${item.ingredient_id}) not found by ID, matched by name.`);
-        } else {
-          console.warn(`Ingredient "${item.ingredient_name}" (ID: ${item.ingredient_id}) not found in inventory for cost calculation.`);
-          // If not found, use the stored cost from the recipe if available.
-          // This might be imperfect if the recipe cost is outdated, but it's a fallback.
-          return sum + (item.cost || 0); 
+          console.warn(`Ingredient "${recipeItem.ingredient_name}" (ID: ${recipeItem.ingredient_id}) not found by ID, matched by name. Using inventory data.`);
         }
       }
+      
+      let effectiveUnitCost = 0;
+      let individualServingCost = 0;
+      let isMissingFromInventory = false;
 
-      // Use unit_cost from inventory, or fallback to recipe's cost/quantity if inventory unit_cost is zero/null
-      const effectiveUnitCost = ingredientDetail.unit_cost > 0 ? ingredientDetail.unit_cost : (item.cost / item.quantity);
-      const individualCost = effectiveUnitCost * item.quantity;
-      return sum + individualCost;
-    }, 0);
+      if (ingredientDetail) {
+        effectiveUnitCost = ingredientDetail.unit_cost > 0 
+          ? ingredientDetail.unit_cost 
+          : (recipeItem.quantity > 0 ? recipeItem.cost / recipeItem.quantity : 0); // Fallback to recipe cost if inventory unit_cost is zero/invalid
+        individualServingCost = effectiveUnitCost * recipeItem.quantity; // Cost for this ingredient for ONE serving
+        costPerServingBeforeWaste += individualServingCost;
+      } else {
+        isMissingFromInventory = true;
+        // If ingredient is not found in inventory at all, use the cost stored in the recipe.
+        // This is a fallback to ensure some cost is calculated, even if not fully up-to-date.
+        individualServingCost = recipeItem.cost || 0; 
+        costPerServingBeforeWaste += individualServingCost;
+        console.error(`Ingredient "${recipeItem.ingredient_name}" (ID: ${recipeItem.ingredient_id}) not found in inventory! Using stored recipe cost: £${individualServingCost.toFixed(2)}`);
+      }
 
+      return {
+        ...recipeItem, // Keep original recipe item data
+        ingredientDetail: ingredientDetail, // Attach the found inventory detail
+        effectiveUnitCost: effectiveUnitCost,
+        individualServingCost: individualServingCost, // Cost for this ingredient for ONE serving
+        missingFromInventory: isMissingFromInventory,
+      };
+    });
 
-    const costPerServingWithWaste = costPerServing * (1 + wastePercentage / 100);
+    const costPerServingWithWaste = costPerServingBeforeWaste * (1 + wastePercentage / 100);
 
-    // Calculate totals for multiple servings
     const totalCost = costPerServingWithWaste * servings;
     const totalRevenue = sellPricePerServing * servings;
     const profitPerServing = sellPricePerServing - costPerServingWithWaste;
@@ -332,55 +384,31 @@ export default function MenuManagement() {
       ? (profitPerServing / sellPricePerServing) * 100 
       : 0;
 
-    // Calculate ingredient quantities needed for servings
-    const ingredientsNeeded = recipe.map(recipeItem => {
-      // Try to find ingredient by ID
-      let ingredientDetail = ingredients.find(ing => ing.id === recipeItem.ingredient_id);
-      
-      // If not found by ID, try by name (fallback)
-      if (!ingredientDetail) {
-        ingredientDetail = ingredients.find(ing => ing.name === recipeItem.ingredient_name);
-        if (ingredientDetail) {
-          console.warn(`Ingredient "${recipeItem.ingredient_name}" (ID: ${recipeItem.ingredient_id}) not found by ID, matched by name.`);
-        }
-      }
-      
-      if (!ingredientDetail) {
-        console.error(`Ingredient "${recipeItem.ingredient_name}" (ID: ${recipeItem.ingredient_id}) not found in inventory!`);
-        // Return a placeholder with the recipe data, indicating it's missing
-        const quantityNeededRaw = recipeItem.quantity * servings;
-        const quantityNeededWithWaste = quantityNeededRaw * (1 + wastePercentage / 100);
-        const unitCostFromRecipe = recipeItem.quantity > 0 ? recipeItem.cost / recipeItem.quantity : 0; // Use stored cost for calculation
-        const totalCostFromRecipe = quantityNeededWithWaste * unitCostFromRecipe;
-        return {
-          ingredient_id: recipeItem.ingredient_id,
-          ingredient_name: recipeItem.ingredient_name,
-          quantity_needed: quantityNeededWithWaste,
-          unit: recipeItem.unit,
-          unit_cost: unitCostFromRecipe, 
-          total_cost: totalCostFromRecipe,
-          supplier_id: null,
-          supplier_name: "⚠️ Not in Inventory", // Display a clear message
-          supplier_email: null,
-          missing: true, // Flag this item as missing
-        };
-      }
+    // Calculate ingredient quantities needed for all servings, with waste
+    const ingredientsNeeded = ingredientsNeededDetails.map(itemDetail => {
+      const { recipeItem, ingredientDetail, missingFromInventory } = itemDetail;
 
       const quantityNeededRaw = recipeItem.quantity * servings;
       const quantityNeededWithWaste = quantityNeededRaw * (1 + wastePercentage / 100);
-      const totalIngredientCost = quantityNeededWithWaste * ingredientDetail.unit_cost;
+
+      // Unit cost for reporting should reflect what we're basing the total cost on.
+      let unitCostToReport = missingFromInventory 
+        ? (recipeItem.quantity > 0 ? recipeItem.cost / recipeItem.quantity : 0) 
+        : (ingredientDetail?.unit_cost || 0);
+      
+      const totalIngredientCostWithWaste = quantityNeededWithWaste * unitCostToReport;
 
       return {
-        ingredient_id: ingredientDetail.id,
-        ingredient_name: ingredientDetail.name,
+        ingredient_id: recipeItem.ingredient_id,
+        ingredient_name: recipeItem.ingredient_name,
         quantity_needed: quantityNeededWithWaste,
-        unit: ingredientDetail.unit,
-        unit_cost: ingredientDetail.unit_cost,
-        total_cost: totalIngredientCost,
-        supplier_id: ingredientDetail.supplier_id,
-        supplier_name: ingredientDetail.supplier_name || "⚠️ No Supplier", // Default if supplier_name is missing
-        supplier_email: ingredientDetail.supplier_email,
-        missing: false, // This item was found
+        unit: recipeItem.unit,
+        unit_cost: unitCostToReport, 
+        total_cost: totalIngredientCostWithWaste,
+        supplier_id: ingredientDetail?.supplier_id || null,
+        supplier_name: ingredientDetail?.supplier_name || "⚠️ No Supplier", 
+        supplier_email: ingredientDetail?.supplier_email || null,
+        missing: missingFromInventory,
       };
     });
 
@@ -402,11 +430,10 @@ export default function MenuManagement() {
     const { ingredientsNeeded } = metrics;
 
     if (ingredientsNeeded.length === 0) {
-      alert('⚠️ No ingredients found to order!');
+      alert('⚠️ No ingredients found in the recipe to order!');
       return;
     }
 
-    // New: Check for missing ingredients first
     const missingIngredients = ingredientsNeeded.filter(ing => ing.missing);
     if (missingIngredients.length > 0) {
       alert(`⚠️ Cannot create order. The following ingredient(s) are not found in your Inventory:\n\n${
@@ -415,7 +442,6 @@ export default function MenuManagement() {
       return;
     }
 
-    // Check which ingredients are missing suppliers (now filters based on 'missing: false' items)
     const ingredientsWithoutSuppliers = ingredientsNeeded.filter(ing => !ing.supplier_id && !ing.missing);
     if (ingredientsWithoutSuppliers.length > 0) {
       const errorMessage = `⚠️ Cannot create order. The following ingredients need suppliers:\n\n${
@@ -426,48 +452,43 @@ export default function MenuManagement() {
       return;
     }
 
-    // Group by supplier
     const ordersBySupplier = {};
 
-    for (const recipeItem of ingredientsNeeded) {
-      // Skip ingredients that were marked as missing (should be caught by previous check, but for safety)
-      if (recipeItem.missing) continue;
+    for (const item of ingredientsNeeded) { // Renamed from recipeItem for clarity
+      // These checks are defensive as previous filters should catch them
+      if (item.missing) continue;
+      if (!item.supplier_id) continue; 
 
-      const supplierId = recipeItem.supplier_id;
-      // Also skip if supplierId is somehow null/undefined here (should be caught by previous check, but for safety)
-      if (!supplierId) continue; 
-
-      if (!ordersBySupplier[supplierId]) {
-        ordersBySupplier[supplierId] = {
-          supplier_id: recipeItem.supplier_id,
-          supplier_name: recipeItem.supplier_name,
-          supplier_email: recipeItem.supplier_email,
+      if (!ordersBySupplier[item.supplier_id]) {
+        ordersBySupplier[item.supplier_id] = {
+          supplier_id: item.supplier_id,
+          supplier_name: item.supplier_name,
+          supplier_email: item.supplier_email,
           items: [],
         };
       }
 
-      ordersBySupplier[supplierId].items.push({
-        ingredient_id: recipeItem.ingredient_id,
-        ingredient_name: recipeItem.ingredient_name,
-        quantity_ordered: recipeItem.quantity_needed,
-        unit: recipeItem.unit,
-        unit_cost: recipeItem.unit_cost,
-        line_total: recipeItem.total_cost,
+      ordersBySupplier[item.supplier_id].items.push({
+        ingredient_id: item.ingredient_id,
+        ingredient_name: item.ingredient_name,
+        quantity_ordered: parseFloat(item.quantity_needed.toFixed(2)), // Round for purchase order
+        unit: item.unit,
+        unit_cost: parseFloat(item.unit_cost.toFixed(2)), // Round for purchase order
+        line_total: parseFloat(item.total_cost.toFixed(2)), // Round for purchase order
       });
     }
 
     if (Object.keys(ordersBySupplier).length === 0) {
-      // This should ideally not happen if ingredientsNeeded is not empty and no missing ingredients/suppliers.
       alert('⚠️ No valid ingredients with suppliers to order. Please check your recipes and inventory.');
       return;
     }
 
-    // Create draft orders for each supplier
     try {
       let ordersCreated = 0;
       for (const order of Object.values(ordersBySupplier)) {
         const subtotal = order.items.reduce((sum, item) => sum + item.line_total, 0);
-        const tax = subtotal * 0.2;
+        const taxRate = 0.20; // 20% tax
+        const tax = subtotal * taxRate;
         const total = subtotal + tax;
 
         await createPurchaseOrderMutation.mutateAsync({
@@ -521,7 +542,10 @@ export default function MenuManagement() {
             <Button 
               variant="outline" 
               className="border-green-600 text-green-700 hover:bg-green-50"
-              onClick={() => setShowCategoryForm(true)}
+              onClick={() => {
+                resetCategoryForm(); // Clear form if opening fresh
+                setShowCategoryForm(true);
+              }}
             >
               <Folder className="w-4 h-4 mr-2" />
               Manage Categories
@@ -529,7 +553,10 @@ export default function MenuManagement() {
 
             <Button 
               className="bg-green-600 hover:bg-green-700"
-              onClick={() => setShowItemForm(true)}
+              onClick={() => {
+                resetItemForm(); // Clear form if opening fresh
+                setShowItemForm(true);
+              }}
             >
               <Plus className="w-4 h-4 mr-2" />
               Add Menu Item
@@ -574,7 +601,10 @@ export default function MenuManagement() {
                   <p className="text-gray-500">No menu items created yet</p>
                   <Button 
                     className="mt-4 bg-green-600 hover:bg-green-700"
-                    onClick={() => setShowItemForm(true)}
+                    onClick={() => {
+                      resetItemForm();
+                      setShowItemForm(true);
+                    }}
                   >
                     <Plus className="w-4 h-4 mr-2" />
                     Create Your First Menu Item
@@ -612,7 +642,7 @@ export default function MenuManagement() {
                       size="icon"
                       className="bg-white/90 hover:bg-white shadow-md"
                       onClick={() => {
-                        if (confirm('Delete this menu item?')) {
+                        if (confirm(`Are you sure you want to delete "${item.name}"?`)) {
                           deleteMenuItemMutation.mutate(item.id);
                         }
                       }}
@@ -626,7 +656,7 @@ export default function MenuManagement() {
                   <div className="mb-3">
                     <h3 className="text-lg font-bold text-gray-900 mb-1">{item.name}</h3>
                     <Badge className="bg-green-100 text-green-800 text-xs">
-                      {item.category_name}
+                      {item.category_name || "Uncategorized"}
                     </Badge>
                   </div>
 
@@ -637,28 +667,28 @@ export default function MenuManagement() {
                   <div className="space-y-2">
                     <div className="flex justify-between items-center">
                       <span className="text-sm text-gray-600">Sell Price:</span>
-                      <span className="text-xl font-bold text-gray-900">£{item.sell_price?.toFixed(2)}</span>
+                      <span className="text-xl font-bold text-gray-900">£{(item.sell_price || 0).toFixed(2)}</span>
                     </div>
                     <div className="flex justify-between items-center text-sm">
                       <span className="text-gray-600">Cost:</span>
-                      <span className="font-semibold text-gray-900">£{item.total_cost?.toFixed(2)}</span>
+                      <span className="font-semibold text-gray-900">£{(item.total_cost || 0).toFixed(2)}</span>
                     </div>
                     <div className="flex justify-between items-center text-sm">
                       <span className="text-gray-600">Profit:</span>
-                      <span className={`font-semibold ${item.profit_margin > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                        £{item.profit_margin?.toFixed(2)}
+                      <span className={`font-semibold ${(item.profit_margin || 0) > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                        £{(item.profit_margin || 0).toFixed(2)}
                       </span>
                     </div>
                     <div className="flex justify-between items-center text-sm pt-2 border-t border-gray-100">
                       <span className="text-gray-600">Food Cost %:</span>
-                      <Badge variant="outline" className={item.food_cost_percentage < 35 ? 'text-green-700 border-green-300' : 'text-amber-700 border-amber-300'}>
-                        {item.food_cost_percentage?.toFixed(1)}%
+                      <Badge variant="outline" className={(item.food_cost_percentage || 0) < 35 ? 'text-green-700 border-green-300' : 'text-amber-700 border-amber-300'}>
+                        {(item.food_cost_percentage || 0).toFixed(1)}%
                       </Badge>
                     </div>
                   </div>
 
                   <div className="text-xs text-gray-500 mt-3 pt-3 border-t border-gray-100">
-                    {item.recipe?.length || 0} ingredients • {item.prep_time_minutes || 0} min prep
+                    {(item.recipe?.length || 0)} ingredients • {(item.prep_time_minutes || 0)} min prep
                   </div>
 
                   <Button
@@ -759,6 +789,7 @@ export default function MenuManagement() {
                             size="sm"
                             onClick={() => {
                               setShowItemForm(false);
+                              resetCategoryForm(); // Clear form if opening fresh
                               setShowCategoryForm(true);
                             }}
                           >
@@ -839,7 +870,7 @@ export default function MenuManagement() {
                           <SelectContent>
                             {ingredients.map(ing => (
                               <SelectItem key={ing.id} value={ing.id}>
-                                {ing.name} ({ing.unit}) - £{ing.unit_cost?.toFixed(2)}
+                                {ing.name} ({ing.unit}) - £{ing.unit_cost?.toFixed(2) || '0.00'}
                               </SelectItem>
                             ))}
                           </SelectContent>
@@ -858,7 +889,7 @@ export default function MenuManagement() {
                       onClick={handleAddIngredient} 
                       className="w-full"
                       size="sm"
-                      disabled={!selectedIngredient || !ingredientQty}
+                      disabled={!selectedIngredient || parseFloat(ingredientQty) <= 0}
                     >
                       <Plus className="w-4 h-4 mr-2" />
                       Add Ingredient
@@ -877,7 +908,7 @@ export default function MenuManagement() {
                                 {item.ingredient_name}
                               </p>
                               <p className="text-sm text-gray-600">
-                                {item.quantity} {item.unit} × £{(item.cost / item.quantity).toFixed(2)} = £{item.cost.toFixed(2)}
+                                {item.quantity} {item.unit} × £{(item.quantity > 0 ? (item.cost / item.quantity) : 0).toFixed(2)} = £{item.cost.toFixed(2)}
                               </p>
                             </div>
                             <Button
@@ -896,7 +927,7 @@ export default function MenuManagement() {
                 )}
 
                 {/* Cost Summary */}
-                {itemFormData.recipe.length > 0 && itemFormData.sell_price && (
+                {itemFormData.recipe.length > 0 && parseFloat(itemFormData.sell_price) > 0 && (
                   <Card className="bg-blue-50 border-blue-200">
                     <CardContent className="p-4 space-y-2">
                       <div className="flex justify-between text-sm">
@@ -930,7 +961,7 @@ export default function MenuManagement() {
                 </Button>
                 <Button 
                   type="submit" 
-                  disabled={createMenuItemMutation.isPending || updateMenuItemMutation.isPending || itemFormData.recipe.length === 0}
+                  disabled={createMenuItemMutation.isPending || updateMenuItemMutation.isPending || itemFormData.recipe.length === 0 || parseFloat(itemFormData.sell_price) <= 0 || !itemFormData.name || !itemFormData.category_id}
                   className="bg-green-600 hover:bg-green-700"
                 >
                   {editingItem ? 'Update Item' : 'Create Item'}
@@ -986,7 +1017,7 @@ export default function MenuManagement() {
                 <Button type="button" variant="outline" onClick={resetCategoryForm}>
                   Cancel
                 </Button>
-                <Button type="submit" className="bg-green-600 hover:bg-green-700">
+                <Button type="submit" className="bg-green-600 hover:bg-green-700" disabled={!categoryFormData.name}>
                   {editingCategory ? 'Update' : 'Create'} Category
                 </Button>
               </div>
@@ -996,9 +1027,9 @@ export default function MenuManagement() {
               <div className="mt-6 border-t pt-4">
                 <h4 className="font-semibold text-gray-900 mb-3">Existing Categories</h4>
                 <div className="space-y-2">
-                  {categories.map(cat => (
+                  {categories.sort((a, b) => (a.display_order || 0) - (b.display_order || 0)).map(cat => (
                     <div key={cat.id} className="flex items-center justify-between p-2 bg-gray-50 rounded">
-                      <span className="font-medium text-gray-900">{cat.name}</span>
+                      <span className="font-medium text-gray-900">{cat.name} ({cat.display_order || '-'})</span>
                       <div className="flex gap-1">
                         <Button variant="ghost" size="icon" onClick={() => handleEditCategory(cat)}>
                           <Pencil className="w-4 h-4" />
@@ -1007,7 +1038,7 @@ export default function MenuManagement() {
                           variant="ghost" 
                           size="icon" 
                           onClick={() => {
-                            if (confirm(`Delete category "${cat.name}"?`)) {
+                            if (confirm(`Are you sure you want to delete category "${cat.name}"? This cannot be undone.`)) {
                               deleteCategoryMutation.mutate(cat.id);
                             }
                           }}
@@ -1043,7 +1074,7 @@ export default function MenuManagement() {
                       type="number"
                       min="1"
                       value={servings}
-                      onChange={(e) => setServings(parseInt(e.target.value) || 1)}
+                      onChange={(e) => setServings(Math.max(1, parseInt(e.target.value) || 1))} // Ensure at least 1 serving
                       className="text-lg font-semibold"
                     />
                   </div>
@@ -1051,7 +1082,7 @@ export default function MenuManagement() {
                   <div className="space-y-2">
                     <Label>Sale Price per Serving</Label>
                     <div className="text-2xl font-bold text-gray-900">
-                      £{parseFloat(calculatorItem?.sell_price || 0).toFixed(2)}
+                      £{(parseFloat(calculatorItem?.sell_price) || 0).toFixed(2)}
                     </div>
                   </div>
 
@@ -1060,9 +1091,9 @@ export default function MenuManagement() {
                     <Input
                       type="number"
                       min="0"
-                      max="50"
+                      max="100" // Waste can theoretically be up to 100%
                       value={wastePercentage}
-                      onChange={(e) => setWastePercentage(parseInt(e.target.value) || 0)}
+                      onChange={(e) => setWastePercentage(Math.max(0, Math.min(100, parseInt(e.target.value) || 0)))}
                     />
                   </div>
                 </div>
@@ -1097,16 +1128,16 @@ export default function MenuManagement() {
                     Ingredients Needed ({servings} servings)
                     {calculatorItem?.recipe?.length > 0 && (
                       <span className="text-sm font-normal text-gray-500 ml-2">
-                        ({calculatorItem.recipe.length} ingredients in recipe)
+                        ({calculatorItem.recipe.length} unique ingredients in recipe)
                       </span>
                     )}
                   </h4>
                   {metrics.ingredientsNeeded.length === 0 && calculatorItem?.recipe?.length === 0 ? (
                     <Card className="bg-amber-50 border-amber-200">
                       <CardContent className="p-4 text-center">
-                        <p className="text-amber-800">⚠️ No ingredients found in recipe</p>
+                        <p className="text-amber-800">⚠️ No ingredients found in recipe for this item.</p>
                         <p className="text-sm text-amber-600 mt-2">
-                          This menu item doesn't have any ingredients added yet.
+                          Please edit the menu item to add ingredients to its recipe.
                         </p>
                       </CardContent>
                     </Card>
@@ -1143,7 +1174,7 @@ export default function MenuManagement() {
                                     )}
                                   </div>
                                   <p className="text-sm text-gray-600">
-                                    {item.quantity_needed.toFixed(2)} {item.unit} × £{item.unit_cost?.toFixed(2)}
+                                    {item.quantity_needed.toFixed(2)} {item.unit} × £{(item.unit_cost || 0).toFixed(2)}
                                     {wastePercentage > 0 && (
                                       <span className="text-amber-600 ml-1"> (+{wastePercentage}% waste)</span>
                                     )}
@@ -1153,12 +1184,12 @@ export default function MenuManagement() {
                                   )}
                                   {item.missing && (
                                     <p className="text-xs text-red-600 mt-1">
-                                      ⚠️ Please add this ingredient to Inventory Management
+                                      ⚠️ Please add this ingredient to Inventory Management.
                                     </p>
                                   )}
                                   {!hasSupplier && !item.missing && (
                                     <p className="text-xs text-amber-600 mt-1">
-                                      ⚠️ Please assign a supplier in Inventory Management
+                                      ⚠️ Please assign a supplier in Inventory Management for ordering.
                                     </p>
                                   )}
                                 </div>
@@ -1204,7 +1235,7 @@ export default function MenuManagement() {
                   <Button
                     onClick={handleOrderIngredients}
                     className="bg-green-600 hover:bg-green-700"
-                    disabled={createPurchaseOrderMutation.isPending || metrics.ingredientsNeeded.length === 0}
+                    disabled={createPurchaseOrderMutation.isPending || metrics.ingredientsNeeded.length === 0 || metrics.ingredientsNeeded.some(ing => ing.missing || !ing.supplier_id)}
                   >
                     <ShoppingCart className="w-4 h-4 mr-2" />
                     {createPurchaseOrderMutation.isPending ? 'Creating Order...' : 'Order Ingredients Now'}
