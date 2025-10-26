@@ -61,6 +61,7 @@ import EmailIntegrationHub from './pages/EmailIntegrationHub';
 import SystemProtection from './pages/SystemProtection';
 import LeafeDashboard from './pages/LeafeDashboard';
 import LeafeVenues from './pages/LeafeVenues';
+import DataBridgeMonitor from './pages/DataBridgeMonitor';
 import Layout from './Layout.jsx';
 
 
@@ -128,6 +129,7 @@ export const PAGES = {
     "SystemProtection": SystemProtection,
     "LeafeDashboard": LeafeDashboard,
     "LeafeVenues": LeafeVenues,
+    "DataBridgeMonitor": DataBridgeMonitor,
 }
 
 export const pagesConfig = {

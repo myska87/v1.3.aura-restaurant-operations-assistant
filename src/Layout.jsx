@@ -25,6 +25,7 @@ import {
   Shield,
   FileText,
   Database,
+  Activity, // Added Activity icon
 } from "lucide-react";
 import WelcomeNewHire from "./components/WelcomeNewHire";
 import ChecklistAutomation from "./components/ChecklistAutomation";
@@ -36,6 +37,7 @@ import MenuImporter from "./components/MenuImporter";
 import SystemStatusCheck from "./components/SystemStatusCheck";
 import ComplianceEventListener from "./components/ComplianceEventListener";
 import ChangeDetector from "./components/ChangeDetector"; // Import the new component
+import DataBridgeEngine from "./components/DataBridgeEngine"; // Import the new component
 
 const Badge = ({ children, className }) => (
   <span className={`inline-flex items-center justify-center rounded-full text-center font-semibold leading-none whitespace-nowrap ${className}`}>
@@ -187,6 +189,12 @@ const managementItems = [
     icon: Shield,
     badge: "GDPR",
   },
+  {
+    title: "🌉 DataBridge Monitor",
+    url: createPageUrl("DataBridgeMonitor"),
+    icon: Activity,
+    badge: "LIVE",
+  },
 ];
 
 export default function Layout({ children }) {
@@ -220,6 +228,8 @@ export default function Layout({ children }) {
 
       {/* 🔒 PROTECTION SYSTEM COMPONENTS */}
       <ChangeDetector />
+      {/* AURA_DataBridge - Secure Module Integration System */}
+      <DataBridgeEngine />
 
       {/* Mobile Header */}
       <div className="lg:hidden fixed top-0 left-0 right-0 bg-white border-b border-slate-200 z-40 px-4 py-3">
@@ -334,7 +344,9 @@ export default function Layout({ children }) {
                           <Badge className={`text-xs px-1.5 py-0.5 ${
                             item.badge === 'AI' 
                               ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white' 
-                              : 'bg-purple-100 text-purple-700'
+                              : item.badge === 'LIVE'
+                                ? 'bg-gradient-to-r from-green-500 to-emerald-500 text-white'
+                                : 'bg-purple-100 text-purple-700'
                           }`}>
                             {item.badge}
                           </Badge>
