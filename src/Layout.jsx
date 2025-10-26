@@ -28,6 +28,7 @@ import WelcomeNewHire from "./components/WelcomeNewHire";
 import ChecklistAutomation from "./components/ChecklistAutomation";
 import NotificationBell from "./components/NotificationBell";
 import AuraLogo from "./components/AuraLogo";
+import AutoBackupScheduler from "./components/AutoBackupScheduler";
 // LogoGenerator import removed for performance optimization
 
 const Badge = ({ children, className }) => (
@@ -177,6 +178,7 @@ export default function Layout({ children, currentPageName }) {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+      <AutoBackupScheduler />
       <WelcomeNewHire />
       <ChecklistAutomation />
 

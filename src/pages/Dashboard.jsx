@@ -26,6 +26,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
+import QuickBackupWidget from "../components/QuickBackupWidget"; // Added import
 
 export default function Dashboard() {
   const [dailyQuote, setDailyQuote] = useState("");
@@ -191,7 +192,7 @@ export default function Dashboard() {
   ].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 5);
 
   return (
-    <div className="p-6 md:p-8 bg-gray-50 min-h-screen">
+    <div className="p-6 md:p-8 bg-gradient-to-br from-slate-50 to-slate-100 min-h-screen">
       <div className="max-w-7xl mx-auto space-y-8">
         {/* Header */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
@@ -334,6 +335,50 @@ export default function Dashboard() {
               {openTickets > 0 && `${openTickets} maintenance tickets require attention.`}
             </AlertDescription>
           </Alert>
+        )}
+
+        {/* Stats Grid */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-8"> {/* Changed from lg:grid-cols-4 and mt-6 */}
+          <StatCard
+            title="Compliance Rate"
+            value={`${complianceRate}%`}
+            subtitle={`${complianceChecks.length} checks this week`}
+            icon={ClipboardCheck}
+            color="bg-green-500"
+            trend={{ positive: true, value: "+3%" }}
+            link={createPageUrl("Compliance")}
+          />
+          <StatCard
+            title="Low Stock Items"
+            value={lowStockItems}
+            subtitle={`${inventoryItems.length} total items`}
+            icon={Package}
+            color="bg-orange-500"
+            link={createPageUrl("InventoryManagement")}
+          />
+          <StatCard
+            title="Open Tickets"
+            value={openTickets}
+            subtitle={`${maintenanceTickets.length} total tickets`}
+            icon={Wrench}
+            color="bg-red-500"
+            link={createPageUrl("Maintenance")}
+          />
+          <StatCard
+            title="Pending Tasks"
+            value={pendingTasks}
+            subtitle={`${staffTasks.length} total tasks`}
+            icon={Users}
+            color="bg-blue-500"
+            link={createPageUrl("AdvancedChecklists")}
+          />
+        </div>
+
+        {/* Add Quick Backup Widget for Admins */}
+        {(user?.role === 'admin' || user?.position === 'owner') && (
+          <div className="mb-8">
+            <QuickBackupWidget />
+          </div>
         )}
 
         {/* Quick Actions */}
@@ -486,43 +531,6 @@ export default function Dashboard() {
             </Link>
           </div>
         )}
-
-        {/* Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mt-6">
-          <StatCard
-            title="Compliance Rate"
-            value={`${complianceRate}%`}
-            subtitle={`${complianceChecks.length} checks this week`}
-            icon={ClipboardCheck}
-            color="bg-green-500"
-            trend={{ positive: true, value: "+3%" }}
-            link={createPageUrl("Compliance")}
-          />
-          <StatCard
-            title="Low Stock Items"
-            value={lowStockItems}
-            subtitle={`${inventoryItems.length} total items`}
-            icon={Package}
-            color="bg-orange-500"
-            link={createPageUrl("InventoryManagement")}
-          />
-          <StatCard
-            title="Open Tickets"
-            value={openTickets}
-            subtitle={`${maintenanceTickets.length} total tickets`}
-            icon={Wrench}
-            color="bg-red-500"
-            link={createPageUrl("Maintenance")}
-          />
-          <StatCard
-            title="Pending Tasks"
-            value={pendingTasks}
-            subtitle={`${staffTasks.length} total tasks`}
-            icon={Users}
-            color="bg-blue-500"
-            link={createPageUrl("AdvancedChecklists")}
-          />
-        </div>
 
         {/* Charts and Activity */}
         <div className="grid lg:grid-cols-3 gap-6">
