@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -36,6 +37,8 @@ import {
 import { Link, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
+
+import { useUnifiedStaff } from "@/components/UnifiedStaffData"; // NEW IMPORT
 
 const fieldIcons = {
   text: Type,
@@ -154,6 +157,9 @@ export default function FormBuilder() {
   const urlParams = new URLSearchParams(window.location.search);
   const editId = urlParams.get('edit');
 
+  // Use unified staff data
+  const { staff: allStaff, isLoading: staffLoading } = useUnifiedStaff();
+
   const [formData, setFormData] = useState({
     form_name: "",
     description: "",
@@ -166,6 +172,9 @@ export default function FormBuilder() {
     is_active: true,
     color_theme: "#014D40",
     icon: "📋",
+    assigned_to_role: "all",      // New field
+    assigned_to_email: "",        // New field, empty string for "None"
+    assigned_to_name: "",         // New field
   });
 
   const [showPreview, setShowPreview] = useState(false);
@@ -185,12 +194,15 @@ export default function FormBuilder() {
       setFormData({
         ...existingForm,
         fields: existingForm.fields || [],
+        assigned_to_role: existingForm.assigned_to_role || "all",
+        assigned_to_email: existingForm.assigned_to_email || "",
+        assigned_to_name: existingForm.assigned_to_name || "",
       });
     }
   }, [existingForm]);
 
   const createFormMutation = useMutation({
-    mutationFn: (data) => editId 
+    mutationFn: (data) => editId
       ? base44.entities.FormTemplate.update(editId, data)
       : base44.entities.FormTemplate.create(data),
     onSuccess: () => {
@@ -198,6 +210,13 @@ export default function FormBuilder() {
       navigate(createPageUrl('FormLibrary'));
     },
   });
+
+  const handleFormChange = (key, value) => {
+    setFormData(prev => ({
+      ...prev,
+      [key]: value
+    }));
+  };
 
   const addField = (fieldType) => {
     const newField = {
@@ -466,6 +485,96 @@ export default function FormBuilder() {
                     onChange={(e) => setFormData({ ...formData, icon: e.target.value })}
                     placeholder="Emoji or icon"
                   />
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Form Assignment Section */}
+            <Card className="bg-white sticky top-6">
+              <CardHeader>
+                <CardTitle>Form Assignment</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <Label htmlFor="assigned_to_role">Assign to Role</Label>
+                  <Select
+                    value={formData.assigned_to_role}
+                    onValueChange={(value) => handleFormChange('assigned_to_role', value)}
+                  >
+                    <SelectTrigger id="assigned_to_role">
+                      <SelectValue placeholder="Select role" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Staff</SelectItem>
+                      <SelectItem value="manager">Managers</SelectItem>
+                      <SelectItem value="chef">Chefs</SelectItem>
+                      <SelectItem value="line_cook">Line Cooks</SelectItem>
+                      <SelectItem value="server">Servers</SelectItem>
+                      <SelectItem value="bartender">Bartenders</SelectItem>
+                      <SelectItem value="cleaner">Cleaners</SelectItem>
+                      <SelectItem value="maintenance">Maintenance</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label htmlFor="assigned_to_email">Or Assign to Specific Person</Label>
+                  <Select
+                    value={formData.assigned_to_email}
+                    onValueChange={(value) => {
+                      const staff = allStaff.find(s => s.email === value);
+                      handleFormChange('assigned_to_email', value);
+                      if (staff) {
+                        handleFormChange('assigned_to_name', staff.full_name);
+                      } else {
+                        handleFormChange('assigned_to_name', ""); // Clear name if "None" or not found
+                      }
+                    }}
+                  >
+                    <SelectTrigger id="assigned_to_email">
+                      <SelectValue placeholder="Select staff member (optional)" />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-[300px]">
+                      <SelectItem value={null}>None (assign by role)</SelectItem> {/* Changed null to empty string */}
+                      {staffLoading ? (
+                        <div className="p-4 text-center text-sm text-gray-500">
+                          Loading staff...
+                        </div>
+                      ) : allStaff.length === 0 ? (
+                        <div className="p-4 text-center text-sm text-gray-500">
+                          No staff members found
+                        </div>
+                      ) : (
+                        allStaff
+                          .filter(s => s.status === 'active' || !s.status)
+                          .map((staff) => (
+                            <SelectItem key={staff.email} value={staff.email}>
+                              <div className="flex items-center gap-2">
+                                {staff.photo_url ? (
+                                  <img
+                                    src={staff.photo_url}
+                                    alt={staff.full_name}
+                                    className="w-6 h-6 rounded-full object-cover"
+                                  />
+                                ) : (
+                                  <div className="w-6 h-6 rounded-full bg-gradient-to-br from-blue-500 to-green-500 flex items-center justify-center text-white text-xs font-bold">
+                                    {staff.full_name?.charAt(0)?.toUpperCase()}
+                                  </div>
+                                )}
+                                <div>
+                                  <p className="font-medium text-sm">{staff.full_name}</p>
+                                  {staff.position && (
+                                    <p className="text-xs text-gray-500 capitalize">
+                                      {staff.position.replace(/_/g, ' ')} - {staff.department?.replace(/_/g, ' ')}
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+                            </SelectItem>
+                          ))
+                      )}
+                    </SelectContent>
+                  </Select>
                 </div>
               </CardContent>
             </Card>

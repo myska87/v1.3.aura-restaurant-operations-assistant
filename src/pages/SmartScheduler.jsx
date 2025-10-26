@@ -30,8 +30,7 @@ import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { Textarea } from "@/components/ui/textarea";
 
-import { useUnifiedStaff } from "../components/UnifiedStaffData";
-import StaffSelector from "../components/StaffSelector";
+import { useUnifiedStaff } from "@/components/UnifiedStaffData";
 
 // Helper function to get default department based on position
 const getDefaultDepartment = (position) => {
@@ -79,7 +78,7 @@ export default function SmartScheduler() {
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
 
   // Use unified staff data
-  const { staff: allStaff, isLoading: loadingStaff } = useUnifiedStaff();
+  const { staff: allStaff, isLoading: staffLoading } = useUnifiedStaff();
 
   // Fetch shifts for the current week
   const { data: shifts = [], refetch: refetchShifts } = useQuery({
@@ -265,15 +264,15 @@ export default function SmartScheduler() {
   };
 
   // Handle staff selection with auto-fill
-  const handleStaffChange = (staffEmail) => {
-    const staff = allStaff.find(s => s.email === staffEmail);
+  const handleStaffChange = (email) => {
+    const staff = allStaff.find(s => s.email === email);
     if (staff) {
       setShiftForm({
         ...shiftForm,
-        staff_email: staffEmail,
-        staff_name: staff.full_name || "",
-        role: staff.position || shiftForm.role,
-        department: getDefaultDepartment(staff.position),
+        staff_email: email,
+        staff_name: staff.full_name,
+        role: staff.position || '',
+        department: staff.department || getDefaultDepartment(staff.position),
         start_time: staff.shift_start || shiftForm.start_time,
         end_time: staff.shift_end || shiftForm.end_time,
       });
@@ -451,13 +450,56 @@ export default function SmartScheduler() {
                 {/* Staff Member Selection - Using New Component */}
                 <div>
                   <Label htmlFor="staff_email">Staff Member *</Label>
-                  <StaffSelector
+                  <Select
                     value={shiftForm.staff_email}
                     onValueChange={handleStaffChange}
-                    placeholder="Select staff member"
-                    allowEmpty={false}
-                    className="mt-1"
-                  />
+                  >
+                    <SelectTrigger id="staff_email">
+                      <SelectValue placeholder="Select staff member" />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-[300px]">
+                      {staffLoading ? (
+                        <div className="p-4 text-center text-sm text-gray-500">
+                          Loading staff...
+                        </div>
+                      ) : allStaff.length === 0 ? (
+                        <div className="p-4 text-center text-sm text-gray-500">
+                          No staff members found
+                        </div>
+                      ) : (
+                        allStaff
+                          .filter(s => s.status === 'active' || !s.status)
+                          .map((staff) => (
+                            <SelectItem key={staff.email} value={staff.email}>
+                              <div className="flex items-center gap-2">
+                                {staff.photo_url ? (
+                                  <img 
+                                    src={staff.photo_url} 
+                                    alt={staff.full_name}
+                                    className="w-6 h-6 rounded-full object-cover"
+                                  />
+                                ) : (
+                                  <div className="w-6 h-6 rounded-full bg-gradient-to-br from-blue-500 to-green-500 flex items-center justify-center text-white text-xs font-bold">
+                                    {staff.full_name?.charAt(0)?.toUpperCase()}
+                                  </div>
+                                )}
+                                <div>
+                                  <p className="font-medium text-sm">{staff.full_name}</p>
+                                  {staff.position && (
+                                    <p className="text-xs text-gray-500 capitalize">
+                                      {staff.position.replace(/_/g, ' ')}
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+                            </SelectItem>
+                          ))
+                      )}
+                    </SelectContent>
+                  </Select>
+                  {validationError && validationError.includes('Staff') && (
+                    <p className="text-xs text-red-600 mt-1">{validationError}</p>
+                  )}
                 </div>
 
                 {/* Role Selection */}

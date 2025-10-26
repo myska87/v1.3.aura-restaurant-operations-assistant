@@ -31,7 +31,7 @@ import ChecklistAutomation from "./components/ChecklistAutomation";
 import NotificationBell from "./components/NotificationBell";
 import AuraLogo from "./components/AuraLogo";
 import AutoBackupScheduler from "./components/AutoBackupScheduler";
-import { StaffDataSync } from "./components/UnifiedStaffData";
+import { StaffDataSync } from "./components/StaffDataSync";
 
 const Badge = ({ children, className }) => (
   <span className={`inline-flex items-center justify-center rounded-full text-center font-semibold leading-none whitespace-nowrap ${className}`}>
