@@ -28,11 +28,175 @@ import {
   DropdownMenuTrigger,
   DropdownMenuContent,
 } from "@/components/ui/dropdown-menu";
-import { Plus, Calendar, CheckCircle, Clock, AlertCircle, AlertTriangle, ArrowLeft, Home, Users, TrendingUp, Award, Edit, Trash2, Upload, Eye, Bell, Settings, MoreVertical, UserPlus, FileText, Target, Search, Filter, Download, ChevronUp, ChevronDown, Mail, Phone, X, DollarSign } from "lucide-react";
-import { format } from "date-fns";
+import { Plus, Calendar, CheckCircle, Clock, AlertCircle, AlertTriangle, ArrowLeft, Home, Users, TrendingUp, Award, Edit, Trash2, Upload, Eye, Bell, Settings, MoreVertical, UserPlus, FileText, Target, Search, Filter, Download, ChevronUp, ChevronDown, Mail, Phone, X, DollarSign, BellOff } from "lucide-react";
+import { format, parseISO, isBefore, isAfter, setHours, setMinutes, isSameMinute } from "date-fns";
 import { Link, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { motion } from "framer-motion";
+
+// ManagerAlertsWidget Component
+const ManagerAlertsWidget = ({ teamMembers, todayAttendance }) => {
+  const alerts = [];
+
+  const today = new Date();
+  // To ensure comparisons are only based on time of day, strip date info from clock-in for comparison purposes
+  const getTodayTime = (date) => setMinutes(setHours(today, date.getHours()), date.getMinutes());
+
+  teamMembers.forEach(member => {
+    // Only consider active members with a defined shift start
+    if (member.status !== 'active' || !member.shift_start) {
+      return;
+    }
+
+    const [shiftHour, shiftMinute] = member.shift_start.split(':').map(Number);
+    let scheduledShiftStart = setMinutes(setHours(today, shiftHour), shiftMinute); // Today's date with shift start time
+
+    const memberClockEvents = todayAttendance.filter(
+      event => event.user_email === member.staff_email
+    ).sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()); // Sort to get the earliest clock-in
+
+    const firstClockIn = memberClockEvents[0]; // Assuming first clock-in is the start of shift
+
+    if (!firstClockIn) {
+      alerts.push({
+        type: 'no_record',
+        member,
+        message: 'No clock-in record for today',
+      });
+      return;
+    }
+
+    const clockInTime = parseISO(firstClockIn.timestamp);
+    const clockInTodayTime = getTodayTime(clockInTime); // Clock-in time on 'today's date' for accurate comparison
+
+    // Allow a small grace period, e.g., 5 minutes early/late to be considered "on time"
+    const earlyGracePeriod = 5; // minutes
+    const lateGracePeriod = 5; // minutes
+
+    const scheduledShiftStartMinusGrace = new Date(scheduledShiftStart.getTime() - earlyGracePeriod * 60 * 1000);
+    const scheduledShiftStartPlusGrace = new Date(scheduledShiftStart.getTime() + lateGracePeriod * 60 * 1000);
+
+    if (isBefore(clockInTodayTime, scheduledShiftStartMinusGrace)) {
+      alerts.push({
+        type: 'early',
+        member,
+        clockInTime,
+        scheduledShiftStart,
+        message: `Clocked in early at ${format(clockInTime, 'hh:mm a')}`,
+      });
+    } else if (isAfter(clockInTodayTime, scheduledShiftStartPlusGrace)) {
+      alerts.push({
+        type: 'late',
+        member,
+        clockInTime,
+        scheduledShiftStart,
+        message: `Clocked in late at ${format(clockInTime, 'hh:mm a')}`,
+      });
+    } else { // Within the grace period or exactly on time
+      alerts.push({
+        type: 'on_time',
+        member,
+        clockInTime,
+        scheduledShiftStart,
+        message: `Clocked in on time at ${format(clockInTime, 'hh:mm a')}`,
+      });
+    }
+  });
+
+  const lateAlerts = alerts.filter(a => a.type === 'late');
+  const earlyAlerts = alerts.filter(a => a.type === 'early');
+  const noRecordAlerts = alerts.filter(a => a.type === 'no_record');
+  const onTimeAlerts = alerts.filter(a => a.type === 'on_time');
+
+  return (
+    <Card className="border-none shadow-lg hover:shadow-xl transition-all">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Clock className="w-5 h-5 text-indigo-600" />
+          Attendance Monitoring
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {lateAlerts.length > 0 && (
+          <div className="border-l-4 border-red-500 bg-red-50 p-4 rounded-md">
+            <h4 className="font-semibold text-red-800 flex items-center gap-2 mb-2">
+              <AlertCircle className="w-4 h-4" /> Late Arrivals ({lateAlerts.length})
+            </h4>
+            <ul className="text-sm space-y-1">
+              {lateAlerts.map((alert, i) => (
+                <li key={i} className="flex justify-between items-center text-red-700">
+                  <span>{alert.member.staff_name}</span>
+                  <Badge variant="secondary" className="bg-red-200 text-red-800 text-xs">
+                    {format(alert.clockInTime, 'hh:mm a')} ({format(alert.scheduledShiftStart, 'hh:mm a')})
+                  </Badge>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {earlyAlerts.length > 0 && (
+          <div className="border-l-4 border-blue-500 bg-blue-50 p-4 rounded-md">
+            <h4 className="font-semibold text-blue-800 flex items-center gap-2 mb-2">
+              <Clock className="w-4 h-4" /> Early Arrivals ({earlyAlerts.length})
+            </h4>
+            <ul className="text-sm space-y-1">
+              {earlyAlerts.map((alert, i) => (
+                <li key={i} className="flex justify-between items-center text-blue-700">
+                  <span>{alert.member.staff_name}</span>
+                  <Badge variant="secondary" className="bg-blue-200 text-blue-800 text-xs">
+                    {format(alert.clockInTime, 'hh:mm a')} ({format(alert.scheduledShiftStart, 'hh:mm a')})
+                  </Badge>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {noRecordAlerts.length > 0 && (
+          <div className="border-l-4 border-gray-500 bg-gray-50 p-4 rounded-md">
+            <h4 className="font-semibold text-gray-800 flex items-center gap-2 mb-2">
+              <BellOff className="w-4 h-4" /> No Record ({noRecordAlerts.length})
+            </h4>
+            <ul className="text-sm space-y-1">
+              {noRecordAlerts.map((alert, i) => (
+                <li key={i} className="text-gray-700">
+                  <span>{alert.member.staff_name}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {onTimeAlerts.length > 0 && (
+          <div className="border-l-4 border-green-500 bg-green-50 p-4 rounded-md">
+            <h4 className="font-semibold text-green-800 flex items-center gap-2 mb-2">
+              <CheckCircle className="w-4 h-4" /> On Time ({onTimeAlerts.length})
+            </h4>
+            <ul className="text-sm space-y-1">
+              {onTimeAlerts.map((alert, i) => (
+                <li key={i} className="flex justify-between items-center text-green-700">
+                  <span>{alert.member.staff_name}</span>
+                  <Badge variant="secondary" className="bg-green-200 text-green-800 text-xs">
+                    {format(alert.clockInTime, 'hh:mm a')}
+                  </Badge>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {alerts.length === 0 && (
+          <div className="col-span-full text-center py-4 text-gray-500">
+            <CheckCircle className="w-8 h-8 mx-auto mb-2 text-green-400" />
+            All active staff with shifts appear to be accounted for.
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+};
+
 
 export default function ManagerDashboard() {
   const queryClient = useQueryClient();
@@ -664,6 +828,11 @@ export default function ManagerDashboard() {
               <p className="text-xs text-orange-700 font-medium">Maintenance</p>
             </CardContent>
           </Card>
+        </div>
+
+        {/* 🧠 INTELLIGENT ATTENDANCE ALERTS - Add after stats grids */}
+        <div className="mb-8">
+          <ManagerAlertsWidget teamMembers={teamMembers} todayAttendance={todayAttendance} />
         </div>
 
         {/* Document Management Card */}

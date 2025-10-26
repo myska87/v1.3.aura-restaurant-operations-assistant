@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -56,7 +57,7 @@ export default function ClockInOut() {
     enabled: !!currentShift?.id,
   });
 
-  // Clock In Mutation
+  // Clock In Mutation with Intelligent Alert System
   const clockInMutation = useMutation({
     mutationFn: async (locationData) => {
       if (!nextShift || !user) {
@@ -65,8 +66,16 @@ export default function ClockInOut() {
 
       const clockInTime = new Date().toISOString();
       const scheduledStart = parseISO(`${nextShift.shift_date}T${nextShift.start_time}:00`);
-      const latenessMinutes = Math.max(0, differenceInMinutes(new Date(), scheduledStart));
-      const status = latenessMinutes > 5 ? 'late' : 'on_time';
+      const actualClockIn = new Date();
+      
+      // Calculate difference in minutes
+      const minutesDifference = differenceInMinutes(actualClockIn, scheduledStart);
+      const isLate = minutesDifference > 0;
+      const isEarly = minutesDifference < -15; // More than 15 min early
+      const isVeryLate = minutesDifference > 15; // More than 15 min late
+      
+      const latenessMinutes = Math.max(0, minutesDifference);
+      const status = minutesDifference > 5 ? 'late' : 'on_time';
 
       // Calculate scheduled hours
       const [startHour, startMin] = nextShift.start_time.split(':').map(Number);
@@ -114,10 +123,83 @@ export default function ClockInOut() {
         location_lng: locationData?.longitude,
         location_name: locationData?.name || 'Unknown',
       });
+
+      // 🧠 INTELLIGENT ALERT SYSTEM
+      // Create manager alert if staff is late OR too early
+      if (isLate || isEarly) {
+        let alertType, severity, message;
+
+        if (isVeryLate) {
+          alertType = 'very_late';
+          severity = 'urgent';
+          message = `⚠️ ${user.full_name} clocked in ${minutesDifference} minutes LATE for their ${nextShift.role} shift. Immediate attention required!`;
+        } else if (isLate) {
+          alertType = 'late_clock_in';
+          severity = 'warning';
+          message = `${user.full_name} clocked in ${minutesDifference} minutes late for their ${nextShift.role} shift.`;
+        } else if (isEarly) {
+          alertType = 'early_clock_in';
+          severity = 'info';
+          message = `${user.full_name} clocked in ${Math.abs(minutesDifference)} minutes early for their ${nextShift.role} shift.`;
+        }
+
+        // Create alert for manager
+        const alert = await base44.entities.ManagerAlert.create({
+          alert_type: alertType,
+          severity: severity,
+          staff_email: user.email,
+          staff_name: user.full_name,
+          shift_id: nextShift.id,
+          shift_date: nextShift.shift_date,
+          scheduled_time: nextShift.start_time,
+          actual_time: clockInTime,
+          minutes_difference: minutesDifference,
+          message: message,
+          location: locationData,
+          status: 'unread'
+        });
+
+        // 📧 AUTO-NOTIFY MANAGER FOR SERIOUS LATENESS (>15 min)
+        if (isVeryLate && nextShift.manager_email) {
+          try {
+            await base44.integrations.Core.SendEmail({
+              from_name: 'AURA Attendance System',
+              to: nextShift.manager_email,
+              subject: `🚨 URGENT: ${user.full_name} - Late Clock In Alert`,
+              body: `
+                <h2>Urgent Attendance Alert</h2>
+                <p><strong>${user.full_name}</strong> has clocked in <strong>${minutesDifference} minutes LATE</strong> for their shift.</p>
+                
+                <h3>Shift Details:</h3>
+                <ul>
+                  <li><strong>Role:</strong> ${nextShift.role}</li>
+                  <li><strong>Scheduled Start:</strong> ${nextShift.start_time}</li>
+                  <li><strong>Actual Clock In:</strong> ${format(actualClockIn, 'HH:mm')}</li>
+                  <li><strong>Date:</strong> ${format(new Date(nextShift.shift_date), 'MMM d, yyyy')}</li>
+                  <li><strong>Location:</strong> ${locationData?.name || 'Unknown'}</li>
+                </ul>
+                
+                <p>Please review this attendance issue in the Manager Dashboard.</p>
+                
+                <p style="color: #666; font-size: 12px;">This is an automated alert from AURA Restaurant Operations System.</p>
+              `
+            });
+
+            // Mark alert as notified
+            await base44.entities.ManagerAlert.update(alert.id, {
+              auto_notified: true,
+              notification_sent_at: new Date().toISOString()
+            });
+          } catch (emailError) {
+            console.error('Failed to send email notification:', emailError);
+          }
+        }
+      }
     },
     onSuccess: () => {
       refetchShifts();
       refetchAttendance();
+      queryClient.invalidateQueries({ queryKey: ['managerAlerts'] });
       setIsProcessing(false);
       alert('✅ Successfully clocked in!');
     },
@@ -141,7 +223,8 @@ export default function ClockInOut() {
       const overtimeHours = Math.max(0, totalHours - attendanceRecord.scheduled_hours);
       
       const scheduledEnd = parseISO(`${activeShift.shift_date}T${activeShift.end_time}:00`);
-      const earlyDepartureMinutes = Math.max(0, differenceInMinutes(scheduledEnd, new Date()));
+      const actualClockOut = new Date();
+      const earlyDepartureMinutes = Math.max(0, differenceInMinutes(scheduledEnd, actualClockOut));
 
       // Update attendance record
       await base44.entities.AttendanceRecord.update(attendanceRecord.id, {
@@ -170,10 +253,29 @@ export default function ClockInOut() {
         location_lng: locationData?.longitude,
         location_name: locationData?.name || 'Unknown',
       });
+
+      // Alert manager if staff left significantly early (>30 min before shift end)
+      if (earlyDepartureMinutes > 30 && activeShift.manager_email) {
+        await base44.entities.ManagerAlert.create({
+          alert_type: 'early_departure',
+          severity: 'warning',
+          staff_email: user.email,
+          staff_name: user.full_name,
+          shift_id: activeShift.id,
+          shift_date: activeShift.shift_date,
+          scheduled_time: activeShift.end_time,
+          actual_time: clockOutTime,
+          minutes_difference: -earlyDepartureMinutes, // Store as negative for early departure
+          message: `${user.full_name} clocked out ${earlyDepartureMinutes} minutes EARLY from their ${activeShift.role} shift.`,
+          location: locationData,
+          status: 'unread'
+        });
+      }
     },
     onSuccess: () => {
       refetchShifts();
       refetchAttendance();
+      queryClient.invalidateQueries({ queryKey: ['managerAlerts'] });
       setIsProcessing(false);
       alert('✅ Successfully clocked out!');
     },
@@ -186,7 +288,13 @@ export default function ClockInOut() {
 
   // Handle Clock In
   const handleClockIn = async () => {
-    if (isProcessing || !nextShift || activeShift) {
+    if (isProcessing) return;
+    if (!nextShift) {
+      alert('❌ No scheduled shift found for today');
+      return;
+    }
+    if (activeShift) {
+      alert('❌ You are already clocked in');
       return;
     }
 
@@ -223,7 +331,13 @@ export default function ClockInOut() {
 
   // Handle Clock Out
   const handleClockOut = async () => {
-    if (isProcessing || !activeShift || !attendanceRecord) {
+    if (isProcessing) return;
+    if (!activeShift) {
+      alert('❌ No active shift found');
+      return;
+    }
+    if (!attendanceRecord) {
+      alert('❌ No attendance record found');
       return;
     }
 
@@ -546,7 +660,7 @@ export default function ClockInOut() {
             <CardContent className="p-6">
               <h4 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
                 <TrendingUp className="w-5 h-5 text-[#014D40]" />
-                Today's Attendance
+                Today&apos;s Attendance
               </h4>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div className="p-4 bg-blue-50 rounded-lg">

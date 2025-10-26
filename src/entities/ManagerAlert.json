@@ -1,0 +1,118 @@
+{
+  "name": "ManagerAlert",
+  "type": "object",
+  "properties": {
+    "alert_type": {
+      "type": "string",
+      "enum": [
+        "late_clock_in",
+        "early_clock_in",
+        "very_late",
+        "missed_clock_in",
+        "early_departure"
+      ],
+      "description": "Type of alert"
+    },
+    "severity": {
+      "type": "string",
+      "enum": [
+        "info",
+        "warning",
+        "urgent"
+      ],
+      "default": "info",
+      "description": "Alert severity level"
+    },
+    "staff_email": {
+      "type": "string",
+      "description": "Staff member email"
+    },
+    "staff_name": {
+      "type": "string",
+      "description": "Staff member name"
+    },
+    "shift_id": {
+      "type": "string",
+      "description": "Reference to shift"
+    },
+    "shift_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "scheduled_time": {
+      "type": "string",
+      "description": "Expected clock in/out time"
+    },
+    "actual_time": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Actual clock in/out time"
+    },
+    "minutes_difference": {
+      "type": "number",
+      "description": "Minutes late or early"
+    },
+    "message": {
+      "type": "string",
+      "description": "Alert message for manager"
+    },
+    "location": {
+      "type": "object",
+      "properties": {
+        "latitude": {
+          "type": "number"
+        },
+        "longitude": {
+          "type": "number"
+        },
+        "name": {
+          "type": "string"
+        }
+      },
+      "description": "Clock in location"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "unread",
+        "read",
+        "acknowledged",
+        "resolved"
+      ],
+      "default": "unread"
+    },
+    "acknowledged_by": {
+      "type": "string",
+      "description": "Manager who acknowledged"
+    },
+    "acknowledged_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "manager_notes": {
+      "type": "string",
+      "description": "Manager's notes about the alert"
+    },
+    "auto_notified": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether manager was auto-notified"
+    },
+    "notification_sent_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "alert_type",
+    "severity",
+    "staff_email",
+    "staff_name",
+    "shift_id",
+    "shift_date",
+    "scheduled_time",
+    "actual_time",
+    "minutes_difference",
+    "message"
+  ]
+}
