@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -6,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Clock, LogIn, LogOut, MapPin, AlertCircle, ArrowLeft, Home, CheckCircle, Calendar, TrendingUp } from "lucide-react";
 import { format, differenceInMinutes, differenceInHours, parseISO, addMinutes, subMinutes } from "date-fns";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 
@@ -25,11 +26,11 @@ export default function ClockInOut() {
     queryFn: () => base44.auth.me(),
   });
 
-  // Fetch today's shifts
+  const todayStr = format(new Date(), 'yyyy-MM-dd');
+  
   const { data: shifts = [] } = useQuery({
-    queryKey: ['myShifts', user?.email],
+    queryKey: ['myShifts', user?.email, todayStr],
     queryFn: async () => {
-      const todayStr = format(new Date(), 'yyyy-MM-dd');
       return await base44.entities.Shift.filter({
         staff_email: user?.email,
         shift_date: todayStr
@@ -38,7 +39,6 @@ export default function ClockInOut() {
     enabled: !!user?.email,
   });
 
-  // Fetch attendance record for active shift
   const activeShift = shifts.find(s => s.status === 'in_progress');
   const nextShift = !activeShift ? shifts.find(s => s.status === 'scheduled') : undefined;
   const currentShift = activeShift || nextShift;
@@ -54,31 +54,25 @@ export default function ClockInOut() {
     enabled: !!currentShift?.id,
   });
 
-  // Clock In Mutation
   const clockInMutation = useMutation({
-    mutationFn: async ({ location: loc }) => {
+    mutationFn: async (locationData) => {
       const clockInTime = new Date().toISOString();
-      
-      // Calculate lateness
       const scheduledStart = parseISO(`${nextShift.shift_date}T${nextShift.start_time}:00`);
       const latenessMinutes = Math.max(0, differenceInMinutes(new Date(), scheduledStart));
-      
       const status = latenessMinutes > 5 ? 'late' : 'on_time';
 
-      // Create or update attendance record
       if (attendanceRecord) {
         await base44.entities.AttendanceRecord.update(attendanceRecord.id, {
           actual_clock_in: clockInTime,
-          clock_in_location: loc ? {
-            latitude: loc.latitude,
-            longitude: loc.longitude,
-            name: loc.name || 'Current Location'
+          clock_in_location: locationData ? {
+            latitude: locationData.latitude,
+            longitude: locationData.longitude,
+            name: locationData.name || 'Current Location'
           } : null,
           lateness_minutes: latenessMinutes,
           status: status
         });
       } else {
-        // Create new attendance record
         const [startHour, startMin] = nextShift.start_time.split(':').map(Number);
         const [endHour, endMin] = nextShift.end_time.split(':').map(Number);
         const scheduledHours = ((endHour * 60 + endMin) - (startHour * 60 + startMin)) / 60;
@@ -92,32 +86,30 @@ export default function ClockInOut() {
           scheduled_end: nextShift.end_time,
           scheduled_hours: scheduledHours,
           actual_clock_in: clockInTime,
-          clock_in_location: loc ? {
-            latitude: loc.latitude,
-            longitude: loc.longitude,
-            name: loc.name || 'Current Location'
+          clock_in_location: locationData ? {
+            latitude: locationData.latitude,
+            longitude: locationData.longitude,
+            name: locationData.name || 'Current Location'
           } : null,
           lateness_minutes: latenessMinutes,
           status: status
         });
       }
 
-      // Update shift status
       await base44.entities.Shift.update(nextShift.id, {
         status: 'in_progress',
         clock_in_time: clockInTime,
       });
 
-      // Create clock event for historical tracking
       await base44.entities.ClockEvent.create({
         user_email: user.email,
         user_name: user.full_name,
         shift_id: nextShift.id,
         event_type: 'clock_in',
         timestamp: clockInTime,
-        location_lat: loc?.latitude,
-        location_lng: loc?.longitude,
-        location_name: loc?.name || 'Unknown',
+        location_lat: locationData?.latitude,
+        location_lng: locationData?.longitude,
+        location_name: locationData?.name || 'Unknown',
       });
     },
     onSuccess: () => {
@@ -128,36 +120,31 @@ export default function ClockInOut() {
     },
     onError: (error) => {
       console.error('Clock in error:', error);
-      alert('❌ Failed to clock in: ' + error.message);
+      alert('❌ Failed to clock in');
       setIsProcessing(false);
     }
   });
 
-  // Clock Out Mutation
   const clockOutMutation = useMutation({
-    mutationFn: async ({ location: loc }) => {
+    mutationFn: async (locationData) => {
       const clockOutTime = new Date().toISOString();
       
       if (!attendanceRecord) {
         throw new Error('No attendance record found');
       }
 
-      // Calculate total hours and overtime
       const clockInTime = parseISO(attendanceRecord.actual_clock_in);
       const totalHours = differenceInMinutes(new Date(), clockInTime) / 60;
       const overtimeHours = Math.max(0, totalHours - attendanceRecord.scheduled_hours);
-      
-      // Calculate early departure
       const scheduledEnd = parseISO(`${activeShift.shift_date}T${activeShift.end_time}:00`);
       const earlyDepartureMinutes = Math.max(0, differenceInMinutes(scheduledEnd, new Date()));
 
-      // Update attendance record
       await base44.entities.AttendanceRecord.update(attendanceRecord.id, {
         actual_clock_out: clockOutTime,
-        clock_out_location: loc ? {
-          latitude: loc.latitude,
-          longitude: loc.longitude,
-          name: loc.name || 'Current Location'
+        clock_out_location: locationData ? {
+          latitude: locationData.latitude,
+          longitude: locationData.longitude,
+          name: locationData.name || 'Current Location'
         } : null,
         total_hours: parseFloat(totalHours.toFixed(2)),
         overtime_hours: parseFloat(overtimeHours.toFixed(2)),
@@ -165,22 +152,20 @@ export default function ClockInOut() {
         status: 'pending'
       });
 
-      // Update shift
       await base44.entities.Shift.update(activeShift.id, {
         status: 'completed',
         clock_out_time: clockOutTime,
       });
 
-      // Create clock event
       await base44.entities.ClockEvent.create({
         user_email: user.email,
         user_name: user.full_name,
         shift_id: activeShift.id,
         event_type: 'clock_out',
         timestamp: clockOutTime,
-        location_lat: loc?.latitude,
-        location_lng: loc?.longitude,
-        location_name: loc?.name || 'Unknown',
+        location_lat: locationData?.latitude,
+        location_lng: locationData?.longitude,
+        location_name: locationData?.name || 'Unknown',
       });
     },
     onSuccess: () => {
@@ -191,115 +176,92 @@ export default function ClockInOut() {
     },
     onError: (error) => {
       console.error('Clock out error:', error);
-      alert('❌ Failed to clock out: ' + error.message);
+      alert('❌ Failed to clock out');
       setIsProcessing(false);
     }
   });
 
-  const handleClockIn = async () => {
-    if (isProcessing) return;
-    
-    if (!nextShift) {
-      alert('No scheduled shift found for today');
-      return;
-    }
-
-    if (!canClockIn) {
-      alert('You can only clock in 15 minutes before or after your shift start time');
+  const handleClockIn = () => {
+    if (isProcessing || !nextShift || !canClockIn) {
       return;
     }
 
     setIsProcessing(true);
 
-    // Get location
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
-        async (position) => {
+        (position) => {
           const loc = {
             latitude: position.coords.latitude,
             longitude: position.coords.longitude,
             name: 'Current Location',
           };
           setLocation(loc);
-          await clockInMutation.mutateAsync({ location: loc });
+          clockInMutation.mutate(loc);
         },
-        (error) => {
-          console.error('Error getting location:', error);
-          if (confirm('Unable to get location. Clock in without location tracking?')) {
-            clockInMutation.mutate({ location: null });
+        () => {
+          if (window.confirm('Unable to get location. Clock in without location?')) {
+            clockInMutation.mutate(null);
           } else {
             setIsProcessing(false);
           }
         }
       );
     } else {
-      if (confirm('Geolocation not supported. Clock in without location tracking?')) {
-        await clockInMutation.mutateAsync({ location: null });
+      if (window.confirm('Geolocation not supported. Clock in without location?')) {
+        clockInMutation.mutate(null);
       } else {
         setIsProcessing(false);
       }
     }
   };
 
-  const handleClockOut = async () => {
-    if (isProcessing) return;
-    
-    if (!activeShift) {
-      alert('No active shift to clock out from');
+  const handleClockOut = () => {
+    if (isProcessing || !activeShift || !canClockOut) {
       return;
     }
 
-    if (!canClockOut) {
-      alert('You can only clock out during or after your shift');
-      return;
-    }
-
-    if (!confirm('Are you sure you want to clock out?')) {
+    if (!window.confirm('Are you sure you want to clock out?')) {
       return;
     }
 
     setIsProcessing(true);
 
-    // Get location
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
-        async (position) => {
+        (position) => {
           const loc = {
             latitude: position.coords.latitude,
             longitude: position.coords.longitude,
             name: 'Current Location',
           };
           setLocation(loc);
-          await clockOutMutation.mutateAsync({ location: loc });
+          clockOutMutation.mutate(loc);
         },
-        (error) => {
-          console.error('Error getting location:', error);
-          if (confirm('Unable to get location. Clock out without location tracking?')) {
-            clockOutMutation.mutate({ location: null });
+        () => {
+          if (window.confirm('Unable to get location. Clock out without location?')) {
+            clockOutMutation.mutate(null);
           } else {
             setIsProcessing(false);
           }
         }
       );
     } else {
-      if (confirm('Geolocation not supported. Clock out without location tracking?')) {
-        await clockOutMutation.mutateAsync({ location: null });
+      if (window.confirm('Geolocation not supported. Clock out without location?')) {
+        clockOutMutation.mutate(null);
       } else {
         setIsProcessing(false);
       }
     }
   };
 
-  // Update current time every second
   useEffect(() => {
     const timer = setInterval(() => {
       setCurrentTime(new Date());
     }, 1000);
-
     return () => clearInterval(timer);
   }, []);
 
-  // Check clock in/out window
   useEffect(() => {
     if (!currentShift) {
       setCanClockIn(false);
@@ -310,15 +272,10 @@ export default function ClockInOut() {
     const now = new Date();
     const shiftDate = parseISO(currentShift.shift_date);
     const [startHour, startMin] = currentShift.start_time.split(':').map(Number);
-    const [endHour, endMin] = currentShift.end_time.split(':').map(Number);
     
     const scheduledStart = new Date(shiftDate);
     scheduledStart.setHours(startHour, startMin, 0);
     
-    const scheduledEnd = new Date(shiftDate);
-    scheduledEnd.setHours(endHour, endMin, 0);
-
-    // Can clock in: 15 minutes before to 15 minutes after scheduled start
     const clockInStart = subMinutes(scheduledStart, 15);
     const clockInEnd = addMinutes(scheduledStart, 15);
     
@@ -328,7 +285,6 @@ export default function ClockInOut() {
     setCanClockIn(isInClockInWindow && !isActiveShift);
     setCanClockOut(isActiveShift);
 
-    // Calculate time until shift
     if (!isActiveShift && scheduledStart > now) {
       const minutesUntil = differenceInMinutes(scheduledStart, now);
       setTimeUntilShift(minutesUntil);
@@ -353,8 +309,7 @@ export default function ClockInOut() {
         });
         setGettingLocation(false);
       },
-      (error) => {
-        console.error('Error getting location:', error);
+      () => {
         setLocation({ name: 'Location unavailable' });
         setGettingLocation(false);
       }
@@ -362,7 +317,9 @@ export default function ClockInOut() {
   };
   
   const getShiftDuration = () => {
-    if (!activeShift?.clock_in_time || !attendanceRecord?.actual_clock_in) return null;
+    if (!activeShift?.clock_in_time || !attendanceRecord?.actual_clock_in) {
+      return null;
+    }
     
     const start = parseISO(attendanceRecord.actual_clock_in);
     const now = new Date();
@@ -375,7 +332,9 @@ export default function ClockInOut() {
   const duration = getShiftDuration();
 
   const getStatusBadge = () => {
-    if (!attendanceRecord) return null;
+    if (!attendanceRecord) {
+      return null;
+    }
 
     if (attendanceRecord.status === 'on_time') {
       return <Badge className="bg-green-100 text-green-800">✅ On Time</Badge>;
@@ -388,12 +347,11 @@ export default function ClockInOut() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6 md:p-8">
       <div className="max-w-4xl mx-auto">
-        {/* Back Buttons */}
         <div className="flex gap-3 mb-6">
           <Link to={createPageUrl("StaffRota")}>
             <Button variant="outline" size="sm">
               <ArrowLeft className="w-4 h-4 mr-2" />
-              Back to Shift & Rota
+              Back
             </Button>
           </Link>
           <Link to={createPageUrl("Dashboard")}>
@@ -409,13 +367,11 @@ export default function ClockInOut() {
           <p className="text-gray-600">Track your shift hours automatically</p>
         </div>
 
-        {/* Current Time Display */}
-        <Card className="bg-white border-none shadow-lg mb-8" style={{borderLeft: '4px solid #014D40'}}>
+        <Card className="bg-white border-none shadow-lg mb-8">
           <CardContent className="p-8 text-center">
             <p className="text-sm text-gray-600 mb-2">Current Time</p>
             <motion.h2 
-              className="text-6xl font-bold mb-4"
-              style={{color: '#014D40'}}
+              className="text-6xl font-bold mb-4 text-[#014D40]"
               key={currentTime.toISOString()}
               initial={{ scale: 0.98 }}
               animate={{ scale: 1 }}
@@ -427,31 +383,24 @@ export default function ClockInOut() {
           </CardContent>
         </Card>
 
-        {/* Time Until Shift Alert */}
         {timeUntilShift !== null && timeUntilShift <= 15 && (
-          <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-          >
-            <Card className="border-2 mb-6" style={{borderColor: '#E0B037', backgroundColor: '#fffbeb'}}>
-              <CardContent className="p-4">
-                <div className="flex items-center gap-3">
-                  <Clock className="w-5 h-5" style={{color: '#E0B037'}} />
-                  <div>
-                    <p className="font-semibold" style={{color: '#014D40'}}>
-                      ⏰ Your shift starts in {timeUntilShift} minute{timeUntilShift !== 1 ? 's' : ''}
-                    </p>
-                    <p className="text-sm text-gray-700">You can now clock in!</p>
-                  </div>
+          <Card className="border-2 border-yellow-300 bg-yellow-50 mb-6">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <Clock className="w-5 h-5 text-yellow-600" />
+                <div>
+                  <p className="font-semibold text-gray-900">
+                    ⏰ Your shift starts in {timeUntilShift} minute{timeUntilShift !== 1 ? 's' : ''}
+                  </p>
+                  <p className="text-sm text-gray-700">You can now clock in!</p>
                 </div>
-              </CardContent>
-            </Card>
-          </motion.div>
+              </div>
+            </CardContent>
+          </Card>
         )}
 
-        {/* Active Shift Info */}
         {activeShift && (
-          <Card className="bg-gradient-to-r border-none shadow-lg mb-8" style={{background: 'linear-gradient(135deg, #014D40 0%, #10b981 100%)'}}>
+          <Card className="bg-gradient-to-r from-[#014D40] to-emerald-600 border-none shadow-lg mb-8">
             <CardContent className="p-6 text-white">
               <div className="flex justify-between items-start mb-4">
                 <div>
@@ -463,16 +412,11 @@ export default function ClockInOut() {
                     {activeShift.start_time} - {activeShift.end_time}
                   </p>
                 </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full bg-green-400 animate-pulse" />
-                  <Badge className="bg-white" style={{color: '#014D40'}}>
-                    Shift Active
-                  </Badge>
-                </div>
+                <Badge className="bg-white text-[#014D40]">Shift Active</Badge>
               </div>
 
               {duration && (
-                <div className="bg-white/20 rounded-lg p-4 backdrop-blur-sm">
+                <div className="bg-white/20 rounded-lg p-4">
                   <p className="text-sm text-blue-100 mb-1">Working Time</p>
                   <p className="text-4xl font-bold">
                     {duration.hours}h {duration.minutes}m
@@ -493,7 +437,6 @@ export default function ClockInOut() {
           </Card>
         )}
 
-        {/* Next Shift Info */}
         {!activeShift && nextShift && (
           <Card className="bg-white border-none shadow-lg mb-8">
             <CardContent className="p-6">
@@ -502,25 +445,13 @@ export default function ClockInOut() {
                 <div>
                   <p className="text-lg font-semibold text-gray-900">{nextShift.role}</p>
                   <p className="text-gray-600">{nextShift.start_time} - {nextShift.end_time}</p>
-                  {nextShift.location && (
-                    <p className="text-sm text-gray-500 mt-1">📍 {nextShift.location}</p>
-                  )}
                 </div>
                 <Badge className="bg-gray-100 text-gray-800">Scheduled</Badge>
               </div>
-              
-              {!canClockIn && timeUntilShift > 15 && (
-                <div className="mt-4 p-3 bg-yellow-50 rounded-lg">
-                  <p className="text-sm text-yellow-800">
-                    ⏰ Clock-in opens 15 minutes before your shift ({timeUntilShift} minutes to go)
-                  </p>
-                </div>
-              )}
             </CardContent>
           </Card>
         )}
 
-        {/* Location Info */}
         <Card className="bg-white border-none shadow-sm mb-8">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
@@ -540,181 +471,83 @@ export default function ClockInOut() {
                   onClick={getLocation}
                   disabled={gettingLocation}
                 >
-                  {gettingLocation ? 'Getting Location...' : 'Capture Location'}
+                  {gettingLocation ? 'Getting...' : 'Capture Location'}
                 </Button>
               )}
             </div>
           </CardContent>
         </Card>
 
-        {/* Clock In/Out Buttons - Always Show Both */}
         <div className="grid grid-cols-2 gap-4 max-w-2xl mx-auto">
-          {/* Clock In Button */}
-          <motion.div
-            whileTap={{ scale: canClockIn && !isProcessing ? 0.95 : 1 }}
-            className="w-full"
-          >
+          <motion.div whileTap={{ scale: canClockIn && !isProcessing ? 0.95 : 1 }}>
             <Button
               onClick={handleClockIn}
               disabled={!canClockIn || isProcessing || activeShift !== null}
-              className={`w-full h-32 text-xl font-bold shadow-2xl relative overflow-hidden transition-all ${
+              className={`w-full h-32 text-xl font-bold shadow-2xl ${
                 canClockIn && !activeShift && !isProcessing
-                  ? 'bg-gradient-to-br from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 border-4 border-green-400 animate-pulse text-white'
+                  ? 'bg-gradient-to-br from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white'
                   : 'bg-gray-300 text-gray-500 cursor-not-allowed'
               }`}
             >
-              {canClockIn && !activeShift && !isProcessing && (
-                <div className="absolute inset-0 animate-ping bg-white opacity-20" />
-              )}
               <div className="flex flex-col items-center justify-center gap-2">
                 <LogIn className="w-10 h-10" />
                 <span>{isProcessing ? 'Processing...' : 'Clock In'}</span>
-                {activeShift && (
-                  <span className="text-xs opacity-75">Already Clocked In</span>
-                )}
-                {!activeShift && !canClockIn && nextShift && (
-                  <span className="text-xs opacity-75">Not Yet Available</span>
-                )}
               </div>
             </Button>
-            
-            {/* Clock In Status Messages */}
             <div className="mt-3 text-center">
-              {!activeShift && nextShift && (
-                <>
-                  {canClockIn ? (
-                    <p className="text-green-600 font-semibold text-sm animate-bounce">
-                      ✅ Ready to Clock In!
-                    </p>
-                  ) : timeUntilShift !== null && timeUntilShift > 15 ? (
-                    <p className="text-amber-600 text-sm">
-                      Opens in {timeUntilShift - 15} minute(s)
-                    </p>
-                  ) : (
-                    <p className="text-gray-500 text-sm">
-                      Not yet available
-                    </p>
-                  )}
-                </>
-              )}
-              {!nextShift && !activeShift && (
-                <p className="text-gray-500 text-sm">No shift scheduled</p>
-              )}
-              {activeShift && (
-                <p className="text-gray-500 text-sm">Already on shift</p>
+              {!activeShift && nextShift && canClockIn && (
+                <p className="text-green-600 font-semibold text-sm">
+                  ✅ Ready to Clock In!
+                </p>
               )}
             </div>
           </motion.div>
 
-          {/* Clock Out Button */}
-          <motion.div
-            whileTap={{ scale: canClockOut && !isProcessing ? 0.95 : 1 }}
-            className="w-full"
-          >
+          <motion.div whileTap={{ scale: canClockOut && !isProcessing ? 0.95 : 1 }}>
             <Button
               onClick={handleClockOut}
               disabled={!canClockOut || isProcessing || !activeShift}
-              className={`w-full h-32 text-xl font-bold shadow-2xl relative overflow-hidden transition-all ${
+              className={`w-full h-32 text-xl font-bold shadow-2xl ${
                 canClockOut && activeShift && !isProcessing
-                  ? 'bg-gradient-to-br from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 border-4 border-orange-400 animate-pulse text-white'
+                  ? 'bg-gradient-to-br from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 text-white'
                   : 'bg-gray-300 text-gray-500 cursor-not-allowed'
               }`}
             >
-              {canClockOut && activeShift && !isProcessing && (
-                <div className="absolute inset-0 animate-pulse bg-white opacity-20" />
-              )}
               <div className="flex flex-col items-center justify-center gap-2">
                 <LogOut className="w-10 h-10" />
                 <span>{isProcessing ? 'Processing...' : 'Clock Out'}</span>
-                {duration && activeShift && (
-                  <span className="text-sm opacity-90">
-                    {duration.hours}h {duration.minutes}m worked
-                  </span>
-                )}
-                {!activeShift && (
-                  <span className="text-xs opacity-75">Not Clocked In</span>
-                )}
               </div>
             </Button>
-
-            {/* Clock Out Status Messages */}
             <div className="mt-3 text-center">
               {activeShift && canClockOut && (
-                <p className="text-orange-600 font-semibold text-sm animate-bounce">
+                <p className="text-orange-600 font-semibold text-sm">
                   ✅ Ready to Clock Out!
                 </p>
-              )}
-              {activeShift && !canClockOut && (
-                <p className="text-gray-500 text-sm">
-                  Available during/after shift
-                </p>
-              )}
-              {!activeShift && (
-                <p className="text-gray-500 text-sm">No active shift</p>
               )}
             </div>
           </motion.div>
         </div>
 
-        {/* Additional Info Card */}
-        {(nextShift || activeShift) && (
-          <Card className="mt-6 bg-blue-50 border-blue-200 max-w-2xl mx-auto">
-            <CardContent className="p-4">
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div>
-                  <p className="text-gray-600 mb-1">📅 Shift Date</p>
-                  <p className="font-semibold text-gray-900">
-                    {format(parseISO((activeShift || nextShift).shift_date), 'EEEE, MMM d')}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-gray-600 mb-1">⏰ Shift Time</p>
-                  <p className="font-semibold text-gray-900">
-                    {(activeShift || nextShift).start_time} - {(activeShift || nextShift).end_time}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-gray-600 mb-1">👤 Role</p>
-                  <p className="font-semibold text-gray-900">
-                    {(activeShift || nextShift).role}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-gray-600 mb-1">📍 Status</p>
-                  <Badge className={activeShift ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'}>
-                    {activeShift ? '🟢 Active' : '🔵 Scheduled'}
-                  </Badge>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* No Shift Today Message */}
         {!nextShift && !activeShift && (
           <Card className="bg-amber-50 border-amber-200 max-w-md mx-auto mt-6">
             <CardContent className="p-6 text-center">
               <AlertCircle className="w-12 h-12 text-amber-600 mx-auto mb-3" />
               <p className="text-gray-900 font-medium">No Scheduled Shift Today</p>
-              <p className="text-sm text-gray-600 mt-2">
-                You don't have any shifts scheduled for today
-              </p>
               <Link to={createPageUrl("MyShifts")}>
                 <Button variant="outline" className="mt-4">
                   <Calendar className="w-4 h-4 mr-2" />
-                  View My Schedule
+                  View Schedule
                 </Button>
               </Link>
             </CardContent>
           </Card>
         )}
 
-        {/* Attendance Stats (if available) */}
         {attendanceRecord && (
           <Card className="mt-8 bg-white border-none shadow-sm">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <TrendingUp className="w-5 h-5" style={{color: '#014D40'}} />
+                <TrendingUp className="w-5 h-5 text-[#014D40]" />
                 Today's Attendance
               </CardTitle>
             </CardHeader>
@@ -734,48 +567,25 @@ export default function ClockInOut() {
                     </p>
                   </div>
                 )}
-                {attendanceRecord.overtime_hours > 0 && (
-                  <div className="p-4 bg-purple-50 rounded-lg">
-                    <p className="text-sm text-gray-600">Overtime</p>
-                    <p className="text-xl font-bold text-gray-900">
-                      {attendanceRecord.overtime_hours.toFixed(1)}h
-                    </p>
-                  </div>
-                )}
-                <div className="p-4 bg-gray-50 rounded-lg">
-                  <p className="text-sm text-gray-600">Status</p>
-                  <p className="text-sm font-bold text-gray-900 capitalize">
-                    {attendanceRecord.status.replace('_', ' ')}
-                  </p>
-                </div>
               </div>
             </CardContent>
           </Card>
         )}
 
-        {/* Important Notes */}
         <Card className="mt-8 bg-blue-50 border-blue-200">
           <CardContent className="p-6">
             <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
-              <CheckCircle className="w-5 h-5" style={{color: '#014D40'}} />
+              <CheckCircle className="w-5 h-5 text-[#014D40]" />
               Important Notes
             </h4>
             <ul className="space-y-2 text-sm text-gray-700">
               <li className="flex items-start gap-2">
-                <span style={{color: '#014D40'}}>•</span>
+                <span className="text-[#014D40]">•</span>
                 <span>Clock in within 15 minutes of your shift start time</span>
               </li>
               <li className="flex items-start gap-2">
-                <span style={{color: '#014D40'}}>•</span>
-                <span>Location tracking helps verify your attendance</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span style={{color: '#014D40'}}>•</span>
+                <span className="text-[#014D40]">•</span>
                 <span>Always clock out at the end of your shift</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span style={{color: '#014D40'}}>•</span>
-                <span>Late clock-ins are flagged for manager review</span>
               </li>
             </ul>
           </CardContent>

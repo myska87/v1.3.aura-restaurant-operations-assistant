@@ -1,41 +1,22 @@
 
-import React, { useState, useEffect, useMemo } from "react";
+import { useState, useMemo } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Badge } from "@/components/ui/badge";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
-  Calendar as CalendarIcon, // Renamed to avoid conflict with Calendar component in original
   ChevronLeft,
   ChevronRight,
   Plus,
-  Edit,
   Trash2,
-  Users,
-  Clock,
-  AlertTriangle, // Changed from AlertCircle
-  CheckCircle,
-  Sparkles, // New icon
+  Sparkles,
 } from "lucide-react";
 import { format, startOfWeek, addDays, addWeeks, subWeeks, parseISO } from "date-fns";
-import { Link } from "react-router-dom";
-import { createPageUrl } from "@/utils";
 
 // Helper function to get default department based on position
 const getDefaultDepartment = (position) => {
@@ -366,8 +347,7 @@ export default function SmartScheduler() {
                                 <span className="font-medium">{staff.full_name}</span>
                                 <span className="text-xs text-gray-500 ml-2">{staff.position}</span>
                               </div>
-                            </div>
-                          </SelectItem>
+                            </SelectItem>
                         ))
                       )}
                     </SelectContent>

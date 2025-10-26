@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
@@ -7,7 +8,6 @@ import {
   Wrench,
   Users,
   AlertTriangle,
-  TrendingUp,
   GraduationCap,
   Calendar,
   Sparkles,
@@ -29,7 +29,6 @@ import { Badge } from "@/components/ui/badge";
 
 export default function Dashboard() {
   const [dailyQuote, setDailyQuote] = useState("");
-  const [loadingQuote, setLoadingQuote] = useState(false);
 
   // OPTIMIZED: Limit queries to only recent data needed for dashboard
   const { data: complianceChecks = [] } = useQuery({
