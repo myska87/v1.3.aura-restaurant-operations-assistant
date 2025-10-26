@@ -319,8 +319,8 @@ export default function SmartScheduler() {
                         ...shiftForm,
                         staff_email: value,
                         staff_name: staff?.full_name || "",
-                        role: staff?.position || shiftForm.role, // Populate role if staff has one
-                        department: getDefaultDepartment(staff?.position || shiftForm.role), // Set department based on staff's position
+                        role: staff?.position || shiftForm.role,
+                        department: getDefaultDepartment(staff?.position || shiftForm.role),
                       });
                     }}
                   >
@@ -347,7 +347,8 @@ export default function SmartScheduler() {
                                 <span className="font-medium">{staff.full_name}</span>
                                 <span className="text-xs text-gray-500 ml-2">{staff.position}</span>
                               </div>
-                            </SelectItem>
+                            </div>
+                          </SelectItem>
                         ))
                       )}
                     </SelectContent>
