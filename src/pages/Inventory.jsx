@@ -60,6 +60,15 @@ const inventoryModules = [
     bgColor: "bg-indigo-50",
     iconColor: "text-indigo-600",
   },
+  {
+    title: "Production Planning",
+    description: "Plan menu production and calculate ingredient requirements",
+    icon: Package,
+    url: createPageUrl("ProductionPlanning"),
+    color: "from-pink-500 to-pink-600",
+    bgColor: "bg-pink-50",
+    iconColor: "text-pink-600",
+  },
 ];
 
 export default function Inventory() {
@@ -68,14 +77,14 @@ export default function Inventory() {
       <div className="max-w-7xl mx-auto">
         <div className="mb-8">
           <h1 className="text-4xl font-bold text-gray-900 mb-3">
-            Inventory Management
+            Inventory Hub
           </h1>
           <p className="text-lg text-gray-600">
             Comprehensive tools for stock control, menu costing, and supplier management
           </p>
         </div>
 
-        <div className="grid md:grid-cols-2 gap-6">
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
           {inventoryModules.map((module, index) => {
             const Icon = module.icon;
             return (
@@ -86,7 +95,7 @@ export default function Inventory() {
                 transition={{ duration: 0.3, delay: index * 0.1 }}
               >
                 <Link to={module.url}>
-                  <Card className="bg-white border-none shadow-lg hover:shadow-xl transition-all duration-300 group overflow-hidden relative">
+                  <Card className="bg-white border-none shadow-lg hover:shadow-xl transition-all duration-300 group overflow-hidden relative h-full">
                     <div className={`absolute inset-0 bg-gradient-to-br ${module.color} opacity-0 group-hover:opacity-5 transition-opacity duration-300`} />
                     
                     <CardHeader className="pb-4">
@@ -99,10 +108,10 @@ export default function Inventory() {
                     </CardHeader>
 
                     <CardContent>
-                      <CardTitle className="text-2xl font-bold text-gray-900 mb-2 group-hover:text-indigo-600 transition-colors">
+                      <CardTitle className="text-xl font-bold text-gray-900 mb-2 group-hover:text-indigo-600 transition-colors">
                         {module.title}
                       </CardTitle>
-                      <p className="text-gray-600 leading-relaxed">
+                      <p className="text-gray-600 leading-relaxed text-sm">
                         {module.description}
                       </p>
                     </CardContent>

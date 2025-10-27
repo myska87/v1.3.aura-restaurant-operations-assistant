@@ -77,6 +77,11 @@ import SOPVoiceMode from './pages/SOPVoiceMode';
 import SOPCertifications from './pages/SOPCertifications';
 import MenuItemView from './pages/MenuItemView';
 import SecurityDashboard from './pages/SecurityDashboard';
+import MyCoaching from './pages/MyCoaching';
+import SelfReflection from './pages/SelfReflection';
+import GrowthTracker from './pages/GrowthTracker';
+import CoachingAchievements from './pages/CoachingAchievements';
+import ScheduleCoaching from './pages/ScheduleCoaching';
 import Layout from './Layout.jsx';
 
 
@@ -160,6 +165,11 @@ export const PAGES = {
     "SOPCertifications": SOPCertifications,
     "MenuItemView": MenuItemView,
     "SecurityDashboard": SecurityDashboard,
+    "MyCoaching": MyCoaching,
+    "SelfReflection": SelfReflection,
+    "GrowthTracker": GrowthTracker,
+    "CoachingAchievements": CoachingAchievements,
+    "ScheduleCoaching": ScheduleCoaching,
 }
 
 export const pagesConfig = {
