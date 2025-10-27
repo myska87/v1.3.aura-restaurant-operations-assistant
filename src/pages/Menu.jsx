@@ -1,264 +1,324 @@
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ChefHat, Search, Filter, ArrowLeft, Home, Leaf, AlertCircle } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  ArrowLeft,
+  Home,
+  Search,
+  Filter,
+  Edit,
+  Eye,
+  Plus,
+  TrendingUp,
+  DollarSign,
+  Package,
+  ChefHat,
+  Sparkles
+} from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 
+const safeNumber = (value, decimals = 2) => {
+  const num = parseFloat(value);
+  return isNaN(num) || num === null || num === undefined ? 0 : parseFloat(num.toFixed(decimals));
+};
+
+const formatPrice = (price) => safeNumber(price, 2).toFixed(2);
+const formatPercent = (percent) => safeNumber(percent, 1).toFixed(1);
+
 export default function Menu() {
-  const [searchTerm, setSearchTerm] = useState("");
+  const navigate = useNavigate();
+  const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
-  const [selectedAllergen, setSelectedAllergen] = useState("all");
 
-  const { data: menuItems = [], isLoading: loadingMenu } = useQuery({
+  const { data: menuItems = [], isLoading } = useQuery({
     queryKey: ['menuItems'],
-    queryFn: () => base44.entities.MenuItem.list(),
+    queryFn: () => base44.entities.MenuItem.list('-created_date', 200),
   });
 
-  const { data: categories = [], isLoading: loadingCategories } = useQuery({
+  const { data: categories = [] } = useQuery({
     queryKey: ['menuCategories'],
-    queryFn: () => base44.entities.MenuCategory.list(),
+    queryFn: () => base44.entities.MenuCategory.list('display_order', 100),
   });
-
-  // Common allergens to filter by
-  const commonAllergens = [
-    "milk", "nuts", "gluten", "soy", "egg", "fish", 
-    "shellfish", "sesame", "celery", "mustard", "sulphites", "lupin"
-  ];
 
   // Filter menu items
   const filteredItems = menuItems.filter(item => {
-    const matchesSearch = !searchTerm || 
-      item.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.description?.toLowerCase().includes(searchTerm.toLowerCase());
-
-    const matchesCategory = selectedCategory === "all" || 
-      item.category_id === selectedCategory;
-
-    const matchesAllergen = selectedAllergen === "all" || 
-      !item.allergens?.includes(selectedAllergen);
-
-    return matchesSearch && matchesCategory && matchesAllergen;
+    const matchesSearch = !searchQuery || 
+      item.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      item.description?.toLowerCase().includes(searchQuery.toLowerCase());
+    
+    const matchesCategory = selectedCategory === 'all' || item.category_id === selectedCategory;
+    
+    return matchesSearch && matchesCategory && item.is_active !== false;
   });
 
-  // Group items by category
-  const groupedItems = categories
-    .sort((a, b) => (a.display_order || 0) - (b.display_order || 0))
-    .map(category => ({
-      ...category,
-      items: filteredItems.filter(item => item.category_id === category.id)
-    }))
-    .filter(category => category.items.length > 0);
-
-  // Safe number formatting
-  const formatPrice = (price) => {
-    const num = parseFloat(price);
-    return isNaN(num) ? '0.00' : num.toFixed(2);
-  };
-
-  const formatPercent = (percent) => {
-    const num = parseFloat(percent);
-    return isNaN(num) ? '0.0' : num.toFixed(1);
-  };
+  // Calculate stats
+  const totalItems = menuItems.filter(i => i.is_active !== false).length;
+  const avgPrice = menuItems.length > 0 
+    ? menuItems.reduce((sum, item) => sum + safeNumber(item.sell_price), 0) / menuItems.length 
+    : 0;
+  const avgFoodCost = menuItems.length > 0
+    ? menuItems.reduce((sum, item) => sum + safeNumber(item.food_cost_percentage), 0) / menuItems.length
+    : 0;
+  const itemsWithSOP = menuItems.filter(i => i.linked_sop_id).length;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6 md:p-8">
-      <div className="max-w-7xl mx-auto">
+      <div className="max-w-7xl mx-auto space-y-6">
         {/* Navigation */}
-        <div className="flex gap-3 mb-6">
+        <div className="flex gap-3">
           <Link to={createPageUrl("Dashboard")}>
             <Button variant="outline" size="sm">
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Back
+              <Home className="w-4 h-4 mr-2" />
+              Dashboard
             </Button>
           </Link>
-          <Link to={createPageUrl("Inventory")}>
+          <Link to={createPageUrl("MenuManagement")}>
             <Button variant="outline" size="sm">
-              <Home className="w-4 h-4 mr-2" />
-              Inventory Hub
+              <Edit className="w-4 h-4 mr-2" />
+              Manage Menu
             </Button>
           </Link>
         </div>
 
         {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-center gap-3 mb-2">
-            <ChefHat className="w-10 h-10 text-emerald-600" />
-            <h1 className="text-4xl font-bold text-gray-900">Menu</h1>
-          </div>
-          <p className="text-lg text-gray-600">Browse our complete menu with allergen information</p>
+        <Card className="bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 text-white border-none shadow-xl">
+          <CardHeader>
+            <CardTitle className="text-3xl font-bold flex items-center gap-3">
+              <ChefHat className="w-8 h-8" />
+              Menu
+            </CardTitle>
+            <p className="text-white/90 text-lg mt-2">
+              Browse our delicious menu items with full ingredient transparency
+            </p>
+          </CardHeader>
+        </Card>
+
+        {/* Stats Row */}
+        <div className="grid md:grid-cols-4 gap-4">
+          <Card className="bg-white border-none shadow-sm">
+            <CardContent className="p-6">
+              <div className="flex items-center gap-4">
+                <div className="p-3 bg-emerald-100 rounded-xl">
+                  <Package className="w-6 h-6 text-emerald-700" />
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600">Total Items</p>
+                  <p className="text-2xl font-bold text-gray-900">{totalItems}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-white border-none shadow-sm">
+            <CardContent className="p-6">
+              <div className="flex items-center gap-4">
+                <div className="p-3 bg-blue-100 rounded-xl">
+                  <DollarSign className="w-6 h-6 text-blue-700" />
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600">Avg Price</p>
+                  <p className="text-2xl font-bold text-gray-900">£{formatPrice(avgPrice)}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-white border-none shadow-sm">
+            <CardContent className="p-6">
+              <div className="flex items-center gap-4">
+                <div className="p-3 bg-amber-100 rounded-xl">
+                  <TrendingUp className="w-6 h-6 text-amber-700" />
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600">Avg Food Cost</p>
+                  <p className="text-2xl font-bold text-gray-900">{formatPercent(avgFoodCost)}%</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-white border-none shadow-sm">
+            <CardContent className="p-6">
+              <div className="flex items-center gap-4">
+                <div className="p-3 bg-purple-100 rounded-xl">
+                  <Sparkles className="w-6 h-6 text-purple-700" />
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600">With SOP</p>
+                  <p className="text-2xl font-bold text-gray-900">{itemsWithSOP}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
         {/* Filters */}
-        <div className="grid md:grid-cols-3 gap-4 mb-8">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-            <Input
-              placeholder="Search menu items..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
-            />
+        <Card className="bg-white border-none shadow-sm">
+          <CardContent className="p-6">
+            <div className="flex flex-col md:flex-row gap-4">
+              <div className="flex-1 relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <Input
+                  placeholder="Search menu items..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+
+              <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                <SelectTrigger className="w-full md:w-64">
+                  <Filter className="w-4 h-4 mr-2" />
+                  <SelectValue placeholder="All Categories" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Categories</SelectItem>
+                  {categories.map(cat => (
+                    <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Menu Items Grid */}
+        {isLoading ? (
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {[1, 2, 3, 4, 5, 6].map(i => (
+              <Card key={i} className="bg-white">
+                <CardContent className="p-6">
+                  <div className="animate-pulse space-y-3">
+                    <div className="h-32 bg-gray-200 rounded" />
+                    <div className="h-4 bg-gray-200 rounded w-3/4" />
+                    <div className="h-3 bg-gray-200 rounded w-1/2" />
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
           </div>
-
-          <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-            <SelectTrigger>
-              <Filter className="w-4 h-4 mr-2" />
-              <SelectValue placeholder="All Categories" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Categories</SelectItem>
-              {categories.map(cat => (
-                <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          <Select value={selectedAllergen} onValueChange={setSelectedAllergen}>
-            <SelectTrigger>
-              <Leaf className="w-4 h-4 mr-2" />
-              <SelectValue placeholder="Filter Allergens" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Items</SelectItem>
-              {commonAllergens.map(allergen => (
-                <SelectItem key={allergen} value={allergen}>
-                  Exclude {allergen}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        {/* Loading State */}
-        {(loadingMenu || loadingCategories) && (
-          <div className="text-center py-12">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-emerald-600 mx-auto mb-4"></div>
-            <p className="text-gray-600">Loading menu...</p>
-          </div>
-        )}
-
-        {/* Empty State */}
-        {!loadingMenu && !loadingCategories && filteredItems.length === 0 && (
+        ) : filteredItems.length === 0 ? (
           <Card className="bg-white">
             <CardContent className="p-12 text-center">
-              <ChefHat className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+              <ChefHat className="w-12 h-12 text-gray-400 mx-auto mb-4" />
               <p className="text-gray-500 mb-2">No menu items found</p>
               <p className="text-sm text-gray-400">Try adjusting your search or filters</p>
             </CardContent>
           </Card>
-        )}
+        ) : (
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filteredItems.map((item) => (
+              <Card 
+                key={item.id} 
+                className="bg-white border-none shadow-sm hover:shadow-lg transition-all duration-300 overflow-hidden group cursor-pointer"
+                onClick={() => navigate(createPageUrl(`MenuItemView?id=${item.id}`))}
+              >
+                {/* Image */}
+                <div className="relative h-48 bg-gradient-to-br from-gray-100 to-gray-200 overflow-hidden">
+                  {item.image_url ? (
+                    <img 
+                      src={item.image_url} 
+                      alt={item.name}
+                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center">
+                      <ChefHat className="w-16 h-16 text-gray-300" />
+                    </div>
+                  )}
+                  <div className="absolute top-2 right-2">
+                    <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300">
+                      {item.category_name || "Uncategorized"}
+                    </Badge>
+                  </div>
+                </div>
 
-        {/* Menu Items by Category */}
-        <div className="space-y-12">
-          {groupedItems.map((category) => (
-            <div key={category.id}>
-              {/* Category Header */}
-              <div className="mb-6">
-                <h2 className="text-3xl font-bold text-gray-900 mb-2">{category.name}</h2>
-                {category.description && (
-                  <p className="text-gray-600">{category.description}</p>
-                )}
-              </div>
+                {/* Content */}
+                <CardContent className="p-5">
+                  <h3 className="text-xl font-bold text-gray-900 mb-2 group-hover:text-emerald-600 transition-colors">
+                    {item.name}
+                  </h3>
 
-              {/* Menu Items Grid */}
-              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {category.items.map((item) => {
-                  const sellPrice = formatPrice(item.sell_price);
-                  const totalCost = formatPrice(item.total_cost);
-                  const profitMargin = formatPrice(item.profit_margin);
-                  const foodCostPercentage = formatPercent(item.food_cost_percentage);
+                  {item.description && (
+                    <p className="text-sm text-gray-600 mb-3 line-clamp-2">
+                      {item.description}
+                    </p>
+                  )}
 
-                  return (
-                    <Card key={item.id} className="bg-white border-none shadow-sm hover:shadow-lg transition-all duration-300 overflow-hidden">
-                      {/* Image */}
-                      {item.image_url ? (
-                        <div className="h-48 overflow-hidden">
-                          <img 
-                            src={item.image_url} 
-                            alt={item.name}
-                            className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
-                          />
-                        </div>
-                      ) : (
-                        <div className="h-48 bg-gradient-to-br from-emerald-50 to-blue-50 flex items-center justify-center">
-                          <ChefHat className="w-16 h-16 text-gray-300" />
-                        </div>
+                  {/* Allergens */}
+                  {item.allergen_tags && item.allergen_tags.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mb-3">
+                      {item.allergen_tags.slice(0, 3).map((allergen, idx) => (
+                        <Badge key={idx} variant="outline" className="text-xs text-red-600 border-red-300">
+                          {allergen}
+                        </Badge>
+                      ))}
+                      {item.allergen_tags.length > 3 && (
+                        <Badge variant="outline" className="text-xs">
+                          +{item.allergen_tags.length - 3}
+                        </Badge>
                       )}
+                    </div>
+                  )}
 
-                      <CardContent className="p-6">
-                        {/* Title & Description */}
-                        <h3 className="text-xl font-bold text-gray-900 mb-2">{item.name}</h3>
-                        {item.description && (
-                          <p className="text-sm text-gray-600 mb-4 line-clamp-2">{item.description}</p>
-                        )}
+                  {/* Price & Stats */}
+                  <div className="flex justify-between items-center pt-3 border-t border-gray-100">
+                    <div>
+                      <p className="text-2xl font-bold text-emerald-600">
+                        £{formatPrice(item.sell_price)}
+                      </p>
+                      {item.total_cost && (
+                        <p className="text-xs text-gray-500">
+                          Cost: £{formatPrice(item.total_cost)}
+                        </p>
+                      )}
+                    </div>
+                    <div className="text-right">
+                      {item.prep_time_minutes && (
+                        <p className="text-sm text-gray-600">
+                          {item.prep_time_minutes} min prep
+                        </p>
+                      )}
+                      {item.food_cost_percentage !== undefined && (
+                        <Badge variant="outline" className={
+                          safeNumber(item.food_cost_percentage) < 30 
+                            ? 'text-green-700 border-green-300' 
+                            : 'text-amber-700 border-amber-300'
+                        }>
+                          {formatPercent(item.food_cost_percentage)}% cost
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
 
-                        {/* Price */}
-                        <div className="flex justify-between items-center mb-4">
-                          <span className="text-2xl font-bold text-emerald-600">£{sellPrice}</span>
-                          {item.prep_time_minutes && (
-                            <Badge variant="outline" className="text-xs">
-                              {item.prep_time_minutes} min
-                            </Badge>
-                          )}
-                        </div>
-
-                        {/* Allergens */}
-                        {item.allergens && item.allergens.length > 0 && (
-                          <div className="mb-4 pb-4 border-b border-gray-100">
-                            <div className="flex items-start gap-2">
-                              <AlertCircle className="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0" />
-                              <div>
-                                <p className="text-xs font-semibold text-gray-700 mb-1">Contains:</p>
-                                <div className="flex flex-wrap gap-1">
-                                  {item.allergens.map((allergen, idx) => (
-                                    <Badge 
-                                      key={idx} 
-                                      className="bg-amber-100 text-amber-800 text-xs"
-                                    >
-                                      {allergen}
-                                    </Badge>
-                                  ))}
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Costing Info */}
-                        <div className="grid grid-cols-2 gap-2 text-xs">
-                          <div>
-                            <p className="text-gray-500">Cost:</p>
-                            <p className="font-semibold text-gray-900">£{totalCost}</p>
-                          </div>
-                          <div>
-                            <p className="text-gray-500">Profit:</p>
-                            <p className="font-semibold text-emerald-600">£{profitMargin}</p>
-                          </div>
-                          <div>
-                            <p className="text-gray-500">Food Cost %:</p>
-                            <Badge variant="outline" className={parseFloat(foodCostPercentage) < 35 ? 'text-green-700 border-green-300' : 'text-amber-700 border-amber-300'}>
-                              {foodCostPercentage}%
-                            </Badge>
-                          </div>
-                          <div>
-                            <p className="text-gray-500">Ingredients:</p>
-                            <p className="font-semibold text-gray-900">{item.recipe?.length || 0}</p>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  );
-                })}
-              </div>
-            </div>
-          ))}
-        </div>
+                  {/* View Button */}
+                  <Button 
+                    className="w-full mt-4 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigate(createPageUrl(`MenuItemView?id=${item.id}`));
+                    }}
+                  >
+                    <Eye className="w-4 h-4 mr-2" />
+                    View Details
+                  </Button>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

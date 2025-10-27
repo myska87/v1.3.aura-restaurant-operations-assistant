@@ -75,6 +75,7 @@ import SOPBuilder from './pages/SOPBuilder';
 import SOPViewer from './pages/SOPViewer';
 import SOPVoiceMode from './pages/SOPVoiceMode';
 import SOPCertifications from './pages/SOPCertifications';
+import MenuItemView from './pages/MenuItemView';
 import Layout from './Layout.jsx';
 
 
@@ -156,6 +157,7 @@ export const PAGES = {
     "SOPViewer": SOPViewer,
     "SOPVoiceMode": SOPVoiceMode,
     "SOPCertifications": SOPCertifications,
+    "MenuItemView": MenuItemView,
 }
 
 export const pagesConfig = {
