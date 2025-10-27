@@ -1,3 +1,4 @@
+
 /**
  * SOP Step Timeline Component
  * Beautiful step-by-step visualization
@@ -7,7 +8,19 @@ import React, { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { CheckCircle, Circle, Clock, User, Wrench, AlertTriangle, Play, Image as ImageIcon } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { 
+  CheckCircle, 
+  Circle, 
+  Clock, 
+  User, 
+  Wrench,
+  AlertTriangle,
+  Play,
+  Eye, // Added Eye icon
+  Image as ImageIcon 
+} from 'lucide-react';
+import { motion } from 'framer-motion';
 
 export default function SOPStepTimeline({ steps = [], onStepComplete, readonly = false }) {
   const [completedSteps, setCompletedSteps] = useState(new Set());

@@ -1,3 +1,4 @@
+
 /**
  * Digital Signature Component for SOP Acknowledgment
  */
@@ -5,7 +6,11 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { X, Check, RotateCcw } from 'lucide-react';
+import { 
+  RotateCcw, 
+  CheckCircle, 
+  X
+} from 'lucide-react';
 
 export default function SOPSignatureCanvas({ onSign, onCancel }) {
   const canvasRef = useRef(null);
@@ -129,7 +134,7 @@ export default function SOPSignatureCanvas({ onSign, onCancel }) {
             disabled={!hasSignature}
             className="flex-1 bg-emerald-600 hover:bg-emerald-700"
           >
-            <Check className="w-4 h-4 mr-2" />
+            <CheckCircle className="w-4 h-4 mr-2" />
             Sign & Confirm
           </Button>
         </div>

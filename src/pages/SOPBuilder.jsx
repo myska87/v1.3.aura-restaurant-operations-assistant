@@ -1,8 +1,38 @@
-import React from 'react';
+
+import React, { useState, useEffect } from 'react';
+import { base44 } from '@/api/base44Client';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Home } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  ArrowLeft,
+  Home,
+  Save,
+  Plus,
+  Trash2,
+  Upload,
+  Eye,
+  Wand2,
+  Sparkles,
+  Loader2,
+  X,
+  Clock,
+  Users,
+  Shield,
+  AlertTriangle
+} from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import SOPAIGenerator from '../components/SOPAIGenerator';
 

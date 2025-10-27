@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery } from '@tanstack/react-query';
@@ -12,7 +13,9 @@ import {
   Volume2,
   X,
   CheckCircle,
-  Mic
+  Mic,
+  Clock, // Added Clock import
+  AlertTriangle // Added AlertTriangle import
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
@@ -234,7 +237,10 @@ export default function SOPVoiceMode() {
               <div className="grid md:grid-cols-2 gap-6 mt-12">
                 {currentStepData.time_estimate_minutes && (
                   <div className="bg-blue-500/20 rounded-lg p-4 border border-blue-500/30">
-                    <p className="text-blue-300 text-sm mb-1">Time Estimate</p>
+                    <p className="text-blue-300 text-sm mb-1 flex items-center gap-2">
+                      <Clock className="w-4 h-4" /> {/* Use Clock icon here */}
+                      Time Estimate
+                    </p>
                     <p className="text-2xl font-bold">{currentStepData.time_estimate_minutes} min</p>
                   </div>
                 )}
@@ -249,7 +255,7 @@ export default function SOPVoiceMode() {
                 {currentStepData.safety_notes && (
                   <div className="md:col-span-2 bg-amber-500/20 rounded-lg p-4 border border-amber-500/30">
                     <p className="text-amber-300 text-sm mb-2 flex items-center gap-2">
-                      <AlertTriangle className="w-4 h-4" />
+                      <AlertTriangle className="w-4 h-4" /> {/* Use AlertTriangle icon here */}
                       Safety Note
                     </p>
                     <p className="text-lg text-amber-100">{currentStepData.safety_notes}</p>

@@ -1,3 +1,4 @@
+
 /**
  * AI SOP Generator Component
  * Generates SOPs instantly using AI
@@ -12,7 +13,18 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Sparkles, Loader2, Check, Edit, Wand2, Plus, X } from 'lucide-react';
+import { 
+  Sparkles, 
+  Loader2, 
+  Check, 
+  Edit, 
+  Wand2, 
+  Plus, 
+  X,
+  AlertTriangle, // Added
+  Clock,         // Added
+  Users          // Added
+} from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 

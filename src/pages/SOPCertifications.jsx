@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery } from '@tanstack/react-query';
@@ -7,17 +8,16 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
-  Award,
+  ArrowLeft,
+  Home,
   Search,
-  Filter,
-  CheckCircle,
+  Award,
   Clock,
-  AlertTriangle,
-  Users,
+  CheckCircle,
+  FileText,
   TrendingUp,
   Download,
-  Home,
-  ArrowLeft
+  AlertTriangle
 } from 'lucide-react';
 import { format, differenceInDays } from 'date-fns';
 import { Link } from 'react-router-dom';
