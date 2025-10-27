@@ -89,16 +89,10 @@ const navigationItems = [
     section: "Operations",
     items: [
       {
-        title: "Daily Checklists",
-        url: createPageUrl("DailyChecklists"),
-        icon: ClipboardCheck,
-        badge: null,
-      },
-      {
-        title: "Advanced Checklists",
-        url: createPageUrl("AdvancedChecklists"),
-        icon: ClipboardList,
-        badge: null,
+        title: "Form Intelligence",
+        url: createPageUrl("FormIntelligence"),
+        icon: Settings,
+        badge: "AI",
       },
       {
         title: "Compliance",
@@ -111,12 +105,6 @@ const navigationItems = [
         url: createPageUrl("Maintenance"),
         icon: Wrench,
         badge: null,
-      },
-      {
-        title: "Form Intelligence",
-        url: createPageUrl("FormIntelligence"),
-        icon: Settings,
-        badge: "AI",
       },
     ]
   },
@@ -237,7 +225,7 @@ export default function Layout({ children }) {
       <ComplianceStyles />
       <AutoBackupScheduler />
       <WelcomeNewHire />
-      <ChecklistAutomation />
+      
       <StaffDataSync />
       <MenuImporter />
       <SystemStatusCheck />

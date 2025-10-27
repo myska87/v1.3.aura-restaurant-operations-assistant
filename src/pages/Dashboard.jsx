@@ -100,6 +100,22 @@ export default function Dashboard() {
     staleTime: 2 * 60 * 1000,
   });
 
+  // Fetch user's form assignments
+  const { data: formAssignments = [] } = useQuery({
+    queryKey: ['myFormAssignmentsDashboard', user?.email],
+    queryFn: async () => {
+      if (!user?.email) return [];
+
+      const allAssignments = await base44.entities.FormAssignment.list('-due_date', 50); // Fetch recent assignments
+      return allAssignments.filter(assignment => 
+        assignment.assigned_to_email === user.email &&
+        assignment.completion_status !== 'completed'
+      );
+    },
+    enabled: !!user?.email,
+    staleTime: 2 * 60 * 1000,
+  });
+
   // OPTIMIZED: Only fetch today's shifts
   const today = new Date().toISOString().split('T')[0];
   const { data: myShifts = [] } = useQuery({
@@ -507,8 +523,8 @@ export default function Dashboard() {
 
         {/* Quick Access Cards */}
         <div className="grid md:grid-cols-2 gap-6 mt-6">
-          {/* My Checklists Card */}
-          <Link to={createPageUrl("MyChecklists")}>
+          {/* My Forms Card */}
+          <Link to={createPageUrl("FormIntelligence")}>
             <Card className="bg-gradient-to-br from-blue-500 to-indigo-600 text-white border-none shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer group h-full">
               <CardContent className="p-6">
                 <div className="flex items-start justify-between mb-4">
@@ -517,8 +533,8 @@ export default function Dashboard() {
                       <ListChecks className="w-8 h-8" />
                     </div>
                     <div>
-                      <h3 className="text-2xl font-bold">My Checklists</h3>
-                      <p className="text-blue-100 text-sm">Upcoming tasks & checklists</p>
+                      <h3 className="text-2xl font-bold">My Forms</h3>
+                      <p className="text-blue-100 text-sm">Smart compliance forms</p>
                     </div>
                   </div>
                   <div className="text-white group-hover:translate-x-2 transition-transform">
@@ -526,64 +542,25 @@ export default function Dashboard() {
                   </div>
                 </div>
 
-                {/* Checklist Summary */}
+                {/* Form Summary */}
                 <div className="space-y-3 mt-4">
-                  {myChecklists.length === 0 ? (
-                    <div className="bg-white/10 rounded-lg p-4 text-center">
-                      <CheckCircle className="w-8 h-8 mx-auto mb-2 opacity-70" />
-                      <p className="text-sm">All caught up! No pending checklists</p>
+                  <div className="bg-white/10 rounded-lg p-3 hover:bg-white/20 transition-colors">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">Pending Forms</span>
+                      <Badge className="bg-white text-blue-600 hover:bg-white">
+                        {formAssignments.filter(f => f.completion_status === 'pending').length}
+                      </Badge>
                     </div>
-                  ) : (
-                    <>
-                      <div className="flex items-center justify-between bg-white/10 rounded-lg p-3">
-                        <span className="text-sm font-medium">Upcoming Checklists</span>
-                        <Badge className="bg-white text-blue-600 hover:bg-white">
-                          {myChecklists.length}
-                        </Badge>
-                      </div>
-
-                      {/* Show next 3 checklists */}
-                      {myChecklists.slice(0, 3).map((checklist) => {
-                        const today = new Date();
-                        today.setHours(0, 0, 0, 0);
-                        const execDate = new Date(checklist.execution_date);
-                        execDate.setHours(0, 0, 0, 0);
-                        
-                        const daysUntil = Math.ceil(
-                          (execDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
-                        );
-
-                        return (
-                          <div key={checklist.id} className="bg-white/10 rounded-lg p-3 hover:bg-white/20 transition-colors">
-                            <div className="flex items-start justify-between">
-                              <div className="flex-1">
-                                <p className="font-medium text-sm">{checklist.template_name}</p>
-                                <div className="flex items-center gap-2 mt-1">
-                                  <Clock className="w-3 h-3" />
-                                  <span className="text-xs opacity-90">
-                                    {daysUntil === 0 ? 'Due Today' : 
-                                     daysUntil === 1 ? 'Due Tomorrow' : 
-                                     `Due in ${daysUntil} days`}
-                                  </span>
-                                </div>
-                              </div>
-                              {checklist.status === 'in_progress' && (
-                                <Badge className="bg-yellow-400 text-yellow-900 text-xs">
-                                  In Progress
-                                </Badge>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })}
-
-                      {myChecklists.length > 3 && (
-                        <p className="text-xs text-center opacity-75 mt-2">
-                          +{myChecklists.length - 3} more checklist{myChecklists.length - 3 > 1 ? 's' : ''}
-                        </p>
-                      )}
-                    </>
-                  )}
+                  </div>
+                  
+                  <div className="bg-white/10 rounded-lg p-3 hover:bg-white/20 transition-colors">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">HACCP & Safety</span>
+                      <Badge className="bg-green-400 text-green-900 text-xs">
+                        Active
+                      </Badge>
+                    </div>
+                  </div>
                 </div>
               </CardContent>
             </Card>
