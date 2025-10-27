@@ -31,6 +31,8 @@ import {
   Mic, // Added Mic icon for Meeting Intelligence
   Edit, // Added Edit icon for SOP Builder
   Star, // Added Star icon for Quality
+  AlertTriangle, // Added for BugReport
+  Lightbulb, // Added for FeatureIdeas
 } from "lucide-react";
 import WelcomeNewHire from "./components/WelcomeNewHire";
 import ChecklistAutomation from "./components/ChecklistAutomation";
@@ -177,6 +179,29 @@ const navigationItems = [
         title: "Team Chat",
         url: createPageUrl("TeamChat"),
         icon: MessageCircle,
+        badge: null,
+      },
+    ]
+  },
+  {
+    section: "Feedback & Updates",
+    items: [
+      {
+        title: "📢 Announcements",
+        url: createPageUrl("Announcements"),
+        icon: MessageCircle,
+        badge: "NEW",
+      },
+      {
+        title: "🐛 Report a Bug",
+        url: createPageUrl("BugReport"),
+        icon: AlertTriangle,
+        badge: null,
+      },
+      {
+        title: "💡 Feature Ideas",
+        url: createPageUrl("FeatureIdeas"),
+        icon: Lightbulb,
         badge: null,
       },
     ]
