@@ -25,6 +25,7 @@ import {
   ArrowLeft,
   TrendingUp,
   Eye,
+  XCircle,
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
@@ -331,14 +332,46 @@ export default function DocumentSignatureReport() {
                         </Badge>
                       </td>
                       <td className="px-6 py-4 text-center">
-                        <span className="font-semibold text-green-700">
-                          {item.signedCount} / {item.totalStaff}
-                        </span>
+                        <div>
+                          <span className="font-semibold text-green-700">
+                            {item.signedCount} / {item.totalStaff}
+                          </span>
+                          {/* Show signed staff names */}
+                          {item.signatures.length > 0 && (
+                            <div className="mt-2 space-y-1">
+                              {item.signatures.slice(0, 3).map((sig) => (
+                                <div key={sig.id} className="flex items-center justify-center gap-1 text-xs text-gray-600">
+                                  <CheckCircle className="w-3 h-3 text-green-600" />
+                                  <span>{sig.staff_name}</span>
+                                </div>
+                              ))}
+                              {item.signatures.length > 3 && (
+                                <p className="text-xs text-gray-500">+{item.signatures.length - 3} more</p>
+                              )}
+                            </div>
+                          )}
+                        </div>
                       </td>
                       <td className="px-6 py-4 text-center">
-                        <span className={`font-semibold ${item.missingCount > 0 ? 'text-red-600' : 'text-gray-400'}`}>
-                          {item.missingCount}
-                        </span>
+                        <div>
+                          <span className={`font-semibold ${item.missingCount > 0 ? 'text-red-600' : 'text-gray-400'}`}>
+                            {item.missingCount}
+                          </span>
+                          {/* Show missing staff names */}
+                          {item.missingStaff.length > 0 && (
+                            <div className="mt-2 space-y-1">
+                              {item.missingStaff.slice(0, 3).map((staff) => (
+                                <div key={staff.id} className="flex items-center justify-center gap-1 text-xs text-gray-600">
+                                  <XCircle className="w-3 h-3 text-red-600" />
+                                  <span>{staff.full_name}</span>
+                                </div>
+                              ))}
+                              {item.missingStaff.length > 3 && (
+                                <p className="text-xs text-gray-500">+{item.missingStaff.length - 3} more</p>
+                              )}
+                            </div>
+                          )}
+                        </div>
                       </td>
                       <td className="px-6 py-4 text-center">
                         <div className="flex flex-col items-center">

@@ -87,7 +87,7 @@ export default function DocumentViewer() {
   });
 
   const signDocumentMutation = useMutation({
-    mutationFn: async (signatureData) => {
+    mutationFn: async (signatureUrl) => {
       const timeSpent = Math.round((Date.now() - startTime) / 60000); // minutes
 
       const signatureRecord = await base44.entities.DocumentBuilderSignature.create({
@@ -96,7 +96,7 @@ export default function DocumentViewer() {
         document_version: document.version || 1,
         staff_email: user.email,
         staff_name: user.full_name,
-        signature_url: signatureData.signatureUrl,
+        signature_url: signatureUrl,
         signed_at: new Date().toISOString(),
         acknowledgment_text: "I have read and understood this document",
         time_spent_minutes: timeSpent,
@@ -113,6 +113,7 @@ export default function DocumentViewer() {
       queryClient.invalidateQueries({ queryKey: ['myDocSignature'] });
       queryClient.invalidateQueries({ queryKey: ['documentBuilder'] });
       queryClient.invalidateQueries({ queryKey: ['documentLibrary'] });
+      queryClient.invalidateQueries({ queryKey: ['allDocuments'] });
       setShowSignDialog(false);
       alert('✅ Document signed successfully!');
     },
@@ -134,7 +135,24 @@ export default function DocumentViewer() {
       setCommentText('');
       setShowCommentDialog(false);
     },
+    onError: (error) => {
+      console.error('Comment error:', error);
+      alert('Failed to post comment. Please try again.');
+    },
   });
+
+  const handleSignSubmit = async (signatureUrl) => {
+    await signDocumentMutation.mutateAsync(signatureUrl);
+  };
+
+  const handleCommentSubmit = async () => {
+    if (!commentText.trim()) {
+      alert('Please enter a comment');
+      return;
+    }
+
+    await addCommentMutation.mutateAsync(commentText);
+  };
 
   if (isLoading || !document) {
     return (
@@ -312,9 +330,7 @@ export default function DocumentViewer() {
             </div>
 
             <SOPSignatureCanvas
-              onSign={(signatureUrl) => {
-                signDocumentMutation.mutate({ signatureUrl });
-              }}
+              onSign={handleSignSubmit}
               onCancel={() => setShowSignDialog(false)}
             />
           </div>
@@ -342,10 +358,17 @@ export default function DocumentViewer() {
               Cancel
             </Button>
             <Button
-              onClick={() => addCommentMutation.mutate(commentText)}
+              onClick={handleCommentSubmit}
               disabled={!commentText.trim() || addCommentMutation.isPending}
             >
-              Post Comment
+              {addCommentMutation.isPending ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Posting...
+                </>
+              ) : (
+                'Post Comment'
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
