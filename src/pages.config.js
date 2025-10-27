@@ -65,6 +65,7 @@ import DataBridgeMonitor from './pages/DataBridgeMonitor';
 import FormIntelligence from './pages/FormIntelligence';
 import HygieneDashboard from './pages/HygieneDashboard';
 import FormScheduler from './pages/FormScheduler';
+import PerformanceDashboard from './pages/PerformanceDashboard';
 import Layout from './Layout.jsx';
 
 
@@ -136,6 +137,7 @@ export const PAGES = {
     "FormIntelligence": FormIntelligence,
     "HygieneDashboard": HygieneDashboard,
     "FormScheduler": FormScheduler,
+    "PerformanceDashboard": PerformanceDashboard,
 }
 
 export const pagesConfig = {
