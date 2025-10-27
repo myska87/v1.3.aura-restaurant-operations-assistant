@@ -52,8 +52,8 @@ import {
   Filter,
   PenTool,
   X,
-  User, // Added for footer
-  Calendar, // Added for footer
+  User,
+  Calendar,
 } from "lucide-react";
 import { format } from "date-fns";
 import { Link, useNavigate } from "react-router-dom";
@@ -70,7 +70,7 @@ export default function DocumentManagement() {
   const [showUploadDialog, setShowUploadDialog] = useState(false);
   const [showAssignDialog, setShowAssignDialog] = useState(false);
   const [showVersionDialog, setShowVersionDialog] = useState(false);
-  const [showViewerDialog, setShowViewerDialog] = useState(false); // New state for viewer dialog
+  const [showViewerDialog, setShowViewerDialog] = useState(false);
   const [selectedDocument, setSelectedDocument] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -362,6 +362,18 @@ export default function DocumentManagement() {
   const handleViewDocument = (doc) => {
     setSelectedDocument(doc);
     setShowViewerDialog(true);
+    
+    // Track view for analytics
+    if (doc.id) {
+      base44.entities.DocumentReview.create({
+        document_id: doc.id,
+        document_title: doc.title,
+        staff_email: user?.email,
+        staff_name: user?.full_name,
+        version_viewed: doc.version_number,
+        opened_at: new Date().toISOString(),
+      }).catch(err => console.error('Error logging view:', err));
+    }
   };
 
   // Filter documents
@@ -641,7 +653,7 @@ export default function DocumentManagement() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => handleViewDocument(doc)}> {/* Modified */}
+                            <DropdownMenuItem onClick={() => handleViewDocument(doc)}>
                               <Eye className="w-4 h-4 mr-2" />
                               View Document
                             </DropdownMenuItem>
@@ -1132,15 +1144,17 @@ export default function DocumentManagement() {
         </DialogContent>
       </Dialog>
 
-      {/* Document Viewer Dialog - FIXED VERSION */}
+      {/* Document Viewer Dialog - COMPREHENSIVE FIX */}
       <Dialog open={showViewerDialog} onOpenChange={setShowViewerDialog}>
-        <DialogContent className="max-w-6xl h-[90vh] p-0 flex flex-col">
-          <DialogHeader className="p-6 pb-4 border-b flex-shrink-0">
+        <DialogContent className="max-w-[95vw] w-[95vw] h-[95vh] p-0 flex flex-col overflow-hidden">
+          <DialogHeader className="p-4 pb-3 border-b flex-shrink-0 bg-white">
             <div className="flex items-start justify-between">
               <div className="flex-1 pr-4">
-                <DialogTitle className="text-2xl">{selectedDocument?.title}</DialogTitle>
-                <p className="text-sm text-gray-600 mt-1">{selectedDocument?.description}</p>
-                <div className="flex flex-wrap gap-2 mt-3">
+                <DialogTitle className="text-xl font-bold">{selectedDocument?.title}</DialogTitle>
+                {selectedDocument?.description && (
+                  <p className="text-sm text-gray-600 mt-1">{selectedDocument.description}</p>
+                )}
+                <div className="flex flex-wrap gap-2 mt-2">
                   <Badge className={getConfidentialityBadge(selectedDocument?.confidentiality_level)}>
                     {selectedDocument?.confidentiality_level}
                   </Badge>
@@ -1150,14 +1164,11 @@ export default function DocumentManagement() {
                   </Badge>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-shrink-0">
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => {
-                    // Open in new tab for download (browser handles download for many types)
-                    window.open(selectedDocument?.file_url, '_blank');
-                  }}
+                  onClick={() => window.open(selectedDocument?.file_url, '_blank')}
                 >
                   <Download className="w-4 h-4 mr-2" />
                   Download
@@ -1173,68 +1184,162 @@ export default function DocumentManagement() {
             </div>
           </DialogHeader>
 
-          <div className="flex-1 overflow-hidden bg-gray-100">
+          <div className="flex-1 overflow-auto bg-gray-50">
             {selectedDocument && (
-              <div className="h-full w-full">
-                {/* PDF Viewer - Direct Embed */}
+              <div className="h-full w-full flex items-center justify-center p-4">
+                {/* PDF Viewer - Using object tag for better compatibility */}
                 {selectedDocument.file_type === 'pdf' && (
-                  <iframe
-                    src={`${selectedDocument.file_url}#view=FitH&toolbar=1&navpanes=1`}
-                    className="w-full h-full border-0"
-                    title={selectedDocument.title}
-                    type="application/pdf"
-                    style={{ minHeight: '600px' }}
-                  />
+                  <div className="w-full h-full bg-white rounded-lg shadow-inner overflow-hidden">
+                    <object
+                      data={selectedDocument.file_url}
+                      type="application/pdf"
+                      className="w-full h-full"
+                      style={{ minHeight: '70vh' }}
+                    >
+                      <iframe
+                        src={`${selectedDocument.file_url}#toolbar=1&navpanes=1&scrollbar=1&view=FitH`}
+                        className="w-full h-full border-0"
+                        title={selectedDocument.title}
+                        style={{ minHeight: '70vh' }}
+                      >
+                        <div className="p-8 text-center">
+                          <p className="text-gray-700 mb-4">
+                            Unable to display PDF in browser.
+                          </p>
+                          <Button
+                            onClick={() => window.open(selectedDocument.file_url, '_blank')}
+                            className="bg-[#014D40] hover:bg-[#013830]"
+                          >
+                            <Download className="w-4 h-4 mr-2" />
+                            Open PDF in New Tab
+                          </Button>
+                        </div>
+                      </iframe>
+                    </object>
+                  </div>
                 )}
 
                 {/* Image Viewer */}
                 {selectedDocument.file_type === 'image' && (
-                  <div className="flex items-center justify-center h-full p-6 bg-gray-900">
+                  <div className="max-w-full max-h-full flex items-center justify-center">
                     <img
                       src={selectedDocument.file_url}
                       alt={selectedDocument.title}
-                      className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
-                      style={{ maxHeight: '80vh' }}
+                      className="max-w-full max-h-[80vh] object-contain rounded-lg shadow-2xl"
+                      onError={(e) => {
+                        e.target.style.display = 'none';
+                        e.target.parentElement.innerHTML = `
+                          <div class="p-8 text-center bg-white rounded-lg shadow-lg">
+                            <p class="text-gray-700 mb-4">Unable to display image.</p>
+                            <a href="${selectedDocument.file_url}" target="_blank" class="text-blue-600 hover:underline">
+                              Open Image in New Tab
+                            </a>
+                          </div>
+                        `;
+                      }}
                     />
                   </div>
                 )}
 
                 {/* Video Viewer */}
                 {selectedDocument.file_type === 'video' && (
-                  <div className="flex items-center justify-center h-full p-6 bg-black">
+                  <div className="max-w-full max-h-full flex items-center justify-center bg-black rounded-lg">
                     <video
                       src={selectedDocument.file_url}
                       controls
-                      controlsList="nodownload"
-                      className="max-w-full max-h-full rounded-lg shadow-2xl"
-                      style={{ maxHeight: '80vh' }}
+                      className="max-w-full max-h-[80vh] rounded-lg"
+                      onError={(e) => {
+                        e.target.style.display = 'none';
+                        e.target.parentElement.innerHTML = `
+                          <div class="p-8 text-center bg-white rounded-lg">
+                            <p class="text-gray-700 mb-4">Unable to play video.</p>
+                            <a href="${selectedDocument.file_url}" target="_blank" class="text-blue-600 hover:underline">
+                              Open Video in New Tab
+                            </a>
+                          </div>
+                        `;
+                      }}
                     >
                       Your browser does not support the video tag.
                     </video>
                   </div>
                 )}
 
-                {/* DOCX/Word Documents - Use Google Docs Viewer */}
+                {/* DOCX/Word Documents - Multiple fallback options */}
                 {selectedDocument.file_type === 'docx' && (
-                  <iframe
-                    src={`https://docs.google.com/gview?url=${encodeURIComponent(selectedDocument.file_url)}&embedded=true`}
-                    className="w-full h-full border-0"
-                    title={selectedDocument.title}
-                    style={{ minHeight: '600px' }}
-                  />
-                )}
-
-                {/* Other File Types - Use Microsoft Office Online Viewer */}
-                {selectedDocument.file_type === 'other' && (
-                  <div className="h-full w-full">
+                  <div className="w-full h-full bg-white rounded-lg shadow-inner overflow-hidden">
                     <iframe
                       src={`https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(selectedDocument.file_url)}`}
                       className="w-full h-full border-0"
                       title={selectedDocument.title}
-                      style={{ minHeight: '600px' }}
+                      style={{ minHeight: '70vh' }}
                       onError={(e) => {
-                        // Fallback to Google Docs viewer if Office viewer fails
+                        // Fallback to Google Docs viewer
+                        console.log('Office viewer failed, trying Google Docs viewer');
                         e.target.src = `https://docs.google.com/gview?url=${encodeURIComponent(selectedDocument.file_url)}&embedded=true`;
+                        
+                        // If that fails too, show download option
+                        setTimeout(() => {
+                          // Check if iframe has loaded content (a more robust check might be needed)
+                          // For simplicity, here we just assume if it's still visible after a delay, it might have loaded.
+                          // A more robust check might involve checking `e.target.contentDocument` or similar.
+                          if (!e.target.contentWindow || e.target.contentWindow.document.body.innerHTML === "") { // simple check for empty iframe content
+                            e.target.style.display = 'none';
+                            e.target.parentElement.innerHTML = `
+                              <div class="p-8 text-center">
+                                <p class="text-gray-700 mb-4">
+                                  Unable to display Word document in browser.
+                                </p>
+                                <a href="${selectedDocument.file_url}" download class="inline-flex items-center px-4 py-2 bg-[#014D40] text-white rounded-lg hover:bg-[#013830]">
+                                  <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a 3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                                  </svg>
+                                  Download Document
+                                </a>
+                              </div>
+                            `;
+                          }
+                        }, 5000); // Give some time for the Google viewer to load
+                      }}
+                    />
+                  </div>
+                )}
+
+                {/* Other File Types - With comprehensive fallbacks */}
+                {selectedDocument.file_type === 'other' && (
+                  <div className="w-full h-full bg-white rounded-lg shadow-inner overflow-hidden">
+                    <iframe
+                      src={`https://docs.google.com/gview?url=${encodeURIComponent(selectedDocument.file_url)}&embedded=true`}
+                      className="w-full h-full border-0"
+                      title={selectedDocument.title}
+                      style={{ minHeight: '70vh' }}
+                      onError={(e) => {
+                        e.target.style.display = 'none';
+                        e.target.parentElement.innerHTML = `
+                          <div class="p-8 text-center">
+                            <div class="mb-6">
+                              <svg class="w-16 h-16 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                              </svg>
+                              <p class="text-gray-700 text-lg font-semibold mb-2">
+                                ${selectedDocument.title}
+                              </p>
+                              <p class="text-gray-600 mb-4">
+                                This file type cannot be previewed in the browser.
+                              </p>
+                            </div>
+                            <a 
+                              href="${selectedDocument.file_url}" 
+                              download
+                              class="inline-flex items-center px-6 py-3 bg-gradient-to-r from-[#014D40] to-emerald-600 text-white rounded-lg hover:from-[#013830] hover:to-emerald-700 font-medium shadow-lg"
+                            >
+                              <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                              </svg>
+                              Download to View
+                            </a>
+                          </div>
+                        `;
                       }}
                     />
                   </div>
@@ -1244,12 +1349,12 @@ export default function DocumentManagement() {
           </div>
 
           {/* Document Info Footer */}
-          <div className="p-4 border-t bg-white flex-shrink-0">
-            <div className="flex items-center justify-between text-sm text-gray-600">
-              <div className="flex items-center gap-4 flex-wrap">
+          <div className="p-3 border-t bg-white flex-shrink-0">
+            <div className="flex items-center justify-between text-xs text-gray-600 flex-wrap gap-2">
+              <div className="flex items-center gap-3 flex-wrap">
                 {selectedDocument?.uploaded_by_name && (
                   <span className="flex items-center gap-1">
-                    <User className="w-4 h-4" />
+                    <User className="w-3 h-3" />
                     {selectedDocument.uploaded_by_name}
                   </span>
                 )}
@@ -1257,7 +1362,7 @@ export default function DocumentManagement() {
                   <>
                     <span className="text-gray-400">•</span>
                     <span className="flex items-center gap-1">
-                      <Calendar className="w-4 h-4" />
+                      <Calendar className="w-3 h-3" />
                       {format(new Date(selectedDocument.created_date), 'PPP')}
                     </span>
                   </>
@@ -1269,19 +1374,15 @@ export default function DocumentManagement() {
                   </>
                 )}
               </div>
-              <div className="flex items-center gap-2">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => {
-                    // Open in new tab for full-screen view
-                    window.open(selectedDocument?.file_url, '_blank', 'noopener,noreferrer');
-                  }}
-                >
-                  <Eye className="w-4 h-4 mr-2" />
-                  Open in New Tab
-                </Button>
-              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => window.open(selectedDocument?.file_url, '_blank', 'noopener,noreferrer')}
+                className="text-xs"
+              >
+                <Eye className="w-3 h-3 mr-1" />
+                Open in New Tab
+              </Button>
             </div>
           </div>
         </DialogContent>
