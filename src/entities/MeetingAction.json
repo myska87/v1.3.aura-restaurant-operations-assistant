@@ -1,0 +1,136 @@
+{
+  "name": "MeetingAction",
+  "type": "object",
+  "properties": {
+    "meeting_id": {
+      "type": "string",
+      "description": "Reference to MeetingRecording"
+    },
+    "meeting_title": {
+      "type": "string",
+      "description": "Cached meeting title"
+    },
+    "action_description": {
+      "type": "string",
+      "description": "What needs to be done"
+    },
+    "action_type": {
+      "type": "string",
+      "enum": [
+        "task",
+        "follow_up",
+        "decision",
+        "reminder",
+        "training",
+        "purchase",
+        "other"
+      ],
+      "description": "Type of action"
+    },
+    "assigned_to_email": {
+      "type": "string",
+      "description": "Who is responsible"
+    },
+    "assigned_to_name": {
+      "type": "string",
+      "description": "Assigned person name"
+    },
+    "assigned_by": {
+      "type": "string",
+      "description": "Who assigned this action"
+    },
+    "due_date": {
+      "type": "string",
+      "format": "date",
+      "description": "When action must be completed"
+    },
+    "priority": {
+      "type": "string",
+      "enum": [
+        "low",
+        "medium",
+        "high",
+        "urgent"
+      ],
+      "default": "medium",
+      "description": "Action priority"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "in_progress",
+        "completed",
+        "cancelled",
+        "overdue"
+      ],
+      "default": "pending",
+      "description": "Current status"
+    },
+    "completed_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When action was completed"
+    },
+    "completed_by": {
+      "type": "string",
+      "description": "Who completed the action"
+    },
+    "completion_notes": {
+      "type": "string",
+      "description": "Notes on how action was completed"
+    },
+    "linked_module": {
+      "type": "string",
+      "enum": [
+        "tasks",
+        "hygiene",
+        "compliance",
+        "inventory",
+        "maintenance",
+        "training",
+        "shifts",
+        "none"
+      ],
+      "default": "none",
+      "description": "Which module this action integrates with"
+    },
+    "linked_record_id": {
+      "type": "string",
+      "description": "ID of created record in linked module"
+    },
+    "auto_created": {
+      "type": "boolean",
+      "default": true,
+      "description": "Whether AI detected and created this"
+    },
+    "confidence_score": {
+      "type": "number",
+      "description": "AI confidence (0-100)"
+    },
+    "verified_by_manager": {
+      "type": "boolean",
+      "default": false,
+      "description": "Manager confirmed this action"
+    },
+    "reminder_sent": {
+      "type": "boolean",
+      "default": false
+    },
+    "reminder_sent_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "escalated": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether action was escalated due to delay"
+    }
+  },
+  "required": [
+    "meeting_id",
+    "action_description",
+    "assigned_to_email",
+    "status"
+  ]
+}

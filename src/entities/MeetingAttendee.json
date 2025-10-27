@@ -1,0 +1,80 @@
+{
+  "name": "MeetingAttendee",
+  "type": "object",
+  "properties": {
+    "meeting_id": {
+      "type": "string",
+      "description": "Reference to MeetingRecording"
+    },
+    "meeting_title": {
+      "type": "string",
+      "description": "Cached meeting title"
+    },
+    "staff_id": {
+      "type": "string",
+      "description": "Reference to User entity"
+    },
+    "staff_email": {
+      "type": "string",
+      "description": "Staff member email"
+    },
+    "staff_name": {
+      "type": "string",
+      "description": "Staff member name"
+    },
+    "staff_role": {
+      "type": "string",
+      "description": "Staff member's position"
+    },
+    "attendance_status": {
+      "type": "string",
+      "enum": [
+        "present",
+        "absent",
+        "late",
+        "left_early"
+      ],
+      "default": "present",
+      "description": "Attendance status"
+    },
+    "arrival_time": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When they arrived"
+    },
+    "departure_time": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When they left"
+    },
+    "voice_detected": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether AI detected their voice"
+    },
+    "speaking_time_seconds": {
+      "type": "number",
+      "default": 0,
+      "description": "Total speaking time"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Additional notes about attendance"
+    },
+    "notified": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether they received meeting summary"
+    },
+    "notified_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When notification was sent"
+    }
+  },
+  "required": [
+    "meeting_id",
+    "staff_email",
+    "attendance_status"
+  ]
+}

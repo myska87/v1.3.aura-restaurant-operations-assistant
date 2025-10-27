@@ -69,6 +69,8 @@ import PerformanceDashboard from './pages/PerformanceDashboard';
 import EHOControlCenter from './pages/EHOControlCenter';
 import MenuIntelligence from './pages/MenuIntelligence';
 import AIConsole from './pages/AIConsole';
+import MeetingDashboard from './pages/MeetingDashboard';
+import RecordMeeting from './pages/RecordMeeting';
 import Layout from './Layout.jsx';
 
 
@@ -144,6 +146,8 @@ export const PAGES = {
     "EHOControlCenter": EHOControlCenter,
     "MenuIntelligence": MenuIntelligence,
     "AIConsole": AIConsole,
+    "MeetingDashboard": MeetingDashboard,
+    "RecordMeeting": RecordMeeting,
 }
 
 export const pagesConfig = {
