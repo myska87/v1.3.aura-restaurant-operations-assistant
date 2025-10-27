@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -48,14 +49,20 @@ import {
   AlertTriangle,
   Clock,
   UserCheck,
+  Mail, // New import for invite
+  QrCode, // New import for QR code invite
+  Loader2, // New import for loading state
+  X // New import for reject
 } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom'; // Added useNavigate
 import { createPageUrl } from '@/utils';
 import { format } from 'date-fns';
 import { motion } from 'framer-motion';
+import { QRCodeSVG } from 'qrcode.react'; // New import for QR code generation
 
 export default function UserManagement() {
   const queryClient = useQueryClient();
+  const navigate = useNavigate(); // Initialize useNavigate
   const [searchQuery, setSearchQuery] = useState('');
   const [filterRole, setFilterRole] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
@@ -64,6 +71,18 @@ export default function UserManagement() {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [userToDelete, setUserToDelete] = useState(null);
   const [syncing, setSyncing] = useState(false);
+  
+  // NEW: Invitation state
+  const [showInviteDialog, setShowInviteDialog] = useState(false);
+  const [inviteType, setInviteType] = useState('email');
+  const [inviteFormData, setInviteFormData] = useState({
+    email: '',
+    name: '',
+    position: 'server',
+    department: 'front_of_house',
+  });
+  const [generatedQR, setGeneratedQR] = useState(null);
+  const [showRegistrationRequests, setShowRegistrationRequests] = useState(false);
 
   const [formData, setFormData] = useState({
     full_name: '',
@@ -96,6 +115,16 @@ export default function UserManagement() {
     queryKey: ['allTeamMembers'],
     queryFn: () => base44.entities.TeamMember.list('-created_date'),
     staleTime: 0,
+  });
+
+  const { data: invitations = [] } = useQuery({
+    queryKey: ['userInvitations'],
+    queryFn: () => base44.entities.UserInvitation.list('-created_date'),
+  });
+
+  const { data: registrationRequests = [] } = useQuery({
+    queryKey: ['registrationRequests'],
+    queryFn: () => base44.entities.RegistrationRequest.filter({ status: 'pending' }),
   });
 
   // Unified user list
@@ -244,6 +273,167 @@ export default function UserManagement() {
     },
   });
 
+  // Send Invitation Mutation
+  const sendInvitationMutation = useMutation({
+    mutationFn: async (inviteData) => {
+      const invitationCode = `INV-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      const registrationLink = `${window.location.origin}/register?code=${invitationCode}`;
+      const expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + 7); // 7 days expiry
+
+      const invitation = await base44.entities.UserInvitation.create({
+        invitation_code: invitationCode,
+        invited_email: inviteData.email,
+        invited_name: inviteData.name,
+        invited_position: inviteData.position,
+        invited_department: inviteData.department,
+        invited_by: currentUser.email,
+        invited_by_name: currentUser.full_name,
+        invitation_type: inviteData.type,
+        registration_link: registrationLink,
+        status: 'pending',
+        expires_at: expiresAt.toISOString(),
+      });
+
+      // Send email if email invitation
+      if (inviteData.type === 'email') {
+        try {
+          await base44.integrations.Core.SendEmail({
+            to: inviteData.email,
+            subject: `You're invited to join ${currentUser.full_name}'s team`,
+            body: `
+Hello ${inviteData.name},
+
+You've been invited to join our team as a ${inviteData.position}!
+
+To complete your registration, please click the link below:
+${registrationLink}
+
+This invitation will expire in 7 days.
+
+Best regards,
+${currentUser.full_name}
+            `.trim(),
+          });
+
+          await base44.entities.UserInvitation.update(invitation.id, {
+            email_sent_at: new Date().toISOString(),
+          });
+        } catch (error) {
+          console.error('Email send error:', error);
+          alert('Failed to send invitation email.'); // Add feedback for email errors
+        }
+      }
+
+      return invitation;
+    },
+    onSuccess: (invitation) => {
+      queryClient.invalidateQueries({ queryKey: ['userInvitations'] });
+      
+      if (inviteType === 'qr_code') {
+        // Generate QR code
+        const qrData = invitation.registration_link;
+        setGeneratedQR(qrData);
+      } else {
+        setShowInviteDialog(false);
+        setInviteFormData({ email: '', name: '', position: 'server', department: 'front_of_house' }); // Reset form
+        alert('✅ Invitation sent successfully!');
+      }
+    },
+    onError: (error) => {
+      console.error('Invitation error:', error);
+      alert('Failed to send invitation.');
+    }
+  });
+
+  // Approve Registration Mutation
+  const approveRegistrationMutation = useMutation({
+    mutationFn: async (request) => {
+      // Update request status
+      await base44.entities.RegistrationRequest.update(request.id, {
+        status: 'approved',
+        reviewed_by: currentUser.email,
+        reviewed_by_name: currentUser.full_name,
+        reviewed_at: new Date().toISOString(),
+      });
+
+      // Send approval email
+      try {
+        await base44.integrations.Core.SendEmail({
+          to: request.email,
+          subject: 'Your registration has been approved!',
+          body: `
+Hello ${request.full_name},
+
+Great news! Your registration has been approved.
+
+You can now log in to the system with your credentials.
+
+Welcome to the team!
+
+Best regards,
+${currentUser.full_name}
+          `.trim(),
+        });
+      } catch (error) {
+        console.error('Email error:', error);
+        alert('Failed to send approval email.');
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['registrationRequests'] });
+      alert('✅ Registration approved!');
+    },
+    onError: (error) => {
+      console.error('Approval error:', error);
+      alert('Failed to approve registration.');
+    }
+  });
+
+  // Reject Registration Mutation
+  const rejectRegistrationMutation = useMutation({
+    mutationFn: async ({ request, reason }) => {
+      await base44.entities.RegistrationRequest.update(request.id, {
+        status: 'rejected',
+        reviewed_by: currentUser.email,
+        reviewed_by_name: currentUser.full_name,
+        reviewed_at: new Date().toISOString(),
+        rejection_reason: reason,
+      });
+
+      // Send rejection email
+      try {
+        await base44.integrations.Core.SendEmail({
+          to: request.email,
+          subject: 'Registration Update',
+          body: `
+Hello ${request.full_name},
+
+Thank you for your interest in joining our team.
+
+Unfortunately, we are unable to approve your registration at this time.
+
+${reason ? `Reason: ${reason}` : ''}
+
+Best regards,
+${currentUser.full_name}
+          `.trim(),
+        });
+      } catch (error) {
+        console.error('Email error:', error);
+        alert('Failed to send rejection email.');
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['registrationRequests'] });
+      alert('Registration rejected');
+    },
+    onError: (error) => {
+      console.error('Rejection error:', error);
+      alert('Failed to reject registration.');
+    }
+  });
+
   const handleEdit = (user) => {
     setEditingUser(user);
     setFormData({
@@ -289,6 +479,18 @@ export default function UserManagement() {
       console.error('Sync error:', error);
     }
     setSyncing(false);
+  };
+
+  const handleSendInvite = () => {
+    if (!inviteFormData.email || !inviteFormData.name) {
+      alert('Please fill in all required fields');
+      return;
+    }
+
+    sendInvitationMutation.mutate({
+      ...inviteFormData,
+      type: inviteType,
+    });
   };
 
   const getRoleColor = (position) => {
@@ -372,6 +574,32 @@ export default function UserManagement() {
               <RefreshCw className={`w-4 h-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
               {syncing ? 'Syncing...' : 'Sync All'}
             </Button>
+            
+            <Button
+              onClick={() => {
+                setShowInviteDialog(true);
+                setGeneratedQR(null); // Reset QR on dialog open
+                setInviteFormData({ email: '', name: '', position: 'server', department: 'front_of_house' }); // Reset form
+              }}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              <UserPlus className="w-4 h-4 mr-2" />
+              Invite User
+            </Button>
+
+            {registrationRequests.length > 0 && (
+              <Button
+                variant="outline"
+                onClick={() => setShowRegistrationRequests(true)}
+                className="relative"
+              >
+                <Users className="w-4 h-4 mr-2" />
+                Registrations
+                <Badge className="ml-2 bg-red-500 text-white">
+                  {registrationRequests.length}
+                </Badge>
+              </Button>
+            )}
           </div>
         </div>
 
@@ -608,6 +836,291 @@ export default function UserManagement() {
             )}
           </CardContent>
         </Card>
+
+        {/* Invite User Dialog */}
+        <Dialog open={showInviteDialog} onOpenChange={setShowInviteDialog}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Invite New User</DialogTitle>
+              <DialogDescription>
+                Send an invitation via email or generate a QR code
+              </DialogDescription>
+            </DialogHeader>
+
+            {!generatedQR ? (
+              <div className="space-y-4">
+                <div className="flex gap-2 mb-4">
+                  <Button
+                    variant={inviteType === 'email' ? 'default' : 'outline'}
+                    onClick={() => setInviteType('email')}
+                    className="flex-1"
+                  >
+                    <Mail className="w-4 h-4 mr-2" />
+                    Email Invitation
+                  </Button>
+                  <Button
+                    variant={inviteType === 'qr_code' ? 'default' : 'outline'}
+                    onClick={() => setInviteType('qr_code')}
+                    className="flex-1"
+                  >
+                    <QrCode className="w-4 h-4 mr-2" />
+                    QR Code
+                  </Button>
+                </div>
+
+                <div className="grid gap-4">
+                  <div>
+                    <Label htmlFor="inviteEmail">Email Address *</Label>
+                    <Input
+                      id="inviteEmail"
+                      type="email"
+                      value={inviteFormData.email}
+                      onChange={(e) => setInviteFormData({ ...inviteFormData, email: e.target.value })}
+                      placeholder="user@example.com"
+                    />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="inviteName">Full Name *</Label>
+                    <Input
+                      id="inviteName"
+                      value={inviteFormData.name}
+                      onChange={(e) => setInviteFormData({ ...inviteFormData, name: e.target.value })}
+                      placeholder="John Doe"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="invitePosition">Position</Label>
+                      <Select
+                        value={inviteFormData.position}
+                        onValueChange={(value) => setInviteFormData({ ...inviteFormData, position: value })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select position" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="manager">Manager</SelectItem>
+                          <SelectItem value="chef">Chef</SelectItem>
+                          <SelectItem value="sous_chef">Sous Chef</SelectItem>
+                          <SelectItem value="line_cook">Line Cook</SelectItem>
+                          <SelectItem value="server">Server</SelectItem>
+                          <SelectItem value="bartender">Bartender</SelectItem>
+                          <SelectItem value="host">Host</SelectItem>
+                          <SelectItem value="cleaner">Cleaner</SelectItem>
+                          <SelectItem value="maintenance">Maintenance</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div>
+                      <Label htmlFor="inviteDepartment">Department</Label>
+                      <Select
+                        value={inviteFormData.department}
+                        onValueChange={(value) => setInviteFormData({ ...inviteFormData, department: value })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select department" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="management">Management</SelectItem>
+                          <SelectItem value="kitchen">Kitchen</SelectItem>
+                          <SelectItem value="front_of_house">Front of House</SelectItem>
+                          <SelectItem value="bar">Bar</SelectItem>
+                          <SelectItem value="cleaning">Cleaning</SelectItem>
+                          <SelectItem value="maintenance">Maintenance</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </div>
+
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setShowInviteDialog(false)}>
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={handleSendInvite}
+                    disabled={sendInvitationMutation.isPending}
+                    className="bg-blue-600 hover:bg-blue-700"
+                  >
+                    {sendInvitationMutation.isPending ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Sending...
+                      </>
+                    ) : (
+                      <>
+                        {inviteType === 'email' ? <Mail className="w-4 h-4 mr-2" /> : <QrCode className="w-4 h-4 mr-2" />}
+                        {inviteType === 'email' ? 'Send Invitation' : 'Generate QR Code'}
+                      </>
+                    )}
+                  </Button>
+                </DialogFooter>
+              </div>
+            ) : (
+              <div className="text-center space-y-4">
+                <h3 className="text-lg font-semibold">QR Code Generated!</h3>
+                <div className="flex justify-center">
+                  <QRCodeSVG value={generatedQR} size={256} />
+                </div>
+                <p className="text-sm text-gray-600">
+                  Scan this QR code to register
+                </p>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setGeneratedQR(null);
+                      setShowInviteDialog(false);
+                    }}
+                    className="flex-1"
+                  >
+                    Close
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      // Download QR code
+                      const svg = document.querySelector('.dialog-qr-code svg'); // Target SVG within the dialog
+                      if (svg) {
+                          const svgData = new XMLSerializer().serializeToString(svg);
+                          const canvas = document.createElement('canvas');
+                          const ctx = canvas.getContext('2d');
+                          const img = new Image();
+                          img.onload = () => {
+                            canvas.width = img.width;
+                            canvas.height = img.height;
+                            ctx.drawImage(img, 0, 0);
+                            const pngFile = canvas.toDataURL('image/png');
+                            const downloadLink = document.createElement('a');
+                            downloadLink.download = 'invitation-qr-code.png';
+                            downloadLink.href = pngFile;
+                            downloadLink.click();
+                          };
+                          img.src = 'data:image/svg+xml;base64,' + btoa(svgData);
+                      }
+                    }}
+                    className="flex-1 bg-blue-600"
+                  >
+                    <Download className="w-4 h-4 mr-2" />
+                    Download
+                  </Button>
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
+
+        {/* Registration Requests Dialog */}
+        <Dialog open={showRegistrationRequests} onOpenChange={setShowRegistrationRequests}>
+          <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Registration Requests ({registrationRequests.length})</DialogTitle>
+              <DialogDescription>
+                Review and approve new user registrations
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4">
+              {registrationRequests.map((request) => (
+                <Card key={request.id} className="border-2">
+                  <CardContent className="p-4">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3 mb-2">
+                          {request.photo_url ? (
+                            <img
+                              src={request.photo_url}
+                              alt={request.full_name}
+                              className="w-12 h-12 rounded-full object-cover"
+                            />
+                          ) : (
+                            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white font-bold text-lg">
+                              {request.full_name?.charAt(0)?.toUpperCase()}
+                            </div>
+                          )}
+                          <div>
+                            <h3 className="font-bold text-lg">{request.full_name}</h3>
+                            <p className="text-sm text-gray-600">{request.email}</p>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4 mb-3">
+                          <div>
+                            <p className="text-xs text-gray-500">Position</p>
+                            <p className="font-medium">{request.desired_position || 'N/A'}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-gray-500">Department</p>
+                            <p className="font-medium">{request.desired_department || 'N/A'}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-gray-500">Phone</p>
+                            <p className="font-medium">{request.phone || 'N/A'}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-gray-500">Submitted</p>
+                            <p className="font-medium">
+                              {request.requested_at ? format(new Date(request.requested_at), 'PPp') : 'N/A'}
+                            </p>
+                          </div>
+                        </div>
+
+                        {request.message && (
+                          <div className="mb-3">
+                            <p className="text-xs text-gray-500 mb-1">Message</p>
+                            <p className="text-sm bg-gray-50 p-3 rounded">{request.message}</p>
+                          </div>
+                        )}
+
+                        {request.cv_url && (
+                          <a
+                            href={request.cv_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-sm text-blue-600 hover:underline flex items-center gap-1"
+                          >
+                            <Download className="w-3 h-3" />
+                            Download CV/Resume
+                          </a>
+                        )}
+                      </div>
+
+                      <div className="flex flex-col gap-2">
+                        <Button
+                          onClick={() => approveRegistrationMutation.mutate(request)}
+                          className="bg-green-600 hover:bg-green-700"
+                          disabled={approveRegistrationMutation.isPending}
+                        >
+                          <CheckCircle className="w-4 h-4 mr-2" />
+                          Approve
+                        </Button>
+                        <Button
+                          variant="destructive"
+                          onClick={() => {
+                            const reason = prompt('Reason for rejection (optional):');
+                            rejectRegistrationMutation.mutate({ request, reason });
+                          }}
+                          disabled={rejectRegistrationMutation.isPending}
+                        >
+                          <X className="w-4 h-4 mr-2" />
+                          Reject
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+
+              {registrationRequests.length === 0 && (
+                <p className="text-center text-gray-500 py-8">
+                  No pending registration requests
+                </p>
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
 
         {/* Edit Dialog */}
         <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>

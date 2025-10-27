@@ -5,6 +5,17 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import {
   Shield,
   AlertTriangle,
@@ -21,17 +32,42 @@ import {
   TrendingDown,
   Activity,
   ArrowLeft,
-  Home
+  Home,
+  Plus,
+  Eye,
+  Edit,
+  Save,
+  Loader2,
+  Search,
 } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { format, subDays } from "date-fns";
-import CoreDB from '../components/CoreDB';
 
 export default function EHOControlCenter() {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [inspectionMode, setInspectionMode] = useState(false);
   const [generatingReport, setGeneratingReport] = useState(false);
+  const [showAuditDialog, setShowAuditDialog] = useState(false);
+  const [showCheckpointDialog, setShowCheckpointDialog] = useState(false);
+  const [activeTab, setActiveTab] = useState('dashboard');
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const [auditFormData, setAuditFormData] = useState({
+    title: '',
+    type: 'internal',
+    auditor_name: '',
+    auditor_organization: '',
+  });
+
+  const [checkpointFormData, setCheckpointFormData] = useState({
+    checkpoint_name: '',
+    category: 'food_safety',
+    description: '',
+    weight: 5,
+    is_critical: false,
+  });
 
   const { data: user } = useQuery({
     queryKey: ['currentUser'],
@@ -53,7 +89,7 @@ export default function EHOControlCenter() {
 
   const { data: documents = [] } = useQuery({
     queryKey: ['documents'],
-    queryFn: () => base44.entities.Document.list(),
+    queryFn: () => base44.entities.DocumentBuilder.list(),
   });
 
   const { data: staff = [] } = useQuery({
@@ -74,6 +110,60 @@ export default function EHOControlCenter() {
     },
   });
 
+  const { data: checkpoints = [] } = useQuery({
+    queryKey: ['auditCheckpoints'],
+    queryFn: () => base44.entities.AuditCheckpoint.filter({ is_active: true }),
+  });
+
+  const { data: audits = [] } = useQuery({
+    queryKey: ['auditExecutions'],
+    queryFn: () => base44.entities.AuditExecution.list('-audit_date', 50),
+  });
+
+  // Create Audit Mutation
+  const createAuditMutation = useMutation({
+    mutationFn: async (auditData) => {
+      const checkpointResults = checkpoints.map(cp => ({
+        checkpoint_id: cp.id,
+        checkpoint_name: cp.checkpoint_name,
+        status: 'na',
+        score: 0,
+        evidence_urls: [],
+        notes: '',
+        corrective_action_required: false,
+      }));
+
+      return await base44.entities.AuditExecution.create({
+        audit_title: auditData.title,
+        audit_type: auditData.type,
+        audit_date: new Date().toISOString(),
+        auditor_name: auditData.auditor_name,
+        auditor_organization: auditData.auditor_organization,
+        conducted_by_email: user.email,
+        checkpoints: checkpointResults,
+        overall_score: 0,
+        overall_rating: 'needs_improvement',
+        critical_failures: 0,
+        status: 'draft',
+      });
+    },
+    onSuccess: (audit) => {
+      queryClient.invalidateQueries({ queryKey: ['auditExecutions'] });
+      setShowAuditDialog(false);
+      navigate(createPageUrl(`AuditEditor?id=${audit.id}`));
+    },
+  });
+
+  // Create Checkpoint Mutation
+  const createCheckpointMutation = useMutation({
+    mutationFn: (data) => base44.entities.AuditCheckpoint.create(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['auditCheckpoints'] });
+      setShowCheckpointDialog(false);
+      alert('✅ Checkpoint created successfully!');
+    },
+  });
+
   // Calculate compliance score
   const complianceScore = calculateComplianceScore({
     hygieneRecords,
@@ -88,7 +178,6 @@ export default function EHOControlCenter() {
   const toggleInspectionMode = () => {
     setInspectionMode(!inspectionMode);
     if (!inspectionMode) {
-      // Lock app into inspection mode
       document.body.style.cursor = 'not-allowed';
       alert('🔒 INSPECTION MODE ACTIVATED\n\nApp is now locked for EHO inspection.\nOnly viewing reports and documents is allowed.');
     } else {
@@ -102,7 +191,6 @@ export default function EHOControlCenter() {
     setGeneratingReport(true);
     
     try {
-      // In production, this would generate a PDF report
       const reportData = {
         generated_at: new Date().toISOString(),
         venue_name: 'Main Kitchen',
@@ -124,21 +212,17 @@ export default function EHOControlCenter() {
         recommendations: complianceScore.recommendations
       };
 
-      // Create report document
-      await base44.entities.Document.create({
+      await base44.entities.DocumentBuilder.create({
         title: `EHO Compliance Report - ${format(new Date(), 'MMM yyyy')}`,
         description: 'Automatically generated compliance report for EHO inspection',
-        file_url: 'generated_report_' + Date.now(), // In production, this would be actual PDF URL
-        file_type: 'pdf',
-        category: 'compliance',
+        category: 'policy',
+        content_html: `<h1>EHO Compliance Report</h1><p>Score: ${complianceScore.overall}%</p>`,
         department: 'all',
-        confidentiality_level: 'restricted',
-        uploaded_by: user?.email || 'system',
-        uploaded_by_name: user?.full_name || 'System',
-        is_active: true
+        created_by: user?.email || 'system',
+        status: 'published',
       });
 
-      alert('✅ EHO Compliance Report generated successfully!\n\nCheck Document Management to download.');
+      alert('✅ EHO Compliance Report generated successfully!\n\nCheck Document Library to download.');
       
     } catch (error) {
       console.error('Error generating report:', error);
@@ -147,6 +231,34 @@ export default function EHOControlCenter() {
       setGeneratingReport(false);
     }
   };
+
+  const handleStartAudit = () => {
+    if (!auditFormData.title || !auditFormData.auditor_name) {
+      alert('Please fill in all required fields');
+      return;
+    }
+
+    createAuditMutation.mutate(auditFormData);
+  };
+
+  const handleCreateCheckpoint = () => {
+    if (!checkpointFormData.checkpoint_name || !checkpointFormData.description) {
+      alert('Please fill in all required fields');
+      return;
+    }
+
+    createCheckpointMutation.mutate({
+      ...checkpointFormData,
+      frequency: 'on_inspection',
+      assigned_role: 'manager',
+      is_active: true,
+    });
+  };
+
+  const filteredCheckpoints = checkpoints.filter(cp =>
+    cp.checkpoint_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    cp.description?.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   return (
     <div className={`p-6 md:p-8 ${inspectionMode ? 'bg-yellow-50' : 'bg-gray-50'} min-h-screen transition-all`}>
@@ -199,210 +311,517 @@ export default function EHOControlCenter() {
                   disabled={generatingReport}
                   className="bg-blue-600 hover:bg-blue-700"
                 >
-                  <Download className="w-4 h-4 mr-2" />
-                  {generatingReport ? 'Generating...' : 'Generate EHO Report'}
+                  {generatingReport ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Generating...
+                    </>
+                  ) : (
+                    <>
+                      <Download className="w-4 h-4 mr-2" />
+                      Generate EHO Report
+                    </>
+                  )}
                 </Button>
               </>
             )}
           </div>
         </div>
 
-        {/* Compliance Score Dashboard */}
-        <div className="grid md:grid-cols-4 gap-6 mb-8">
-          <Card className={`border-2 ${getScoreColor(complianceScore.overall)}`}>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-2">
-                <h3 className="text-sm font-medium text-gray-600">Overall Compliance</h3>
-                <Activity className="w-5 h-5 text-blue-600" />
-              </div>
-              <div className="flex items-end gap-2">
-                <p className="text-4xl font-bold text-gray-900">
-                  {complianceScore.overall}%
-                </p>
-                {complianceScore.trend === 'improving' ? (
-                  <TrendingUp className="w-5 h-5 text-green-600 mb-2" />
-                ) : (
-                  <TrendingDown className="w-5 h-5 text-red-600 mb-2" />
-                )}
-              </div>
-              <Badge className={complianceScore.overall >= 90 ? 'bg-green-100 text-green-800' : complianceScore.overall >= 75 ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'}>
-                {complianceScore.overall >= 90 ? 'Excellent' : complianceScore.overall >= 75 ? 'Good' : 'Needs Improvement'}
-              </Badge>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-2">
-                <h3 className="text-sm font-medium text-gray-600">Hygiene Records</h3>
-                <Thermometer className="w-5 h-5 text-blue-600" />
-              </div>
-              <p className="text-3xl font-bold text-gray-900">
-                {complianceScore.hygieneCompliance}%
-              </p>
-              <p className="text-xs text-gray-500 mt-1">
-                {hygieneRecords.filter(r => r.is_in_range).length} / {hygieneRecords.length} in range
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-2">
-                <h3 className="text-sm font-medium text-gray-600">Forms Completed</h3>
-                <ClipboardCheck className="w-5 h-5 text-blue-600" />
-              </div>
-              <p className="text-3xl font-bold text-gray-900">
-                {complianceScore.formsCompliance}%
-              </p>
-              <p className="text-xs text-gray-500 mt-1">
-                {formResponses.filter(f => f.status === 'submitted' || f.status === 'approved').length} submitted
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-2">
-                <h3 className="text-sm font-medium text-gray-600">Staff Training</h3>
-                <Users className="w-5 h-5 text-blue-600" />
-              </div>
-              <p className="text-3xl font-bold text-gray-900">
-                {complianceScore.trainingCompliance}%
-              </p>
-              <p className="text-xs text-gray-500 mt-1">
-                {trainingRecords.filter(t => t.status === 'completed').length} / {staff.length} trained
-              </p>
-            </CardContent>
-          </Card>
+        {/* Tabs */}
+        <div className="flex gap-2 mb-6">
+          <Button
+            variant={activeTab === 'dashboard' ? 'default' : 'outline'}
+            onClick={() => setActiveTab('dashboard')}
+          >
+            <Activity className="w-4 h-4 mr-2" />
+            Dashboard
+          </Button>
+          <Button
+            variant={activeTab === 'audits' ? 'default' : 'outline'}
+            onClick={() => setActiveTab('audits')}
+          >
+            <ClipboardCheck className="w-4 h-4 mr-2" />
+            Audits ({audits.length})
+          </Button>
+          <Button
+            variant={activeTab === 'checkpoints' ? 'default' : 'outline'}
+            onClick={() => setActiveTab('checkpoints')}
+          >
+            <CheckCircle className="w-4 h-4 mr-2" />
+            Checkpoints ({checkpoints.length})
+          </Button>
         </div>
 
-        {/* Critical Alerts */}
-        {alerts.filter(a => a.severity === 'critical' || a.severity === 'urgent').length > 0 && (
-          <Alert className="mb-6 border-red-300 bg-red-50">
-            <AlertTriangle className="w-5 h-5 text-red-600" />
-            <AlertDescription className="text-red-800">
-              <strong>{alerts.filter(a => a.severity === 'critical' || a.severity === 'urgent').length} Critical Alert(s) Require Immediate Attention</strong>
-              <div className="mt-2 space-y-1">
-                {alerts.filter(a => a.severity === 'critical' || a.severity === 'urgent').slice(0, 3).map(alert => (
-                  <div key={alert.id} className="text-sm">
-                    • {alert.item_name} at {alert.location}: {alert.recorded_value}°C (Expected: {alert.expected_range})
+        {/* Dashboard Tab */}
+        {activeTab === 'dashboard' && (
+          <>
+            {/* Compliance Score Dashboard */}
+            <div className="grid md:grid-cols-4 gap-6 mb-8">
+              <Card className={`border-2 ${getScoreColor(complianceScore.overall)}`}>
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="text-sm font-medium text-gray-600">Overall Compliance</h3>
+                    <Activity className="w-5 h-5 text-blue-600" />
                   </div>
-                ))}
-              </div>
-            </AlertDescription>
-          </Alert>
-        )}
-
-        {/* AI Flagging - Missing Items */}
-        {complianceScore.missingItems.length > 0 && (
-          <Card className="mb-6 border-yellow-300 bg-yellow-50">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-yellow-800">
-                <AlertTriangle className="w-5 h-5" />
-                AI Detected Missing Items
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                {complianceScore.missingItems.map((item, index) => (
-                  <div key={index} className="flex items-start gap-2 text-sm text-yellow-900">
-                    <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                    <span>{item}</span>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Inspection Readiness Checklist */}
-        <Card className="mb-6">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <CheckCircle className="w-5 h-5 text-green-600" />
-              EHO Inspection Readiness Checklist
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {complianceScore.readinessChecklist.map((item, index) => (
-                <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                  <div className="flex items-center gap-3">
-                    {item.status === 'complete' ? (
-                      <CheckCircle className="w-5 h-5 text-green-600" />
+                  <div className="flex items-end gap-2">
+                    <p className="text-4xl font-bold text-gray-900">
+                      {complianceScore.overall}%
+                    </p>
+                    {complianceScore.trend === 'improving' ? (
+                      <TrendingUp className="w-5 h-5 text-green-600 mb-2" />
                     ) : (
-                      <AlertTriangle className="w-5 h-5 text-yellow-600" />
+                      <TrendingDown className="w-5 h-5 text-red-600 mb-2" />
                     )}
-                    <span className="font-medium">{item.title}</span>
                   </div>
-                  <Badge className={item.status === 'complete' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}>
-                    {item.status === 'complete' ? 'Complete' : 'Action Needed'}
+                  <Badge className={complianceScore.overall >= 90 ? 'bg-green-100 text-green-800' : complianceScore.overall >= 75 ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'}>
+                    {complianceScore.overall >= 90 ? 'Excellent' : complianceScore.overall >= 75 ? 'Good' : 'Needs Improvement'}
                   </Badge>
-                </div>
-              ))}
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="text-sm font-medium text-gray-600">Hygiene Records</h3>
+                    <Thermometer className="w-5 h-5 text-blue-600" />
+                  </div>
+                  <p className="text-3xl font-bold text-gray-900">
+                    {complianceScore.hygieneCompliance}%
+                  </p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    {hygieneRecords.filter(r => r.is_in_range).length} / {hygieneRecords.length} in range
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="text-sm font-medium text-gray-600">Forms Completed</h3>
+                    <ClipboardCheck className="w-5 h-5 text-blue-600" />
+                  </div>
+                  <p className="text-3xl font-bold text-gray-900">
+                    {complianceScore.formsCompliance}%
+                  </p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    {formResponses.filter(f => f.status === 'submitted' || f.status === 'approved').length} submitted
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="text-sm font-medium text-gray-600">Staff Training</h3>
+                    <Users className="w-5 h-5 text-blue-600" />
+                  </div>
+                  <p className="text-3xl font-bold text-gray-900">
+                    {complianceScore.trainingCompliance}%
+                  </p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    {trainingRecords.filter(t => t.status === 'completed').length} / {staff.length} trained
+                  </p>
+                </CardContent>
+              </Card>
             </div>
-          </CardContent>
-        </Card>
 
-        {/* Recent Activity */}
-        <div className="grid md:grid-cols-2 gap-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Clock className="w-5 h-5" />
-                Recent Temperature Logs
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                {hygieneRecords.slice(0, 5).map(record => (
-                  <div key={record.id} className="flex items-center justify-between p-2 bg-gray-50 rounded">
-                    <div>
-                      <p className="text-sm font-medium">{record.item_name}</p>
-                      <p className="text-xs text-gray-600">{record.location} • {format(new Date(record.created_date), 'HH:mm')}</p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className={`text-sm font-bold ${record.is_in_range ? 'text-green-600' : 'text-red-600'}`}>
-                        {record.recorded_value}°C
-                      </span>
-                      {record.is_in_range ? (
-                        <CheckCircle className="w-4 h-4 text-green-600" />
-                      ) : (
-                        <AlertTriangle className="w-4 h-4 text-red-600" />
-                      )}
-                    </div>
+            {/* Critical Alerts */}
+            {alerts.filter(a => a.severity === 'critical' || a.severity === 'urgent').length > 0 && (
+              <Alert className="mb-6 border-red-300 bg-red-50">
+                <AlertTriangle className="w-5 h-5 text-red-600" />
+                <AlertDescription className="text-red-800">
+                  <strong>{alerts.filter(a => a.severity === 'critical' || a.severity === 'urgent').length} Critical Alert(s) Require Immediate Attention</strong>
+                  <div className="mt-2 space-y-1">
+                    {alerts.filter(a => a.severity === 'critical' || a.severity === 'urgent').slice(0, 3).map(alert => (
+                      <div key={alert.id} className="text-sm">
+                        • {alert.item_name} at {alert.location}: {alert.recorded_value}°C (Expected: {alert.expected_range})
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+                </AlertDescription>
+              </Alert>
+            )}
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <FileText className="w-5 h-5" />
-                Recent Form Submissions
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                {formResponses.slice(0, 5).map(response => (
-                  <div key={response.id} className="flex items-center justify-between p-2 bg-gray-50 rounded">
-                    <div>
-                      <p className="text-sm font-medium">{response.form_name}</p>
-                      <p className="text-xs text-gray-600">{response.staff_name} • {format(new Date(response.submitted_at), 'MMM d, HH:mm')}</p>
+            {/* Inspection Readiness Checklist */}
+            <Card className="mb-6">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <CheckCircle className="w-5 h-5 text-green-600" />
+                  EHO Inspection Readiness Checklist
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {complianceScore.readinessChecklist.map((item, index) => (
+                    <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                      <div className="flex items-center gap-3">
+                        {item.status === 'complete' ? (
+                          <CheckCircle className="w-5 h-5 text-green-600" />
+                        ) : (
+                          <AlertTriangle className="w-5 h-5 text-yellow-600" />
+                        )}
+                        <span className="font-medium">{item.title}</span>
+                      </div>
+                      <Badge className={item.status === 'complete' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}>
+                        {item.status === 'complete' ? 'Complete' : 'Action Needed'}
+                      </Badge>
                     </div>
-                    <Badge className={response.passed ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}>
-                      {response.passed ? 'Passed' : 'Failed'}
-                    </Badge>
-                  </div>
-                ))}
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </>
+        )}
+
+        {/* Audits Tab */}
+        {activeTab === 'audits' && (
+          <>
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-2xl font-bold text-gray-900">Audit History</h2>
+              <Button
+                onClick={() => setShowAuditDialog(true)}
+                className="bg-blue-600 hover:bg-blue-700"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Start New Audit
+              </Button>
+            </div>
+
+            <div className="space-y-4">
+              {audits.map((audit) => (
+                <Card key={audit.id} className="hover:shadow-lg transition-shadow cursor-pointer"
+                      onClick={() => navigate(createPageUrl(`AuditEditor?id=${audit.id}`))}>
+                  <CardContent className="p-6">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <h3 className="font-bold text-lg mb-2">{audit.audit_title}</h3>
+                        <div className="flex items-center gap-4 text-sm text-gray-600 mb-3">
+                          <span className="flex items-center gap-1">
+                            <Clock className="w-4 h-4" />
+                            {format(new Date(audit.audit_date), 'PPp')}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <Users className="w-4 h-4" />
+                            {audit.auditor_name}
+                          </span>
+                          <Badge className={
+                            audit.overall_rating === 'excellent' ? 'bg-green-100 text-green-800' :
+                            audit.overall_rating === 'good' ? 'bg-blue-100 text-blue-800' :
+                            audit.overall_rating === 'satisfactory' ? 'bg-yellow-100 text-yellow-800' :
+                            'bg-red-100 text-red-800'
+                          }>
+                            {audit.overall_rating}
+                          </Badge>
+                        </div>
+                        <div className="flex gap-6">
+                          <div>
+                            <p className="text-xs text-gray-500">Overall Score</p>
+                            <p className="text-2xl font-bold text-gray-900">{audit.overall_score || 0}%</p>
+                          </div>
+                          {audit.fsa_rating !== null && audit.fsa_rating !== undefined && (
+                            <div>
+                              <p className="text-xs text-gray-500">FSA Rating</p>
+                              <p className="text-2xl font-bold text-gray-900">{audit.fsa_rating}/5</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      <Button variant="outline" size="sm">
+                        <Eye className="w-4 h-4 mr-2" />
+                        View
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+
+              {audits.length === 0 && (
+                <Card>
+                  <CardContent className="p-12 text-center">
+                    <ClipboardCheck className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2">No Audits Yet</h3>
+                    <p className="text-gray-600 mb-4">Start your first audit to track compliance</p>
+                    <Button onClick={() => setShowAuditDialog(true)} className="bg-blue-600">
+                      <Plus className="w-4 h-4 mr-2" />
+                      Start New Audit
+                    </Button>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          </>
+        )}
+
+        {/* Checkpoints Tab */}
+        {activeTab === 'checkpoints' && (
+          <>
+            <div className="flex justify-between items-center mb-6">
+              <div className="flex-1 max-w-md">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <Input
+                    placeholder="Search checkpoints..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
               </div>
-            </CardContent>
-          </Card>
-        </div>
+              <Button
+                onClick={() => setShowCheckpointDialog(true)}
+                className="bg-green-600 hover:bg-green-700"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Add Checkpoint
+              </Button>
+            </div>
+
+            <div className="grid gap-4">
+              {filteredCheckpoints.map((checkpoint) => (
+                <Card key={checkpoint.id}>
+                  <CardContent className="p-4">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-2">
+                          <h3 className="font-bold text-gray-900">{checkpoint.checkpoint_name}</h3>
+                          {checkpoint.is_critical && (
+                            <Badge className="bg-red-100 text-red-800">Critical</Badge>
+                          )}
+                          <Badge variant="outline">{checkpoint.category.replace('_', ' ')}</Badge>
+                        </div>
+                        <p className="text-sm text-gray-600 mb-2">{checkpoint.description}</p>
+                        <div className="flex items-center gap-4 text-xs text-gray-500">
+                          <span>Weight: {checkpoint.weight}/10</span>
+                          <span>Frequency: {checkpoint.frequency}</span>
+                          <span>Role: {checkpoint.assigned_role}</span>
+                        </div>
+                      </div>
+                      <Button variant="ghost" size="icon">
+                        <Edit className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+
+              {filteredCheckpoints.length === 0 && (
+                <Card>
+                  <CardContent className="p-12 text-center">
+                    <CheckCircle className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2">No Checkpoints Found</h3>
+                    <p className="text-gray-600 mb-4">Create audit checkpoints to track compliance</p>
+                    <Button onClick={() => setShowCheckpointDialog(true)} className="bg-green-600">
+                      <Plus className="w-4 h-4 mr-2" />
+                      Add Checkpoint
+                    </Button>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          </>
+        )}
       </div>
+
+      {/* Start Audit Dialog */}
+      <Dialog open={showAuditDialog} onOpenChange={setShowAuditDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Start New Audit</DialogTitle>
+            <DialogDescription>
+              Begin a new compliance audit with pre-configured checkpoints
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="auditTitle">Audit Title *</Label>
+              <Input
+                id="auditTitle"
+                value={auditFormData.title}
+                onChange={(e) => setAuditFormData({ ...auditFormData, title: e.target.value })}
+                placeholder="e.g., Monthly Internal Audit - January 2025"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="auditType">Audit Type</Label>
+              <Select
+                value={auditFormData.type}
+                onValueChange={(value) => setAuditFormData({ ...auditFormData, type: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="internal">Internal Audit</SelectItem>
+                  <SelectItem value="external">External Audit</SelectItem>
+                  <SelectItem value="fsa">FSA Inspection</SelectItem>
+                  <SelectItem value="mock_inspection">Mock Inspection</SelectItem>
+                  <SelectItem value="spot_check">Spot Check</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label htmlFor="auditorName">Auditor Name *</Label>
+              <Input
+                id="auditorName"
+                value={auditFormData.auditor_name}
+                onChange={(e) => setAuditFormData({ ...auditFormData, auditor_name: e.target.value })}
+                placeholder="Full name"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="auditorOrg">Organization</Label>
+              <Input
+                id="auditorOrg"
+                value={auditFormData.auditor_organization}
+                onChange={(e) => setAuditFormData({ ...auditFormData, auditor_organization: e.target.value })}
+                placeholder="e.g., FSA, Internal, Third-Party"
+              />
+            </div>
+
+            <Alert>
+              <CheckCircle className="w-4 h-4" />
+              <AlertDescription>
+                {checkpoints.length} checkpoints will be included in this audit
+              </AlertDescription>
+            </Alert>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowAuditDialog(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleStartAudit}
+              disabled={createAuditMutation.isPending}
+              className="bg-blue-600"
+            >
+              {createAuditMutation.isPending ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Creating...
+                </>
+              ) : (
+                <>
+                  <Plus className="w-4 h-4 mr-2" />
+                  Start Audit
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Checkpoint Dialog */}
+      <Dialog open={showCheckpointDialog} onOpenChange={setShowCheckpointDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add Audit Checkpoint</DialogTitle>
+            <DialogDescription>
+              Create a new compliance checkpoint for audits
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="checkpointName">Checkpoint Name *</Label>
+              <Input
+                id="checkpointName"
+                value={checkpointFormData.checkpoint_name}
+                onChange={(e) => setCheckpointFormData({ ...checkpointFormData, checkpoint_name: e.target.value })}
+                placeholder="e.g., Fridge Temperature Check"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="checkpointCategory">Category</Label>
+              <Select
+                value={checkpointFormData.category}
+                onValueChange={(value) => setCheckpointFormData({ ...checkpointFormData, category: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="food_safety">Food Safety</SelectItem>
+                  <SelectItem value="hygiene">Hygiene</SelectItem>
+                  <SelectItem value="temperature_control">Temperature Control</SelectItem>
+                  <SelectItem value="cleaning">Cleaning</SelectItem>
+                  <SelectItem value="pest_control">Pest Control</SelectItem>
+                  <SelectItem value="staff_training">Staff Training</SelectItem>
+                  <SelectItem value="documentation">Documentation</SelectItem>
+                  <SelectItem value="equipment">Equipment</SelectItem>
+                  <SelectItem value="storage">Storage</SelectItem>
+                  <SelectItem value="waste_management">Waste Management</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label htmlFor="checkpointDesc">Description *</Label>
+              <Textarea
+                id="checkpointDesc"
+                value={checkpointFormData.description}
+                onChange={(e) => setCheckpointFormData({ ...checkpointFormData, description: e.target.value })}
+                placeholder="What needs to be checked..."
+                rows={3}
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="checkpointWeight">Weight (1-10)</Label>
+              <Input
+                id="checkpointWeight"
+                type="number"
+                min="1"
+                max="10"
+                value={checkpointFormData.weight}
+                onChange={(e) => setCheckpointFormData({ ...checkpointFormData, weight: parseInt(e.target.value) })}
+              />
+            </div>
+
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="isCritical"
+                checked={checkpointFormData.is_critical}
+                onChange={(e) => setCheckpointFormData({ ...checkpointFormData, is_critical: e.target.checked })}
+                className="w-4 h-4"
+              />
+              <Label htmlFor="isCritical" className="cursor-pointer">
+                Mark as Critical Control Point
+              </Label>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowCheckpointDialog(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleCreateCheckpoint}
+              disabled={createCheckpointMutation.isPending}
+              className="bg-green-600"
+            >
+              {createCheckpointMutation.isPending ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Creating...
+                </>
+              ) : (
+                <>
+                  <Save className="w-4 h-4 mr-2" />
+                  Create Checkpoint
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -411,27 +830,22 @@ export default function EHOControlCenter() {
 function calculateComplianceScore(data) {
   const { hygieneRecords, formResponses, documents, staff, trainingRecords, alerts } = data;
 
-  // Hygiene compliance (temperature logs in range)
   const hygieneCompliance = hygieneRecords.length > 0
     ? Math.round((hygieneRecords.filter(r => r.is_in_range).length / hygieneRecords.length) * 100)
     : 0;
 
-  // Forms compliance (submitted forms)
   const formsCompliance = formResponses.length > 0
     ? Math.round((formResponses.filter(f => f.status === 'submitted' || f.status === 'approved').length / formResponses.length) * 100)
     : 0;
 
-  // Training compliance
   const trainingCompliance = staff.length > 0
     ? Math.round((trainingRecords.filter(t => t.status === 'completed').length / staff.length) * 100)
     : 0;
 
-  // Documents compliance
   const documentsCompliance = documents.length > 0
     ? Math.round((documents.filter(d => !d.expiry_date || new Date(d.expiry_date) > new Date()).length / documents.length) * 100)
     : 0;
 
-  // Overall score (weighted average)
   const overall = Math.round(
     (hygieneCompliance * 0.35) +
     (formsCompliance * 0.30) +
@@ -439,29 +853,6 @@ function calculateComplianceScore(data) {
     (documentsCompliance * 0.15)
   );
 
-  // AI flagging - detect missing items
-  const missingItems = [];
-  
-  if (hygieneRecords.filter(r => {
-    const age = (new Date() - new Date(r.created_date)) / (1000 * 60 * 60 * 24);
-    return age <= 1;
-  }).length < 3) {
-    missingItems.push('Less than 3 temperature logs recorded today');
-  }
-
-  if (trainingRecords.filter(t => t.status !== 'completed').length > 0) {
-    missingItems.push(`${trainingRecords.filter(t => t.status !== 'completed').length} staff member(s) have incomplete training`);
-  }
-
-  if (documents.filter(d => d.expiry_date && new Date(d.expiry_date) < new Date()).length > 0) {
-    missingItems.push(`${documents.filter(d => d.expiry_date && new Date(d.expiry_date) < new Date()).length} document(s) have expired`);
-  }
-
-  if (alerts.filter(a => a.severity === 'critical' && a.status === 'open').length > 0) {
-    missingItems.push(`${alerts.filter(a => a.severity === 'critical' && a.status === 'open').length} unresolved critical alert(s)`);
-  }
-
-  // Readiness checklist
   const readinessChecklist = [
     {
       title: 'Temperature Logs Current (Last 24h)',
@@ -473,7 +864,7 @@ function calculateComplianceScore(data) {
     },
     {
       title: 'HACCP Documentation Up to Date',
-      status: documents.filter(d => d.category === 'haccp' && d.is_active).length > 0 ? 'complete' : 'pending'
+      status: documents.filter(d => d.category === 'policy' && d.status === 'published').length > 0 ? 'complete' : 'pending'
     },
     {
       title: 'No Critical Alerts Open',
@@ -496,7 +887,6 @@ function calculateComplianceScore(data) {
     formsCompliance,
     trainingCompliance,
     documentsCompliance,
-    missingItems,
     readinessChecklist,
     recommendations,
     trend: overall >= 85 ? 'improving' : 'declining'

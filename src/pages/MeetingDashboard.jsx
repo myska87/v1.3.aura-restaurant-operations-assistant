@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -36,7 +37,8 @@ import {
   Edit,
   Sparkles,
   Calendar,
-  Home
+  Home,
+  Loader2 // Added Loader2 for loading state
 } from 'lucide-react';
 import { format, formatDistanceToNow } from 'date-fns';
 import { Link, useNavigate } from 'react-router-dom';
@@ -159,6 +161,104 @@ export default function MeetingDashboard() {
     );
   }
 
+  // FIX: Safe rendering for meeting records
+  const renderMeetingCard = (meeting) => {
+    const statusInfo = getStatusInfo(meeting.status);
+    const StatusIcon = statusInfo.icon;
+    const actionCount = allActions.filter(a => a.meeting_id === meeting.id).length;
+
+    // Safe date formatting
+    const safeFormatDate = (date) => {
+      if (!date) return 'N/A';
+      try {
+        return format(new Date(date), 'PPp');
+      } catch (error) {
+        return 'Invalid Date';
+      }
+    };
+
+    return (
+      <Card key={meeting.id} className="bg-white border-none shadow-sm hover:shadow-lg transition-all cursor-pointer"
+            onClick={() => navigate(createPageUrl(`MeetingDetail?id=${meeting.id}`))}>
+        <CardContent className="p-6">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex-1">
+              <div className="flex items-start gap-3 mb-3">
+                <div className="p-2 bg-gradient-to-br from-[#014D40] to-emerald-600 rounded-lg">
+                  <FileAudio className="w-5 h-5 text-white" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="font-bold text-gray-900 mb-1">{meeting.title || 'Untitled Meeting'}</h3>
+                  <div className="flex flex-wrap items-center gap-2 text-sm text-gray-600">
+                    <Calendar className="w-4 h-4" />
+                    <span>{safeFormatDate(meeting.meeting_date)}</span>
+                    <span>•</span>
+                    <span>{Math.floor((meeting.audio_duration || 0) / 60)}:{((meeting.audio_duration || 0) % 60).toString().padStart(2, '0')}</span>
+                    {meeting.department && (
+                      <>
+                        <span>•</span>
+                        <span className="capitalize">{meeting.department}</span>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {meeting.summary && (
+                <p className="text-sm text-gray-700 mb-3 line-clamp-2">
+                  {meeting.summary}
+                </p>
+              )}
+
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge className={statusInfo.color}>
+                  <StatusIcon className="w-3 h-3 mr-1" />
+                  {statusInfo.label}
+                </Badge>
+
+                {meeting.processing_progress > 0 && meeting.processing_progress < 100 && (
+                  <Badge variant="outline" className="text-blue-700">
+                    {meeting.processing_progress}% processed
+                  </Badge>
+                )}
+
+                {meeting.key_topics && Array.isArray(meeting.key_topics) && meeting.key_topics.length > 0 && (
+                  meeting.key_topics.slice(0, 3).map((topic, i) => (
+                    <Badge key={i} variant="outline" className="text-gray-700 capitalize">
+                      {topic}
+                    </Badge>
+                  ))
+                )}
+
+                {actionCount > 0 && (
+                  <Badge className="bg-purple-100 text-purple-800">
+                    {actionCount} action{actionCount > 1 ? 's' : ''}
+                  </Badge>
+                )}
+              </div>
+            </div>
+
+            <Button variant="ghost" size="icon">
+              <Eye className="w-5 h-5" />
+            </Button>
+          </div>
+
+          {/* Progress bar for processing */}
+          {meeting.processing_progress > 0 && meeting.processing_progress < 100 && (
+            <div className="mt-4">
+              <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-gradient-to-r from-[#014D40] to-emerald-600 transition-all duration-300"
+                  style={{ width: `${meeting.processing_progress}%` }}
+                />
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    );
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6 md:p-8">
       <div className="max-w-7xl mx-auto space-y-8">
@@ -268,12 +368,12 @@ export default function MeetingDashboard() {
           </CardContent>
         </Card>
 
-        {/* Meetings List */}
+        {/* Meetings List - FIXED */}
         <div className="space-y-4">
           {isLoading && (
             <Card>
               <CardContent className="p-12 text-center">
-                <Clock className="w-12 h-12 text-gray-400 mx-auto mb-4 animate-spin" />
+                <Loader2 className="w-12 h-12 text-gray-400 mx-auto mb-4 animate-spin" />
                 <p className="text-gray-600">Loading meetings...</p>
               </CardContent>
             </Card>
@@ -296,92 +396,7 @@ export default function MeetingDashboard() {
             />
           )}
 
-          {filteredMeetings.map((meeting) => {
-            const statusInfo = getStatusInfo(meeting.status);
-            const StatusIcon = statusInfo.icon;
-            const actionCount = allActions.filter(a => a.meeting_id === meeting.id).length;
-
-            return (
-              <Card key={meeting.id} className="bg-white border-none shadow-sm hover:shadow-lg transition-all cursor-pointer"
-                    onClick={() => navigate(createPageUrl(`MeetingDetail?id=${meeting.id}`))}>
-                <CardContent className="p-6">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1">
-                      <div className="flex items-start gap-3 mb-3">
-                        <div className="p-2 bg-gradient-to-br from-[#014D40] to-emerald-600 rounded-lg">
-                          <FileAudio className="w-5 h-5 text-white" />
-                        </div>
-                        <div className="flex-1">
-                          <h3 className="font-bold text-gray-900 mb-1">{meeting.title}</h3>
-                          <div className="flex flex-wrap items-center gap-2 text-sm text-gray-600">
-                            <Calendar className="w-4 h-4" />
-                            <span>{format(new Date(meeting.meeting_date), 'PPp')}</span>
-                            <span>•</span>
-                            <span>{Math.floor(meeting.audio_duration / 60)}:{(meeting.audio_duration % 60).toString().padStart(2, '0')}</span>
-                            {meeting.department && (
-                              <>
-                                <span>•</span>
-                                <span className="capitalize">{meeting.department}</span>
-                              </>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-
-                      {meeting.summary && (
-                        <p className="text-sm text-gray-700 mb-3 line-clamp-2">
-                          {meeting.summary}
-                        </p>
-                      )}
-
-                      <div className="flex flex-wrap items-center gap-2">
-                        <Badge className={statusInfo.color}>
-                          <StatusIcon className="w-3 h-3 mr-1" />
-                          {statusInfo.label}
-                        </Badge>
-
-                        {meeting.processing_progress > 0 && meeting.processing_progress < 100 && (
-                          <Badge variant="outline" className="text-blue-700">
-                            {meeting.processing_progress}% processed
-                          </Badge>
-                        )}
-
-                        {meeting.key_topics && meeting.key_topics.length > 0 && (
-                          meeting.key_topics.slice(0, 3).map((topic, i) => (
-                            <Badge key={i} variant="outline" className="text-gray-700 capitalize">
-                              {topic}
-                            </Badge>
-                          ))
-                        )}
-
-                        {actionCount > 0 && (
-                          <Badge className="bg-purple-100 text-purple-800">
-                            {actionCount} action{actionCount > 1 ? 's' : ''}
-                          </Badge>
-                        )}
-                      </div>
-                    </div>
-
-                    <Button variant="ghost" size="icon">
-                      <Eye className="w-5 h-5" />
-                    </Button>
-                  </div>
-
-                  {/* Progress bar for processing */}
-                  {meeting.processing_progress > 0 && meeting.processing_progress < 100 && (
-                    <div className="mt-4">
-                      <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-gradient-to-r from-[#014D40] to-emerald-600 transition-all duration-300"
-                          style={{ width: `${meeting.processing_progress}%` }}
-                        />
-                      </div>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            );
-          })}
+          {!isLoading && filteredMeetings.map((meeting) => renderMeetingCard(meeting))}
         </div>
       </div>
 
