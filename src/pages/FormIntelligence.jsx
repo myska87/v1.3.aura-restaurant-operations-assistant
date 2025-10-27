@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+
+import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -105,6 +106,26 @@ export default function FormIntelligence() {
     },
   });
 
+  // Check URL params for auto-opening a form
+  useEffect(() => {
+    // Only proceed if forms data is loaded and not empty
+    if (forms.length > 0) {
+      const urlParams = new URLSearchParams(window.location.search);
+      const formIdToOpen = urlParams.get('openForm');
+      
+      if (formIdToOpen) {
+        // Find and open the form
+        const form = forms.find(f => f.id === formIdToOpen);
+        if (form) {
+          setSelectedForm(form);
+          setShowEditor(true);
+        }
+        // Optionally, clear the URL param to prevent re-opening on subsequent renders
+        // navigate(window.location.pathname, { replace: true }); 
+      }
+    }
+  }, [forms, navigate]); // Add navigate to dependency array if used to clear URL params
+
   // Filter forms
   const filteredForms = forms.filter(form => {
     const matchesSearch = form.form_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -200,6 +221,7 @@ export default function FormIntelligence() {
           onSave={() => {
             setShowEditor(false);
             setSelectedForm(null);
+            queryClient.invalidateQueries({ queryKey: ['formTemplates'] }); // Invalidate to refresh form list
           }}
           onCancel={() => {
             setShowEditor(false);

@@ -36,7 +36,7 @@ import {
   Target,
   Activity,
   ArrowLeft,
-  ClipboardList, // Replaced FileText with ClipboardList as per outline
+  ClipboardList,
 } from "lucide-react";
 import { format } from "date-fns";
 import { Link, useNavigate } from "react-router-dom";
@@ -46,15 +46,8 @@ import { motion } from "framer-motion";
 export default function HygieneDashboard() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [selectedAction, setSelectedAction] = useState(null);
-  const [showRecordForm, setShowRecordForm] = useState(false);
-  const [recordData, setRecordData] = useState({
-    record_type: 'storage_fridge',
-    item_name: '',
-    recorded_value: '',
-    location: '',
-    notes: ''
-  });
+
+  // No longer needed: selectedAction, showRecordForm, recordData, as quick actions will navigate to forms.
 
   const { data: user } = useQuery({
     queryKey: ['currentUser'],
@@ -145,137 +138,51 @@ export default function HygieneDashboard() {
     },
   });
 
-  const checkIfInRange = (value, type) => {
-    const ranges = {
-      storage_fridge: { min: 0, max: 5 },
-      storage_freezer: { min: -22, max: -18 },
-      cooking: { min: 75, max: 100 }, // Assuming 75°C is the target core temperature
-      cooling: { min: 0, max: 8 },    // Cooled down to 8°C or below
-      delivery: { min: 0, max: 5 }
-    };
-    const range = ranges[type];
-    if (!range) return true; // No specific numerical range defined, default to true for types like cleaning, equipment_check
-    
-    // Ensure value is a number for numerical range checks
-    const numValue = parseFloat(value);
-    if (isNaN(numValue)) return false; // If numerical type, but value is not a number
-    
-    return numValue >= range.min && numValue <= range.max;
-  };
-
-  const createRecordMutation = useMutation({
-    mutationFn: async (data) => {
-      if (!user?.email) throw new Error("User not authenticated.");
-
-      // Determine the value to record and process it
-      const valueToRecord = ['storage_fridge', 'storage_freezer', 'cooking', 'cooling', 'delivery'].includes(data.record_type)
-        ? parseFloat(data.recorded_value) // Convert to float for numerical types
-        : data.recorded_value; // Keep as string for non-numerical types
-
-      const isInRange = checkIfInRange(valueToRecord, data.record_type);
-      const pointsAwarded = isInRange ? 10 : 0; // Award points only if in range
-
-      const recordWithDefaults = {
-        ...data,
-        recorded_value: valueToRecord, // Use the processed value
-        recorded_by_email: user.email,
-        recorded_by_name: user.full_name,
-        venue_id: user.venue_id || 'default_venue', // Ensure a fallback as per outline
-        venue_name: user.venue_name || 'Main Location', // Ensure a fallback as per outline
-        is_in_range: isInRange,
-        variance_alert: !isInRange,
-        points_awarded: pointsAwarded,
-        status: 'recorded'
+  // Query for quick action forms
+  const { data: quickActionForms = {} } = useQuery({
+    queryKey: ['quickActionForms'],
+    queryFn: async () => {
+      const allForms = await base44.entities.FormTemplate.list();
+      return {
+        temperature: allForms.find(f => f.form_name === 'Daily Temperature Log'),
+        cleaning: allForms.find(f => f.form_name === 'Cleaning & Sanitisation Record'),
+        delivery: allForms.find(f => f.form_name === 'Delivery Temperature Check'),
+        equipment: allForms.find(f => f.form_name === 'Equipment Safety Check')
       };
-
-      const record = await base44.entities.HygieneRecord.create(recordWithDefaults);
-
-      // Update user score
-      const userScores = await base44.entities.HygieneUserScore.filter({
-        staff_email: user.email
-      });
-
-      if (userScores.length > 0) {
-        await base44.entities.HygieneUserScore.update(userScores[0].id, {
-          total_points: (userScores[0].total_points || 0) + pointsAwarded,
-          points_this_week: (userScores[0].points_this_week || 0) + pointsAwarded,
-          total_records: (userScores[0].total_records || 0) + 1,
-          records_on_time: (userScores[0].records_on_time || 0) + (isInRange ? 1 : 0)
-        });
-      } else {
-        await base44.entities.HygieneUserScore.create({
-          staff_email: user.email,
-          staff_name: user.full_name,
-          total_points: pointsAwarded,
-          points_this_week: pointsAwarded,
-          total_records: 1,
-          records_on_time: isInRange ? 1 : 0
-        });
-      }
-
-      return record;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['hygieneRecords'] });
-      queryClient.invalidateQueries({ queryKey: ['myHygieneScore'] });
-      setShowRecordForm(false);
-      setRecordData({
-        record_type: 'storage_fridge',
-        item_name: '',
-        recorded_value: '',
-        location: '',
-        notes: ''
-      });
-    },
-    onError: (error) => {
-      console.error("Error creating hygiene record:", error);
-      alert("Failed to create record. Please try again. " + error.message);
-    }
   });
 
   const handleQuickAction = (actionType) => {
-    setSelectedAction(actionType); // Updates the redundant state, but also sets the record type for the form
-    setRecordData({
-      record_type: actionType,
-      item_name: '', // Resetting fields to empty for a new quick action
-      recorded_value: '',
-      location: '',
-      notes: ''
-    });
-    setShowRecordForm(true);
-  };
-
-  const handleSubmitRecord = () => {
-    // Basic validation
-    if (!recordData.item_name) {
-      alert('Please provide an item name.');
-      return;
+    let formId = null;
+    
+    switch(actionType) {
+      case 'storage_fridge':
+      case 'storage_freezer':
+      case 'cooking':
+      case 'cooling':
+        formId = quickActionForms.temperature?.id;
+        break;
+      case 'cleaning':
+        formId = quickActionForms.cleaning?.id;
+        break;
+      case 'delivery_check': // Using 'delivery_check' for the quick action card, as 'delivery' is ambiguous with the record type
+        formId = quickActionForms.delivery?.id;
+        break;
+      case 'equipment_check':
+        formId = quickActionForms.equipment?.id;
+        break;
+      default:
+        console.warn("Unknown quick action type:", actionType);
+        break;
     }
-    if (['storage_fridge', 'storage_freezer', 'cooking', 'cooling', 'delivery'].includes(recordData.record_type)) {
-      // For numerical types, check if value is provided and is a valid number
-      if (recordData.recorded_value === '' || isNaN(parseFloat(recordData.recorded_value))) {
-        alert('Please enter a valid temperature/value.');
-        return;
-      }
-    } else if (recordData.recorded_value === '') {
-        // For non-numerical types (cleaning, equipment_check), value can be a string, but should not be empty
-        alert('Please provide a value for the record (e.g., "Pass" or "Clean").');
-        return;
-    }
-    createRecordMutation.mutate(recordData);
-  };
 
-  const getRecommendedRange = (type) => {
-    const ranges = {
-      storage_fridge: '0-5°C (chilled)',
-      storage_freezer: '-18°C to -22°C (frozen)',
-      cooking: '75°C+ (core temp)',
-      cooling: '0-8°C within 90 min',
-      delivery: '0-5°C (chilled goods)',
-      cleaning: 'Pass/Fail check',
-      equipment_check: 'Pass/Fail check'
-    };
-    return ranges[type] || 'Check standards';
+    if (formId) {
+      // Navigate to Form Intelligence with the specific form
+      navigate(createPageUrl('FormIntelligence') + `?openForm=${formId}`);
+    } else {
+      // Fallback: open Form Intelligence main page
+      navigate(createPageUrl('FormIntelligence'));
+    }
   };
 
   // Calculate stats from records
@@ -399,7 +306,7 @@ export default function HygieneDashboard() {
                 </div>
               </div>
               <div className="flex items-center gap-2 text-sm">
-                <ClipboardList className="w-4 h-4 text-blue-600" /> {/* Changed from FileText */}
+                <ClipboardList className="w-4 h-4 text-blue-600" />
                 <span className="text-blue-600 font-medium">{completedForms} forms completed</span>
               </div>
             </CardContent>
@@ -542,7 +449,7 @@ export default function HygieneDashboard() {
             <CardHeader>
               <CardTitle className="flex items-center justify-between">
                 <span className="flex items-center gap-2 text-blue-900">
-                  <ClipboardList className="w-5 h-5" /> {/* Changed from FileText */}
+                  <ClipboardList className="w-5 h-5" />
                   Pending Forms ({pendingForms})
                 </span>
                 <Button 
@@ -589,7 +496,7 @@ export default function HygieneDashboard() {
           </Card>
         )}
 
-        {/* Quick Actions */}
+        {/* Quick Actions - Now Linked to Forms */}
         <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -597,17 +504,22 @@ export default function HygieneDashboard() {
             transition={{ delay: 0.1 }}
           >
             <Card
-              className="bg-gradient-to-br from-blue-500 to-cyan-500 text-white cursor-pointer hover:shadow-xl transition-all"
+              className="bg-gradient-to-br from-blue-500 to-cyan-500 text-white cursor-pointer hover:shadow-xl transition-all hover:scale-105"
               onClick={() => handleQuickAction('storage_fridge')}
             >
               <CardContent className="p-6">
                 <Thermometer className="w-12 h-12 mb-4 opacity-90" />
                 <h3 className="text-xl font-bold mb-2">Temperature Log</h3>
-                <p className="text-blue-100 text-sm">Fridge, freezer & cooking temps</p>
-                <div className="mt-4 flex items-center gap-2">
+                <p className="text-blue-100 text-sm mb-4">Fridge, freezer & cooking temps</p>
+                <div className="flex items-center gap-2 mt-4 bg-white/20 rounded-lg p-2">
                   <Plus className="w-4 h-4" />
-                  <span className="text-sm font-medium">Quick Record</span>
+                  <span className="text-sm font-medium">Open Daily Temp Form</span>
                 </div>
+                {quickActionForms.temperature && (
+                  <Badge className="mt-3 bg-green-400 text-green-900 text-xs">
+                    ✓ Form Ready
+                  </Badge>
+                )}
               </CardContent>
             </Card>
           </motion.div>
@@ -618,17 +530,22 @@ export default function HygieneDashboard() {
             transition={{ delay: 0.2 }}
           >
             <Card
-              className="bg-gradient-to-br from-purple-500 to-pink-500 text-white cursor-pointer hover:shadow-xl transition-all"
+              className="bg-gradient-to-br from-purple-500 to-pink-500 text-white cursor-pointer hover:shadow-xl transition-all hover:scale-105"
               onClick={() => handleQuickAction('cleaning')}
             >
               <CardContent className="p-6">
                 <Droplets className="w-12 h-12 mb-4 opacity-90" />
                 <h3 className="text-xl font-bold mb-2">Cleaning Record</h3>
-                <p className="text-purple-100 text-sm">Log cleaning & sanitization</p>
-                <div className="mt-4 flex items-center gap-2">
+                <p className="text-purple-100 text-sm mb-4">Log cleaning & sanitization</p>
+                <div className="flex items-center gap-2 mt-4 bg-white/20 rounded-lg p-2">
                   <Plus className="w-4 h-4" />
-                  <span className="text-sm font-medium">Log Cleaning</span>
+                  <span className="text-sm font-medium">Open Cleaning Form</span>
                 </div>
+                {quickActionForms.cleaning && (
+                  <Badge className="mt-3 bg-green-400 text-green-900 text-xs">
+                    ✓ Form Ready
+                  </Badge>
+                )}
               </CardContent>
             </Card>
           </motion.div>
@@ -639,17 +556,22 @@ export default function HygieneDashboard() {
             transition={{ delay: 0.3 }}
           >
             <Card
-              className="bg-gradient-to-br from-orange-500 to-red-500 text-white cursor-pointer hover:shadow-xl transition-all"
-              onClick={() => handleQuickAction('delivery')}
+              className="bg-gradient-to-br from-orange-500 to-red-500 text-white cursor-pointer hover:shadow-xl transition-all hover:scale-105"
+              onClick={() => handleQuickAction('delivery_check')}
             >
               <CardContent className="p-6">
                 <PackageCheck className="w-12 h-12 mb-4 opacity-90" />
                 <h3 className="text-xl font-bold mb-2">Delivery Check</h3>
-                <p className="text-orange-100 text-sm">Verify goods on arrival</p>
-                <div className="mt-4 flex items-center gap-2">
+                <p className="text-orange-100 text-sm mb-4">Verify goods on arrival</p>
+                <div className="flex items-center gap-2 mt-4 bg-white/20 rounded-lg p-2">
                   <Plus className="w-4 h-4" />
-                  <span className="text-sm font-medium">Check Delivery</span>
+                  <span className="text-sm font-medium">Open Delivery Form</span>
                 </div>
+                {quickActionForms.delivery && (
+                  <Badge className="mt-3 bg-green-400 text-green-900 text-xs">
+                    ✓ Form Ready
+                  </Badge>
+                )}
               </CardContent>
             </Card>
           </motion.div>
@@ -660,106 +582,26 @@ export default function HygieneDashboard() {
             transition={{ delay: 0.4 }}
           >
             <Card
-              className="bg-gradient-to-br from-emerald-500 to-teal-500 text-white cursor-pointer hover:shadow-xl transition-all"
+              className="bg-gradient-to-br from-emerald-500 to-teal-500 text-white cursor-pointer hover:shadow-xl transition-all hover:scale-105"
               onClick={() => handleQuickAction('equipment_check')}
             >
               <CardContent className="p-6">
                 <Wrench className="w-12 h-12 mb-4 opacity-90" />
                 <h3 className="text-xl font-bold mb-2">Equipment Check</h3>
-                <p className="text-emerald-100 text-sm">Monitor equipment status</p>
-                <div className="mt-4 flex items-center gap-2">
+                <p className="text-emerald-100 text-sm mb-4">Monitor equipment status</p>
+                <div className="flex items-center gap-2 mt-4 bg-white/20 rounded-lg p-2">
                   <Plus className="w-4 h-4" />
-                  <span className="text-sm font-medium">Quick Check</span>
+                  <span className="text-sm font-medium">Open Equipment Form</span>
                 </div>
+                {quickActionForms.equipment && (
+                  <Badge className="mt-3 bg-green-400 text-green-900 text-xs">
+                    ✓ Form Ready
+                  </Badge>
+                )}
               </CardContent>
             </Card>
           </motion.div>
         </div>
-
-        {/* Quick Record Form Dialog */}
-        <Dialog open={showRecordForm} onOpenChange={setShowRecordForm}>
-          <DialogContent className="max-w-2xl">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <Thermometer className="w-5 h-5 text-[#014D40]" />
-                Quick Hygiene Record
-              </DialogTitle>
-            </DialogHeader>
-
-            <div className="space-y-4 py-4">
-              <div>
-                <Label className="text-sm font-medium mb-2 block">Record Type</Label>
-                <select
-                  value={recordData.record_type}
-                  onChange={(e) => setRecordData({...recordData, record_type: e.target.value})}
-                  className="w-full px-3 py-2 border rounded-lg"
-                >
-                  <option value="storage_fridge">Fridge Temperature</option>
-                  <option value="storage_freezer">Freezer Temperature</option>
-                  <option value="cooking">Cooking Temperature</option>
-                  <option value="cooling">Cooling Check</option>
-                  <option value="delivery">Delivery Temperature</option>
-                  <option value="cleaning">Cleaning Check</option>
-                  <option value="equipment_check">Equipment Check</option>
-                </select>
-                <p className="text-xs text-gray-500 mt-1">
-                  Recommended: {getRecommendedRange(recordData.record_type)}
-                </p>
-              </div>
-
-              <div>
-                <Label className="text-sm font-medium mb-2 block">Item Name *</Label>
-                <Input
-                  placeholder="e.g., Main Fridge, Chicken Breast, Walk-in Freezer"
-                  value={recordData.item_name}
-                  onChange={(e) => setRecordData({...recordData, item_name: e.target.value})}
-                />
-              </div>
-
-              <div>
-                <Label className="text-sm font-medium mb-2 block">Temperature / Value *</Label>
-                <Input
-                  type="text" // Use text type for input to allow non-numeric for some record types, and parseFloat later.
-                  placeholder="e.g., 3.5 or 'Clean'"
-                  value={recordData.recorded_value}
-                  onChange={(e) => setRecordData({...recordData, recorded_value: e.target.value})}
-                />
-              </div>
-
-              <div>
-                <Label className="text-sm font-medium mb-2 block">Location</Label>
-                <Input
-                  placeholder="e.g., Kitchen Main, Prep Area, Storage Room"
-                  value={recordData.location}
-                  onChange={(e) => setRecordData({...recordData, location: e.target.value})}
-                />
-              </div>
-
-              <div>
-                <Label className="text-sm font-medium mb-2 block">Notes (Optional)</Label>
-                <Textarea
-                  placeholder="Any observations or corrective actions taken..."
-                  value={recordData.notes}
-                  onChange={(e) => setRecordData({...recordData, notes: e.target.value})}
-                  rows={3}
-                />
-              </div>
-            </div>
-
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setShowRecordForm(false)}>
-                Cancel
-              </Button>
-              <Button
-                onClick={handleSubmitRecord}
-                disabled={createRecordMutation.isPending}
-                className="bg-[#014D40] hover:bg-[#013830]"
-              >
-                {createRecordMutation.isPending ? 'Saving...' : 'Save Record (+10 pts)'}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
 
         {/* Gamification Section */}
         {myScore && (
