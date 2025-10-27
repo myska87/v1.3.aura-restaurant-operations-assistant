@@ -50,6 +50,7 @@ import MenuAutoUpdateTrigger from './components/MenuAutoUpdateTrigger';
 import { SecurityBadge } from "./components/PermissionGuard";
 import QualityAutomation from "./components/QualityAutomation"; // Added Quality Automation
 import { UnifiedUserSync } from "./components/UnifiedUserSync"; // Added UnifiedUserSync
+import { SmartRoleSync } from "./components/SmartRoleSync"; // Added SmartRoleSync
 
 const Badge = ({ children, className }) => (
   <span className={`inline-flex items-center justify-center rounded-full text-center font-semibold leading-none whitespace-nowrap ${className}`}>
@@ -257,7 +258,7 @@ const managementItems = [
   },
 ];
 
-export default function Layout({ children }) {
+export default function Layout({ children, currentPageName }) {
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -277,7 +278,7 @@ export default function Layout({ children }) {
   const isManager = user?.position === 'manager' || user?.position === 'owner' || user?.role === 'admin';
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
       <ComplianceStyles />
       <AutoBackupScheduler />
       <WelcomeNewHire />
@@ -300,6 +301,8 @@ export default function Layout({ children }) {
       <MenuAutoUpdateTrigger />
       {/* ⭐ Quality Automation Service */}
       <QualityAutomation />
+      {/* 🔄 Smart Role Sync - Automatic Workflow Updates on Position Change */}
+      <SmartRoleSync />
 
       {/* Mobile Header */}
       <div className="lg:hidden fixed top-0 left-0 right-0 bg-white border-b border-slate-200 z-40 px-4 py-3">
