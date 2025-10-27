@@ -35,10 +35,10 @@ import {
   Trophy,
   Target,
   Activity,
-  ArrowLeft, // Imported as per outline, but not used in the provided snippets.
-  FileText, // Used for forms integration
+  ArrowLeft,
+  ClipboardList, // Replaced FileText with ClipboardList as per outline
 } from "lucide-react";
-import { format } from "date-fns"; // Removed subDays, startOfWeek, endOfWeek as per outline
+import { format } from "date-fns";
 import { Link, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { motion } from "framer-motion";
@@ -399,7 +399,7 @@ export default function HygieneDashboard() {
                 </div>
               </div>
               <div className="flex items-center gap-2 text-sm">
-                <FileText className="w-4 h-4 text-blue-600" />
+                <ClipboardList className="w-4 h-4 text-blue-600" /> {/* Changed from FileText */}
                 <span className="text-blue-600 font-medium">{completedForms} forms completed</span>
               </div>
             </CardContent>
@@ -542,7 +542,7 @@ export default function HygieneDashboard() {
             <CardHeader>
               <CardTitle className="flex items-center justify-between">
                 <span className="flex items-center gap-2 text-blue-900">
-                  <FileText className="w-5 h-5" />
+                  <ClipboardList className="w-5 h-5" /> {/* Changed from FileText */}
                   Pending Forms ({pendingForms})
                 </span>
                 <Button 
