@@ -52,6 +52,8 @@ import {
   Filter,
   PenTool,
   X,
+  User, // Added for footer
+  Calendar, // Added for footer
 } from "lucide-react";
 import { format } from "date-fns";
 import { Link, useNavigate } from "react-router-dom";
@@ -1153,14 +1155,8 @@ export default function DocumentManagement() {
                   variant="outline"
                   size="sm"
                   onClick={() => {
-                    const link = document.createElement('a');
-                    link.href = selectedDocument?.file_url;
-                    link.download = selectedDocument?.title || 'document';
-                    link.target = '_blank';
-                    link.rel = 'noopener noreferrer';
-                    document.body.appendChild(link);
-                    link.click();
-                    document.body.removeChild(link);
+                    // Open in new tab for download (browser handles download for many types)
+                    window.open(selectedDocument?.file_url, '_blank');
                   }}
                 >
                   <Download className="w-4 h-4 mr-2" />
@@ -1180,46 +1176,68 @@ export default function DocumentManagement() {
           <div className="flex-1 overflow-hidden bg-gray-100">
             {selectedDocument && (
               <div className="h-full w-full">
-                {/* PDF Viewer */}
+                {/* PDF Viewer - Direct Embed */}
                 {selectedDocument.file_type === 'pdf' && (
                   <iframe
-                    src={`${selectedDocument.file_url}#view=FitH`}
+                    src={`${selectedDocument.file_url}#view=FitH&toolbar=1&navpanes=1`}
                     className="w-full h-full border-0"
                     title={selectedDocument.title}
+                    type="application/pdf"
+                    style={{ minHeight: '600px' }}
                   />
                 )}
 
                 {/* Image Viewer */}
                 {selectedDocument.file_type === 'image' && (
-                  <div className="flex items-center justify-center h-full p-6">
+                  <div className="flex items-center justify-center h-full p-6 bg-gray-900">
                     <img
                       src={selectedDocument.file_url}
                       alt={selectedDocument.title}
-                      className="max-w-full max-h-full object-contain rounded-lg shadow-lg"
+                      className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
+                      style={{ maxHeight: '80vh' }}
                     />
                   </div>
                 )}
 
                 {/* Video Viewer */}
                 {selectedDocument.file_type === 'video' && (
-                  <div className="flex items-center justify-center h-full p-6">
+                  <div className="flex items-center justify-center h-full p-6 bg-black">
                     <video
                       src={selectedDocument.file_url}
                       controls
-                      className="max-w-full max-h-full rounded-lg shadow-lg"
+                      controlsList="nodownload"
+                      className="max-w-full max-h-full rounded-lg shadow-2xl"
+                      style={{ maxHeight: '80vh' }}
                     >
                       Your browser does not support the video tag.
                     </video>
                   </div>
                 )}
 
-                {/* DOCX/Other Files - Use Google Docs Viewer */}
-                {(selectedDocument.file_type === 'docx' || selectedDocument.file_type === 'other') && (
+                {/* DOCX/Word Documents - Use Google Docs Viewer */}
+                {selectedDocument.file_type === 'docx' && (
                   <iframe
-                    src={`https://docs.google.com/viewer?url=${encodeURIComponent(selectedDocument.file_url)}&embedded=true`}
+                    src={`https://docs.google.com/gview?url=${encodeURIComponent(selectedDocument.file_url)}&embedded=true`}
                     className="w-full h-full border-0"
                     title={selectedDocument.title}
+                    style={{ minHeight: '600px' }}
                   />
+                )}
+
+                {/* Other File Types - Use Microsoft Office Online Viewer */}
+                {selectedDocument.file_type === 'other' && (
+                  <div className="h-full w-full">
+                    <iframe
+                      src={`https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(selectedDocument.file_url)}`}
+                      className="w-full h-full border-0"
+                      title={selectedDocument.title}
+                      style={{ minHeight: '600px' }}
+                      onError={(e) => {
+                        // Fallback to Google Docs viewer if Office viewer fails
+                        e.target.src = `https://docs.google.com/gview?url=${encodeURIComponent(selectedDocument.file_url)}&embedded=true`;
+                      }}
+                    />
+                  </div>
                 )}
               </div>
             )}
@@ -1229,19 +1247,40 @@ export default function DocumentManagement() {
           <div className="p-4 border-t bg-white flex-shrink-0">
             <div className="flex items-center justify-between text-sm text-gray-600">
               <div className="flex items-center gap-4 flex-wrap">
-                {selectedDocument?.uploaded_by_name && <span>Uploaded by: {selectedDocument.uploaded_by_name}</span>}
+                {selectedDocument?.uploaded_by_name && (
+                  <span className="flex items-center gap-1">
+                    <User className="w-4 h-4" />
+                    {selectedDocument.uploaded_by_name}
+                  </span>
+                )}
                 {selectedDocument?.created_date && (
                   <>
-                    <span>•</span>
-                    <span>{format(new Date(selectedDocument.created_date), 'PPP')}</span>
+                    <span className="text-gray-400">•</span>
+                    <span className="flex items-center gap-1">
+                      <Calendar className="w-4 h-4" />
+                      {format(new Date(selectedDocument.created_date), 'PPP')}
+                    </span>
                   </>
                 )}
                 {selectedDocument?.file_size && (
                   <>
-                    <span>•</span>
+                    <span className="text-gray-400">•</span>
                     <span>{(selectedDocument.file_size / 1024 / 1024).toFixed(2)} MB</span>
                   </>
                 )}
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    // Open in new tab for full-screen view
+                    window.open(selectedDocument?.file_url, '_blank', 'noopener,noreferrer');
+                  }}
+                >
+                  <Eye className="w-4 h-4 mr-2" />
+                  Open in New Tab
+                </Button>
               </div>
             </div>
           </div>
