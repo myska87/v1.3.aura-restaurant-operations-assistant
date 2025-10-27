@@ -77,12 +77,12 @@ export default function MenuItemView() {
   });
 
   const { data: sopLinks = [] } = useQuery({
-    queryKey: ['sopLinks', menuItemId],
+    queryKey: ['menuSOPLinks', menuItemId],
     queryFn: async () => {
       if (!menuItemId) return [];
-      return await base44.entities.SOPLinkMap.filter({
-        linked_entity: 'menu_item',
-        linked_id: menuItemId
+      return await base44.entities.MenuSOPLink.filter({
+        menu_item_id: menuItemId,
+        is_active: true
       });
     },
     enabled: !!menuItemId,
@@ -104,16 +104,16 @@ export default function MenuItemView() {
   });
 
   const createSOPLinkMutation = useMutation({
-    mutationFn: (data) => base44.entities.SOPLinkMap.create(data),
+    mutationFn: (data) => base44.entities.MenuSOPLink.create(data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['sopLinks', menuItemId] });
+      queryClient.invalidateQueries({ queryKey: ['menuSOPLinks', menuItemId] });
     },
   });
 
   const deleteSOPLinkMutation = useMutation({
-    mutationFn: (id) => base44.entities.SOPLinkMap.delete(id),
+    mutationFn: (id) => base44.entities.MenuSOPLink.delete(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['sopLinks', menuItemId] });
+      queryClient.invalidateQueries({ queryKey: ['menuSOPLinks', menuItemId] });
     },
   });
 
@@ -239,23 +239,16 @@ export default function MenuItemView() {
     if (!sop) return;
 
     await createSOPLinkMutation.mutateAsync({
+      menu_item_id: menuItem.id,
+      menu_item_name: menuItem.name,
       sop_id: sopId,
       sop_title: sop.title,
-      linked_entity: 'menu_item',
-      linked_id: menuItem.id,
-      linked_name: menuItem.name,
+      sop_version: sop.version,
+      linked_by: user?.email,
+      linked_by_name: user?.full_name,
+      linked_at: new Date().toISOString(),
+      auto_update: true,
       link_type: 'preparation',
-      created_by: user?.email, // Updated
-      created_by_name: user?.full_name, // Updated
-    });
-
-    // Also update the menu item with linked_sop_id
-    await updateMenuItemMutation.mutateAsync({
-      id: menuItem.id,
-      data: {
-        linked_sop_id: sopId,
-        linked_sop_title: sop.title,
-      }
     });
   };
 

@@ -45,6 +45,7 @@ import DataBridgeEngine from "./components/DataBridgeEngine"; // Import the new 
 import FormIntelligenceEngine from "./components/FormIntelligenceEngine"; // Import the new component
 import FormScheduler from "./components/FormScheduler";
 import { ComplianceStyles } from "./components/ComplianceStyles";
+import MenuAutoUpdateTrigger from './components/MenuAutoUpdateTrigger';
 
 const Badge = ({ children, className }) => (
   <span className={`inline-flex items-center justify-center rounded-full text-center font-semibold leading-none whitespace-nowrap ${className}`}>
@@ -277,6 +278,9 @@ export default function Layout({ children }) {
       {/* AURA_FormIntelligence - Smart Form Assignment Engine */}
       <FormIntelligenceEngine />
       <FormScheduler />
+
+      {/* 🍽️ Menu Auto-Update Service */}
+      <MenuAutoUpdateTrigger />
 
       {/* Mobile Header */}
       <div className="lg:hidden fixed top-0 left-0 right-0 bg-white border-b border-slate-200 z-40 px-4 py-3">
