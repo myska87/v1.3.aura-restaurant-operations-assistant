@@ -71,6 +71,10 @@ import MenuIntelligence from './pages/MenuIntelligence';
 import AIConsole from './pages/AIConsole';
 import MeetingDashboard from './pages/MeetingDashboard';
 import SOPDashboard from './pages/SOPDashboard';
+import SOPBuilder from './pages/SOPBuilder';
+import SOPViewer from './pages/SOPViewer';
+import SOPVoiceMode from './pages/SOPVoiceMode';
+import SOPCertifications from './pages/SOPCertifications';
 import Layout from './Layout.jsx';
 
 
@@ -148,6 +152,10 @@ export const PAGES = {
     "AIConsole": AIConsole,
     "MeetingDashboard": MeetingDashboard,
     "SOPDashboard": SOPDashboard,
+    "SOPBuilder": SOPBuilder,
+    "SOPViewer": SOPViewer,
+    "SOPVoiceMode": SOPVoiceMode,
+    "SOPCertifications": SOPCertifications,
 }
 
 export const pagesConfig = {
