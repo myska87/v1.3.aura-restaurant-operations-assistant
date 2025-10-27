@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -15,7 +16,8 @@ import {
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
-import { Save, X, Upload, Sparkles } from 'lucide-react';
+import { Save, X, Upload, Sparkles, Edit, ImageIcon } from 'lucide-react'; // Added Edit and ImageIcon as they are used in JSX
+import { format } from 'date-fns'; // Added format import
 
 export default function MenuItemEditDialog({ item, open, onClose }) {
   const queryClient = useQueryClient();
@@ -39,6 +41,11 @@ export default function MenuItemEditDialog({ item, open, onClose }) {
   const { data: sops = [] } = useQuery({
     queryKey: ['sops'],
     queryFn: () => base44.entities.SOPDocument.list(),
+  });
+
+  const { data: user } = useQuery({
+    queryKey: ['currentUser'],
+    queryFn: () => base44.auth.me(),
   });
 
   useEffect(() => {
@@ -111,6 +118,28 @@ export default function MenuItemEditDialog({ item, open, onClose }) {
     };
 
     await updateMutation.mutateAsync({ id: item.id, data: updateData });
+
+    // 📝 LOG AUDIT TRAIL
+    await base44.entities.ComplianceAudit.create({
+      module_name: 'menu',
+      action: 'update',
+      action_description: `Edited menu item "${formData.name}" – updated details`,
+      user_id: user?.id,
+      user_email: user?.email,
+      user_name: user?.full_name,
+      target_entity: 'MenuItem',
+      target_record_id: item.id,
+      severity: 'info',
+      changes_made: {
+        before: {
+          name: item.name,
+          category_id: item.category_id,
+          sell_price: item.sell_price,
+          is_active: item.is_active,
+        },
+        after: updateData,
+      },
+    });
   };
 
   if (!item) return null;
