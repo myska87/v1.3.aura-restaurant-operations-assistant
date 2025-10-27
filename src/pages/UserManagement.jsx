@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -41,13 +40,10 @@ import {
   Unlock,
   UserPlus,
   RefreshCw,
-  Download,
-  Upload,
   Home,
   ArrowLeft,
   CheckCircle,
   AlertTriangle,
-  Clock,
   UserCheck,
   Mail,
   Link as LinkIcon,
@@ -55,14 +51,13 @@ import {
   X,
   Copy,
 } from 'lucide-react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import { format } from 'date-fns';
 import { motion } from 'framer-motion';
 
 export default function UserManagement() {
   const queryClient = useQueryClient();
-  const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
   const [filterRole, setFilterRole] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
@@ -72,7 +67,6 @@ export default function UserManagement() {
   const [userToDelete, setUserToDelete] = useState(null);
   const [syncing, setSyncing] = useState(false);
   
-  // Invitation state
   const [showInviteDialog, setShowInviteDialog] = useState(false);
   const [inviteType, setInviteType] = useState('email');
   const [inviteFormData, setInviteFormData] = useState({
@@ -125,11 +119,9 @@ export default function UserManagement() {
     queryFn: () => base44.entities.RegistrationRequest.filter({ status: 'pending' }),
   });
 
-  // Unified user list
   const unifiedUsers = React.useMemo(() => {
     const userMap = new Map();
 
-    // Add all users
     allUsers.forEach(user => {
       userMap.set(user.email, {
         id: user.id,
@@ -150,7 +142,6 @@ export default function UserManagement() {
       });
     });
 
-    // Enrich with team member data
     teamMembers.forEach(member => {
       if (userMap.has(member.staff_email)) {
         const existing = userMap.get(member.staff_email);
@@ -166,7 +157,6 @@ export default function UserManagement() {
           team_member_id: member.id,
         });
       } else {
-        // Team member without user account
         userMap.set(member.staff_email, {
           id: null,
           email: member.staff_email,
@@ -192,7 +182,6 @@ export default function UserManagement() {
     );
   }, [allUsers, teamMembers]);
 
-  // Filter users
   const filteredUsers = unifiedUsers.filter(user => {
     const matchesSearch = user.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          user.email?.toLowerCase().includes(searchQuery.toLowerCase());
@@ -202,7 +191,6 @@ export default function UserManagement() {
     return matchesSearch && matchesRole && matchesStatus;
   });
 
-  // Stats
   const stats = {
     total: unifiedUsers.length,
     active: unifiedUsers.filter(u => u.status === 'active').length,
@@ -214,7 +202,6 @@ export default function UserManagement() {
     mutationFn: async ({ userId, teamMemberId, data }) => {
       const promises = [];
       
-      // Update User if exists
       if (userId) {
         promises.push(base44.entities.User.update(userId, {
           position: data.position,
@@ -226,7 +213,6 @@ export default function UserManagement() {
         }));
       }
 
-      // Update TeamMember if exists
       if (teamMemberId) {
         promises.push(base44.entities.TeamMember.update(teamMemberId, {
           staff_name: data.full_name,
@@ -251,7 +237,6 @@ export default function UserManagement() {
 
   const deleteUserMutation = useMutation({
     mutationFn: async ({ userId, teamMemberId }) => {
-      // Only deactivate, don't actually delete
       const promises = [];
       
       if (userId) {
@@ -271,13 +256,12 @@ export default function UserManagement() {
     },
   });
 
-  // Send Invitation Mutation
   const sendInvitationMutation = useMutation({
     mutationFn: async (inviteData) => {
       const invitationCode = `INV-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
       const registrationLink = `${window.location.origin}/register?code=${invitationCode}`;
       const expiresAt = new Date();
-      expiresAt.setDate(expiresAt.getDate() + 7); // 7 days expiry
+      expiresAt.setDate(expiresAt.getDate() + 7);
 
       const invitation = await base44.entities.UserInvitation.create({
         invitation_code: invitationCode,
@@ -293,16 +277,15 @@ export default function UserManagement() {
         expires_at: expiresAt.toISOString(),
       });
 
-      // Send email if email invitation
       if (inviteData.type === 'email') {
         try {
           await base44.integrations.Core.SendEmail({
             to: inviteData.email,
-            subject: `You're invited to join ${currentUser.full_name}'s team`,
+            subject: `You are invited to join ${currentUser.full_name} team`,
             body: `
 Hello ${inviteData.name},
 
-You've been invited to join our team as a ${inviteData.position}!
+You have been invited to join our team as a ${inviteData.position}!
 
 To complete your registration, please click the link below:
 ${registrationLink}
@@ -328,7 +311,6 @@ ${currentUser.full_name}
       queryClient.invalidateQueries({ queryKey: ['userInvitations'] });
       
       if (inviteType === 'link') {
-        // Show link instead of QR
         setGeneratedLink(invitation.registration_link);
       } else {
         setShowInviteDialog(false);
@@ -338,10 +320,8 @@ ${currentUser.full_name}
     },
   });
 
-  // Approve Registration Mutation
   const approveRegistrationMutation = useMutation({
     mutationFn: async (request) => {
-      // Update request status
       await base44.entities.RegistrationRequest.update(request.id, {
         status: 'approved',
         reviewed_by: currentUser.email,
@@ -349,7 +329,6 @@ ${currentUser.full_name}
         reviewed_at: new Date().toISOString(),
       });
 
-      // Send approval email
       try {
         await base44.integrations.Core.SendEmail({
           to: request.email,
@@ -377,7 +356,6 @@ ${currentUser.full_name}
     },
   });
 
-  // Reject Registration Mutation
   const rejectRegistrationMutation = useMutation({
     mutationFn: async ({ request, reason }) => {
       await base44.entities.RegistrationRequest.update(request.id, {
@@ -388,7 +366,6 @@ ${currentUser.full_name}
         rejection_reason: reason,
       });
 
-      // Send rejection email
       try {
         await base44.integrations.Core.SendEmail({
           to: request.email,
@@ -456,7 +433,7 @@ ${currentUser.full_name}
       await refetchUsers();
       await refetchTeamMembers();
       sessionStorage.removeItem('unified_user_sync_done');
-      window.location.reload(); // Force full sync
+      window.location.reload();
     } catch (error) {
       console.error('Sync error:', error);
     }
@@ -523,7 +500,6 @@ ${currentUser.full_name}
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6 md:p-8">
       <div className="max-w-7xl mx-auto">
-        {/* Header */}
         <div className="flex gap-3 mb-6">
           <Link to={createPageUrl('ManagerDashboard')}>
             <Button variant="outline" size="sm">
@@ -590,7 +566,6 @@ ${currentUser.full_name}
           </div>
         </div>
 
-        {/* Stats */}
         <div className="grid md:grid-cols-4 gap-4 mb-6">
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
             <Card>
@@ -649,7 +624,6 @@ ${currentUser.full_name}
           </motion.div>
         </div>
 
-        {/* Filters */}
         <Card className="mb-6">
           <CardContent className="p-4">
             <div className="flex flex-wrap gap-4">
@@ -692,7 +666,6 @@ ${currentUser.full_name}
           </CardContent>
         </Card>
 
-        {/* User Table */}
         <Card>
           <CardContent className="p-0">
             <div className="overflow-x-auto">
@@ -824,7 +797,6 @@ ${currentUser.full_name}
           </CardContent>
         </Card>
 
-        {/* Invite User Dialog */}
         <Dialog open={showInviteDialog} onOpenChange={setShowInviteDialog}>
           <DialogContent className="max-w-2xl">
             <DialogHeader>
@@ -979,7 +951,6 @@ ${currentUser.full_name}
           </DialogContent>
         </Dialog>
 
-        {/* Registration Requests Dialog */}
         <Dialog open={showRegistrationRequests} onOpenChange={setShowRegistrationRequests}>
           <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
             <DialogHeader>
@@ -1040,18 +1011,6 @@ ${currentUser.full_name}
                             <p className="text-sm bg-gray-50 p-3 rounded">{request.message}</p>
                           </div>
                         )}
-
-                        {request.cv_url && (
-                          <a
-                            href={request.cv_url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-sm text-blue-600 hover:underline flex items-center gap-1"
-                          >
-                            <Download className="w-3 h-3" />
-                            Download CV/Resume
-                          </a>
-                        )}
                       </div>
 
                       <div className="flex flex-col gap-2">
@@ -1089,7 +1048,6 @@ ${currentUser.full_name}
           </DialogContent>
         </Dialog>
 
-        {/* Edit Dialog */}
         <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
           <DialogContent className="sm:max-w-[500px]">
             <DialogHeader>
@@ -1226,7 +1184,6 @@ ${currentUser.full_name}
           </DialogContent>
         </Dialog>
 
-        {/* Delete Confirmation Dialog */}
         <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
           <DialogContent>
             <DialogHeader>
