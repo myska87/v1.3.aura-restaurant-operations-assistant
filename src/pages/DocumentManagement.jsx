@@ -106,10 +106,43 @@ export default function DocumentManagement() {
 
   const isManager = user?.position === 'manager' || user?.position === 'owner' || user?.role === 'admin';
 
-  const { data: documents = [] } = useQuery({
+  const { data: allDocuments = [], isLoading: loadingDocuments } = useQuery({
+    queryKey: ['allDocuments'],
+    queryFn: () => base44.entities.DocumentBuilder.list('-updated_date', 200),
+    staleTime: 0, // Always fetch fresh
+  });
+
+  const { data: documents = [], isLoading } = useQuery({
     queryKey: ['documents'],
     queryFn: () => base44.entities.Document.list('-created_date'),
   });
+
+  // Merge both document sources
+  const mergedDocuments = React.useMemo(() => {
+    const docMap = new Map();
+    
+    // Add DocumentBuilder documents
+    allDocuments.forEach(doc => {
+      docMap.set(`builder_${doc.id}`, {
+        ...doc,
+        id: `builder_${doc.id}`, // Ensure unique ID for mapping
+        source: 'builder',
+        file_url: null, // Builder docs don't have file_url until finalized
+      });
+    });
+    
+    // Add Document entity documents
+    documents.forEach(doc => {
+      docMap.set(`doc_${doc.id}`, {
+        ...doc,
+        id: `doc_${doc.id}`, // Ensure unique ID for mapping
+        source: 'document',
+      });
+    });
+    
+    return Array.from(docMap.values());
+  }, [allDocuments, documents]);
+
 
   const { data: documentTasks = [] } = useQuery({
     queryKey: ['documentTasks'],
@@ -166,7 +199,7 @@ export default function DocumentManagement() {
       return document;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['documents'] });
+      queryClient.invalidateQueries({ queryKey: ['documents'] }); // Invalidate original documents query
       setTimeout(() => {
         setShowUploadDialog(false);
         setUploadProgress(0);
@@ -187,13 +220,16 @@ export default function DocumentManagement() {
 
   const updateDocumentVersionMutation = useMutation({
     mutationFn: async ({ documentId, file, changelog }) => {
-      const document = documents.find(d => d.id === documentId);
-      const newVersionNumber = (document.version_number || 1) + 1;
+      // Find the actual Document entity, not the merged one
+      const actualDocument = documents.find(d => `doc_${d.id}` === documentId);
+      if (!actualDocument) throw new Error("Document not found for version update.");
+
+      const newVersionNumber = (actualDocument.version_number || 1) + 1;
 
       const { file_url } = await base44.integrations.Core.UploadFile({ file });
 
       // Update document
-      await base44.entities.Document.update(documentId, {
+      await base44.entities.Document.update(actualDocument.id, {
         file_url,
         version_number: newVersionNumber,
         file_size: file.size,
@@ -206,7 +242,7 @@ export default function DocumentManagement() {
 
       // Mark previous version as not current
       const previousVersions = await base44.entities.DocumentVersion.filter({
-        document_id: documentId,
+        document_id: actualDocument.id,
         is_current: true,
       });
       
@@ -216,22 +252,22 @@ export default function DocumentManagement() {
 
       // Create new version record
       await base44.entities.DocumentVersion.create({
-        document_id: documentId,
-        document_title: document.title,
+        document_id: actualDocument.id,
+        document_title: actualDocument.title,
         version_number: newVersionNumber,
         file_url,
         file_size: file.size,
         changelog: changelog || `Updated to version ${newVersionNumber}`,
         updated_by: user.email,
         updated_by_name: user.full_name,
-        replaced_version: document.version_number,
+        replaced_version: actualDocument.version_number,
         is_current: true,
       });
 
       // Create tasks for staff who haven't acknowledged latest version
       const staffToNotify = allStaff.filter(s => {
         const hasAcknowledged = documentReviews.some(
-          r => r.document_id === documentId && 
+          r => r.document_id === actualDocument.id && 
                r.staff_email === s.email && 
                r.acknowledged && 
                r.version_viewed === newVersionNumber
@@ -241,9 +277,9 @@ export default function DocumentManagement() {
 
       for (const staff of staffToNotify) {
         await base44.entities.DocumentTask.create({
-          document_id: documentId,
-          document_title: document.title,
-          document_category: document.category,
+          document_id: actualDocument.id,
+          document_title: actualDocument.title,
+          document_category: actualDocument.category,
           assigned_to_email: staff.email,
           assigned_to_name: staff.full_name,
           due_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
@@ -264,6 +300,12 @@ export default function DocumentManagement() {
 
   const assignDocumentMutation = useMutation({
     mutationFn: async () => {
+      // Ensure selectedDocument is a proper Document entity (not a builder draft)
+      const actualDocumentId = selectedDocument.id.replace('doc_', '');
+      if (selectedDocument.source !== 'document' || !actualDocumentId) {
+        throw new Error("Cannot assign a draft document.");
+      }
+
       const dueDate = assignForm.due_date || 
         new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
@@ -280,7 +322,7 @@ export default function DocumentManagement() {
       const tasks = await Promise.all(
         staffToAssign.map(staff =>
           base44.entities.DocumentTask.create({
-            document_id: selectedDocument.id,
+            document_id: actualDocumentId,
             document_title: selectedDocument.title,
             document_category: selectedDocument.category,
             assigned_to_email: staff.email,
@@ -311,7 +353,14 @@ export default function DocumentManagement() {
   });
 
   const deleteDocumentMutation = useMutation({
-    mutationFn: (id) => base44.entities.Document.update(id, { is_active: false }),
+    mutationFn: (mergedId) => {
+      const actualId = mergedId.replace('doc_', '');
+      if (mergedId.startsWith('builder_')) {
+         // This mutation is for Document entities. DocumentBuilder deletion would need a separate mutation.
+         throw new Error("Cannot delete a builder document using Document deletion mutation.");
+      }
+      return base44.entities.Document.update(actualId, { is_active: false });
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['documents'] });
     },
@@ -345,11 +394,11 @@ export default function DocumentManagement() {
 
   const handleVersionUpdate = async (e) => {
     const file = e.target.files?.[0];
-    if (!file || !selectedDocument) return;
+    if (!file || !selectedDocument || selectedDocument.source !== 'document') return; // Only allow updates for actual documents
 
     try {
       await updateDocumentVersionMutation.mutateAsync({
-        documentId: selectedDocument.id,
+        documentId: selectedDocument.id, // This is the merged ID 'doc_X'
         file,
         changelog: versionForm.changelog,
       });
@@ -363,10 +412,11 @@ export default function DocumentManagement() {
     setSelectedDocument(doc);
     setShowViewerDialog(true);
     
-    // Track view for analytics
-    if (doc.id) {
+    // Track view for analytics only for finalized documents
+    if (doc.source === 'document' && doc.id) {
+      const actualDocumentId = doc.id.replace('doc_', '');
       base44.entities.DocumentReview.create({
-        document_id: doc.id,
+        document_id: actualDocumentId,
         document_title: doc.title,
         staff_email: user?.email,
         staff_name: user?.full_name,
@@ -377,10 +427,11 @@ export default function DocumentManagement() {
   };
 
   // Filter documents
-  const filteredDocuments = documents.filter(doc => {
-    if (!doc.is_active) return false;
+  const filteredDocuments = mergedDocuments.filter(doc => {
+    // For 'document' source, respect 'is_active'. For 'builder' source, assume they are "active" drafts.
+    if (doc.source === 'document' && !doc.is_active) return false;
     
-    const matchesSearch = doc.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    const matchesSearch = doc.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          doc.description?.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesCategory = filterCategory === 'all' || doc.category === filterCategory;
     const matchesDepartment = filterDepartment === 'all' || doc.department === filterDepartment;
@@ -392,7 +443,7 @@ export default function DocumentManagement() {
     return matchesSearch && matchesCategory && matchesDepartment;
   });
 
-  // Calculate statistics
+  // Calculate statistics (based on finalized documents only)
   const totalDocuments = documents.filter(d => d.is_active).length;
   const mandatoryDocs = documents.filter(d => d.is_active && d.is_mandatory).length;
   const pendingTasks = documentTasks.filter(t => t.status === 'pending').length;
@@ -625,7 +676,8 @@ export default function DocumentManagement() {
               const Icon = getCategoryIcon(doc.category);
               const categoryColor = getCategoryColor(doc.category);
               
-              const docTasks = documentTasks.filter(t => t.document_id === doc.id);
+              // Document tasks and acknowledgments are only relevant for finalized documents
+              const docTasks = doc.source === 'document' ? documentTasks.filter(t => t.document_id === doc.id.replace('doc_', '')) : [];
               const acknowledgedCount = docTasks.filter(t => t.status === 'acknowledged').length;
               const totalAssigned = docTasks.length;
               const acknowledgmentRate = totalAssigned > 0 ? Math.round((acknowledgedCount / totalAssigned) * 100) : 0;
@@ -657,41 +709,54 @@ export default function DocumentManagement() {
                               <Eye className="w-4 h-4 mr-2" />
                               View Document
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => {
-                              setSelectedDocument(doc);
-                              setShowAssignDialog(true);
-                            }}>
-                              <Send className="w-4 h-4 mr-2" />
-                              Assign to Staff
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => {
-                              setSelectedDocument(doc);
-                              setShowVersionDialog(true);
-                            }}>
-                              <Upload className="w-4 h-4 mr-2" />
-                              Update Version
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => navigate(createPageUrl(`DocumentHistory?id=${doc.id}`))}>
-                              <History className="w-4 h-4 mr-2" />
-                              Version History
-                            </DropdownMenuItem>
-                            <DropdownMenuItem 
-                              onClick={() => {
-                                if (confirm('Delete this document?')) {
-                                  deleteDocumentMutation.mutate(doc.id);
-                                }
-                              }}
-                              className="text-red-600"
-                            >
-                              <Trash2 className="w-4 h-4 mr-2" />
-                              Delete
-                            </DropdownMenuItem>
+                            {doc.source === 'document' && (
+                              <>
+                                <DropdownMenuItem onClick={() => {
+                                  setSelectedDocument(doc);
+                                  setShowAssignDialog(true);
+                                }}>
+                                  <Send className="w-4 h-4 mr-2" />
+                                  Assign to Staff
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => {
+                                  setSelectedDocument(doc);
+                                  setShowVersionDialog(true);
+                                }}>
+                                  <Upload className="w-4 h-4 mr-2" />
+                                  Update Version
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => navigate(createPageUrl(`DocumentHistory?id=${doc.id.replace('doc_', '')}`))}>
+                                  <History className="w-4 h-4 mr-2" />
+                                  Version History
+                                </DropdownMenuItem>
+                                <DropdownMenuItem 
+                                  onClick={() => {
+                                    if (confirm('Are you sure you want to delete this document? This will archive it.')) {
+                                      deleteDocumentMutation.mutate(doc.id);
+                                    }
+                                  }}
+                                  className="text-red-600"
+                                >
+                                  <Trash2 className="w-4 h-4 mr-2" />
+                                  Delete Document
+                                </DropdownMenuItem>
+                              </>
+                            )}
+                            {doc.source === 'builder' && (
+                              <>
+                                <DropdownMenuItem onClick={() => navigate(createPageUrl(`DocumentBuilderEdit?id=${doc.id.replace('builder_', '')}`))} className="text-[#014D40]">
+                                  <PenTool className="w-4 h-4 mr-2" />
+                                  Edit Draft
+                                </DropdownMenuItem>
+                                {/* Implement delete functionality for DocumentBuilder if needed */}
+                              </>
+                            )}
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </div>
 
                       <h3 className="font-bold text-lg text-gray-900 mb-2 line-clamp-2">
-                        {doc.title}
+                        {doc.title} {doc.source === 'builder' && <Badge variant="secondary" className="ml-2 bg-gray-200 text-gray-700">Draft</Badge>}
                       </h3>
                       
                       {doc.description && (
@@ -710,12 +775,14 @@ export default function DocumentManagement() {
                             Requires Signature
                           </Badge>
                         )}
-                        <Badge variant="outline" className="capitalize">
-                          v{doc.version_number}
-                        </Badge>
+                        {doc.source === 'document' && (
+                          <Badge variant="outline" className="capitalize">
+                            v{doc.version_number}
+                          </Badge>
+                        )}
                       </div>
 
-                      {totalAssigned > 0 && (
+                      {doc.source === 'document' && totalAssigned > 0 && (
                         <div className="space-y-2">
                           <div className="flex justify-between text-xs text-gray-600">
                             <span>Acknowledgment Rate</span>
@@ -729,8 +796,8 @@ export default function DocumentManagement() {
                       )}
 
                       <div className="mt-4 pt-4 border-t border-gray-200 flex items-center justify-between text-xs text-gray-500">
-                        <span>By {doc.uploaded_by_name}</span>
-                        <span>{format(new Date(doc.created_date), 'MMM d, yyyy')}</span>
+                        <span>By {doc.uploaded_by_name || doc.created_by_name || 'N/A'}</span>
+                        <span>{doc.created_date ? format(new Date(doc.created_date), 'MMM d, yyyy') : 'N/A'}</span>
                       </div>
                     </CardContent>
                   </Card>
@@ -1061,7 +1128,7 @@ export default function DocumentManagement() {
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
+                  <SelectContent>
                   <SelectItem value="low">Low</SelectItem>
                   <SelectItem value="normal">Normal</SelectItem>
                   <SelectItem value="high">High</SelectItem>
@@ -1077,7 +1144,7 @@ export default function DocumentManagement() {
             </Button>
             <Button
               onClick={() => assignDocumentMutation.mutate()}
-              disabled={assignDocumentMutation.isPending}
+              disabled={assignDocumentMutation.isPending || selectedDocument?.source === 'builder'}
               className="bg-[#014D40] hover:bg-[#013d33]"
             >
               {assignDocumentMutation.isPending ? 'Assigning...' : 'Assign Document'}
@@ -1158,21 +1225,30 @@ export default function DocumentManagement() {
                   <Badge className={getConfidentialityBadge(selectedDocument?.confidentiality_level)}>
                     {selectedDocument?.confidentiality_level}
                   </Badge>
-                  <Badge variant="outline">v{selectedDocument?.version_number}</Badge>
-                  <Badge variant="outline" className="capitalize">
-                    {selectedDocument?.file_type}
-                  </Badge>
+                  {selectedDocument?.source === 'document' && (
+                    <Badge variant="outline">v{selectedDocument?.version_number}</Badge>
+                  )}
+                  {selectedDocument?.file_type && selectedDocument?.source === 'document' && (
+                    <Badge variant="outline" className="capitalize">
+                      {selectedDocument?.file_type}
+                    </Badge>
+                  )}
+                  {selectedDocument?.source === 'builder' && (
+                    <Badge variant="secondary" className="bg-gray-200 text-gray-700">Draft Document</Badge>
+                  )}
                 </div>
               </div>
               <div className="flex items-center gap-2 flex-shrink-0">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => window.open(selectedDocument?.file_url, '_blank')}
-                >
-                  <Download className="w-4 h-4 mr-2" />
-                  Download
-                </Button>
+                {selectedDocument?.file_url && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => window.open(selectedDocument?.file_url, '_blank')}
+                  >
+                    <Download className="w-4 h-4 mr-2" />
+                    Download
+                  </Button>
+                )}
                 <Button
                   variant="ghost"
                   size="icon"
@@ -1185,7 +1261,7 @@ export default function DocumentManagement() {
           </DialogHeader>
 
           <div className="flex-1 overflow-auto bg-gray-50">
-            {selectedDocument && (
+            {selectedDocument && selectedDocument.file_url ? (
               <div className="h-full w-full flex items-center justify-center p-4">
                 {/* PDF Viewer - Using object tag for better compatibility */}
                 {selectedDocument.file_type === 'pdf' && (
@@ -1280,9 +1356,6 @@ export default function DocumentManagement() {
                         
                         // If that fails too, show download option
                         setTimeout(() => {
-                          // Check if iframe has loaded content (a more robust check might be needed)
-                          // For simplicity, here we just assume if it's still visible after a delay, it might have loaded.
-                          // A more robust check might involve checking `e.target.contentDocument` or similar.
                           if (!e.target.contentWindow || e.target.contentWindow.document.body.innerHTML === "") { // simple check for empty iframe content
                             e.target.style.display = 'none';
                             e.target.parentElement.innerHTML = `
@@ -1292,7 +1365,7 @@ export default function DocumentManagement() {
                                 </p>
                                 <a href="${selectedDocument.file_url}" download class="inline-flex items-center px-4 py-2 bg-[#014D40] text-white rounded-lg hover:bg-[#013830]">
                                   <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a 3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a 3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
                                   </svg>
                                   Download Document
                                 </a>
@@ -1319,7 +1392,7 @@ export default function DocumentManagement() {
                           <div class="p-8 text-center">
                             <div class="mb-6">
                               <svg class="w-16 h-16 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
                               </svg>
                               <p class="text-gray-700 text-lg font-semibold mb-2">
                                 ${selectedDocument.title}
@@ -1334,7 +1407,7 @@ export default function DocumentManagement() {
                               class="inline-flex items-center px-6 py-3 bg-gradient-to-r from-[#014D40] to-emerald-600 text-white rounded-lg hover:from-[#013830] hover:to-emerald-700 font-medium shadow-lg"
                             >
                               <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
                               </svg>
                               Download to View
                             </a>
@@ -1345,6 +1418,36 @@ export default function DocumentManagement() {
                   </div>
                 )}
               </div>
+            ) : selectedDocument && selectedDocument.source === 'builder' ? (
+              <div className="h-full w-full flex items-center justify-center p-4">
+                <div className="p-8 text-center bg-white rounded-lg shadow-lg max-w-sm">
+                  <BookOpen className="w-16 h-16 text-[#014D40] mx-auto mb-4" />
+                  <p className="text-xl font-bold text-gray-900 mb-2">Draft Document</p>
+                  <p className="text-gray-600 mb-4">
+                    This document is currently being built and does not have a finalized file attached yet.
+                  </p>
+                  <Button
+                    onClick={() => {
+                      setShowViewerDialog(false);
+                      navigate(createPageUrl(`DocumentBuilderEdit?id=${selectedDocument.id.replace('builder_', '')}`));
+                    }}
+                    className="bg-[#014D40] hover:bg-[#013d33]"
+                  >
+                    <Edit className="w-4 h-4 mr-2" />
+                    Edit in Builder
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="h-full w-full flex items-center justify-center p-4">
+                <div className="p-8 text-center bg-white rounded-lg shadow-lg max-w-sm">
+                  <FileText className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                  <p className="text-xl font-bold text-gray-900 mb-2">No File Available</p>
+                  <p className="text-gray-600 mb-4">
+                    The file for this document could not be loaded or is not available.
+                  </p>
+                </div>
+              </div>
             )}
           </div>
 
@@ -1352,37 +1455,39 @@ export default function DocumentManagement() {
           <div className="p-3 border-t bg-white flex-shrink-0">
             <div className="flex items-center justify-between text-xs text-gray-600 flex-wrap gap-2">
               <div className="flex items-center gap-3 flex-wrap">
-                {selectedDocument?.uploaded_by_name && (
+                {(selectedDocument?.uploaded_by_name || selectedDocument?.created_by_name) && (
                   <span className="flex items-center gap-1">
                     <User className="w-3 h-3" />
-                    {selectedDocument.uploaded_by_name}
+                    {selectedDocument.uploaded_by_name || selectedDocument.created_by_name}
                   </span>
                 )}
-                {selectedDocument?.created_date && (
+                {(selectedDocument?.created_date || selectedDocument?.last_updated) && (
                   <>
                     <span className="text-gray-400">•</span>
                     <span className="flex items-center gap-1">
                       <Calendar className="w-3 h-3" />
-                      {format(new Date(selectedDocument.created_date), 'PPP')}
+                      {format(new Date(selectedDocument.created_date || selectedDocument.last_updated), 'PPP')}
                     </span>
                   </>
                 )}
-                {selectedDocument?.file_size && (
+                {selectedDocument?.file_size && (selectedDocument.source === 'document') && (
                   <>
                     <span className="text-gray-400">•</span>
                     <span>{(selectedDocument.file_size / 1024 / 1024).toFixed(2)} MB</span>
                   </>
                 )}
               </div>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => window.open(selectedDocument?.file_url, '_blank', 'noopener,noreferrer')}
-                className="text-xs"
-              >
-                <Eye className="w-3 h-3 mr-1" />
-                Open in New Tab
-              </Button>
+              {selectedDocument?.file_url && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => window.open(selectedDocument?.file_url, '_blank', 'noopener,noreferrer')}
+                  className="text-xs"
+                >
+                  <Eye className="w-3 h-3 mr-1" />
+                  Open in New Tab
+                </Button>
+              )}
             </div>
           </div>
         </DialogContent>

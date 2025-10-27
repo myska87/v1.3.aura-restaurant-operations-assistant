@@ -19,49 +19,55 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
+  DialogDescription,
 } from '@/components/ui/dialog';
 import {
   FileText,
   Save,
+  Send,
   Eye,
   ArrowLeft,
   Home,
-  Sparkles,
   Upload,
   Image,
   Video,
   Link as LinkIcon,
-  Plus,
+  Sparkles,
+  CheckCircle,
+  AlertCircle,
   Trash2,
-  BookOpen,
-  Send,
+  Plus,
+  Book,
   Loader2,
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
+import { motion } from 'framer-motion';
 
 export default function DocumentBuilder() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [editorContent, setEditorContent] = useState('');
-  const [showAIDialog, setShowAIDialog] = useState(false);
-  const [aiPrompt, setAIPrompt] = useState('');
-  const [generatingAI, setGeneratingAI] = useState(false);
-  const [showTemplateDialog, setShowTemplateDialog] = useState(false);
+  const [content, setContent] = useState('');
+  const [uploading, setUploading] = useState(false);
+  const [showSuccessDialog, setShowSuccessDialog] = useState(false);
+  const [savedDocument, setSavedDocument] = useState(null);
+  const [autoSaving, setAutoSaving] = useState(false);
+  const [lastSaved, setLastSaved] = useState(null);
 
   const [formData, setFormData] = useState({
     title: '',
     category: 'sop',
     description: '',
-    tags: '',
-    linked_role: '',
+    tags: [],
     department: 'all',
+    linked_role: '',
     requires_signature: false,
     status: 'draft',
   });
+
+  const [tagInput, setTagInput] = useState('');
 
   const { data: user } = useQuery({
     queryKey: ['currentUser'],
@@ -70,158 +76,166 @@ export default function DocumentBuilder() {
 
   const isManager = user?.position === 'manager' || user?.position === 'owner' || user?.role === 'admin';
 
-  const createDocumentMutation = useMutation({
+  const saveDocumentMutation = useMutation({
     mutationFn: (data) => base44.entities.DocumentBuilder.create(data),
-    onSuccess: (data) => {
+    onSuccess: (savedDoc) => {
       queryClient.invalidateQueries({ queryKey: ['documentLibrary'] });
-      navigate(createPageUrl(`DocumentViewer?id=${data.id}`));
+      queryClient.invalidateQueries({ queryKey: ['allDocuments'] });
+      setSavedDocument(savedDoc);
+      setLastSaved(new Date());
+      setShowSuccessDialog(true);
+    },
+    onError: (error) => {
+      console.error('Save error:', error);
+      alert('Failed to save document. Please try again.');
     },
   });
 
-  const uploadFileMutation = useMutation({
-    mutationFn: async (file) => {
-      const result = await base44.integrations.Core.UploadFile({ file });
-      return result.file_url;
+  const publishDocumentMutation = useMutation({
+    mutationFn: (data) => {
+      const docData = {
+        ...data,
+        status: 'published',
+        published_at: new Date().toISOString(),
+      };
+      return base44.entities.DocumentBuilder.create(docData);
+    },
+    onSuccess: (savedDoc) => {
+      queryClient.invalidateQueries({ queryKey: ['documentLibrary'] });
+      queryClient.invalidateQueries({ queryKey: ['allDocuments'] });
+      setSavedDocument(savedDoc);
+      setShowSuccessDialog(true);
+    },
+    onError: (error) => {
+      console.error('Publish error:', error);
+      alert('Failed to publish document. Please try again.');
     },
   });
 
-  const handleAIGenerate = async () => {
-    if (!aiPrompt.trim()) return;
-    
-    setGeneratingAI(true);
+  // Auto-save every 2 minutes
+  useEffect(() => {
+    if (!formData.title || !content || formData.status === 'published') return;
+
+    const autoSaveTimer = setTimeout(() => {
+      handleAutoSave();
+    }, 120000); // 2 minutes
+
+    return () => clearTimeout(autoSaveTimer);
+  }, [content, formData]);
+
+  const handleAutoSave = async () => {
+    if (!formData.title.trim() || !content.trim()) return;
+
+    setAutoSaving(true);
     try {
-      const result = await base44.integrations.Core.InvokeLLM({
-        prompt: `You are a professional SOP and document writer for restaurants. Create a detailed, well-structured document based on this request: "${aiPrompt}". 
-
-Format the output as HTML with proper headings, lists, and paragraphs. Include:
-- Clear title and introduction
-- Step-by-step instructions if applicable
-- Safety notes or warnings if relevant
-- Best practices
-- Summary or key takeaways
-
-Make it professional, clear, and actionable for restaurant staff.`,
-        add_context_from_internet: false,
-      });
-
-      setEditorContent(result);
-      setShowAIDialog(false);
-      setAIPrompt('');
+      const docData = prepareDocumentData('draft');
+      await saveDocumentMutation.mutateAsync(docData);
     } catch (error) {
-      console.error('AI generation error:', error);
-      alert('Failed to generate content. Please try again.');
+      console.error('Auto-save failed:', error);
     }
-    setGeneratingAI(false);
+    setAutoSaving(false);
   };
 
-  const handleImageUpload = async (event) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    try {
-      const url = await uploadFileMutation.mutateAsync(file);
-      const imageHtml = `<img src="${url}" alt="Uploaded image" style="max-width: 100%; height: auto;" />`;
-      setEditorContent(editorContent + imageHtml);
-    } catch (error) {
-      console.error('Upload error:', error);
-      alert('Failed to upload image');
-    }
+  const prepareDocumentData = (status) => {
+    return {
+      title: formData.title.trim(),
+      category: formData.category,
+      description: formData.description.trim(),
+      content_html: content,
+      content_json: {
+        html: content,
+        plainText: content.replace(/<[^>]*>/g, ''),
+      },
+      tags: formData.tags,
+      department: formData.department,
+      linked_role: formData.linked_role || null,
+      requires_signature: formData.requires_signature,
+      status: status,
+      created_by: user.email,
+      created_by_name: user.full_name,
+      updated_by: user.email,
+      updated_by_name: user.full_name,
+      ai_generated: false,
+      media_urls: [],
+      attachments: [],
+      comments_enabled: true,
+      version: 1,
+    };
   };
 
-  const handleSave = async (publishNow = false) => {
+  const handleSaveDraft = async () => {
     if (!formData.title.trim()) {
       alert('Please enter a document title');
       return;
     }
 
-    if (!editorContent.trim()) {
-      alert('Please add some content to the document');
+    if (!content.trim()) {
+      alert('Please add some content to your document');
       return;
     }
 
-    try {
-      await createDocumentMutation.mutateAsync({
-        title: formData.title,
-        category: formData.category,
-        description: formData.description,
-        content_html: editorContent,
-        content_json: { raw: editorContent },
-        tags: formData.tags.split(',').map(t => t.trim()).filter(Boolean),
-        linked_role: formData.linked_role || null,
-        department: formData.department,
-        requires_signature: formData.requires_signature,
-        status: publishNow ? 'published' : 'draft',
-        created_by: user.email,
-        created_by_name: user.full_name,
-        published_at: publishNow ? new Date().toISOString() : null,
+    const docData = prepareDocumentData('draft');
+    await saveDocumentMutation.mutateAsync(docData);
+  };
+
+  const handlePublish = async () => {
+    if (!formData.title.trim()) {
+      alert('Please enter a document title');
+      return;
+    }
+
+    if (!content.trim()) {
+      alert('Please add some content to your document');
+      return;
+    }
+
+    if (!window.confirm('Publish this document? It will be visible to all team members.')) {
+      return;
+    }
+
+    const docData = prepareDocumentData('published');
+    await publishDocumentMutation.mutateAsync(docData);
+  };
+
+  const handleImageUpload = async () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    
+    input.onchange = async (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+
+      setUploading(true);
+      try {
+        const { file_url } = await base44.integrations.Core.UploadFile({ file });
+        const imageHtml = `<img src="${file_url}" alt="Uploaded image" style="max-width: 100%; height: auto;" />`;
+        setContent(prev => prev + imageHtml);
+      } catch (error) {
+        console.error('Upload error:', error);
+        alert('Failed to upload image');
+      }
+      setUploading(false);
+    };
+
+    input.click();
+  };
+
+  const handleAddTag = () => {
+    if (tagInput.trim() && !formData.tags.includes(tagInput.trim())) {
+      setFormData({
+        ...formData,
+        tags: [...formData.tags, tagInput.trim()]
       });
-    } catch (error) {
-      console.error('Save error:', error);
-      alert('Failed to save document');
+      setTagInput('');
     }
   };
 
-  const loadTemplate = (templateType) => {
-    const templates = {
-      sop: `<h1>Standard Operating Procedure</h1>
-<h2>Purpose</h2>
-<p>Describe the purpose of this procedure...</p>
-<h2>Scope</h2>
-<p>Who this applies to and when...</p>
-<h2>Procedures</h2>
-<ol>
-  <li>Step 1</li>
-  <li>Step 2</li>
-  <li>Step 3</li>
-</ol>
-<h2>Safety & Compliance</h2>
-<p>Important safety information...</p>`,
-      
-      policy: `<h1>Company Policy</h1>
-<h2>Policy Statement</h2>
-<p>Clear statement of the policy...</p>
-<h2>Scope & Applicability</h2>
-<p>Who this policy applies to...</p>
-<h2>Responsibilities</h2>
-<ul>
-  <li>Management responsibilities</li>
-  <li>Staff responsibilities</li>
-</ul>
-<h2>Enforcement</h2>
-<p>How this policy will be enforced...</p>`,
-      
-      training: `<h1>Training Guide</h1>
-<h2>Learning Objectives</h2>
-<p>What you'll learn...</p>
-<h2>Prerequisites</h2>
-<p>What you need to know first...</p>
-<h2>Training Content</h2>
-<ol>
-  <li>Module 1</li>
-  <li>Module 2</li>
-  <li>Module 3</li>
-</ol>
-<h2>Assessment</h2>
-<p>How knowledge will be tested...</p>`,
-      
-      guide: `<h1>Quick Reference Guide</h1>
-<h2>Overview</h2>
-<p>Brief introduction...</p>
-<h2>Key Steps</h2>
-<ol>
-  <li>Quick step 1</li>
-  <li>Quick step 2</li>
-  <li>Quick step 3</li>
-</ol>
-<h2>Tips & Best Practices</h2>
-<ul>
-  <li>Tip 1</li>
-  <li>Tip 2</li>
-</ul>`,
-    };
-
-    setEditorContent(templates[templateType] || templates.sop);
-    setShowTemplateDialog(false);
+  const handleRemoveTag = (tagToRemove) => {
+    setFormData({
+      ...formData,
+      tags: formData.tags.filter(tag => tag !== tagToRemove)
+    });
   };
 
   const quillModules = {
@@ -237,27 +251,31 @@ Make it professional, clear, and actionable for restaurant staff.`,
 
   if (!isManager) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 p-6">
-        <Card className="max-w-md w-full">
-          <CardContent className="p-6 text-center">
-            <FileText className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-            <h2 className="text-xl font-bold text-gray-900 mb-2">Access Restricted</h2>
-            <p className="text-gray-600 mb-4">Document Builder is only accessible to managers.</p>
-            <Link to={createPageUrl('Dashboard')}>
-              <Button>
-                <Home className="w-4 h-4 mr-2" />
-                Go to Dashboard
-              </Button>
-            </Link>
-          </CardContent>
-        </Card>
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6 md:p-8">
+        <div className="max-w-4xl mx-auto">
+          <Card className="bg-red-50 border-red-200">
+            <CardContent className="p-12 text-center">
+              <AlertCircle className="w-16 h-16 text-red-600 mx-auto mb-4" />
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">Access Restricted</h2>
+              <p className="text-gray-700 mb-6">
+                Only managers and administrators can create documents.
+              </p>
+              <Link to={createPageUrl('DocumentLibrary')}>
+                <Button>
+                  <Book className="w-4 h-4 mr-2" />
+                  View Document Library
+                </Button>
+              </Link>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6 md:p-8">
-      <div className="max-w-6xl mx-auto">
+      <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="flex gap-3 mb-6">
           <Link to={createPageUrl('DocumentLibrary')}>
@@ -275,313 +293,332 @@ Make it professional, clear, and actionable for restaurant staff.`,
         </div>
 
         {/* Title */}
-        <div className="mb-6">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2 flex items-center gap-3">
-            <FileText className="w-8 h-8 text-[#014D40]" />
-            Document Builder
-          </h1>
-          <p className="text-gray-600">Create SOPs, policies, guides, and training materials</p>
+        <div className="mb-8">
+          <div className="flex items-center gap-3 mb-2">
+            <FileText className="w-10 h-10 text-blue-600" />
+            <h1 className="text-4xl font-bold text-gray-900">Document Builder</h1>
+          </div>
+          <p className="text-gray-600 text-lg">Create SOPs, policies, guides, and training materials</p>
+          {lastSaved && (
+            <p className="text-sm text-green-600 mt-2 flex items-center gap-2">
+              <CheckCircle className="w-4 h-4" />
+              Last saved: {format(lastSaved, 'h:mm a')}
+            </p>
+          )}
+          {autoSaving && (
+            <p className="text-sm text-blue-600 mt-2 flex items-center gap-2">
+              <Loader2 className="w-4 h-4 animate-spin" />
+              Auto-saving...
+            </p>
+          )}
         </div>
 
-        {/* Document Settings Card */}
-        <Card className="mb-6">
-          <CardHeader>
-            <CardTitle>Document Settings</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid md:grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="title">Document Title *</Label>
-                <Input
-                  id="title"
-                  placeholder="e.g., How to Clean the Coffee Machine"
-                  value={formData.title}
-                  onChange={(e) => setFormData({...formData, title: e.target.value})}
-                />
-              </div>
+        <div className="grid lg:grid-cols-3 gap-6">
+          {/* Main Editor */}
+          <div className="lg:col-span-2 space-y-6">
+            {/* Basic Info */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Document Information</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <Label htmlFor="title">Title *</Label>
+                  <Input
+                    id="title"
+                    placeholder="e.g., Opening Checklist Procedure"
+                    value={formData.title}
+                    onChange={(e) => setFormData({...formData, title: e.target.value})}
+                    className="text-lg"
+                  />
+                </div>
 
-              <div>
-                <Label htmlFor="category">Category *</Label>
-                <Select
-                  value={formData.category}
-                  onValueChange={(value) => setFormData({...formData, category: value})}
-                >
-                  <SelectTrigger id="category">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="sop">📋 SOP</SelectItem>
-                    <SelectItem value="policy">📜 Policy</SelectItem>
-                    <SelectItem value="training">🎓 Training Material</SelectItem>
-                    <SelectItem value="guide">📖 Quick Guide</SelectItem>
-                    <SelectItem value="quality">⭐ Quality Standard</SelectItem>
-                    <SelectItem value="procedure">🔧 Procedure</SelectItem>
-                    <SelectItem value="emergency">🚨 Emergency Protocol</SelectItem>
-                    <SelectItem value="customer_service">🤝 Customer Service</SelectItem>
-                    <SelectItem value="other">📁 Other</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div>
-              <Label htmlFor="description">Brief Description</Label>
-              <Textarea
-                id="description"
-                placeholder="What is this document about?"
-                value={formData.description}
-                onChange={(e) => setFormData({...formData, description: e.target.value})}
-                rows={2}
-              />
-            </div>
-
-            <div className="grid md:grid-cols-3 gap-4">
-              <div>
-                <Label htmlFor="tags">Tags (comma-separated)</Label>
-                <Input
-                  id="tags"
-                  placeholder="cleaning, coffee, equipment"
-                  value={formData.tags}
-                  onChange={(e) => setFormData({...formData, tags: e.target.value})}
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="department">Department</Label>
-                <Select
-                  value={formData.department}
-                  onValueChange={(value) => setFormData({...formData, department: value})}
-                >
-                  <SelectTrigger id="department">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Departments</SelectItem>
-                    <SelectItem value="kitchen">Kitchen</SelectItem>
-                    <SelectItem value="front_of_house">Front of House</SelectItem>
-                    <SelectItem value="bar">Bar</SelectItem>
-                    <SelectItem value="management">Management</SelectItem>
-                    <SelectItem value="cleaning">Cleaning</SelectItem>
-                    <SelectItem value="maintenance">Maintenance</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div>
-                <Label htmlFor="role">Linked Role (optional)</Label>
-                <Select
-                  value={formData.linked_role}
-                  onValueChange={(value) => setFormData({...formData, linked_role: value})}
-                >
-                  <SelectTrigger id="role">
-                    <SelectValue placeholder="Select role" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={null}>No specific role</SelectItem>
-                    <SelectItem value="manager">Manager</SelectItem>
-                    <SelectItem value="chef">Chef</SelectItem>
-                    <SelectItem value="line_cook">Line Cook</SelectItem>
-                    <SelectItem value="server">Server</SelectItem>
-                    <SelectItem value="bartender">Bartender</SelectItem>
-                    <SelectItem value="cleaner">Cleaner</SelectItem>
-                    <SelectItem value="maintenance">Maintenance</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                id="requires_signature"
-                checked={formData.requires_signature}
-                onChange={(e) => setFormData({...formData, requires_signature: e.target.checked})}
-                className="w-4 h-4"
-              />
-              <Label htmlFor="requires_signature" className="cursor-pointer">
-                Require staff signature/acknowledgment
-              </Label>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Toolbar */}
-        <Card className="mb-4">
-          <CardContent className="p-4">
-            <div className="flex flex-wrap gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShowAIDialog(true)}
-              >
-                <Sparkles className="w-4 h-4 mr-2 text-purple-600" />
-                AI Assist
-              </Button>
-
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShowTemplateDialog(true)}
-              >
-                <BookOpen className="w-4 h-4 mr-2" />
-                Use Template
-              </Button>
-
-              <label className="cursor-pointer">
-                <Button variant="outline" size="sm" asChild>
+                <div className="grid md:grid-cols-2 gap-4">
                   <div>
-                    <Image className="w-4 h-4 mr-2" />
-                    Insert Image
+                    <Label htmlFor="category">Category *</Label>
+                    <Select
+                      value={formData.category}
+                      onValueChange={(value) => setFormData({...formData, category: value})}
+                    >
+                      <SelectTrigger id="category">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="sop">SOP</SelectItem>
+                        <SelectItem value="policy">Policy</SelectItem>
+                        <SelectItem value="training">Training Material</SelectItem>
+                        <SelectItem value="guide">Guide</SelectItem>
+                        <SelectItem value="quality">Quality</SelectItem>
+                        <SelectItem value="procedure">Procedure</SelectItem>
+                        <SelectItem value="emergency">Emergency Response</SelectItem>
+                        <SelectItem value="customer_service">Customer Service</SelectItem>
+                        <SelectItem value="other">Other</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
-                </Button>
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={handleImageUpload}
-                  className="hidden"
+
+                  <div>
+                    <Label htmlFor="department">Department</Label>
+                    <Select
+                      value={formData.department}
+                      onValueChange={(value) => setFormData({...formData, department: value})}
+                    >
+                      <SelectTrigger id="department">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Departments</SelectItem>
+                        <SelectItem value="kitchen">Kitchen</SelectItem>
+                        <SelectItem value="front_of_house">Front of House</SelectItem>
+                        <SelectItem value="bar">Bar</SelectItem>
+                        <SelectItem value="management">Management</SelectItem>
+                        <SelectItem value="cleaning">Cleaning</SelectItem>
+                        <SelectItem value="maintenance">Maintenance</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div>
+                  <Label htmlFor="description">Brief Description</Label>
+                  <Textarea
+                    id="description"
+                    placeholder="Short summary of what this document covers..."
+                    value={formData.description}
+                    onChange={(e) => setFormData({...formData, description: e.target.value})}
+                    rows={2}
+                  />
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Content Editor */}
+            <Card>
+              <CardHeader>
+                <div className="flex justify-between items-center">
+                  <CardTitle>Content</CardTitle>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleImageUpload}
+                      disabled={uploading}
+                    >
+                      {uploading ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Image className="w-4 h-4 mr-2" />
+                      )}
+                      Add Image
+                    </Button>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <ReactQuill
+                  theme="snow"
+                  value={content}
+                  onChange={setContent}
+                  modules={quillModules}
+                  className="bg-white"
+                  style={{ minHeight: '400px' }}
                 />
-              </label>
+              </CardContent>
+            </Card>
 
-              <div className="ml-auto flex gap-2">
-                <Button
-                  variant="outline"
-                  onClick={() => handleSave(false)}
-                  disabled={createDocumentMutation.isPending}
-                >
-                  <Save className="w-4 h-4 mr-2" />
-                  Save Draft
-                </Button>
-
-                <Button
-                  onClick={() => handleSave(true)}
-                  disabled={createDocumentMutation.isPending}
-                  className="bg-[#014D40] hover:bg-[#013830]"
-                >
-                  {createDocumentMutation.isPending ? (
-                    <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Publishing...
-                    </>
-                  ) : (
-                    <>
-                      <Send className="w-4 h-4 mr-2" />
-                      Publish
-                    </>
-                  )}
-                </Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Editor */}
-        <Card>
-          <CardContent className="p-0">
-            <ReactQuill
-              theme="snow"
-              value={editorContent}
-              onChange={setEditorContent}
-              modules={quillModules}
-              placeholder="Start writing your document here... Use the toolbar above for formatting."
-              className="min-h-[500px]"
-            />
-          </CardContent>
-        </Card>
-
-        {/* AI Dialog */}
-        <Dialog open={showAIDialog} onOpenChange={setShowAIDialog}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <Sparkles className="w-5 h-5 text-purple-600" />
-                AI Content Generator
-              </DialogTitle>
-            </DialogHeader>
-            <div className="py-4">
-              <Label htmlFor="aiPrompt">What would you like to create?</Label>
-              <Textarea
-                id="aiPrompt"
-                placeholder="e.g., Create an SOP for cleaning the espresso machine"
-                value={aiPrompt}
-                onChange={(e) => setAIPrompt(e.target.value)}
-                rows={4}
-                className="mt-2"
-              />
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setShowAIDialog(false)}>
-                Cancel
-              </Button>
+            {/* Action Buttons */}
+            <div className="flex gap-3">
               <Button
-                onClick={handleAIGenerate}
-                disabled={generatingAI || !aiPrompt.trim()}
-                className="bg-purple-600 hover:bg-purple-700"
+                onClick={handleSaveDraft}
+                disabled={saveDocumentMutation.isPending || !formData.title || !content}
+                variant="outline"
+                className="flex-1"
               >
-                {generatingAI ? (
+                {saveDocumentMutation.isPending ? (
                   <>
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Generating...
+                    Saving...
                   </>
                 ) : (
                   <>
-                    <Sparkles className="w-4 h-4 mr-2" />
-                    Generate
+                    <Save className="w-4 h-4 mr-2" />
+                    Save Draft
                   </>
                 )}
               </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
 
-        {/* Template Dialog */}
-        <Dialog open={showTemplateDialog} onOpenChange={setShowTemplateDialog}>
+              <Button
+                onClick={handlePublish}
+                disabled={publishDocumentMutation.isPending || !formData.title || !content}
+                className="flex-1 bg-green-600 hover:bg-green-700"
+              >
+                {publishDocumentMutation.isPending ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Publishing...
+                  </>
+                ) : (
+                  <>
+                    <Send className="w-4 h-4 mr-2" />
+                    Publish Document
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+
+          {/* Sidebar */}
+          <div className="space-y-6">
+            {/* Tags */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Tags</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="Add tag..."
+                    value={tagInput}
+                    onChange={(e) => setTagInput(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddTag())}
+                  />
+                  <Button onClick={handleAddTag} size="sm">
+                    <Plus className="w-4 h-4" />
+                  </Button>
+                </div>
+                {formData.tags.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {formData.tags.map((tag, index) => (
+                      <Badge key={index} variant="secondary" className="flex items-center gap-1">
+                        {tag}
+                        <button
+                          onClick={() => handleRemoveTag(tag)}
+                          className="ml-1 hover:text-red-600"
+                        >
+                          ×
+                        </button>
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Options */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Options</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <Label htmlFor="role">Link to Position (optional)</Label>
+                  <Select
+                    value={formData.linked_role}
+                    onValueChange={(value) => setFormData({...formData, linked_role: value})}
+                  >
+                    <SelectTrigger id="role">
+                      <SelectValue placeholder="Select role..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={null}>None</SelectItem>
+                      <SelectItem value="chef">Chef</SelectItem>
+                      <SelectItem value="sous_chef">Sous Chef</SelectItem>
+                      <SelectItem value="line_cook">Line Cook</SelectItem>
+                      <SelectItem value="server">Server</SelectItem>
+                      <SelectItem value="bartender">Bartender</SelectItem>
+                      <SelectItem value="cleaner">Cleaner</SelectItem>
+                      <SelectItem value="maintenance">Maintenance</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="signature"
+                    checked={formData.requires_signature}
+                    onChange={(e) => setFormData({...formData, requires_signature: e.target.checked})}
+                    className="w-4 h-4"
+                  />
+                  <Label htmlFor="signature" className="cursor-pointer">
+                    Require staff signature
+                  </Label>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Help */}
+            <Card className="bg-blue-50 border-blue-200">
+              <CardContent className="p-4">
+                <h3 className="font-semibold text-blue-900 mb-2">💡 Quick Tips</h3>
+                <ul className="text-sm text-blue-800 space-y-1">
+                  <li>• Use headers to organize sections</li>
+                  <li>• Add images for visual steps</li>
+                  <li>• Tag documents for easy search</li>
+                  <li>• Save drafts frequently</li>
+                  <li>• Auto-save runs every 2 minutes</li>
+                </ul>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+
+        {/* Success Dialog */}
+        <Dialog open={showSuccessDialog} onOpenChange={setShowSuccessDialog}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Choose a Template</DialogTitle>
+              <DialogTitle className="flex items-center gap-2 text-green-600">
+                <CheckCircle className="w-6 h-6" />
+                Document Saved Successfully!
+              </DialogTitle>
+              <DialogDescription>
+                Your document has been {formData.status === 'published' ? 'published' : 'saved as draft'} and is now available in the Document Library and Document Management.
+              </DialogDescription>
             </DialogHeader>
-            <div className="grid gap-3 py-4">
+            <div className="flex flex-col gap-3 pt-4">
               <Button
-                variant="outline"
-                className="justify-start h-auto py-4"
-                onClick={() => loadTemplate('sop')}
+                onClick={() => {
+                  setShowSuccessDialog(false);
+                  navigate(createPageUrl('DocumentLibrary'));
+                }}
+                className="w-full"
               >
-                <div className="text-left">
-                  <div className="font-semibold">📋 SOP Template</div>
-                  <div className="text-sm text-gray-600">Standard Operating Procedure format</div>
-                </div>
+                <Book className="w-4 h-4 mr-2" />
+                Go to Document Library
               </Button>
-
               <Button
+                onClick={() => {
+                  setShowSuccessDialog(false);
+                  navigate(createPageUrl('DocumentManagement'));
+                }}
                 variant="outline"
-                className="justify-start h-auto py-4"
-                onClick={() => loadTemplate('policy')}
+                className="w-full"
               >
-                <div className="text-left">
-                  <div className="font-semibold">📜 Policy Template</div>
-                  <div className="text-sm text-gray-600">Company policy structure</div>
-                </div>
+                <FileText className="w-4 h-4 mr-2" />
+                Go to Document Management
               </Button>
-
               <Button
+                onClick={() => {
+                  setShowSuccessDialog(false);
+                  // Reset form for new document
+                  setFormData({
+                    title: '',
+                    category: 'sop',
+                    description: '',
+                    tags: [],
+                    department: 'all',
+                    linked_role: '',
+                    requires_signature: false,
+                    status: 'draft',
+                  });
+                  setContent('');
+                  setSavedDocument(null);
+                }}
                 variant="outline"
-                className="justify-start h-auto py-4"
-                onClick={() => loadTemplate('training')}
+                className="w-full"
               >
-                <div className="text-left">
-                  <div className="font-semibold">🎓 Training Template</div>
-                  <div className="text-sm text-gray-600">Training guide format</div>
-                </div>
-              </Button>
-
-              <Button
-                variant="outline"
-                className="justify-start h-auto py-4"
-                onClick={() => loadTemplate('guide')}
-              >
-                <div className="text-left">
-                  <div className="font-semibold">📖 Quick Guide Template</div>
-                  <div className="text-sm text-gray-600">Quick reference guide</div>
-                </div>
+                <Plus className="w-4 h-4 mr-2" />
+                Create Another Document
               </Button>
             </div>
           </DialogContent>
