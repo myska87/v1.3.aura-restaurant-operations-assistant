@@ -72,5 +72,42 @@
     "sop_id",
     "staff_email",
     "signed_at"
-  ]
+  ],
+  "rls": {
+    "create": {
+      "user_condition": {
+        "email": {
+          "$exists": true
+        }
+      }
+    },
+    "read": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "manager"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        },
+        {
+          "staff_email": "{{user.email}}"
+        }
+      ]
+    },
+    "update": false,
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
 }

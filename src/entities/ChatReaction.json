@@ -23,5 +23,34 @@
     "message_id",
     "staff_email",
     "reaction_type"
-  ]
+  ],
+  "rls": {
+    "create": {
+      "user_condition": {
+        "email": {
+          "$exists": true
+        }
+      }
+    },
+    "read": {
+      "user_condition": {
+        "email": {
+          "$exists": true
+        }
+      }
+    },
+    "update": false,
+    "delete": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "staff_email": "{{user.email}}"
+        }
+      ]
+    }
+  }
 }
