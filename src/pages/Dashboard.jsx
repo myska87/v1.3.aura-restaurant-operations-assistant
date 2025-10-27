@@ -326,7 +326,7 @@ export default function Dashboard() {
         )}
 
         {/* Stats Grid */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-8"> {/* Changed from lg:grid-cols-4 and mt-6 */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-8">
           <StatCard
             title="Compliance Rate"
             value={`${complianceRate}%`}
@@ -362,8 +362,8 @@ export default function Dashboard() {
           />
         </div>
 
-        {/* Add Quick Backup Widget for Admins */}
-        {(user?.role === 'admin' || user?.position === 'owner') && (
+        {/* Quick Backup Widget for Manager-level roles (Admin, Owner, Manager) */}
+        {(user?.role === 'admin' || user?.position === 'owner' || user?.position === 'manager') && (
           <div className="mb-8">
             <QuickBackupWidget />
           </div>
@@ -456,7 +456,7 @@ export default function Dashboard() {
         </Card>
 
         {/* Quick Access Cards */}
-        <div className="grid md:grid-cols-2 gap-6 mt-6">
+        <div className="grid md::grid-cols-2 gap-6 mt-6">
           {/* My Forms Card */}
           <Link to={createPageUrl("FormIntelligence")}>
             <Card className="bg-gradient-to-br from-blue-500 to-indigo-600 text-white border-none shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer group h-full">

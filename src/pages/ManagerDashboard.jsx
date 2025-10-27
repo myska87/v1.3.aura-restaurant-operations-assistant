@@ -33,6 +33,7 @@ import { format, parseISO, isBefore, isAfter, setHours, setMinutes, isSameMinute
 import { Link, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { motion } from "framer-motion";
+import QuickBackupWidget from "../components/QuickBackupWidget";
 
 // ManagerAlertsWidget Component
 const ManagerAlertsWidget = ({ teamMembers, todayAttendance }) => {
@@ -864,6 +865,11 @@ export default function ManagerDashboard() {
           </Card>
         </div>
 
+        {/* Quick Backup Widget - Manager Only */}
+        <div className="mb-8">
+          <QuickBackupWidget />
+        </div>
+
         {/* Add Data Management Quick Access Button - after stats grid, before alerts */}
         <div className="mb-8">
           <Link to={createPageUrl("DataManagement")}>
@@ -1385,7 +1391,7 @@ export default function ManagerDashboard() {
                                           <div className="flex-1 flex gap-2 items-center">
                                             <Input
                                               value={editingTaskValue}
-                                              onChange={(e) => setEditingTaskValue(e.target.value)}
+                                              onChange={(e) => setNewTaskValue(e.target.value)}
                                               className="h-7 text-sm"
                                               autoFocus
                                               onKeyPress={(e) => {
@@ -1554,7 +1560,7 @@ export default function ManagerDashboard() {
                                           <div className="flex-1 flex gap-2 items-center">
                                             <Input
                                               value={editingTaskValue}
-                                              onChange={(e) => setEditingTaskValue(e.target.value)}
+                                              onChange={(e) => setNewTaskValue(e.target.value)}
                                               className="h-7 text-sm"
                                               autoFocus
                                               onKeyPress={(e) => {
