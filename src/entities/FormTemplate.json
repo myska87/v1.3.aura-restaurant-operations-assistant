@@ -13,16 +13,19 @@
     "category": {
       "type": "string",
       "enum": [
-        "cleaning",
-        "hygiene",
-        "maintenance",
+        "haccp",
+        "workflow",
+        "equipment",
+        "pest",
+        "sops",
         "training",
-        "audit",
-        "safety",
-        "quality",
+        "suppliers",
+        "allergens",
+        "chemicals",
+        "waste",
         "other"
       ],
-      "description": "Form category"
+      "description": "EHO compliance category"
     },
     "assigned_position": {
       "type": "string",
@@ -50,6 +53,49 @@
         "custom"
       ],
       "description": "When this form should be triggered"
+    },
+    "frequency": {
+      "type": "string",
+      "enum": [
+        "daily",
+        "weekly",
+        "monthly",
+        "six_monthly",
+        "yearly",
+        "custom"
+      ],
+      "description": "How often form should be scheduled"
+    },
+    "schedule_day_of_week": {
+      "type": "string",
+      "enum": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "sunday"
+      ],
+      "description": "For weekly forms - which day to schedule"
+    },
+    "schedule_day_of_month": {
+      "type": "number",
+      "description": "For monthly forms - which day (1-31)"
+    },
+    "schedule_time": {
+      "type": "string",
+      "description": "Time to schedule form (HH:mm)"
+    },
+    "next_due_date": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Next scheduled date for this form"
+    },
+    "auto_generate": {
+      "type": "boolean",
+      "default": false,
+      "description": "Auto-create assignments based on schedule"
     },
     "fields": {
       "type": "array",
@@ -103,6 +149,40 @@
                 "type": "string"
               }
             }
+          },
+          "critical_value_check": {
+            "type": "object",
+            "properties": {
+              "enabled": {
+                "type": "boolean",
+                "default": false
+              },
+              "condition": {
+                "type": "string",
+                "enum": [
+                  "greater_than",
+                  "less_than",
+                  "equals",
+                  "not_equals"
+                ]
+              },
+              "threshold_value": {
+                "type": "number"
+              },
+              "require_photo": {
+                "type": "boolean",
+                "default": false
+              },
+              "require_comment": {
+                "type": "boolean",
+                "default": false
+              },
+              "alert_manager": {
+                "type": "boolean",
+                "default": false
+              }
+            },
+            "description": "Auto-trigger alerts if value meets condition (e.g., Fridge Temp > 8\u00b0C)"
           },
           "order_index": {
             "type": "number"
@@ -179,6 +259,11 @@
       "type": "number",
       "default": 2,
       "description": "Hours before deadline to send reminder"
+    },
+    "completion_deadline_hours": {
+      "type": "number",
+      "default": 24,
+      "description": "Hours to complete form after assignment"
     }
   },
   "required": [

@@ -1,467 +1,181 @@
+import React, { useState, useEffect } from "react";
+import { base44 } from "@/api/base44Client";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Plus,
+  X,
+  GripVertical,
+  Save,
+  ArrowLeft,
+  AlertCircle,
+  Settings,
+  Calendar,
+  Clock,
+} from "lucide-react";
+import { DragDropContext, Draggable, Droppable } from "@hello-pangea/dnd";
 
-import React, { useState } from 'react';
-import { base44 } from '@/api/base44Client';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Card, CardContent } from '@/components/ui/card';
-import { 
-  Select, 
-  SelectContent, 
-  SelectItem, 
-  SelectTrigger, 
-  SelectValue 
-} from '@/components/ui/select';
-import { 
-  Plus, 
-  Trash2, 
-  GripVertical, 
-  Save, 
-  Eye, 
-  Edit3,
-  Undo,
-  Copy
-} from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
-
-/**
- * 📝 FORM EDITOR
- * Drag-and-drop form builder with live preview
- * Supports field reordering, editing, and version control
- */
 export default function FormEditor({ template, onSave, onCancel }) {
   const queryClient = useQueryClient();
-  const [editMode, setEditMode] = useState(true);
-  const [formData, setFormData] = useState(template || {
-    form_name: '',
-    description: '',
-    category: 'other',
-    assigned_position: 'any',
-    trigger_type: 'manual',
-    fields: [],
-    requires_signature: true,
-    auto_calculate_score: false,
-    editable: true,
-    version_number: 1,
-    is_active: true,
-    status: 'draft',
+  const [formData, setFormData] = useState({
+    form_name: "",
+    description: "",
+    category: "other",
+    assigned_position: "any",
+    trigger_type: "manual",
+    frequency: "daily",
+    schedule_day_of_week: "monday",
+    schedule_day_of_month: 1,
+    schedule_time: "09:00",
+    auto_generate: false,
     auto_assign_enabled: false,
+    requires_signature: true,
+    fields: [],
+    is_active: true,
+    status: "active",
+    completion_deadline_hours: 24,
+    ...template,
   });
 
-  const [draggedFieldIndex, setDraggedFieldIndex] = useState(null);
+  const [showAdvanced, setShowAdvanced] = useState(false);
 
   const saveFormMutation = useMutation({
     mutationFn: async (data) => {
-      // Create version history entry
-      if (template) {
+      // Calculate next due date if auto_generate is enabled
+      if (data.auto_generate && !data.next_due_date) {
+        const nextDue = new Date();
+        if (data.schedule_time) {
+          const [hours, minutes] = data.schedule_time.split(':');
+          nextDue.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+        }
+        data.next_due_date = nextDue.toISOString();
+      }
+
+      if (template?.id) {
+        // Update existing
+        await base44.entities.FormTemplate.update(template.id, data);
+        
+        // Create version history
         await base44.entities.FormHistory.create({
           form_id: template.id,
-          form_name: template.form_name,
-          version_number: (template.version_number || 1) + 1,
-          fields_snapshot: template.fields,
-          changes_made: 'Form fields updated',
+          form_name: data.form_name,
+          version_number: (data.version_number || 1) + 1,
+          fields_snapshot: data.fields,
+          changes_made: "Form updated via editor",
           edited_by: (await base44.auth.me()).email,
           edited_by_name: (await base44.auth.me()).full_name,
-          previous_version: template.version_number || 1,
-        });
-
-        // Update existing template
-        return await base44.entities.FormTemplate.update(template.id, {
-          ...data,
-          version_number: (template.version_number || 1) + 1,
-          last_edited_by: (await base44.auth.me()).email,
-          last_edited_at: new Date().toISOString(),
+          previous_version: data.version_number || 1
         });
       } else {
-        // Create new template
-        const user = await base44.auth.me();
-        return await base44.entities.FormTemplate.create({
-          ...data,
-          last_edited_by: user.email,
-          last_edited_at: new Date().toISOString(),
-        });
+        // Create new
+        await base44.entities.FormTemplate.create(data);
       }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['formTemplates'] });
-      if (onSave) onSave();
+      onSave();
     },
   });
 
-  const fieldTypes = [
-    { value: 'text', label: 'Text Input' },
-    { value: 'textarea', label: 'Text Area' },
-    { value: 'number', label: 'Number' },
-    { value: 'dropdown', label: 'Dropdown' },
-    { value: 'checkbox', label: 'Checkbox' },
-    { value: 'radio', label: 'Radio Buttons' },
-    { value: 'yesno', label: 'Yes/No' },
-    { value: 'date', label: 'Date Picker' },
-    { value: 'photo', label: 'Photo Upload' },
-    { value: 'file', label: 'File Upload' },
-    { value: 'signature', label: 'Digital Signature' },
-    { value: 'rating', label: 'Star Rating' },
-    { value: 'section_header', label: 'Section Header' },
-  ];
-
-  const addField = () => {
+  const handleAddField = () => {
     const newField = {
       field_id: `field_${Date.now()}`,
-      field_type: 'text',
-      field_label: 'New Field',
-      field_hint: '',
-      options: [],
+      field_type: "text",
+      field_label: "New Field",
+      field_hint: "",
       required: false,
       order_index: formData.fields.length,
     };
 
     setFormData({
       ...formData,
-      fields: [...formData.fields, newField]
+      fields: [...formData.fields, newField],
     });
   };
 
-  const removeField = (index) => {
-    const updatedFields = formData.fields.filter((_, i) => i !== index);
+  const handleRemoveField = (fieldId) => {
     setFormData({
       ...formData,
-      fields: updatedFields
+      fields: formData.fields.filter(f => f.field_id !== fieldId),
     });
   };
 
-  const updateField = (index, updates) => {
-    const updatedFields = [...formData.fields];
-    updatedFields[index] = { ...updatedFields[index], ...updates };
-    
-    // Handle conditional logic setup
-    if (updates.field_type) {
-      // Add validation rules for specific field types
-      if (updates.field_type === 'number' && updatedFields[index].field_label?.toLowerCase().includes('temp')) {
-        updatedFields[index].validation_rules = {
-          type: 'temperature',
-          critical_threshold: 8,
-          requires_comment_if_critical: true,
-          requires_photo_if_critical: true
-        };
-      }
-    }
-    
+  const handleFieldChange = (fieldId, key, value) => {
     setFormData({
       ...formData,
-      fields: updatedFields
+      fields: formData.fields.map(f =>
+        f.field_id === fieldId ? { ...f, [key]: value } : f
+      ),
     });
   };
 
-  const duplicateField = (index) => {
-    const fieldToDuplicate = { ...formData.fields[index] };
-    fieldToDuplicate.field_id = `field_${Date.now()}`;
-    fieldToDuplicate.field_label = `${fieldToDuplicate.field_label} (Copy)`;
-    
-    const updatedFields = [
-      ...formData.fields.slice(0, index + 1),
-      fieldToDuplicate,
-      ...formData.fields.slice(index + 1)
-    ];
+  const handleDragEnd = (result) => {
+    if (!result.destination) return;
 
-    setFormData({
-      ...formData,
-      fields: updatedFields
-    });
-  };
+    const items = Array.from(formData.fields);
+    const [reorderedItem] = items.splice(result.source.index, 1);
+    items.splice(result.destination.index, 0, reorderedItem);
 
-  const handleDragStart = (index) => {
-    setDraggedFieldIndex(index);
-  };
+    // Update order_index
+    const updatedFields = items.map((field, index) => ({
+      ...field,
+      order_index: index,
+    }));
 
-  const handleDragOver = (e, index) => {
-    e.preventDefault();
-    
-    if (draggedFieldIndex === null || draggedFieldIndex === index) return;
-
-    const updatedFields = [...formData.fields];
-    const draggedField = updatedFields[draggedFieldIndex];
-    
-    updatedFields.splice(draggedFieldIndex, 1);
-    updatedFields.splice(index, 0, draggedField);
-    
-    setFormData({
-      ...formData,
-      fields: updatedFields.map((field, idx) => ({ ...field, order_index: idx }))
-    });
-    
-    setDraggedFieldIndex(index);
-  };
-
-  const handleDragEnd = () => {
-    setDraggedFieldIndex(null);
+    setFormData({ ...formData, fields: updatedFields });
   };
 
   const handleSave = () => {
+    if (!formData.form_name) {
+      alert("Form name is required");
+      return;
+    }
+
     saveFormMutation.mutate(formData);
   };
 
-  // Add conditional logic section in field editor
-  const renderFieldEditor = (field, index) => {
-    return (
-      <Card
-        key={field.field_id}
-        draggable={editMode}
-        onDragStart={() => handleDragStart(index)}
-        onDragOver={(e) => handleDragOver(e, index)}
-        onDragEnd={handleDragEnd}
-        className={`${
-          draggedFieldIndex === index ? 'opacity-50' : ''
-        } ${editMode ? 'cursor-move' : ''}`}
-      >
-        <CardContent className="p-4">
-          <div className="flex gap-3">
-            {editMode && (
-              <div className="flex items-center">
-                <GripVertical className="w-5 h-5 text-gray-400" />
-              </div>
-            )}
-
-            <div className="flex-1 space-y-3">
-              {/* Existing field editor code */}
-              <div className="flex gap-3">
-                <div className="flex-1">
-                  <Input
-                    value={field.field_label}
-                    onChange={(e) => updateField(index, { field_label: e.target.value })}
-                    placeholder="Field Label"
-                    disabled={!editMode}
-                  />
-                </div>
-                <div className="w-48">
-                  <Select
-                    value={field.field_type}
-                    onValueChange={(value) => updateField(index, { field_type: value })}
-                    disabled={!editMode}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {fieldTypes.map(type => (
-                        <SelectItem key={type.value} value={type.value}>
-                          {type.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              <Input
-                value={field.field_hint}
-                onChange={(e) => updateField(index, { field_hint: e.target.value })}
-                placeholder="Hint text (optional)"
-                disabled={!editMode}
-                className="text-sm"
-              />
-
-              {(field.field_type === 'dropdown' || field.field_type === 'radio') && (
-                <Input
-                  value={field.options?.join(', ') || ''}
-                  onChange={(e) => updateField(index, { options: e.target.value.split(',').map(o => o.trim()) })}
-                  placeholder="Options (comma separated)"
-                  disabled={!editMode}
-                  className="text-sm"
-                />
-              )}
-
-              <div className="flex items-center gap-4">
-                <label className="flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={field.required}
-                    onChange={(e) => updateField(index, { required: e.target.checked })}
-                    disabled={!editMode}
-                    className="rounded"
-                  />
-                  Required
-                </label>
-                
-                {field.required && (
-                  <Badge variant="outline" className="text-xs">
-                    Required Field
-                  </Badge>
-                )}
-              </div>
-
-              {/* Conditional Logic Section */}
-              {field.field_type === 'number' && (
-                <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                  <Label className="text-xs font-semibold text-blue-900 mb-2 block">
-                    Conditional Logic
-                  </Label>
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2">
-                      <Input
-                        type="number"
-                        placeholder="Critical threshold"
-                        value={field.validation_rules?.critical_threshold || ''}
-                        onChange={(e) => updateField(index, {
-                          validation_rules: {
-                            ...field.validation_rules,
-                            critical_threshold: parseFloat(e.target.value),
-                            type: 'temperature'
-                          }
-                        })}
-                        disabled={!editMode}
-                        className="text-sm"
-                      />
-                      <span className="text-xs text-gray-600">°C</span>
-                    </div>
-                    
-                    <label className="flex items-center gap-2 text-xs">
-                      <input
-                        type="checkbox"
-                        checked={field.validation_rules?.requires_comment_if_critical || false}
-                        onChange={(e) => updateField(index, {
-                          validation_rules: {
-                            ...field.validation_rules,
-                            requires_comment_if_critical: e.target.checked
-                          }
-                        })}
-                        disabled={!editMode}
-                        className="rounded"
-                      />
-                      Require comment if above threshold
-                    </label>
-
-                    <label className="flex items-center gap-2 text-xs">
-                      <input
-                        type="checkbox"
-                        checked={field.validation_rules?.requires_photo_if_critical || false}
-                        onChange={(e) => updateField(index, {
-                          validation_rules: {
-                            ...field.validation_rules,
-                            requires_photo_if_critical: e.target.checked
-                          }
-                        })}
-                        disabled={!editMode}
-                        className="rounded"
-                      />
-                      Require photo if above threshold
-                    </label>
-
-                    {field.validation_rules?.critical_threshold !== undefined && (
-                      <div className="text-xs text-blue-700 bg-blue-100 p-2 rounded">
-                        ⚠️ If value {'>'} {field.validation_rules.critical_threshold}°C: 
-                        {field.validation_rules.requires_comment_if_critical && ' + Comment'}
-                        {field.validation_rules.requires_photo_if_critical && ' + Photo'}
-                        {(!field.validation_rules.requires_comment_if_critical && !field.validation_rules.requires_photo_if_critical) && ' (No additional actions configured)'}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* Show/Hide Conditional Logic */}
-              {field.field_type !== 'section_header' && (
-                <div className="p-3 bg-purple-50 border border-purple-200 rounded-lg">
-                  <Label className="text-xs font-semibold text-purple-900 mb-2 block">
-                    Show/Hide Rules
-                  </Label>
-                  <div className="grid grid-cols-2 gap-2">
-                    <select
-                      value={field.conditional_logic?.show_if_field || ''}
-                      onChange={(e) => updateField(index, {
-                        conditional_logic: {
-                          ...field.conditional_logic,
-                          show_if_field: e.target.value
-                        }
-                      })}
-                      disabled={!editMode}
-                      className="text-xs px-2 py-1 border rounded"
-                    >
-                      <option value="">Always show</option>
-                      {formData.fields
-                        .filter((f, i) => i < index && f.field_type !== 'section_header')
-                        .map(f => (
-                          <option key={f.field_id} value={f.field_id}>
-                            If "{f.field_label}"...
-                          </option>
-                        ))}
-                    </select>
-
-                    <Input
-                      placeholder="equals value..."
-                      value={field.conditional_logic?.show_if_value || ''}
-                      onChange={(e) => updateField(index, {
-                        conditional_logic: {
-                          ...field.conditional_logic,
-                          show_if_value: e.target.value
-                        }
-                      })}
-                      disabled={!editMode || !field.conditional_logic?.show_if_field}
-                      className="text-xs"
-                    />
-                  </div>
-                  {field.conditional_logic?.show_if_field && (
-                    <p className="text-xs text-purple-700 mt-2">
-                      This field appears only when the selected condition is met.
-                    </p>
-                  )}
-                </div>
-              )}
-            </div>
-
-            {editMode && (
-              <div className="flex flex-col gap-2">
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  onClick={() => duplicateField(index)}
-                >
-                  <Copy className="w-4 h-4" />
-                </Button>
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  onClick={() => removeField(index)}
-                  className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </Button>
-              </div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-    );
-  };
+  const fieldTypes = [
+    { value: "text", label: "Text" },
+    { value: "textarea", label: "Long Text" },
+    { value: "number", label: "Number" },
+    { value: "yesno", label: "Yes/No" },
+    { value: "dropdown", label: "Dropdown" },
+    { value: "checkbox", label: "Checkbox" },
+    { value: "radio", label: "Radio" },
+    { value: "date", label: "Date" },
+    { value: "photo", label: "Photo Upload" },
+    { value: "file", label: "File Upload" },
+    { value: "signature", label: "Signature" },
+    { value: "rating", label: "Rating" },
+    { value: "section_header", label: "Section Header" },
+  ];
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex justify-between items-center">
+      <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold text-gray-900">
-            {template ? 'Edit Form' : 'Create New Form'}
+            {template ? "Edit Form" : "Create New Form"}
           </h2>
-          {template && (
-            <p className="text-sm text-gray-600 mt-1">
-              Version {template.version_number || 1} • Last edited by {template.last_edited_by || 'Unknown'}
-            </p>
-          )}
+          <p className="text-gray-600">Design your smart form with conditional logic</p>
         </div>
         <div className="flex gap-2">
-          <Button
-            variant="outline"
-            onClick={() => setEditMode(!editMode)}
-          >
-            {editMode ? <><Eye className="w-4 h-4 mr-2" /> Preview</> : <><Edit3 className="w-4 h-4 mr-2" /> Edit</>}
-          </Button>
-          <Button
-            variant="outline"
-            onClick={onCancel}
-          >
+          <Button variant="outline" onClick={onCancel}>
+            <ArrowLeft className="w-4 h-4 mr-2" />
             Cancel
           </Button>
-          <Button
+          <Button 
             onClick={handleSave}
             disabled={saveFormMutation.isPending}
             className="bg-[#014D40] hover:bg-[#013830]"
@@ -472,50 +186,70 @@ export default function FormEditor({ template, onSave, onCancel }) {
         </div>
       </div>
 
-      {/* Form Settings */}
+      {/* Basic Settings */}
       <Card>
-        <CardContent className="p-6 space-y-4">
+        <CardHeader>
+          <CardTitle>Basic Information</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div>
+            <label className="text-sm font-medium text-gray-700 mb-1 block">
+              Form Name *
+            </label>
+            <Input
+              value={formData.form_name}
+              onChange={(e) => setFormData({ ...formData, form_name: e.target.value })}
+              placeholder="e.g., Daily Temperature Log"
+            />
+          </div>
+
+          <div>
+            <label className="text-sm font-medium text-gray-700 mb-1 block">
+              Description
+            </label>
+            <Textarea
+              value={formData.description}
+              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              placeholder="What is this form for?"
+              rows={2}
+            />
+          </div>
+
           <div className="grid md:grid-cols-2 gap-4">
             <div>
-              <Label htmlFor="form_name">Form Name *</Label>
-              <Input
-                id="form_name"
-                value={formData.form_name}
-                onChange={(e) => setFormData({ ...formData, form_name: e.target.value })}
-                placeholder="e.g., Daily Opening Checklist"
-                disabled={!editMode}
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="category">Category</Label>
+              <label className="text-sm font-medium text-gray-700 mb-1 block">
+                Category
+              </label>
               <Select
                 value={formData.category}
                 onValueChange={(value) => setFormData({ ...formData, category: value })}
-                disabled={!editMode}
               >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="cleaning">Cleaning</SelectItem>
-                  <SelectItem value="hygiene">Hygiene</SelectItem>
-                  <SelectItem value="maintenance">Maintenance</SelectItem>
-                  <SelectItem value="training">Training</SelectItem>
-                  <SelectItem value="audit">Audit</SelectItem>
-                  <SelectItem value="safety">Safety</SelectItem>
-                  <SelectItem value="quality">Quality</SelectItem>
+                  <SelectItem value="haccp">🛡️ HACCP Plan</SelectItem>
+                  <SelectItem value="workflow">⚙️ Workflow Design</SelectItem>
+                  <SelectItem value="equipment">🔧 Equipment Checks</SelectItem>
+                  <SelectItem value="pest">🐜 Pest Control</SelectItem>
+                  <SelectItem value="sops">📋 SOPs</SelectItem>
+                  <SelectItem value="training">🎓 Staff Training</SelectItem>
+                  <SelectItem value="suppliers">🚚 Supplier Management</SelectItem>
+                  <SelectItem value="allergens">⚠️ Allergen Management</SelectItem>
+                  <SelectItem value="chemicals">🧪 Cleaning Chemicals</SelectItem>
+                  <SelectItem value="waste">♻️ Waste Management</SelectItem>
                   <SelectItem value="other">Other</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             <div>
-              <Label htmlFor="assigned_position">Assigned Position</Label>
+              <label className="text-sm font-medium text-gray-700 mb-1 block">
+                Assigned Position
+              </label>
               <Select
                 value={formData.assigned_position}
                 onValueChange={(value) => setFormData({ ...formData, assigned_position: value })}
-                disabled={!editMode}
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -532,114 +266,358 @@ export default function FormEditor({ template, onSave, onCancel }) {
                 </SelectContent>
               </Select>
             </div>
+          </div>
+        </CardContent>
+      </Card>
 
+      {/* Scheduling Settings */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Calendar className="w-5 h-5" />
+            Scheduling & Automation
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center gap-2 p-3 bg-blue-50 rounded-lg">
+            <input
+              type="checkbox"
+              checked={formData.auto_generate}
+              onChange={(e) => setFormData({ ...formData, auto_generate: e.target.checked })}
+              className="w-4 h-4"
+            />
+            <label className="text-sm font-medium text-gray-900">
+              Enable Automatic Scheduling
+            </label>
+          </div>
+
+          {formData.auto_generate && (
+            <div className="grid md:grid-cols-3 gap-4 p-4 bg-gray-50 rounded-lg">
+              <div>
+                <label className="text-sm font-medium text-gray-700 mb-1 block">
+                  Frequency
+                </label>
+                <Select
+                  value={formData.frequency}
+                  onValueChange={(value) => setFormData({ ...formData, frequency: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="daily">Daily</SelectItem>
+                    <SelectItem value="weekly">Weekly</SelectItem>
+                    <SelectItem value="monthly">Monthly</SelectItem>
+                    <SelectItem value="six_monthly">Every 6 Months</SelectItem>
+                    <SelectItem value="yearly">Yearly</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {formData.frequency === 'weekly' && (
+                <div>
+                  <label className="text-sm font-medium text-gray-700 mb-1 block">
+                    Day of Week
+                  </label>
+                  <Select
+                    value={formData.schedule_day_of_week}
+                    onValueChange={(value) => setFormData({ ...formData, schedule_day_of_week: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="monday">Monday</SelectItem>
+                      <SelectItem value="tuesday">Tuesday</SelectItem>
+                      <SelectItem value="wednesday">Wednesday</SelectItem>
+                      <SelectItem value="thursday">Thursday</SelectItem>
+                      <SelectItem value="friday">Friday</SelectItem>
+                      <SelectItem value="saturday">Saturday</SelectItem>
+                      <SelectItem value="sunday">Sunday</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              {formData.frequency === 'monthly' && (
+                <div>
+                  <label className="text-sm font-medium text-gray-700 mb-1 block">
+                    Day of Month
+                  </label>
+                  <Input
+                    type="number"
+                    min="1"
+                    max="31"
+                    value={formData.schedule_day_of_month}
+                    onChange={(e) => setFormData({ ...formData, schedule_day_of_month: parseInt(e.target.value) })}
+                  />
+                </div>
+              )}
+
+              <div>
+                <label className="text-sm font-medium text-gray-700 mb-1 block">
+                  Schedule Time
+                </label>
+                <Input
+                  type="time"
+                  value={formData.schedule_time}
+                  onChange={(e) => setFormData({ ...formData, schedule_time: e.target.value })}
+                />
+              </div>
+            </div>
+          )}
+
+          <div className="grid md:grid-cols-2 gap-4">
             <div>
-              <Label htmlFor="trigger_type">Trigger Type</Label>
+              <label className="text-sm font-medium text-gray-700 mb-1 block">
+                Trigger Type
+              </label>
               <Select
                 value={formData.trigger_type}
                 onValueChange={(value) => setFormData({ ...formData, trigger_type: value })}
-                disabled={!editMode}
               >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="manual">Manual</SelectItem>
                   <SelectItem value="shift_start">Shift Start</SelectItem>
                   <SelectItem value="shift_end">Shift End</SelectItem>
                   <SelectItem value="opening">Opening</SelectItem>
                   <SelectItem value="closing">Closing</SelectItem>
                   <SelectItem value="mid_day">Mid-Day</SelectItem>
-                  <SelectItem value="custom">Custom</SelectItem>
+                  <SelectItem value="manual">Manual</SelectItem>
                 </SelectContent>
               </Select>
             </div>
+
+            <div>
+              <label className="text-sm font-medium text-gray-700 mb-1 block">
+                Completion Deadline (hours)
+              </label>
+              <Input
+                type="number"
+                value={formData.completion_deadline_hours}
+                onChange={(e) => setFormData({ ...formData, completion_deadline_hours: parseInt(e.target.value) })}
+              />
+            </div>
           </div>
 
-          <div>
-            <Label htmlFor="description">Description</Label>
-            <Input
-              id="description"
-              value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              placeholder="Brief description of what this form is for"
-              disabled={!editMode}
-            />
-          </div>
-
-          <div className="flex gap-4 flex-wrap">
-            <label className="flex items-center gap-2">
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
               <input
                 type="checkbox"
                 checked={formData.auto_assign_enabled}
                 onChange={(e) => setFormData({ ...formData, auto_assign_enabled: e.target.checked })}
-                disabled={!editMode}
-                className="rounded"
+                className="w-4 h-4"
               />
-              <span className="text-sm">Enable Auto-Assignment</span>
-            </label>
+              <label className="text-sm text-gray-700">
+                Enable Smart Auto-Assignment
+              </label>
+            </div>
 
-            <label className="flex items-center gap-2">
+            <div className="flex items-center gap-2">
               <input
                 type="checkbox"
                 checked={formData.requires_signature}
                 onChange={(e) => setFormData({ ...formData, requires_signature: e.target.checked })}
-                disabled={!editMode}
-                className="rounded"
+                className="w-4 h-4"
               />
-              <span className="text-sm">Require Signature</span>
-            </label>
-
-            <label className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={formData.auto_calculate_score}
-                onChange={(e) => setFormData({ ...formData, auto_calculate_score: e.target.checked })}
-                disabled={!editMode}
-                className="rounded"
-              />
-              <span className="text-sm">Auto-Calculate Score</span>
-            </label>
+              <label className="text-sm text-gray-700">
+                Require Signature
+              </label>
+            </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Form Fields Editor */}
+      {/* Form Fields */}
       <Card>
-        <CardContent className="p-6">
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="text-lg font-semibold text-gray-900">Form Fields</h3>
-            {editMode && (
-              <Button
-                onClick={addField}
-                variant="outline"
-                size="sm"
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                Add Field
-              </Button>
-            )}
+        <CardHeader>
+          <div className="flex justify-between items-center">
+            <CardTitle>Form Fields</CardTitle>
+            <Button onClick={handleAddField} size="sm">
+              <Plus className="w-4 h-4 mr-2" />
+              Add Field
+            </Button>
           </div>
+        </CardHeader>
+        <CardContent>
+          {formData.fields.length === 0 ? (
+            <div className="text-center py-8 text-gray-500">
+              <AlertCircle className="w-12 h-12 mx-auto mb-2 text-gray-400" />
+              <p>No fields yet. Click "Add Field" to get started.</p>
+            </div>
+          ) : (
+            <DragDropContext onDragEnd={handleDragEnd}>
+              <Droppable droppableId="fields">
+                {(provided) => (
+                  <div {...provided.droppableProps} ref={provided.innerRef} className="space-y-4">
+                    {formData.fields.map((field, index) => (
+                      <Draggable key={field.field_id} draggableId={field.field_id} index={index}>
+                        {(provided) => (
+                          <div
+                            ref={provided.innerRef}
+                            {...provided.draggableProps}
+                            className="p-4 bg-gray-50 rounded-lg border border-gray-200"
+                          >
+                            <div className="flex items-start gap-3">
+                              <div {...provided.dragHandleProps} className="mt-2">
+                                <GripVertical className="w-5 h-5 text-gray-400" />
+                              </div>
 
-          <div className="space-y-3">
-            {formData.fields.length === 0 ? (
-              <div className="text-center py-12 text-gray-500">
-                <p>No fields added yet</p>
-                {editMode && (
-                  <Button
-                    onClick={addField}
-                    variant="outline"
-                    className="mt-4"
-                  >
-                    <Plus className="w-4 h-4 mr-2" />
-                    Add Your First Field
-                  </Button>
+                              <div className="flex-1 space-y-3">
+                                <div className="grid md:grid-cols-2 gap-3">
+                                  <Input
+                                    placeholder="Field Label"
+                                    value={field.field_label}
+                                    onChange={(e) => handleFieldChange(field.field_id, 'field_label', e.target.value)}
+                                  />
+                                  <Select
+                                    value={field.field_type}
+                                    onValueChange={(value) => handleFieldChange(field.field_id, 'field_type', value)}
+                                  >
+                                    <SelectTrigger>
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {fieldTypes.map(type => (
+                                        <SelectItem key={type.value} value={type.value}>
+                                          {type.label}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+
+                                <Input
+                                  placeholder="Hint text (optional)"
+                                  value={field.field_hint || ""}
+                                  onChange={(e) => handleFieldChange(field.field_id, 'field_hint', e.target.value)}
+                                />
+
+                                <div className="flex items-center gap-4">
+                                  <div className="flex items-center gap-2">
+                                    <input
+                                      type="checkbox"
+                                      checked={field.required}
+                                      onChange={(e) => handleFieldChange(field.field_id, 'required', e.target.checked)}
+                                      className="w-4 h-4"
+                                    />
+                                    <label className="text-sm text-gray-700">Required</label>
+                                  </div>
+
+                                  {field.field_type === 'number' && (
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => {
+                                        const criticalCheck = field.critical_value_check || {
+                                          enabled: true,
+                                          condition: 'greater_than',
+                                          threshold_value: 8,
+                                          require_photo: true,
+                                          require_comment: true,
+                                          alert_manager: true
+                                        };
+                                        handleFieldChange(field.field_id, 'critical_value_check', criticalCheck);
+                                      }}
+                                    >
+                                      <AlertCircle className="w-4 h-4 mr-2" />
+                                      Add Critical Alert
+                                    </Button>
+                                  )}
+                                </div>
+
+                                {field.critical_value_check?.enabled && (
+                                  <div className="p-3 bg-red-50 rounded-lg border border-red-200">
+                                    <p className="text-sm font-medium text-red-900 mb-2">
+                                      ⚠️ Critical Value Alert
+                                    </p>
+                                    <div className="grid md:grid-cols-2 gap-2 text-xs">
+                                      <Input
+                                        type="number"
+                                        placeholder="Threshold value"
+                                        value={field.critical_value_check.threshold_value || ""}
+                                        onChange={(e) => {
+                                          const updated = { ...field.critical_value_check, threshold_value: parseFloat(e.target.value) };
+                                          handleFieldChange(field.field_id, 'critical_value_check', updated);
+                                        }}
+                                      />
+                                      <Select
+                                        value={field.critical_value_check.condition}
+                                        onValueChange={(value) => {
+                                          const updated = { ...field.critical_value_check, condition: value };
+                                          handleFieldChange(field.field_id, 'critical_value_check', updated);
+                                        }}
+                                      >
+                                        <SelectTrigger>
+                                          <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          <SelectItem value="greater_than">Greater than</SelectItem>
+                                          <SelectItem value="less_than">Less than</SelectItem>
+                                          <SelectItem value="equals">Equals</SelectItem>
+                                        </SelectContent>
+                                      </Select>
+                                    </div>
+                                    <div className="flex gap-3 mt-2">
+                                      <label className="flex items-center gap-1 text-xs">
+                                        <input
+                                          type="checkbox"
+                                          checked={field.critical_value_check.require_photo}
+                                          onChange={(e) => {
+                                            const updated = { ...field.critical_value_check, require_photo: e.target.checked };
+                                            handleFieldChange(field.field_id, 'critical_value_check', updated);
+                                          }}
+                                        />
+                                        Require Photo
+                                      </label>
+                                      <label className="flex items-center gap-1 text-xs">
+                                        <input
+                                          type="checkbox"
+                                          checked={field.critical_value_check.require_comment}
+                                          onChange={(e) => {
+                                            const updated = { ...field.critical_value_check, require_comment: e.target.checked };
+                                            handleFieldChange(field.field_id, 'critical_value_check', updated);
+                                          }}
+                                        />
+                                        Require Comment
+                                      </label>
+                                      <label className="flex items-center gap-1 text-xs">
+                                        <input
+                                          type="checkbox"
+                                          checked={field.critical_value_check.alert_manager}
+                                          onChange={(e) => {
+                                            const updated = { ...field.critical_value_check, alert_manager: e.target.checked };
+                                            handleFieldChange(field.field_id, 'critical_value_check', updated);
+                                          }}
+                                        />
+                                        Alert Manager
+                                      </label>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleRemoveField(field.field_id)}
+                                className="text-red-600 hover:bg-red-50"
+                              >
+                                <X className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+                      </Draggable>
+                    ))}
+                    {provided.placeholder}
+                  </div>
                 )}
-              </div>
-            ) : (
-              formData.fields.map(renderFieldEditor)
-            )}
-          </div>
+              </Droppable>
+            </DragDropContext>
+          )}
         </CardContent>
       </Card>
     </div>
