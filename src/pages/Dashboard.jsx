@@ -71,9 +71,9 @@ export default function Dashboard() {
     staleTime: 10 * 60 * 1000, // Cache for 10 minutes
   });
 
-  // Fetch user's checklists
-  const { data: myChecklists = [] } = useQuery({
-    queryKey: ['myChecklistsDashboard', user?.email],
+  // Fetch form assignments instead of checklists
+  const { data: formAssignments = [] } = useQuery({
+    queryKey: ['myFormAssignmentsDashboard', user?.email],
     queryFn: async () => {
       if (!user?.email) return [];
       
@@ -82,35 +82,19 @@ export default function Dashboard() {
       const sevenDaysFromNow = new Date(today);
       sevenDaysFromNow.setDate(today.getDate() + 7);
 
-      const allChecklists = await base44.entities.ChecklistExecution.list('-execution_date', 50);
+      const allAssignments = await base44.entities.FormAssignmentMetadata.list('-due_date', 50);
       
-      return allChecklists.filter(c => {
-        const execDate = new Date(c.execution_date);
-        execDate.setHours(0, 0, 0, 0);
+      return allAssignments.filter(a => {
+        const dueDate = new Date(a.due_date);
+        dueDate.setHours(0, 0, 0, 0);
         
         return (
-          c.assigned_to_email === user.email &&
-          c.status !== 'completed' &&
-          execDate >= today &&
-          execDate <= sevenDaysFromNow
+          a.assigned_to_email === user.email &&
+          (a.completion_status === 'pending' || a.completion_status === 'in_progress') &&
+          dueDate >= today &&
+          dueDate <= sevenDaysFromNow
         );
-      }).slice(0, 5); // Show max 5 upcoming checklists
-    },
-    enabled: !!user?.email,
-    staleTime: 2 * 60 * 1000,
-  });
-
-  // Fetch user's form assignments
-  const { data: formAssignments = [] } = useQuery({
-    queryKey: ['myFormAssignmentsDashboard', user?.email],
-    queryFn: async () => {
-      if (!user?.email) return [];
-
-      const allAssignments = await base44.entities.FormAssignment.list('-due_date', 50); // Fetch recent assignments
-      return allAssignments.filter(assignment => 
-        assignment.assigned_to_email === user.email &&
-        assignment.completion_status !== 'completed'
-      );
+      }).slice(0, 5);
     },
     enabled: !!user?.email,
     staleTime: 2 * 60 * 1000,
@@ -130,51 +114,6 @@ export default function Dashboard() {
 
   const activeShift = myShifts.find(s => s.status === 'in_progress');
   const nextShift = !activeShift ? myShifts.find(s => s.status === 'scheduled') : undefined;
-
-  // OPTIMIZED: Only fetch for managers, with limits
-  const { data: upcomingChecklists = [] } = useQuery({
-    queryKey: ['upcomingChecklists', user?.email],
-    queryFn: async () => {
-      if (!user?.email || (user.position !== 'manager' && user.position !== 'owner')) {
-        return [];
-      }
-
-      try {
-        const allExecutions = await base44.entities.ChecklistExecution.list('-execution_date', 50); // Limit
-        const templates = await base44.entities.ChecklistTemplate.list("", 20); // Limit
-
-        const templatesMap = new Map(templates.map(t => [t.id, t]));
-
-        const now = new Date();
-        now.setHours(0, 0, 0, 0);
-        const twoWeeksFromNow = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000);
-        twoWeeksFromNow.setHours(23, 59, 59, 999);
-
-        return allExecutions.filter(exec => {
-          const template = templatesMap.get(exec.template_id);
-          if (!template) return false;
-
-          const execDate = new Date(exec.execution_date);
-          execDate.setHours(0, 0, 0, 0);
-
-          const daysUntilDue = Math.ceil((execDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-
-          return (
-            template.applicable_roles?.includes(user.position) &&
-            exec.status !== 'completed' &&
-            exec.assigned_to_email === user.email &&
-            execDate >= now &&
-            execDate <= twoWeeksFromNow
-          );
-        });
-      } catch (error) {
-        console.error("Error fetching upcoming checklists:", error);
-        return [];
-      }
-    },
-    enabled: !!user?.email && (user?.position === 'manager' || user?.position === 'owner'),
-    staleTime: 5 * 60 * 1000,
-  });
 
   // OPTIMIZED: Load quote from cache immediately, no AI generation
   useEffect(() => {
@@ -300,39 +239,39 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        {/* Manager Upcoming Tasks Alert */}
-        {upcomingChecklists.length > 0 && (user?.position === 'manager' || user?.position === 'owner') && (
+        {/* Pending Forms Alert (replaces Manager Upcoming Tasks) */}
+        {formAssignments.length > 0 && (
           <Card className="bg-gradient-to-r from-orange-50 to-amber-50 border-orange-200">
             <CardContent className="p-6">
               <div className="flex items-start gap-4">
                 <div className="p-3 bg-orange-100 rounded-lg">
-                  <AlertTriangle className="w-6 h-6 text-orange-600" />
+                  <ListChecks className="w-6 h-6 text-orange-600" />
                 </div>
                 <div className="flex-1">
                   <h3 className="text-lg font-semibold text-orange-900 mb-2">
-                    📋 Upcoming Manager Tasks
+                    📋 Pending Forms
                   </h3>
                   <p className="text-sm text-orange-800 mb-3">
-                    You have {upcomingChecklists.length} checklist(s) due within the next 2 weeks
+                    You have {formAssignments.length} form(s) due within the next 7 days
                   </p>
                   <div className="space-y-2">
-                    {upcomingChecklists.slice(0, 3).map((checklist) => {
+                    {formAssignments.slice(0, 3).map((assignment) => {
                       const todayDate = new Date();
                       todayDate.setHours(0,0,0,0);
-                      const execDate = new Date(checklist.execution_date);
-                      execDate.setHours(0,0,0,0);
+                      const dueDate = new Date(assignment.due_date);
+                      dueDate.setHours(0,0,0,0);
 
                       const daysUntil = Math.ceil(
-                        (execDate.getTime() - todayDate.getTime()) /
+                        (dueDate.getTime() - todayDate.getTime()) /
                         (1000 * 60 * 60 * 24)
                       );
 
                       return (
-                        <div key={checklist.id} className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-3 bg-white rounded-lg">
+                        <div key={assignment.id} className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-3 bg-white rounded-lg">
                           <div>
-                            <p className="font-medium text-gray-900">{checklist.template_name}</p>
+                            <p className="font-medium text-gray-900">{assignment.form_name}</p>
                             <p className="text-sm text-gray-600 flex items-center mt-1 sm:mt-0">
-                              Due: {format(new Date(checklist.execution_date), 'PPP')}
+                              Due: {format(new Date(assignment.due_date), 'PPP')}
                               {daysUntil === 0 && (
                                 <Badge className="ml-2 bg-red-100 text-red-800 hover:bg-red-100">
                                   Due Today
@@ -348,14 +287,9 @@ export default function Dashboard() {
                                   {daysUntil} days left
                                 </Badge>
                               )}
-                              {daysUntil > 7 && daysUntil <= 14 && (
-                                <Badge className="ml-2 bg-blue-100 text-blue-800 hover:bg-blue-100">
-                                  {daysUntil} days left
-                                </Badge>
-                              )}
                             </p>
                           </div>
-                          <Link to={createPageUrl(`ExecuteChecklist?id=${checklist.id}`)}>
+                          <Link to={createPageUrl('FormIntelligence') + `?openForm=${assignment.form_id}`}>
                             <Button size="sm" variant="outline" className="mt-2 sm:mt-0">
                               View
                             </Button>
@@ -364,14 +298,14 @@ export default function Dashboard() {
                       );
                     })}
                   </div>
-                  {upcomingChecklists.length > 3 && (
+                  {formAssignments.length > 3 && (
                     <p className="text-sm text-orange-700 mt-2">
-                      +{upcomingChecklists.length - 3} more checklists
+                      +{formAssignments.length - 3} more forms
                     </p>
                   )}
-                  <Link to={createPageUrl('AdvancedChecklists')}>
+                  <Link to={createPageUrl('FormIntelligence')}>
                     <Button className="mt-4 bg-orange-600 hover:bg-orange-700 text-white">
-                      View All Checklists
+                      View All Forms
                     </Button>
                   </Link>
                 </div>
@@ -424,7 +358,7 @@ export default function Dashboard() {
             subtitle={`${staffTasks.length} total tasks`}
             icon={Users}
             color="bg-blue-500"
-            link={createPageUrl("AdvancedChecklists")}
+            link={createPageUrl("FormIntelligence")}
           />
         </div>
 
