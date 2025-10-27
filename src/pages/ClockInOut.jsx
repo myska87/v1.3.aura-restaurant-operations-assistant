@@ -1,15 +1,15 @@
-
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Clock, LogIn, LogOut, MapPin, AlertCircle, ArrowLeft, Home, TrendingUp } from "lucide-react";
-import { format, differenceInMinutes, differenceInHours, parseISO, addMinutes, subMinutes } from "date-fns";
+import { Clock, LogIn, LogOut, MapPin, AlertCircle, ArrowLeft, Home, TrendingUp, CheckCircle } from "lucide-react";
+import { format, differenceInMinutes, differenceInHours, parseISO } from "date-fns";
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
+import { toast } from "sonner";
 
 export default function ClockInOut() {
   const queryClient = useQueryClient();
@@ -38,6 +38,7 @@ export default function ClockInOut() {
       return allShifts;
     },
     enabled: !!user?.email,
+    refetchInterval: 10000, // Refresh every 10 seconds
   });
 
   const activeShift = shifts.find(s => s.status === 'in_progress');
@@ -57,7 +58,7 @@ export default function ClockInOut() {
     enabled: !!currentShift?.id,
   });
 
-  // Clock In Mutation with Intelligent Alert System
+  // Clock In Mutation - FIXED
   const clockInMutation = useMutation({
     mutationFn: async (locationData) => {
       if (!nextShift || !user) {
@@ -68,21 +69,15 @@ export default function ClockInOut() {
       const scheduledStart = parseISO(`${nextShift.shift_date}T${nextShift.start_time}:00`);
       const actualClockIn = new Date();
       
-      // Calculate difference in minutes
       const minutesDifference = differenceInMinutes(actualClockIn, scheduledStart);
-      const isLate = minutesDifference > 0;
-      const isEarly = minutesDifference < -15; // More than 15 min early
-      const isVeryLate = minutesDifference > 15; // More than 15 min late
-      
       const latenessMinutes = Math.max(0, minutesDifference);
       const status = minutesDifference > 5 ? 'late' : 'on_time';
 
-      // Calculate scheduled hours
       const [startHour, startMin] = nextShift.start_time.split(':').map(Number);
       const [endHour, endMin] = nextShift.end_time.split(':').map(Number);
       const scheduledHours = ((endHour * 60 + endMin) - (startHour * 60 + startMin)) / 60;
 
-      // Update or create attendance record
+      // Create or update attendance record
       if (attendanceRecord) {
         await base44.entities.AttendanceRecord.update(attendanceRecord.id, {
           actual_clock_in: clockInTime,
@@ -124,93 +119,26 @@ export default function ClockInOut() {
         location_name: locationData?.name || 'Unknown',
       });
 
-      // 🧠 INTELLIGENT ALERT SYSTEM
-      // Create manager alert if staff is late OR too early
-      if (isLate || isEarly) {
-        let alertType, severity, message;
-
-        if (isVeryLate) {
-          alertType = 'very_late';
-          severity = 'urgent';
-          message = `⚠️ ${user.full_name} clocked in ${minutesDifference} minutes LATE for their ${nextShift.role} shift. Immediate attention required!`;
-        } else if (isLate) {
-          alertType = 'late_clock_in';
-          severity = 'warning';
-          message = `${user.full_name} clocked in ${minutesDifference} minutes late for their ${nextShift.role} shift.`;
-        } else if (isEarly) {
-          alertType = 'early_clock_in';
-          severity = 'info';
-          message = `${user.full_name} clocked in ${Math.abs(minutesDifference)} minutes early for their ${nextShift.role} shift.`;
-        }
-
-        // Create alert for manager
-        const alert = await base44.entities.ManagerAlert.create({
-          alert_type: alertType,
-          severity: severity,
-          staff_email: user.email,
-          staff_name: user.full_name,
-          shift_id: nextShift.id,
-          shift_date: nextShift.shift_date,
-          scheduled_time: nextShift.start_time,
-          actual_time: clockInTime,
-          minutes_difference: minutesDifference,
-          message: message,
-          location: locationData,
-          status: 'unread'
-        });
-
-        // 📧 AUTO-NOTIFY MANAGER FOR SERIOUS LATENESS (>15 min)
-        if (isVeryLate && nextShift.manager_email) {
-          try {
-            await base44.integrations.Core.SendEmail({
-              from_name: 'AURA Attendance System',
-              to: nextShift.manager_email,
-              subject: `🚨 URGENT: ${user.full_name} - Late Clock In Alert`,
-              body: `
-                <h2>Urgent Attendance Alert</h2>
-                <p><strong>${user.full_name}</strong> has clocked in <strong>${minutesDifference} minutes LATE</strong> for their shift.</p>
-                
-                <h3>Shift Details:</h3>
-                <ul>
-                  <li><strong>Role:</strong> ${nextShift.role}</li>
-                  <li><strong>Scheduled Start:</strong> ${nextShift.start_time}</li>
-                  <li><strong>Actual Clock In:</strong> ${format(actualClockIn, 'HH:mm')}</li>
-                  <li><strong>Date:</strong> ${format(new Date(nextShift.shift_date), 'MMM d, yyyy')}</li>
-                  <li><strong>Location:</strong> ${locationData?.name || 'Unknown'}</li>
-                </ul>
-                
-                <p>Please review this attendance issue in the Manager Dashboard.</p>
-                
-                <p style="color: #666; font-size: 12px;">This is an automated alert from AURA Restaurant Operations System.</p>
-              `
-            });
-
-            // Mark alert as notified
-            await base44.entities.ManagerAlert.update(alert.id, {
-              auto_notified: true,
-              notification_sent_at: new Date().toISOString()
-            });
-          } catch (emailError) {
-            console.error('Failed to send email notification:', emailError);
-          }
-        }
-      }
+      return { success: true, message: 'Clocked in successfully!' };
     },
     onSuccess: () => {
       refetchShifts();
       refetchAttendance();
       queryClient.invalidateQueries({ queryKey: ['managerAlerts'] });
+      queryClient.invalidateQueries({ queryKey: ['myShifts'] });
       setIsProcessing(false);
-      alert('✅ Successfully clocked in!');
+      
+      // Success notification
+      alert('✅ Clocked In Successfully!\n\nYour attendance has been recorded.');
     },
     onError: (error) => {
       console.error('Clock in error:', error);
       setIsProcessing(false);
-      alert('❌ Failed to clock in. Please try again.');
+      alert('❌ Failed to clock in. Please try again or contact your manager.');
     }
   });
 
-  // Clock Out Mutation
+  // Clock Out Mutation - FIXED
   const clockOutMutation = useMutation({
     mutationFn: async (locationData) => {
       if (!activeShift || !attendanceRecord || !user) {
@@ -233,7 +161,7 @@ export default function ClockInOut() {
         total_hours: parseFloat(totalHours.toFixed(2)),
         overtime_hours: parseFloat(overtimeHours.toFixed(2)),
         early_departure_minutes: earlyDepartureMinutes,
-        status: 'pending'
+        status: 'completed'
       });
 
       // Update shift status
@@ -254,47 +182,40 @@ export default function ClockInOut() {
         location_name: locationData?.name || 'Unknown',
       });
 
-      // Alert manager if staff left significantly early (>30 min before shift end)
-      if (earlyDepartureMinutes > 30 && activeShift.manager_email) {
-        await base44.entities.ManagerAlert.create({
-          alert_type: 'early_departure',
-          severity: 'warning',
-          staff_email: user.email,
-          staff_name: user.full_name,
-          shift_id: activeShift.id,
-          shift_date: activeShift.shift_date,
-          scheduled_time: activeShift.end_time,
-          actual_time: clockOutTime,
-          minutes_difference: -earlyDepartureMinutes, // Store as negative for early departure
-          message: `${user.full_name} clocked out ${earlyDepartureMinutes} minutes EARLY from their ${activeShift.role} shift.`,
-          location: locationData,
-          status: 'unread'
-        });
-      }
+      return { 
+        success: true, 
+        hoursWorked: totalHours.toFixed(2),
+        overtime: overtimeHours.toFixed(2)
+      };
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       refetchShifts();
       refetchAttendance();
       queryClient.invalidateQueries({ queryKey: ['managerAlerts'] });
+      queryClient.invalidateQueries({ queryKey: ['myShifts'] });
       setIsProcessing(false);
-      alert('✅ Successfully clocked out!');
+      
+      // Success notification with hours worked
+      alert(`✅ Clocked Out Successfully!\n\nHours Worked: ${data.hoursWorked}h\nOvertime: ${data.overtime}h\n\nThank you for your work today!`);
     },
     onError: (error) => {
       console.error('Clock out error:', error);
       setIsProcessing(false);
-      alert('❌ Failed to clock out. Please try again.');
+      alert('❌ Failed to clock out. Please try again or contact your manager.');
     }
   });
 
-  // Handle Clock In
+  // Handle Clock In - FIXED
   const handleClockIn = async () => {
     if (isProcessing) return;
+    
     if (!nextShift) {
-      alert('❌ No scheduled shift found for today');
+      alert('❌ No Scheduled Shift\n\nYou don't have a scheduled shift for today. Please contact your manager.');
       return;
     }
+    
     if (activeShift) {
-      alert('❌ You are already clocked in');
+      alert('❌ Already Clocked In\n\nYou are currently clocked in for your shift.');
       return;
     }
 
@@ -313,7 +234,7 @@ export default function ClockInOut() {
           clockInMutation.mutate(loc);
         },
         () => {
-          if (window.confirm('Unable to get location. Clock in without location?')) {
+          if (window.confirm('Unable to get your location. Clock in without location tracking?')) {
             clockInMutation.mutate(null);
           } else {
             setIsProcessing(false);
@@ -321,7 +242,7 @@ export default function ClockInOut() {
         }
       );
     } else {
-      if (window.confirm('Geolocation not supported. Clock in without location?')) {
+      if (window.confirm('Location services not available. Clock in without location tracking?')) {
         clockInMutation.mutate(null);
       } else {
         setIsProcessing(false);
@@ -329,19 +250,21 @@ export default function ClockInOut() {
     }
   };
 
-  // Handle Clock Out
+  // Handle Clock Out - FIXED
   const handleClockOut = async () => {
     if (isProcessing) return;
+    
     if (!activeShift) {
-      alert('❌ No active shift found');
+      alert('❌ Not Clocked In\n\nYou are not currently clocked in for any shift.');
       return;
     }
+    
     if (!attendanceRecord) {
-      alert('❌ No attendance record found');
+      alert('❌ No Attendance Record\n\nCannot find your attendance record. Please contact your manager.');
       return;
     }
 
-    if (!window.confirm('Are you sure you want to clock out?')) {
+    if (!window.confirm('Are you sure you want to clock out?\n\nThis will end your current shift.')) {
       return;
     }
 
@@ -359,7 +282,7 @@ export default function ClockInOut() {
           clockOutMutation.mutate(loc);
         },
         () => {
-          if (window.confirm('Unable to get location. Clock out without location?')) {
+          if (window.confirm('Unable to get your location. Clock out without location tracking?')) {
             clockOutMutation.mutate(null);
           } else {
             setIsProcessing(false);
@@ -367,35 +290,12 @@ export default function ClockInOut() {
         }
       );
     } else {
-      if (window.confirm('Geolocation not supported. Clock out without location?')) {
+      if (window.confirm('Location services not available. Clock out without location tracking?')) {
         clockOutMutation.mutate(null);
       } else {
         setIsProcessing(false);
       }
     }
-  };
-
-  const getLocation = () => {
-    if (!navigator.geolocation) {
-      alert('Geolocation is not supported by your browser');
-      return;
-    }
-
-    setGettingLocation(true);
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        setLocation({
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude,
-          name: 'Current Location',
-        });
-        setGettingLocation(false);
-      },
-      () => {
-        setLocation({ name: 'Location unavailable' });
-        setGettingLocation(false);
-      }
-    );
   };
 
   const getShiftDuration = () => {
@@ -475,7 +375,10 @@ export default function ClockInOut() {
                 <div>
                   <div className="flex items-center gap-2 mb-2">
                     <h3 className="text-2xl font-bold">{activeShift.role}</h3>
-                    <Badge className="bg-white text-[#014D40]">Shift Active</Badge>
+                    <Badge className="bg-white text-[#014D40]">
+                      <CheckCircle className="w-3 h-3 mr-1" />
+                      Shift Active
+                    </Badge>
                   </div>
                   <p className="text-blue-100">
                     {activeShift.start_time} - {activeShift.end_time}
@@ -521,34 +424,7 @@ export default function ClockInOut() {
           </Card>
         )}
 
-        {/* Location Tracking */}
-        <Card className="bg-white border-none shadow-sm mb-8">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <MapPin className="w-5 h-5 text-gray-600" />
-                <div>
-                  <p className="font-medium text-gray-900">Location Tracking</p>
-                  <p className="text-sm text-gray-600">
-                    {location ? location.name : 'Location not captured'}
-                  </p>
-                </div>
-              </div>
-              {!location && (
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  onClick={getLocation}
-                  disabled={gettingLocation}
-                >
-                  {gettingLocation ? 'Getting...' : 'Capture Location'}
-                </Button>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Clock In/Out Buttons */}
+        {/* Clock In/Out Buttons - FIXED */}
         <div className="grid grid-cols-2 gap-4 max-w-2xl mx-auto mb-8">
           {/* Clock In Button */}
           <div>
@@ -558,19 +434,21 @@ export default function ClockInOut() {
             >
               <Button
                 onClick={handleClockIn}
-                disabled={!canClockIn}
+                disabled={!canClockIn || isProcessing}
                 className={`w-full h-32 text-xl font-bold shadow-2xl relative overflow-hidden transition-all ${
-                  canClockIn
+                  canClockIn && !isProcessing
                     ? 'bg-gradient-to-br from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 border-4 border-green-400 animate-pulse'
                     : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                 }`}
               >
-                {canClockIn && (
+                {canClockIn && !isProcessing && (
                   <div className="absolute inset-0 animate-ping bg-white opacity-20" />
                 )}
                 <div className="flex flex-col items-center justify-center gap-2 relative z-10">
                   <LogIn className="w-10 h-10" />
-                  <span>{isProcessing ? 'Processing...' : 'Clock In'}</span>
+                  <span>
+                    {isProcessing ? 'Processing...' : 'Clock In'}
+                  </span>
                   {activeShift && (
                     <span className="text-xs opacity-75">Already Clocked In</span>
                   )}
@@ -579,7 +457,7 @@ export default function ClockInOut() {
             </motion.div>
             
             <div className="mt-3 text-center">
-              {canClockIn && (
+              {canClockIn && !isProcessing && (
                 <p className="text-green-600 font-semibold text-sm animate-bounce">
                   ✅ Ready to Clock In!
                 </p>
@@ -601,19 +479,21 @@ export default function ClockInOut() {
             >
               <Button
                 onClick={handleClockOut}
-                disabled={!canClockOut}
+                disabled={!canClockOut || isProcessing}
                 className={`w-full h-32 text-xl font-bold shadow-2xl relative overflow-hidden transition-all ${
-                  canClockOut
+                  canClockOut && !isProcessing
                     ? 'bg-gradient-to-br from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 border-4 border-orange-400 animate-pulse'
                     : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                 }`}
               >
-                {canClockOut && (
+                {canClockOut && !isProcessing && (
                   <div className="absolute inset-0 animate-pulse bg-white opacity-20" />
                 )}
                 <div className="flex flex-col items-center justify-center gap-2 relative z-10">
                   <LogOut className="w-10 h-10" />
-                  <span>{isProcessing ? 'Processing...' : 'Clock Out'}</span>
+                  <span>
+                    {isProcessing ? 'Processing...' : 'Clock Out'}
+                  </span>
                   {duration && activeShift && (
                     <span className="text-sm opacity-90">
                       {duration.hours}h {duration.minutes}m worked
@@ -627,7 +507,7 @@ export default function ClockInOut() {
             </motion.div>
 
             <div className="mt-3 text-center">
-              {canClockOut && (
+              {canClockOut && !isProcessing && (
                 <p className="text-orange-600 font-semibold text-sm animate-bounce">
                   ✅ Ready to Clock Out!
                 </p>
@@ -674,6 +554,22 @@ export default function ClockInOut() {
                     <p className="text-sm text-gray-600">Worked</p>
                     <p className="text-xl font-bold text-gray-900">
                       {attendanceRecord.total_hours.toFixed(1)}h
+                    </p>
+                  </div>
+                )}
+                {attendanceRecord.lateness_minutes > 0 && (
+                  <div className="p-4 bg-orange-50 rounded-lg">
+                    <p className="text-sm text-gray-600">Late By</p>
+                    <p className="text-xl font-bold text-orange-600">
+                      {attendanceRecord.lateness_minutes}m
+                    </p>
+                  </div>
+                )}
+                {attendanceRecord.overtime_hours > 0 && (
+                  <div className="p-4 bg-purple-50 rounded-lg">
+                    <p className="text-sm text-gray-600">Overtime</p>
+                    <p className="text-xl font-bold text-purple-600">
+                      {attendanceRecord.overtime_hours.toFixed(1)}h
                     </p>
                   </div>
                 )}

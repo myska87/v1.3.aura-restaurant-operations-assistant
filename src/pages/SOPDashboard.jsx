@@ -1,5 +1,4 @@
-
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,7 +20,8 @@ import {
   Filter,
   BookOpen,
   Mic,
-  AlertTriangle
+  AlertTriangle,
+  RefreshCw
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -39,9 +39,11 @@ export default function SOPDashboard() {
 
   const isManager = user?.position === 'manager' || user?.position === 'owner' || user?.role === 'admin';
 
-  const { data: sops = [] } = useQuery({
+  // FIXED: Add refetchInterval for live updates
+  const { data: sops = [], isLoading, refetch } = useQuery({
     queryKey: ['sops'],
     queryFn: () => base44.entities.SOPDocument.list('-created_date', 100),
+    refetchInterval: 5000, // Refresh every 5 seconds
   });
 
   const { data: myCertifications = [] } = useQuery({
@@ -66,8 +68,8 @@ export default function SOPDashboard() {
     enabled: !!user?.email,
   });
 
-  // Filter SOPs
-  const activeSops = sops.filter(sop => sop.active_status);
+  // Filter SOPs - FIXED: Include active_status check
+  const activeSops = sops.filter(sop => sop.active_status !== false);
   
   const filteredSops = activeSops.filter(sop => {
     const matchesSearch = !searchQuery || 
@@ -134,16 +136,26 @@ export default function SOPDashboard() {
             <p className="text-gray-600">Your complete guide to restaurant operations</p>
           </div>
           
-          {isManager && (
-            <div className="flex gap-3">
+          <div className="flex gap-3">
+            {/* Manual Refresh Button */}
+            <Button
+              variant="outline"
+              onClick={() => refetch()}
+              disabled={isLoading}
+            >
+              <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+              Refresh
+            </Button>
+
+            {isManager && (
               <Link to={createPageUrl("SOPBuilder")}>
                 <Button className="bg-gradient-to-r from-[#014D40] to-emerald-600 hover:from-[#013830] hover:to-emerald-700">
                   <Plus className="w-4 h-4 mr-2" />
                   Create SOP
                 </Button>
               </Link>
-            </div>
-          )}
+            )}
+          </div>
         </div>
 
         {/* Stats Cards */}
@@ -250,99 +262,111 @@ export default function SOPDashboard() {
           </CardContent>
         </Card>
 
+        {/* Loading State */}
+        {isLoading && (
+          <Card className="mb-6">
+            <CardContent className="p-12 text-center">
+              <RefreshCw className="w-12 h-12 text-gray-400 mx-auto mb-4 animate-spin" />
+              <p className="text-gray-600">Loading SOPs...</p>
+            </CardContent>
+          </Card>
+        )}
+
         {/* SOPs Grid */}
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredSops.map(sop => {
-            const signature = getSignatureStatus(sop.id);
-            const cert = myCertifications.find(c => c.sop_id === sop.id);
-            
-            return (
-              <Card 
-                key={sop.id}
-                className="border-none shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer group"
-                onClick={() => navigate(createPageUrl(`SOPViewer?id=${sop.id}`))}
-              >
-                <CardContent className="p-6">
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex-1">
-                      <h3 className="font-bold text-lg text-gray-900 mb-2 group-hover:text-[#014D40] transition-colors">
-                        {sop.title}
-                      </h3>
-                      <p className="text-sm text-gray-600 line-clamp-2 mb-3">
-                        {sop.description}
-                      </p>
+        {!isLoading && (
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filteredSops.map(sop => {
+              const signature = getSignatureStatus(sop.id);
+              const cert = myCertifications.find(c => c.sop_id === sop.id);
+              
+              return (
+                <Card 
+                  key={sop.id}
+                  className="border-none shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer group"
+                  onClick={() => navigate(createPageUrl(`SOPViewer?id=${sop.id}`))}
+                >
+                  <CardContent className="p-6">
+                    <div className="flex items-start justify-between mb-4">
+                      <div className="flex-1">
+                        <h3 className="font-bold text-lg text-gray-900 mb-2 group-hover:text-[#014D40] transition-colors">
+                          {sop.title}
+                        </h3>
+                        <p className="text-sm text-gray-600 line-clamp-2 mb-3">
+                          {sop.description}
+                        </p>
+                      </div>
                     </div>
-                  </div>
 
-                  <div className="flex flex-wrap gap-2 mb-4">
-                    <Badge className={`${getCategoryColor(sop.category)} border capitalize`}>
-                      {sop.category}
-                    </Badge>
-                    {sop.frequency && (
-                      <Badge variant="outline" className="text-xs capitalize">
-                        {sop.frequency}
+                    <div className="flex flex-wrap gap-2 mb-4">
+                      <Badge className={`${getCategoryColor(sop.category)} border capitalize`}>
+                        {sop.category}
                       </Badge>
-                    )}
-                    {signature && (
-                      <Badge className="bg-green-100 text-green-800 border-green-300">
-                        <CheckCircle className="w-3 h-3 mr-1" />
-                        Signed
-                      </Badge>
-                    )}
-                    {cert?.status === 'completed' && (
-                      <Badge className="bg-purple-100 text-purple-800 border-purple-300">
-                        <Award className="w-3 h-3 mr-1" />
-                        Certified
-                      </Badge>
-                    )}
-                  </div>
+                      {sop.frequency && (
+                        <Badge variant="outline" className="text-xs capitalize">
+                          {sop.frequency}
+                        </Badge>
+                      )}
+                      {signature && (
+                        <Badge className="bg-green-100 text-green-800 border-green-300">
+                          <CheckCircle className="w-3 h-3 mr-1" />
+                          Signed
+                        </Badge>
+                      )}
+                      {cert?.status === 'completed' && (
+                        <Badge className="bg-purple-100 text-purple-800 border-purple-300">
+                          <Award className="w-3 h-3 mr-1" />
+                          Certified
+                        </Badge>
+                      )}
+                    </div>
 
-                  <div className="flex items-center justify-between text-sm text-gray-600 mb-4">
-                    {sop.total_time_minutes && (
-                      <span className="flex items-center gap-1">
-                        <Clock className="w-4 h-4" />
-                        {sop.total_time_minutes} min
-                      </span>
-                    )}
-                    {sop.view_count > 0 && (
-                      <span className="flex items-center gap-1">
-                        <Eye className="w-4 h-4" />
-                        {sop.view_count} views
-                      </span>
-                    )}
-                  </div>
+                    <div className="flex items-center justify-between text-sm text-gray-600 mb-4">
+                      {sop.total_time_minutes && (
+                        <span className="flex items-center gap-1">
+                          <Clock className="w-4 h-4" />
+                          {sop.total_time_minutes} min
+                        </span>
+                      )}
+                      {sop.view_count > 0 && (
+                        <span className="flex items-center gap-1">
+                          <Eye className="w-4 h-4" />
+                          {sop.view_count} views
+                        </span>
+                      )}
+                    </div>
 
-                  <div className="flex gap-2">
-                    <Button 
-                      className="flex-1 bg-gradient-to-r from-[#014D40] to-emerald-600"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        navigate(createPageUrl(`SOPViewer?id=${sop.id}`));
-                      }}
-                    >
-                      <BookOpen className="w-4 h-4 mr-2" />
-                      View SOP
-                    </Button>
-                    <Button 
-                      variant="outline"
-                      size="icon"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        navigate(createPageUrl(`SOPVoiceMode?id=${sop.id}`));
-                      }}
-                      title="Voice Mode"
-                    >
-                      <Mic className="w-4 h-4" />
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
+                    <div className="flex gap-2">
+                      <Button 
+                        className="flex-1 bg-gradient-to-r from-[#014D40] to-emerald-600"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate(createPageUrl(`SOPViewer?id=${sop.id}`));
+                        }}
+                      >
+                        <BookOpen className="w-4 h-4 mr-2" />
+                        View SOP
+                      </Button>
+                      <Button 
+                        variant="outline"
+                        size="icon"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate(createPageUrl(`SOPVoiceMode?id=${sop.id}`));
+                        }}
+                        title="Voice Mode"
+                      >
+                        <Mic className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        )}
 
         {/* Empty State */}
-        {filteredSops.length === 0 && (
+        {!isLoading && filteredSops.length === 0 && (
           <Card className="border-none shadow-lg">
             <CardContent className="p-12 text-center">
               <FileText className="w-16 h-16 text-gray-300 mx-auto mb-4" />
