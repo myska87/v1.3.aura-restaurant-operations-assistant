@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -24,10 +25,9 @@ import {
   Shield,
   FileText,
   Database,
-  Activity,
-  Settings,
-  Sparkles,
-  Mic,
+  Activity, // Added Activity icon
+  Settings, // Added Settings icon for Form Intelligence
+  Sparkles, // Added Sparkles icon for Menu Intelligence
 } from "lucide-react";
 import WelcomeNewHire from "./components/WelcomeNewHire";
 import ChecklistAutomation from "./components/ChecklistAutomation";
@@ -38,9 +38,9 @@ import { StaffDataSync } from "./components/StaffDataSync";
 import MenuImporter from "./components/MenuImporter";
 import SystemStatusCheck from "./components/SystemStatusCheck";
 import ComplianceEventListener from "./components/ComplianceEventListener";
-import ChangeDetector from "./components/ChangeDetector";
-import DataBridgeEngine from "./components/DataBridgeEngine";
-import FormIntelligenceEngine from "./components/FormIntelligenceEngine";
+import ChangeDetector from "./components/ChangeDetector"; // Import the new component
+import DataBridgeEngine from "./components/DataBridgeEngine"; // Import the new component
+import FormIntelligenceEngine from "./components/FormIntelligenceEngine"; // Import the new component
 import FormScheduler from "./components/FormScheduler";
 import { ComplianceStyles } from "./components/ComplianceStyles";
 
@@ -115,7 +115,7 @@ const navigationItems = [
       {
         title: "🍽️ Menu",
         url: createPageUrl("Menu"),
-        icon: Package,
+        icon: Package, // Reusing Package icon for Menu as it fits well for products/items
         badge: null,
       },
       {
@@ -163,12 +163,6 @@ const managementItems = [
     url: createPageUrl("ManagerDashboard"),
     icon: TrendingUp,
     badge: "MGMT",
-  },
-  {
-    title: "🎙️ Meeting AI",
-    url: createPageUrl("MeetingDashboard"),
-    icon: Mic,
-    badge: "NEW",
   },
   {
     title: "🤖 Hey AURA - AI Console",
@@ -379,11 +373,9 @@ export default function Layout({ children }) {
                               ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white' 
                               : item.badge === 'LIVE'
                                 ? 'bg-gradient-to-r from-green-500 to-emerald-500 text-white'
-                                : item.badge === 'NEW'
-                                  ? 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white'
-                                  : item.badge === 'AUDIT'
-                                    ? 'bg-orange-100 text-orange-700'
-                                    : 'bg-purple-100 text-purple-700'
+                                : item.badge === 'AUDIT'
+                                  ? 'bg-orange-100 text-orange-700' // Added style for AUDIT badge
+                                  : 'bg-purple-100 text-purple-700'
                           }`}>
                             {item.badge}
                           </Badge>
