@@ -94,6 +94,7 @@ import UserManagement from './pages/UserManagement';
 import BugReport from './pages/BugReport';
 import FeatureIdeas from './pages/FeatureIdeas';
 import DocumentSignatureReport from './pages/DocumentSignatureReport';
+import AgentMonitor from './pages/AgentMonitor';
 import Layout from './Layout.jsx';
 
 
@@ -194,6 +195,7 @@ export const PAGES = {
     "BugReport": BugReport,
     "FeatureIdeas": FeatureIdeas,
     "DocumentSignatureReport": DocumentSignatureReport,
+    "AgentMonitor": AgentMonitor,
 }
 
 export const pagesConfig = {

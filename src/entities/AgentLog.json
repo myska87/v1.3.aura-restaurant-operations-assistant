@@ -1,0 +1,42 @@
+{
+  "name": "AgentLog",
+  "type": "object",
+  "properties": {
+    "agent_name": {
+      "type": "string",
+      "description": "Name of the AI agent"
+    },
+    "action_type": {
+      "type": "string",
+      "description": "Type of action performed"
+    },
+    "data": {
+      "type": "object",
+      "description": "Action data and context"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When action was performed"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "completed",
+        "failed",
+        "pending"
+      ],
+      "default": "completed"
+    },
+    "error_message": {
+      "type": "string",
+      "description": "Error details if failed"
+    }
+  },
+  "required": [
+    "agent_name",
+    "action_type",
+    "timestamp",
+    "status"
+  ]
+}
