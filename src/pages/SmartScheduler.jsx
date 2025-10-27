@@ -1,3 +1,4 @@
+
 import { useState, useMemo } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -27,6 +28,7 @@ import {
   Users,
   TrendingUp,
   Calendar as CalendarIcon,
+  Copy, // Added Copy icon
 } from "lucide-react";
 import { format, startOfWeek, addDays, addWeeks, subWeeks, parseISO, parse, isSameDay } from "date-fns";
 import { Link } from "react-router-dom";
@@ -150,13 +152,11 @@ export default function SmartScheduler() {
     mutationFn: (data) => base44.entities.Shift.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['weekShifts'] });
-      refetchShifts();
-      resetForm();
-      alert('✅ Shift created successfully!');
+      // Specific alert/refetch should be handled by the caller (handleSubmit or handleCopyDayShifts)
     },
     onError: (error) => {
       console.error('Error creating shift:', error);
-      alert('❌ Failed to create shift. Please try again.');
+      // Specific alert should be handled by the caller
     }
   });
 
@@ -165,13 +165,11 @@ export default function SmartScheduler() {
     mutationFn: ({ id, data }) => base44.entities.Shift.update(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['weekShifts'] });
-      refetchShifts();
-      resetForm();
-      alert('✅ Shift updated successfully!');
+      // Specific alert/refetch should be handled by the caller (handleSubmit or handleDragEnd)
     },
     onError: (error) => {
       console.error('Error updating shift:', error);
-      alert('❌ Failed to update shift. Please try again.');
+      // Specific alert should be handled by the caller
     }
   });
 
@@ -180,12 +178,11 @@ export default function SmartScheduler() {
     mutationFn: (id) => base44.entities.Shift.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['weekShifts'] });
-      refetchShifts();
-      alert('✅ Shift deleted successfully!');
+      // Specific alert/refetch should be handled by the caller (handleDeleteShift)
     },
     onError: (error) => {
       console.error('Error deleting shift:', error);
-      alert('❌ Failed to delete shift.');
+      // Specific alert should be handled by the caller
     }
   });
 
@@ -252,11 +249,17 @@ export default function SmartScheduler() {
           id: selectedShift.id,
           data: dataToSave
         });
+        alert('✅ Shift updated successfully!');
       } else {
         await createShiftMutation.mutateAsync(dataToSave);
+        alert('✅ Shift created successfully!');
       }
+      refetchShifts();
+      resetForm();
     } catch (error) {
+      console.error('Error saving shift:', error);
       setValidationError("Failed to save shift. Please try again.");
+      alert('❌ Failed to save shift. Please try again.');
     }
   };
 
@@ -303,12 +306,19 @@ export default function SmartScheduler() {
   };
 
   // Delete shift with confirmation
-  const handleDeleteShift = () => {
+  const handleDeleteShift = async () => {
     if (!selectedShift) return;
     
     if (window.confirm(`Are you sure you want to delete this shift for ${selectedShift.staff_name}?`)) {
-      deleteShiftMutation.mutate(selectedShift.id);
-      resetForm();
+      try {
+        await deleteShiftMutation.mutateAsync(selectedShift.id);
+        refetchShifts();
+        alert('✅ Shift deleted successfully!');
+        resetForm();
+      } catch (error) {
+        console.error('Error deleting shift:', error);
+        alert('❌ Failed to delete shift.');
+      }
     }
   };
 
@@ -363,10 +373,86 @@ export default function SmartScheduler() {
         }
       });
       console.log(`✅ Moved ${shift.staff_name} to ${newDate}`);
+      refetchShifts();
     } catch (error) {
       console.error('Drag update failed:', error);
-      alert('Failed to move shift');
+      alert('❌ Failed to move shift');
     }
+  };
+
+  // ============ COPY SHIFTS TO NEXT DAY LOGIC ============
+  const handleCopyDayShifts = async (sourceDate) => {
+    const shiftsToCopy = getShiftsForDay(sourceDate);
+    if (shiftsToCopy.length === 0) {
+        alert(`No shifts to copy for ${format(sourceDate, 'EEE, MMM d')}.`);
+        return;
+    }
+
+    const nextDay = addDays(sourceDate, 1);
+    const nextDayStr = format(nextDay, 'yyyy-MM-dd');
+    const sourceDateStr = format(sourceDate, 'EEE, MMM d');
+    const nextDayDisplayStr = format(nextDay, 'EEE, MMM d');
+
+    if (!window.confirm(`Are you sure you want to copy ${shiftsToCopy.length} shifts from ${sourceDateStr} to ${nextDayDisplayStr}?`)) {
+        return;
+    }
+
+    let copiedCount = 0;
+    let skippedCount = 0;
+    let conflicts = [];
+    let unavailableStaff = [];
+
+    const operations = shiftsToCopy.map(async (shift) => {
+        const newShiftData = {
+            ...shift,
+            shift_date: nextDayStr,
+            id: undefined, // Ensure a new ID is generated by the backend
+            created_at: undefined,
+            updated_at: undefined,
+        };
+
+        // Check for staff availability on the next day
+        const staffAvailability = availabilities.find(
+            a => a.staff_email === newShiftData.staff_email && a.date === newShiftData.shift_date
+        );
+
+        if (staffAvailability && !staffAvailability.is_available) {
+            unavailableStaff.push(`${shift.staff_name} (${format(parseISO(newShiftData.shift_date), 'MMM d')})`);
+            return Promise.resolve(); // Skip this shift
+        }
+
+        // Check for conflicts on new date *before* attempting mutation
+        const overlaps = checkForOverlaps(newShiftData, null); // Pass null for ID as it's a new shift
+        if (overlaps.length > 0) {
+            conflicts.push(`${shift.staff_name} on ${nextDayDisplayStr} (${overlaps[0].start_time}-${overlaps[0].end_time})`);
+            return Promise.resolve(); // Skip this shift due to conflict
+        }
+
+        try {
+            await createShiftMutation.mutateAsync(newShiftData);
+            copiedCount++;
+        } catch (error) {
+            console.error(`Failed to copy shift for ${shift.staff_name} to ${nextDayStr}:`, error);
+            skippedCount++;
+        }
+    });
+
+    await Promise.allSettled(operations); // Use Promise.allSettled to ensure all operations complete, even if some fail
+
+    let feedbackMessage = `Finished copying shifts from ${sourceDateStr} to ${nextDayDisplayStr}:\n`;
+    feedbackMessage += `✅ ${copiedCount} shifts copied.\n`;
+    if (unavailableStaff.length > 0) {
+        feedbackMessage += `⚠️ ${unavailableStaff.length} shifts skipped due to unavailability: ${unavailableStaff.join(', ')}\n`;
+    }
+    if (conflicts.length > 0) {
+        feedbackMessage += `❌ ${conflicts.length} shifts skipped due to existing overlaps: ${conflicts.join(', ')}\n`;
+    }
+    if (skippedCount > 0) {
+        feedbackMessage += `❌ ${skippedCount} shifts failed to copy due to other errors.\n`;
+    }
+
+    alert(feedbackMessage);
+    refetchShifts(); // Refresh shifts after all operations are done
   };
 
   // ============ AI SUGGESTIONS ============
@@ -617,7 +703,7 @@ export default function SmartScheduler() {
                         transition-all duration-200
                       `}
                     >
-                      <CardHeader className="p-3 bg-gradient-to-br from-purple-50 to-blue-50 rounded-t-lg">
+                      <CardHeader className="p-3 bg-gradient-to-br from-purple-50 to-blue-50 rounded-t-lg relative"> {/* Added relative positioning */}
                         <CardTitle className="text-sm font-semibold text-gray-800 text-center">
                           {format(day, 'EEE')}
                           <br />
@@ -627,6 +713,19 @@ export default function SmartScheduler() {
                         <p className="text-xs text-center text-gray-600 mt-1">
                           {dayShifts.length} {dayShifts.length === 1 ? 'shift' : 'shifts'}
                         </p>
+                        {/* Copy to Next Day Button */}
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="absolute top-1 right-1 h-6 w-6 text-gray-500 hover:bg-gray-100"
+                            onClick={(e) => {
+                                e.stopPropagation(); // Prevent card click if any
+                                handleCopyDayShifts(day);
+                            }}
+                            title={`Copy shifts from ${format(day, 'EEE, MMM d')} to the next day`}
+                        >
+                            <Copy className="w-3 h-3" />
+                        </Button>
                       </CardHeader>
                       <CardContent className="p-2 space-y-2 min-h-[200px]">
                         {dayShifts.length > 0 ? (
