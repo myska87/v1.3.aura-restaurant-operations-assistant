@@ -21,7 +21,7 @@ import {
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
-import { permissions, getRoleLevel, isManager, isAdmin } from '@/utils/permissions';
+import { permissions, getRoleLevel, isManager, isAdmin } from '../components/PermissionsConfig';
 import { SecurityBadge } from '../components/PermissionGuard';
 
 export default function SecurityDashboard() {

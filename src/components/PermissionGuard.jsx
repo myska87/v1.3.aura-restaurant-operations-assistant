@@ -1,7 +1,7 @@
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
-import { canAccessEntity, isManager, isAdmin } from '@/utils/permissions';
+import { canAccessEntity, isManager, isAdmin } from './PermissionsConfig';
 import { Card, CardContent } from '@/components/ui/card';
 import { Shield, Lock, AlertTriangle } from 'lucide-react';
 
