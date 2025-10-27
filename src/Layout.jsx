@@ -104,6 +104,12 @@ const navigationItems = [
         badge: null,
       },
       {
+        title: "📝 Document Library",
+        url: createPageUrl("DocumentLibrary"),
+        icon: FileText,
+        badge: null,
+      },
+      {
         title: "Form Intelligence",
         url: createPageUrl("FormIntelligence"),
         icon: Settings,
@@ -203,6 +209,12 @@ const managementItems = [
     badge: null,
   },
   {
+    title: "✍️ Document Builder",
+    url: createPageUrl("DocumentBuilder"),
+    icon: FileText,
+    badge: "NEW",
+  },
+  {
     title: "Smart Scheduler",
     url: createPageUrl("SmartScheduler"),
     icon: Calendar,
@@ -237,6 +249,12 @@ const managementItems = [
     url: createPageUrl("DataManagement"),
     icon: Database,
     badge: null,
+  },
+  {
+    title: "👥 User Management",
+    url: createPageUrl("UserManagement"),
+    icon: Users,
+    badge: "ADMIN",
   },
   {
     title: "🔒 Security & Permissions",
@@ -420,8 +438,12 @@ export default function Layout({ children, currentPageName }) {
                               : item.badge === 'LIVE'
                                 ? 'bg-gradient-to-r from-green-500 to-emerald-500 text-white'
                                 : item.badge === 'AUDIT'
-                                  ? 'bg-orange-100 text-orange-700' // Added style for AUDIT badge
-                                  : 'bg-purple-100 text-purple-700'
+                                  ? 'bg-orange-100 text-orange-700'
+                                  : item.badge === 'NEW'
+                                    ? 'bg-red-100 text-red-700' // Style for NEW badge
+                                    : item.badge === 'ADMIN'
+                                      ? 'bg-teal-100 text-teal-700' // Style for ADMIN badge
+                                      : 'bg-purple-100 text-purple-700'
                           }`}>
                             {item.badge}
                           </Badge>
