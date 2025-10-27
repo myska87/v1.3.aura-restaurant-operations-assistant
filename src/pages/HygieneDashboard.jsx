@@ -1,19 +1,25 @@
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import {
   Thermometer,
   Droplets,
-  PackageCheck, // Changed from Package
-  Wrench,       // Added Wrench icon
+  PackageCheck,
+  Wrench,
   Award,
   Star,
   TrendingUp,
@@ -29,20 +35,21 @@ import {
   Trophy,
   Target,
   Activity,
+  ArrowLeft, // Imported as per outline, but not used in the provided snippets.
+  FileText, // Used for forms integration
 } from "lucide-react";
-import { format, subDays, startOfWeek, endOfWeek } from "date-fns";
+import { format } from "date-fns"; // Removed subDays, startOfWeek, endOfWeek as per outline
 import { Link, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { motion } from "framer-motion";
 
 export default function HygieneDashboard() {
-  const queryClient = useQueryClient();
   const navigate = useNavigate();
-  const [selectedPeriod, setSelectedPeriod] = useState('today');
-  const [selectedAction, setSelectedAction] = useState(null); // This state isn't strictly necessary as recordData.record_type holds the current action, but kept as per outline.
+  const queryClient = useQueryClient();
+  const [selectedAction, setSelectedAction] = useState(null);
   const [showRecordForm, setShowRecordForm] = useState(false);
   const [recordData, setRecordData] = useState({
-    record_type: 'storage_fridge', // Default to a common type
+    record_type: 'storage_fridge',
     item_name: '',
     recorded_value: '',
     location: '',
@@ -54,25 +61,13 @@ export default function HygieneDashboard() {
     queryFn: () => base44.auth.me(),
   });
 
+  const isManager = user?.position === 'manager' || user?.position === 'owner' || user?.role === 'admin';
+
+  const today = new Date().toISOString().split('T')[0]; // Format 'YYYY-MM-DD' for query keys
+
   const { data: records = [], isLoading: loadingRecords } = useQuery({
-    queryKey: ['hygieneRecords', selectedPeriod],
-    queryFn: async () => {
-      const allRecords = await base44.entities.HygieneRecord.list('-created_date');
-
-      const now = new Date();
-      let filterDate;
-
-      if (selectedPeriod === 'today') {
-        filterDate = new Date();
-        filterDate.setHours(0, 0, 0, 0);
-      } else if (selectedPeriod === 'week') {
-        filterDate = startOfWeek(now);
-      } else if (selectedPeriod === '30days') {
-        filterDate = subDays(now, 30);
-      }
-
-      return allRecords.filter(r => new Date(r.created_date) >= filterDate);
-    },
+    queryKey: ['hygieneRecords', today], // Query key now includes `today`
+    queryFn: () => base44.entities.HygieneRecord.list('-created_date'), // Fetch all, will filter for `todayRecords` later
   });
 
   const { data: myScore } = useQuery({
@@ -103,15 +98,54 @@ export default function HygieneDashboard() {
     },
   });
 
-  const checkIfInRange = (value, type) => {
-    const numValue = parseFloat(value);
-    // For cleaning and equipment_check, if a value is recorded (e.g., 'Pass' or 'Clean'), it's considered in range.
-    // If it's a numerical record type, check against defined ranges.
-    if (type === 'cleaning' || type === 'equipment_check') {
-      return value !== null && value !== ''; // Assume any record implies compliance
-    }
-    if (isNaN(numValue)) return false; // If numerical type, but value is not a number
+  // Fetch form assignments for today
+  const { data: formAssignments = [] } = useQuery({
+    queryKey: ['formAssignments', user?.email, today],
+    queryFn: async () => {
+      if (!user?.email) return [];
+      
+      let assignments;
+      if (isManager) {
+        // Managers see all assignments
+        assignments = await base44.entities.FormAssignmentMetadata.list('-assigned_at');
+      } else {
+        // Staff see only their assignments
+        assignments = await base44.entities.FormAssignmentMetadata.filter({
+          assigned_to_email: user.email
+        }, '-assigned_at');
+      }
+      
+      // Filter for assignments due today or active and not completed
+      const todayDate = new Date();
+      todayDate.setHours(0, 0, 0, 0); // Normalize to start of today
 
+      return assignments.filter(a => {
+        const dueDate = new Date(a.due_date);
+        dueDate.setHours(0, 0, 0, 0); // Normalize due date
+        return (
+          dueDate.getTime() === todayDate.getTime() || // Due today
+          (a.completion_status !== 'completed' && a.completion_status !== 'archived') // Or not completed/archived
+        );
+      });
+    },
+    enabled: !!user?.email,
+  });
+
+  // Fetch hygiene-related form templates (not directly used for display, but good to have)
+  const { data: hygieneForms = [] } = useQuery({
+    queryKey: ['hygieneForms'],
+    queryFn: async () => {
+      const allForms = await base44.entities.FormTemplate.list();
+      return allForms.filter(f => 
+        f.category === 'haccp' || 
+        f.category === 'sops' || 
+        f.category === 'equipment' ||
+        f.is_active // Also include any active forms not explicitly categorized
+      );
+    },
+  });
+
+  const checkIfInRange = (value, type) => {
     const ranges = {
       storage_fridge: { min: 0, max: 5 },
       storage_freezer: { min: -22, max: -18 },
@@ -120,7 +154,12 @@ export default function HygieneDashboard() {
       delivery: { min: 0, max: 5 }
     };
     const range = ranges[type];
-    if (!range) return true; // No specific numerical range defined, default to true
+    if (!range) return true; // No specific numerical range defined, default to true for types like cleaning, equipment_check
+    
+    // Ensure value is a number for numerical range checks
+    const numValue = parseFloat(value);
+    if (isNaN(numValue)) return false; // If numerical type, but value is not a number
+    
     return numValue >= range.min && numValue <= range.max;
   };
 
@@ -128,8 +167,9 @@ export default function HygieneDashboard() {
     mutationFn: async (data) => {
       if (!user?.email) throw new Error("User not authenticated.");
 
+      // Determine the value to record and process it
       const valueToRecord = ['storage_fridge', 'storage_freezer', 'cooking', 'cooling', 'delivery'].includes(data.record_type)
-        ? parseFloat(data.recorded_value)
+        ? parseFloat(data.recorded_value) // Convert to float for numerical types
         : data.recorded_value; // Keep as string for non-numerical types
 
       const isInRange = checkIfInRange(valueToRecord, data.record_type);
@@ -137,11 +177,11 @@ export default function HygieneDashboard() {
 
       const recordWithDefaults = {
         ...data,
-        recorded_value: valueToRecord,
+        recorded_value: valueToRecord, // Use the processed value
         recorded_by_email: user.email,
         recorded_by_name: user.full_name,
-        venue_id: user.venue_id || 'default_venue_id', // Ensure a fallback
-        venue_name: user.venue_name || 'Default Venue Name', // Ensure a fallback
+        venue_id: user.venue_id || 'default_venue', // Ensure a fallback as per outline
+        venue_name: user.venue_name || 'Main Location', // Ensure a fallback as per outline
         is_in_range: isInRange,
         variance_alert: !isInRange,
         points_awarded: pointsAwarded,
@@ -212,10 +252,15 @@ export default function HygieneDashboard() {
       return;
     }
     if (['storage_fridge', 'storage_freezer', 'cooking', 'cooling', 'delivery'].includes(recordData.record_type)) {
+      // For numerical types, check if value is provided and is a valid number
       if (recordData.recorded_value === '' || isNaN(parseFloat(recordData.recorded_value))) {
         alert('Please enter a valid temperature/value.');
         return;
       }
+    } else if (recordData.recorded_value === '') {
+        // For non-numerical types (cleaning, equipment_check), value can be a string, but should not be empty
+        alert('Please provide a value for the record (e.g., "Pass" or "Clean").');
+        return;
     }
     createRecordMutation.mutate(recordData);
   };
@@ -233,21 +278,12 @@ export default function HygieneDashboard() {
     return ranges[type] || 'Check standards';
   };
 
-  const isManager = user?.position === 'manager' || user?.position === 'owner' || user?.role === 'admin';
-
-  // Calculate stats
+  // Calculate stats from records
   const todayRecords = records.filter(r => {
     const recordDate = new Date(r.created_date);
-    const today = new Date();
-    return recordDate.toDateString() === today.toDateString();
+    const now = new Date();
+    return recordDate.toDateString() === now.toDateString();
   });
-
-  const temperatureRecords = records.filter(r =>
-    ['delivery', 'storage_fridge', 'storage_freezer', 'cooking', 'cooling'].includes(r.record_type)
-  );
-
-  const cleaningRecords = records.filter(r => r.record_type === 'cleaning');
-  const deliveryRecords = records.filter(r => r.record_type === 'delivery');
 
   const recordsInRange = records.filter(r => r.is_in_range !== false).length;
   const complianceRate = records.length > 0
@@ -257,28 +293,54 @@ export default function HygieneDashboard() {
   const criticalAlerts = alerts.filter(a => a.severity === 'critical' || a.severity === 'urgent').length;
   const openAlerts = alerts.filter(a => a.status === 'open').length;
 
+  // Form-based metrics
+  const todayDateOnly = new Date();
+  todayDateOnly.setHours(0, 0, 0, 0);
+
+  const todayAssignments = formAssignments.filter(a => {
+    const dueDate = new Date(a.due_date);
+    dueDate.setHours(0, 0, 0, 0);
+    return dueDate.getTime() === todayDateOnly.getTime();
+  });
+
+  const completedForms = formAssignments.filter(a => a.completion_status === 'completed').length;
+  const pendingForms = formAssignments.filter(a => a.completion_status === 'pending' || a.completion_status === 'in_progress').length;
+  const overdueForms = formAssignments.filter(a => {
+    const dueDate = new Date(a.due_date);
+    return a.completion_status !== 'completed' && a.completion_status !== 'archived' && dueDate < new Date();
+  }).length;
+  
+  const formCompletionRate = formAssignments.length > 0
+    ? Math.round((completedForms / formAssignments.length) * 100)
+    : 100;
+
   // Star rating calculation
   const calculateStarRating = () => {
-    if (complianceRate >= 98) return 5;
-    if (complianceRate >= 95) return 4;
-    if (complianceRate >= 90) return 3;
-    if (complianceRate >= 80) return 2;
-    if (complianceRate >= 70) return 1;
+    const avgRate = (complianceRate + formCompletionRate) / 2;
+    if (avgRate >= 98) return 5;
+    if (avgRate >= 95) return 4;
+    if (avgRate >= 90) return 3;
+    if (avgRate >= 80) return 2;
+    if (avgRate >= 70) return 1;
     return 0;
   };
 
   const starRating = calculateStarRating();
 
-  // Audit readiness
+  // Audit readiness based on forms + records
   const auditReadiness = () => {
     let score = 100;
 
     // Deduct for open alerts
     score -= openAlerts * 5;
-
-    // Deduct for low compliance
+    // Deduct for overdue forms
+    score -= overdueForms * 10;
+    
+    // Deduct for low compliance (records)
     if (complianceRate < 95) score -= (95 - complianceRate);
-
+    // Deduct for low completion (forms)
+    if (formCompletionRate < 95) score -= (95 - formCompletionRate);
+    
     // Deduct for missing records (expected vs actual)
     const expectedRecords = 10; // Expected per day
     const actualRecords = todayRecords.length;
@@ -290,8 +352,6 @@ export default function HygieneDashboard() {
   };
 
   const auditScore = auditReadiness();
-
-  // Removed old quickActions array as it's replaced by hardcoded cards with onClick handlers.
 
   return (
     <div
@@ -318,46 +378,43 @@ export default function HygieneDashboard() {
             </h1>
             <p className="text-gray-600">Smart hygiene tracking with real-time EHO compliance</p>
           </div>
-
-          <div className="flex items-center gap-3">
-            <select
-              value={selectedPeriod}
-              onChange={(e) => setSelectedPeriod(e.target.value)}
-              className="px-4 py-2 border rounded-lg text-sm font-medium"
-            >
-              <option value="today">Today</option>
-              <option value="week">This Week</option>
-              <option value="30days">Last 30 Days</option>
-            </select>
-          </div>
+          {/* Removed selectedPeriod dropdown as per outline */}
         </div>
 
-        {/* Top Stats Row */}
+        {/* Top Stats Row - Connected to Forms */}
         <div className="grid md:grid-cols-4 gap-4 mb-8">
-          <Card className="border-none shadow-lg bg-white/80 backdrop-blur">
+          <Card 
+            className="border-none shadow-lg bg-white/80 backdrop-blur cursor-pointer hover:shadow-xl transition-all"
+            onClick={() => navigate(createPageUrl('FormIntelligence'))}
+          >
             <CardContent className="p-6">
               <div className="flex justify-between items-start mb-4">
                 <div>
                   <p className="text-sm text-gray-600 mb-1">Today's Records</p>
                   <p className="text-3xl font-bold text-gray-900">{todayRecords.length}</p>
+                  <p className="text-xs text-gray-500 mt-1">{todayAssignments.length} forms due</p>
                 </div>
                 <div className="p-3 bg-blue-100 rounded-xl">
                   <CheckCircle className="w-6 h-6 text-blue-600" />
                 </div>
               </div>
               <div className="flex items-center gap-2 text-sm">
-                <TrendingUp className="w-4 h-4 text-green-600" />
-                <span className="text-green-600 font-medium">On track</span>
+                <FileText className="w-4 h-4 text-blue-600" />
+                <span className="text-blue-600 font-medium">{completedForms} forms completed</span>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="border-none shadow-lg bg-white/80 backdrop-blur">
+          <Card 
+            className="border-none shadow-lg bg-white/80 backdrop-blur cursor-pointer hover:shadow-xl transition-all"
+            onClick={() => navigate(createPageUrl('FormIntelligence'))}
+          >
             <CardContent className="p-6">
               <div className="flex justify-between items-start mb-4">
                 <div>
                   <p className="text-sm text-gray-600 mb-1">Compliance Rate</p>
-                  <p className="text-3xl font-bold text-gray-900">{complianceRate}%</p>
+                  <p className="text-3xl font-bold text-gray-900">{Math.round((complianceRate + formCompletionRate) / 2)}%</p>
+                  <p className="text-xs text-gray-500 mt-1">Records: {complianceRate}% | Forms: {formCompletionRate}%</p>
                 </div>
                 <div className="p-3 bg-green-100 rounded-xl">
                   <Target className="w-6 h-6 text-green-600" />
@@ -366,7 +423,7 @@ export default function HygieneDashboard() {
               <div className="w-full bg-gray-200 rounded-full h-2">
                 <div
                   className="bg-gradient-to-r from-green-500 to-emerald-500 h-2 rounded-full transition-all"
-                  style={{ width: `${complianceRate}%` }}
+                  style={{ width: `${Math.round((complianceRate + formCompletionRate) / 2)}%` }}
                 />
               </div>
             </CardContent>
@@ -376,7 +433,7 @@ export default function HygieneDashboard() {
             <CardContent className="p-6">
               <div className="flex justify-between items-start mb-4">
                 <div>
-                  <p className="text-sm text-gray-600 mb-1">Leafe Star Rating</p>
+                  <p className="text-sm text-gray-600 mb-1">AURA Star Rating</p>
                   <div className="flex gap-1 mt-2">
                     {[1, 2, 3, 4, 5].map(i => (
                       <Star
@@ -403,12 +460,16 @@ export default function HygieneDashboard() {
             </CardContent>
           </Card>
 
-          <Card className="border-none shadow-lg bg-white/80 backdrop-blur">
+          <Card 
+            className="border-none shadow-lg bg-white/80 backdrop-blur cursor-pointer hover:shadow-xl transition-all"
+            onClick={() => navigate(createPageUrl('FormIntelligence'))}
+          >
             <CardContent className="p-6">
               <div className="flex justify-between items-start mb-4">
                 <div>
                   <p className="text-sm text-gray-600 mb-1">Audit Readiness</p>
                   <p className="text-3xl font-bold text-gray-900">{auditScore}%</p>
+                  <p className="text-xs text-gray-500 mt-1">{overdueForms} overdue forms</p>
                 </div>
                 <div className={`p-3 rounded-xl ${
                   auditScore >= 95 ? 'bg-green-100' :
@@ -456,7 +517,7 @@ export default function HygieneDashboard() {
                       <div>
                         <p className="font-medium text-gray-900">{alert.item_name}</p>
                         <p className="text-sm text-gray-600">
-                          {alert.location} • {alert.alert_type.replace('_', ' ')}
+                          {alert.location} • {alert.alert_type?.replace('_', ' ')}
                         </p>
                       </div>
                     </div>
@@ -471,6 +532,59 @@ export default function HygieneDashboard() {
                   View all {alerts.length} alerts
                 </Button>
               )}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Pending Forms Section */}
+        {pendingForms > 0 && (
+          <Card className="mb-8 border-none shadow-lg bg-gradient-to-r from-blue-50 to-indigo-50">
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between">
+                <span className="flex items-center gap-2 text-blue-900">
+                  <FileText className="w-5 h-5" />
+                  Pending Forms ({pendingForms})
+                </span>
+                <Button 
+                  size="sm" 
+                  onClick={() => navigate(createPageUrl('FormIntelligence'))}
+                  className="bg-[#014D40] hover:bg-[#013830] text-white"
+                >
+                  View All Forms
+                </Button>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {formAssignments
+                  .filter(a => a.completion_status === 'pending' || a.completion_status === 'in_progress')
+                  .slice(0, 6)
+                  .map(assignment => (
+                    <div key={assignment.id} className="p-4 bg-white rounded-lg border-l-4 border-l-blue-500">
+                      <div className="flex items-start justify-between mb-2">
+                        <h4 className="font-semibold text-gray-900 text-sm">{assignment.form_name}</h4>
+                        <Badge className="bg-blue-100 text-blue-800 text-xs">
+                          {assignment.completion_status?.replace('_', ' ') || 'N/A'}
+                        </Badge>
+                      </div>
+                      <p className="text-xs text-gray-600 mb-2">
+                        Due: {format(new Date(assignment.due_date), 'MMM d, h:mm a')}
+                      </p>
+                      <p className="text-xs text-gray-500 mb-3">
+                        Assigned to: {assignment.assigned_to_name || 'N/A'}
+                      </p>
+                      <Button 
+                        size="sm" 
+                        variant="outline" 
+                        className="w-full"
+                        onClick={() => navigate(createPageUrl('FormIntelligence', { formId: assignment.form_template_id, assignmentId: assignment.id }))}
+                      >
+                        <Eye className="w-3 h-3 mr-1" />
+                        Open Form
+                      </Button>
+                    </div>
+                  ))}
+              </div>
             </CardContent>
           </Card>
         )}
