@@ -31,7 +31,7 @@ export function StaffDataSync() {
     queryFn: () => base44.auth.me(),
   });
 
-  const isAdmin = currentUser?.role === 'admin' || currentUser?.position === 'owner';
+  const isAdmin = currentUser?.role === 'admin' || currentUser?.position === 'owner' || currentUser?.position === 'manager';
 
   const createTeamMemberMutation = useMutation({
     mutationFn: (data) => base44.entities.TeamMember.create(data),
@@ -121,15 +121,12 @@ export function StaffDataSync() {
         errors: errors,
       });
 
-      if (!silent) {
-        alert(`✅ Sync Complete!\n${syncedCount}/${users.length} staff members synced.\n${errors.length > 0 ? `\n⚠️ ${errors.length} errors occurred.` : ''}`);
+      if (!silent && syncedCount > 0) {
+        setTimeout(() => setShowAlert(false), 5000);
       }
 
     } catch (error) {
       console.error('Sync error:', error);
-      if (!silent) {
-        alert('❌ Sync failed. Please try again.');
-      }
     }
 
     setIsSyncing(false);

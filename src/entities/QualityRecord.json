@@ -1,0 +1,253 @@
+{
+  "name": "QualityRecord",
+  "type": "object",
+  "properties": {
+    "check_title": {
+      "type": "string",
+      "description": "What was checked (e.g., 'Daily Store Walkthrough', 'Karak Chai Quality')"
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "food_quality",
+        "hygiene",
+        "service",
+        "equipment",
+        "presentation",
+        "temperature",
+        "taste",
+        "cleanliness",
+        "staff_performance",
+        "other"
+      ],
+      "description": "Type of quality check"
+    },
+    "area": {
+      "type": "string",
+      "enum": [
+        "kitchen",
+        "front_of_house",
+        "bar",
+        "washroom",
+        "storage",
+        "dining_area",
+        "preparation",
+        "delivery",
+        "other"
+      ],
+      "description": "Physical area checked"
+    },
+    "score": {
+      "type": "number",
+      "minimum": 1,
+      "maximum": 5,
+      "description": "Quality rating (1=Poor, 5=Excellent)"
+    },
+    "comments": {
+      "type": "string",
+      "description": "Additional notes or observations"
+    },
+    "photo_url": {
+      "type": "string",
+      "description": "Photo evidence"
+    },
+    "voice_note_url": {
+      "type": "string",
+      "description": "Audio recording if applicable"
+    },
+    "checked_by_email": {
+      "type": "string",
+      "description": "Who performed the check"
+    },
+    "checked_by_name": {
+      "type": "string",
+      "description": "Name of checker"
+    },
+    "linked_entity_type": {
+      "type": "string",
+      "enum": [
+        "checklist",
+        "sop",
+        "menu_item",
+        "staff_task",
+        "shift",
+        "hygiene_record",
+        "none"
+      ],
+      "description": "Type of linked entity"
+    },
+    "linked_entity_id": {
+      "type": "string",
+      "description": "ID of linked record"
+    },
+    "linked_entity_name": {
+      "type": "string",
+      "description": "Cached name of linked entity"
+    },
+    "corrective_action_required": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether score triggered corrective action"
+    },
+    "corrective_task_id": {
+      "type": "string",
+      "description": "Auto-created task ID if score <3"
+    },
+    "corrective_action_taken": {
+      "type": "string",
+      "description": "What was done to fix the issue"
+    },
+    "corrective_action_photo": {
+      "type": "string",
+      "description": "Photo of corrected issue"
+    },
+    "verified_by_manager": {
+      "type": "boolean",
+      "default": false
+    },
+    "verified_by_email": {
+      "type": "string",
+      "description": "Manager who verified"
+    },
+    "verified_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "shift_id": {
+      "type": "string",
+      "description": "Active shift when check was performed"
+    },
+    "venue_id": {
+      "type": "string",
+      "description": "Location/venue if applicable"
+    },
+    "template_id": {
+      "type": "string",
+      "description": "Quality template used"
+    },
+    "is_recurring_issue": {
+      "type": "boolean",
+      "default": false,
+      "description": "AI-detected repeated problem"
+    },
+    "ai_suggestion": {
+      "type": "string",
+      "description": "AI-generated recommendation"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "recorded",
+        "needs_action",
+        "action_taken",
+        "verified",
+        "closed"
+      ],
+      "default": "recorded"
+    },
+    "priority": {
+      "type": "string",
+      "enum": [
+        "low",
+        "medium",
+        "high",
+        "critical"
+      ],
+      "default": "medium"
+    }
+  },
+  "required": [
+    "check_title",
+    "category",
+    "area",
+    "score",
+    "checked_by_email"
+  ],
+  "rls": {
+    "create": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "manager"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        },
+        {
+          "checked_by_email": "{{user.email}}"
+        }
+      ]
+    },
+    "read": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "manager"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        },
+        {
+          "checked_by_email": "{{user.email}}"
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "manager"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        },
+        {
+          "checked_by_email": "{{user.email}}"
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "manager"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        }
+      ]
+    }
+  }
+}

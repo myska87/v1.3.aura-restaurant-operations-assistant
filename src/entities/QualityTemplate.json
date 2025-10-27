@@ -1,0 +1,151 @@
+{
+  "name": "QualityTemplate",
+  "type": "object",
+  "properties": {
+    "template_name": {
+      "type": "string",
+      "description": "Template name (e.g., 'Daily Kitchen Walkthrough')"
+    },
+    "description": {
+      "type": "string",
+      "description": "What this template checks"
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "food_quality",
+        "hygiene",
+        "service",
+        "equipment",
+        "presentation",
+        "overall_audit"
+      ],
+      "description": "Primary category"
+    },
+    "check_items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "item_id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string"
+          },
+          "area": {
+            "type": "string"
+          },
+          "requires_photo": {
+            "type": "boolean",
+            "default": false
+          },
+          "min_score": {
+            "type": "number",
+            "default": 3
+          },
+          "order": {
+            "type": "number"
+          }
+        }
+      },
+      "description": "List of check items in template"
+    },
+    "assigned_role": {
+      "type": "string",
+      "description": "Which role should perform these checks"
+    },
+    "frequency": {
+      "type": "string",
+      "enum": [
+        "daily",
+        "weekly",
+        "monthly",
+        "shift_based",
+        "on_demand"
+      ],
+      "default": "daily"
+    },
+    "created_by": {
+      "type": "string",
+      "description": "Manager who created template"
+    },
+    "created_by_name": {
+      "type": "string"
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true
+    },
+    "icon": {
+      "type": "string",
+      "description": "Emoji or icon for template"
+    },
+    "color": {
+      "type": "string",
+      "default": "#10B981",
+      "description": "Template color theme"
+    }
+  },
+  "required": [
+    "template_name",
+    "category",
+    "check_items",
+    "created_by"
+  ],
+  "rls": {
+    "create": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "manager"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        }
+      ]
+    },
+    "read": {
+      "user_condition": {
+        "email": {
+          "$exists": true
+        }
+      }
+    },
+    "update": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "manager"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

@@ -83,6 +83,8 @@ import GrowthTracker from './pages/GrowthTracker';
 import CoachingAchievements from './pages/CoachingAchievements';
 import ScheduleCoaching from './pages/ScheduleCoaching';
 import FeatureList from './pages/FeatureList';
+import QualityDashboard from './pages/QualityDashboard';
+import QuickQualityCheck from './pages/QuickQualityCheck';
 import Layout from './Layout.jsx';
 
 
@@ -172,6 +174,8 @@ export const PAGES = {
     "CoachingAchievements": CoachingAchievements,
     "ScheduleCoaching": ScheduleCoaching,
     "FeatureList": FeatureList,
+    "QualityDashboard": QualityDashboard,
+    "QuickQualityCheck": QuickQualityCheck,
 }
 
 export const pagesConfig = {
