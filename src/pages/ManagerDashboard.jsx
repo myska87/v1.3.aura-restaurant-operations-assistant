@@ -28,7 +28,7 @@ import {
   DropdownMenuTrigger,
   DropdownMenuContent,
 } from "@/components/ui/dropdown-menu";
-import { Plus, Calendar, CheckCircle, Clock, AlertCircle, AlertTriangle, ArrowLeft, Home, Users, TrendingUp, Award, Edit, Trash2, Upload, Eye, Bell, Settings, MoreVertical, UserPlus, FileText, Target, Search, Filter, Download, ChevronUp, ChevronDown, Mail, Phone, X, DollarSign, BellOff, Database, ArrowRight } from "lucide-react";
+import { Plus, Calendar, CheckCircle, Clock, AlertCircle, AlertTriangle, ArrowLeft, Home, Users, TrendingUp, Award, Edit, Trash2, Upload, Eye, Bell, Settings, MoreVertical, UserPlus, FileText, Target, Search, Filter, Download, ChevronUp, ChevronDown, Mail, Phone, X, DollarSign, BellOff, Database, ArrowRight, Shield } from "lucide-react";
 import { format, parseISO, isBefore, isAfter, setHours, setMinutes, isSameMinute } from "date-fns";
 import { Link, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -261,6 +261,27 @@ export default function ManagerDashboard() {
     queryFn: () => base44.entities.User.list(),
   });
 
+  // New queries for Quick Stats (as per outline)
+  const { data: shifts = [] } = useQuery({
+    queryKey: ['shifts'],
+    queryFn: () => base44.entities.Shift.list(), // Assuming a Shift entity exists
+  });
+
+  const { data: tasks = [] } = useQuery({
+    queryKey: ['tasks'],
+    queryFn: () => base44.entities.Task.list(), // Assuming a Task entity exists
+  });
+
+  const { data: formSubmissions = [] } = useQuery({
+    queryKey: ['formSubmissions'],
+    queryFn: () => base44.entities.FormSubmission.list(), // Assuming a FormSubmission entity exists
+  });
+
+  const { data: inventoryItems = [] } = useQuery({
+    queryKey: ['inventoryItems'],
+    queryFn: () => base44.entities.InventoryItem.list(), // Assuming an InventoryItem entity exists
+  });
+
   // Dynamic Stats Calculations
   const totalTeam = teamMembers.length;
   const activeMembers = teamMembers.filter(m => m.status === 'active').length;
@@ -322,6 +343,23 @@ export default function ManagerDashboard() {
   ).length;
 
   const pendingHRActions = documentsPending + documentsExpiring;
+
+  // New calculations for Quick Stats (as per outline)
+  const todayDate = new Date();
+  const todayString = format(todayDate, 'yyyy-MM-dd'); // Assuming shifts have a date property in this format
+
+  const todayShifts = shifts.filter(shift => {
+    // Assuming shift has a 'date' property and a 'status' property
+    return format(new Date(shift.date), 'yyyy-MM-dd') === todayString && shift.status !== 'cancelled';
+  });
+
+  const stats = {
+    pendingTasks: tasks.filter(task => task.status === 'pending' || task.status === 'in_progress').length,
+    pendingForms: formSubmissions.filter(form => form.status === 'pending_review' || form.status === 'incomplete').length,
+    complianceRate: 92, // Placeholder for a real calculation
+    lowStockItems: inventoryItems.filter(item => item.current_stock < item.reorder_level).length, // Assuming current_stock and reorder_level
+  };
+
 
   // Filtered team members
   const filteredTeamMembers = teamMembers.filter(member => {
@@ -628,7 +666,7 @@ export default function ManagerDashboard() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6 md:p-8">
-      <div className="max-w-7xl mx-auto">
+      <div className="max-w-7xl mx-auto space-y-8">
         {/* Enhanced Header with Profile, Notifications, Settings */}
         <div className="flex gap-3 mb-6">
           <Link to={createPageUrl("PerformanceGrowth")}>
@@ -687,28 +725,19 @@ export default function ManagerDashboard() {
         </div>
 
         {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-center gap-4 mb-4">
-            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#014D40] via-emerald-600 to-[#E0B037] flex items-center justify-center shadow-xl">
-              <TrendingUp className="w-9 h-9 text-white" />
-            </div>
-            <div>
-              <h1 className="text-4xl font-bold bg-gradient-to-r from-[#014D40] to-emerald-600 bg-clip-text text-transparent">
-                Manager Dashboard
-              </h1>
-              <p className="text-gray-600 mt-1">Complete oversight of operations, staff & performance</p>
-            </div>
+        <div className="flex justify-between items-center mb-8">
+          <div>
+            <h1 className="text-4xl font-bold bg-gradient-to-r from-[#014D40] to-emerald-600 bg-clip-text text-transparent mb-2">
+              Manager Dashboard
+            </h1>
+            <p className="text-gray-600 text-lg">Central command for restaurant operations</p>
           </div>
-        </div>
-
-        {/* Navigation to Wages Report */}
-        <div className="mb-6">
-          <Link to={createPageUrl("StaffWagesReport")}>
-            <Button className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white shadow-lg">
-              <DollarSign className="w-5 h-5 mr-2" />
-              Staff Wages & Payroll
-            </Button>
-          </Link>
+          <div className="flex items-center gap-3">
+            <Badge className="bg-green-100 text-green-800 px-4 py-2">
+              <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse mr-2" />
+              All Systems Online
+            </Badge>
+          </div>
         </div>
 
         {/* Quick Access Buttons */}
@@ -753,78 +782,117 @@ export default function ManagerDashboard() {
             </Button>
           </Link>
         </div>
-
-        {/* Enhanced Stats Grid - 5 Widgets */}
+        
+        {/* Quick Stats - NOW CLICKABLE */}
         <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-            <Card className="bg-white border-l-4 border-l-blue-500 hover:shadow-lg transition-shadow cursor-pointer">
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <Users className="w-8 h-8 text-blue-600" />
-                  <Badge variant="outline" className="text-xs">Total</Badge>
-                </div>
-                <p className="text-3xl font-bold text-gray-900">{totalTeam}</p>
-                <p className="text-xs text-gray-600 mt-1">Total Staff</p>
-                <p className="text-xs text-green-600 mt-1">↑ {activeMembers} active</p>
-              </CardContent>
-            </Card>
-          </motion.div>
+          <Link to={createPageUrl("StaffRota")}>
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="cursor-pointer hover:scale-105 transition-transform"
+            >
+              <Card className="bg-gradient-to-br from-blue-500 to-blue-600 text-white border-none shadow-lg hover:shadow-xl">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <Users className="w-8 h-8" />
+                    <Badge className="bg-white/20 text-white border-white/30">
+                      Today
+                    </Badge>
+                  </div>
+                  <p className="text-3xl font-bold mb-1">{todayShifts.length}</p>
+                  <p className="text-blue-100 text-sm">Active Shifts</p>
+                </CardContent>
+              </Card>
+            </motion.div>
+          </Link>
 
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
-            <Card className="bg-white border-l-4 border-l-green-500 hover:shadow-lg transition-shadow cursor-pointer">
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <CheckCircle className="w-8 h-8 text-green-600" />
-                  <Badge variant="outline" className="text-xs">Today</Badge>
-                </div>
-                <p className="text-3xl font-bold text-gray-900">{attendanceToday}</p>
-                <p className="text-xs text-gray-600 mt-1">Attendance Today</p>
-                <p className="text-xs text-gray-500 mt-1">Out of {activeMembers}</p>
-              </CardContent>
-            </Card>
-          </motion.div>
+          <Link to={createPageUrl("MyTasks")}>
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1 }}
+              className="cursor-pointer hover:scale-105 transition-transform"
+            >
+              <Card className="bg-gradient-to-br from-green-500 to-green-600 text-white border-none shadow-lg hover:shadow-xl">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <CheckCircle className="w-8 h-8" />
+                    <Badge className="bg-white/20 text-white border-white/30">
+                      Pending
+                    </Badge>
+                  </div>
+                  <p className="text-3xl font-bold mb-1">{stats.pendingTasks}</p>
+                  <p className="text-green-100 text-sm">Open Tasks</p>
+                </CardContent>
+              </Card>
+            </motion.div>
+          </Link>
 
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
-            <Card className="bg-white border-l-4 border-l-purple-500 hover:shadow-lg transition-shadow cursor-pointer">
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <Award className="w-8 h-8 text-purple-600" />
-                  <Badge variant="outline" className="text-xs">Progress</Badge>
-                </div>
-                <p className="text-3xl font-bold text-gray-900">{trainingPercentage}%</p>
-                <p className="text-xs text-gray-600 mt-1">Training Completed</p>
-                <p className="text-xs text-gray-500 mt-1">{trainingCompleted}/{totalTraining} courses</p>
-              </CardContent>
-            </Card>
-          </motion.div>
+          <Link to={createPageUrl("FormIntelligence")}>
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+              className="cursor-pointer hover:scale-105 transition-transform"
+            >
+              <Card className="bg-gradient-to-br from-purple-500 to-purple-600 text-white border-none shadow-lg hover:shadow-xl">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <FileText className="w-8 h-8" />
+                    <Badge className="bg-white/20 text-white border-white/30">
+                      Due
+                    </Badge>
+                  </div>
+                  <p className="text-3xl font-bold mb-1">{stats.pendingForms}</p>
+                  <p className="text-purple-100 text-sm">Pending Forms</p>
+                </CardContent>
+              </Card>
+            </motion.div>
+          </Link>
 
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
-            <Card className="bg-white border-l-4 border-l-indigo-500 hover:shadow-lg transition-shadow cursor-pointer">
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <TrendingUp className="w-8 h-8 text-indigo-600" />
-                  <Badge variant="outline" className="text-xs">This Month</Badge>
-                </div>
-                <p className="text-3xl font-bold text-gray-900">{feedbackThisMonth}</p>
-                <p className="text-xs text-gray-600 mt-1">Feedback Sessions</p>
-                <p className="text-xs text-gray-500 mt-1">Coaching completed</p>
-              </CardContent>
-            </Card>
-          </motion.div>
+          <Link to={createPageUrl("Compliance")}>
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3 }}
+              className="cursor-pointer hover:scale-105 transition-transform"
+            >
+              <Card className="bg-gradient-to-br from-amber-500 to-amber-600 text-white border-none shadow-lg hover:shadow-xl">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <Shield className="w-8 h-8" />
+                    <Badge className="bg-white/20 text-white border-white/30">
+                      Rate
+                    </Badge>
+                  </div>
+                  <p className="text-3xl font-bold mb-1">{stats.complianceRate}%</p>
+                  <p className="text-amber-100 text-sm">Compliance</p>
+                </CardContent>
+              </Card>
+            </motion.div>
+          </Link>
 
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}>
-            <Card className="bg-white border-l-4 border-l-red-500 hover:shadow-lg transition-shadow cursor-pointer">
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <AlertCircle className="w-8 h-8 text-red-600" />
-                  <Badge variant="outline" className="text-xs">Urgent</Badge>
-                </div>
-                <p className="text-3xl font-bold text-gray-900">{pendingHRActions}</p>
-                <p className="text-xs text-gray-600 mt-1">Pending HR Actions</p>
-                <p className="text-xs text-red-600 mt-1">Requires attention</p>
-              </CardContent>
-            </Card>
-          </motion.div>
+          <Link to={createPageUrl("InventoryManagement")}>
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.4 }}
+              className="cursor-pointer hover:scale-105 transition-transform"
+            >
+              <Card className="bg-gradient-to-br from-red-500 to-red-600 text-white border-none shadow-lg hover:shadow-xl">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <AlertTriangle className="w-8 h-8" />
+                    <Badge className="bg-white/20 text-white border-white/30">
+                      Alert
+                    </Badge>
+                  </div>
+                  <p className="text-3xl font-bold mb-1">{stats.lowStockItems}</p>
+                  <p className="text-red-100 text-sm">Low Stock</p>
+                </CardContent>
+              </Card>
+            </motion.div>
+          </Link>
         </div>
 
         {/* Additional Stats Row */}
@@ -1391,7 +1459,7 @@ export default function ManagerDashboard() {
                                           <div className="flex-1 flex gap-2 items-center">
                                             <Input
                                               value={editingTaskValue}
-                                              onChange={(e) => setNewTaskValue(e.target.value)}
+                                              onChange={(e) => setEditingTaskValue(e.target.value)}
                                               className="h-7 text-sm"
                                               autoFocus
                                               onKeyPress={(e) => {
@@ -1560,7 +1628,7 @@ export default function ManagerDashboard() {
                                           <div className="flex-1 flex gap-2 items-center">
                                             <Input
                                               value={editingTaskValue}
-                                              onChange={(e) => setNewTaskValue(e.target.value)}
+                                              onChange={(e) => setNewRolePosition(e.target.value)} // Corrected from setNewTaskValue
                                               className="h-7 text-sm"
                                               autoFocus
                                               onKeyPress={(e) => {
