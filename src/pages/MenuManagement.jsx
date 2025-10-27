@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -22,8 +21,10 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Plus, Pencil, Trash2, ChefHat, Camera, Image as ImageIcon, Folder, Calculator, ShoppingCart } from "lucide-react";
+import { Plus, Pencil, Trash2, ChefHat, Camera, Image as ImageIcon, Folder, Calculator, ShoppingCart, ArrowLeft, Home } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Link } from "react-router-dom";
+import { createPageUrl } from "@/utils";
 
 // Safe number formatting helper
 const safeNumber = (value, decimals = -1) => {
@@ -64,7 +65,7 @@ export default function MenuManagement() {
     recipe: [],
     prep_time_minutes: "",
     cooking_instructions: "",
-    allergens: [],
+    allergen_tags: [],
   });
 
   const [categoryFormData, setCategoryFormData] = useState({
@@ -158,7 +159,7 @@ export default function MenuManagement() {
       recipe: [],
       prep_time_minutes: "",
       cooking_instructions: "",
-      allergens: [],
+      allergen_tags: [],
     });
   };
 
@@ -183,7 +184,7 @@ export default function MenuManagement() {
       recipe: item.recipe || [],
       prep_time_minutes: safeNumber(item.prep_time_minutes).toString() || "",
       cooking_instructions: item.cooking_instructions || "",
-      allergens: item.allergens || [],
+      allergen_tags: item.allergen_tags || [],
     });
     setShowItemForm(true);
   };
@@ -247,6 +248,15 @@ export default function MenuManagement() {
       recipe: [...itemFormData.recipe, recipeItem]
     });
 
+    // Auto-update allergens from ingredient
+    if (ingredient.allergen_tags && ingredient.allergen_tags.length > 0) {
+      const newAllergens = new Set([...itemFormData.allergen_tags, ...ingredient.allergen_tags]);
+      setItemFormData(prev => ({
+        ...prev,
+        allergen_tags: Array.from(newAllergens)
+      }));
+    }
+
     setSelectedIngredient("");
     setIngredientQty("");
   };
@@ -256,6 +266,24 @@ export default function MenuManagement() {
       ...itemFormData,
       recipe: itemFormData.recipe.filter(r => r.ingredient_id !== ingredientId)
     });
+
+    // Recalculate allergens from remaining ingredients
+    const remainingIngredientIds = itemFormData.recipe
+      .filter(r => r.ingredient_id !== ingredientId)
+      .map(r => r.ingredient_id);
+    
+    const newAllergens = new Set();
+    remainingIngredientIds.forEach(id => {
+      const ing = ingredients.find(i => i.id === id);
+      if (ing?.allergen_tags) {
+        ing.allergen_tags.forEach(a => newAllergens.add(a));
+      }
+    });
+
+    setItemFormData(prev => ({
+      ...prev,
+      allergen_tags: Array.from(newAllergens)
+    }));
   };
 
   const calculateTotals = () => {
@@ -299,7 +327,7 @@ export default function MenuManagement() {
       food_cost_percentage: foodCostPercentage,
       prep_time_minutes: safeNumber(itemFormData.prep_time_minutes) > 0 ? safeNumber(itemFormData.prep_time_minutes) : null,
       cooking_instructions: itemFormData.cooking_instructions,
-      allergens: itemFormData.allergens,
+      allergen_tags: itemFormData.allergen_tags,
       is_active: true, // Assuming new items are active by default
     };
 
@@ -407,23 +435,23 @@ export default function MenuManagement() {
 
     // Calculate ingredient quantities needed for all servings, with waste
     const ingredientsNeeded = ingredientsNeededDetails.map(itemDetail => {
-      const { recipeItem, ingredientDetail, missingFromInventory } = itemDetail;
+      const { ingredient_id, ingredient_name, quantity, unit, cost, ingredientDetail, missingFromInventory } = itemDetail;
 
-      const quantityNeededRaw = safeNumber(recipeItem.quantity) * servings;
+      const quantityNeededRaw = safeNumber(quantity) * servings;
       const quantityNeededWithWaste = safeNumber(quantityNeededRaw * (1 + safeNumber(wastePercentage) / 100));
 
       // Unit cost for reporting should reflect what we're basing the total cost on.
       let unitCostToReport = missingFromInventory 
-        ? (safeNumber(recipeItem.quantity) > 0 ? safeNumber(recipeItem.cost) / safeNumber(recipeItem.quantity) : 0) 
+        ? (safeNumber(quantity) > 0 ? safeNumber(cost) / safeNumber(quantity) : 0) 
         : safeNumber(ingredientDetail?.unit_cost);
       
       const totalIngredientCostWithWaste = safeNumber(quantityNeededWithWaste * unitCostToReport);
 
       return {
-        ingredient_id: recipeItem.ingredient_id,
-        ingredient_name: recipeItem.ingredient_name,
+        ingredient_id: ingredient_id,
+        ingredient_name: ingredient_name,
         quantity_needed: quantityNeededWithWaste,
-        unit: recipeItem.unit,
+        unit: unit,
         unit_cost: unitCostToReport, 
         total_cost: totalIngredientCostWithWaste,
         supplier_id: ingredientDetail?.supplier_id || null,
@@ -554,6 +582,22 @@ export default function MenuManagement() {
   return (
     <div className="p-6 md:p-8 bg-gray-50 min-h-screen">
       <div className="max-w-7xl mx-auto">
+        {/* Navigation */}
+        <div className="flex gap-3 mb-6">
+          <Link to={createPageUrl("Menu")}>
+            <Button variant="outline" size="sm">
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back to Menu
+            </Button>
+          </Link>
+          <Link to={createPageUrl("Dashboard")}>
+            <Button variant="outline" size="sm">
+              <Home className="w-4 h-4 mr-2" />
+              Dashboard
+            </Button>
+          </Link>
+        </div>
+
         <div className="flex justify-between items-center mb-8">
           <div>
             <h1 className="text-3xl font-bold text-gray-900 mb-2">Menu Management</h1>
@@ -1277,4 +1321,3 @@ export default function MenuManagement() {
     </div>
   );
 }
-
