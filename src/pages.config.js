@@ -68,6 +68,7 @@ import FormScheduler from './pages/FormScheduler';
 import PerformanceDashboard from './pages/PerformanceDashboard';
 import EHOControlCenter from './pages/EHOControlCenter';
 import MenuIntelligence from './pages/MenuIntelligence';
+import AIConsole from './pages/AIConsole';
 import Layout from './Layout.jsx';
 
 
@@ -142,6 +143,7 @@ export const PAGES = {
     "PerformanceDashboard": PerformanceDashboard,
     "EHOControlCenter": EHOControlCenter,
     "MenuIntelligence": MenuIntelligence,
+    "AIConsole": AIConsole,
 }
 
 export const pagesConfig = {

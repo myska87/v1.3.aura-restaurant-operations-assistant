@@ -165,6 +165,12 @@ const managementItems = [
     badge: "MGMT",
   },
   {
+    title: "🤖 Hey AURA - AI Console",
+    url: createPageUrl("AIConsole"),
+    icon: Sparkles,
+    badge: "AI",
+  },
+  {
     title: "Smart Scheduler",
     url: createPageUrl("SmartScheduler"),
     icon: Calendar,
