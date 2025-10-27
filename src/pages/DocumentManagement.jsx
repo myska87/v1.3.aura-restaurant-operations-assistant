@@ -526,6 +526,12 @@ export default function DocumentManagement() {
               Dashboard
             </Button>
           </Link>
+          <Link to={createPageUrl("DocumentSignatureReport")}>
+            <Button variant="outline" size="sm" className="border-purple-300 text-purple-700 hover:bg-purple-50">
+              <FileText className="w-4 h-4 mr-2" />
+              Signature Report
+            </Button>
+          </Link>
         </div>
 
         <div className="mb-8">

@@ -90,7 +90,7 @@ export default function DocumentViewer() {
     mutationFn: async (signatureData) => {
       const timeSpent = Math.round((Date.now() - startTime) / 60000); // minutes
 
-      await base44.entities.DocumentBuilderSignature.create({
+      const signatureRecord = await base44.entities.DocumentBuilderSignature.create({
         document_id: docId,
         document_title: document.title,
         document_version: document.version || 1,
@@ -106,12 +106,19 @@ export default function DocumentViewer() {
       await base44.entities.DocumentBuilder.update(docId, {
         signature_count: (document.signature_count || 0) + 1,
       });
+
+      return signatureRecord;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['myDocSignature'] });
       queryClient.invalidateQueries({ queryKey: ['documentBuilder'] });
+      queryClient.invalidateQueries({ queryKey: ['documentLibrary'] });
       setShowSignDialog(false);
       alert('✅ Document signed successfully!');
+    },
+    onError: (error) => {
+      console.error('Signature error:', error);
+      alert('Failed to sign document. Please try again.');
     },
   });
 
@@ -305,7 +312,7 @@ export default function DocumentViewer() {
             </div>
 
             <SOPSignatureCanvas
-              onSave={(signatureUrl) => {
+              onSign={(signatureUrl) => {
                 signDocumentMutation.mutate({ signatureUrl });
               }}
               onCancel={() => setShowSignDialog(false)}

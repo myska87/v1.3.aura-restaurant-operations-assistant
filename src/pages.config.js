@@ -93,6 +93,7 @@ import DocumentViewer from './pages/DocumentViewer';
 import UserManagement from './pages/UserManagement';
 import BugReport from './pages/BugReport';
 import FeatureIdeas from './pages/FeatureIdeas';
+import DocumentSignatureReport from './pages/DocumentSignatureReport';
 import Layout from './Layout.jsx';
 
 
@@ -192,6 +193,7 @@ export const PAGES = {
     "UserManagement": UserManagement,
     "BugReport": BugReport,
     "FeatureIdeas": FeatureIdeas,
+    "DocumentSignatureReport": DocumentSignatureReport,
 }
 
 export const pagesConfig = {

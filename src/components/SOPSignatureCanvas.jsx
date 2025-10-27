@@ -1,4 +1,3 @@
-
 /**
  * Digital Signature Component for SOP Acknowledgment
  */
@@ -93,7 +92,7 @@ export default function SOPSignatureCanvas({ onSign, onCancel }) {
         <div className="mb-4">
           <h3 className="font-bold text-gray-900 mb-2">Digital Signature</h3>
           <p className="text-sm text-gray-600">
-            Please sign in the box below to acknowledge that you have read and understood this SOP.
+            Please sign in the box below to acknowledge that you have read and understood this document.
           </p>
         </div>
 
