@@ -393,8 +393,8 @@ export default function DocumentLibrary() {
                   </Button>
                 </Link>
               )}
-            </Card>
-          </div>
+            </CardContent>
+          </Card>
         )}
       </div>
     </div>
