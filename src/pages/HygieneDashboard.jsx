@@ -47,8 +47,6 @@ export default function HygieneDashboard() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
-  // No longer needed: selectedAction, showRecordForm, recordData, as quick actions will navigate to forms.
-
   const { data: user } = useQuery({
     queryKey: ['currentUser'],
     queryFn: () => base44.auth.me(),
@@ -58,11 +56,13 @@ export default function HygieneDashboard() {
 
   const today = new Date().toISOString().split('T')[0]; // Format 'YYYY-MM-DD' for query keys
 
+  // Fetch hygiene records
   const { data: records = [], isLoading: loadingRecords } = useQuery({
     queryKey: ['hygieneRecords', today], // Query key now includes `today`
-    queryFn: () => base44.entities.HygieneRecord.list('-created_date'), // Fetch all, will filter for `todayRecords` later
+    queryFn: () => base44.entities.HygieneRecord.list('-created_date', 100), // Fetch all, will filter for `todayRecords` later
   });
 
+  // Fetch user's hygiene score
   const { data: myScore } = useQuery({
     queryKey: ['myHygieneScore', user?.email],
     queryFn: async () => {
@@ -75,14 +75,16 @@ export default function HygieneDashboard() {
     enabled: !!user?.email,
   });
 
+  // Fetch alerts
   const { data: alerts = [] } = useQuery({
     queryKey: ['hygieneAlerts'],
     queryFn: async () => {
-      const allAlerts = await base44.entities.HygieneAlertLog.list('-created_date');
+      const allAlerts = await base44.entities.HygieneAlertLog.list('-created_date', 50);
       return allAlerts.filter(a => a.status === 'open' || a.status === 'acknowledged');
     },
   });
 
+  // Fetch team scoreboard
   const { data: teamScoreboard } = useQuery({
     queryKey: ['teamScoreboard'],
     queryFn: async () => {
@@ -97,29 +99,47 @@ export default function HygieneDashboard() {
     queryFn: async () => {
       if (!user?.email) return [];
       
+      const todayDate = new Date();
+      todayDate.setHours(0, 0, 0, 0); // Normalize to start of today
+      const sevenDaysFromNow = new Date(todayDate);
+      sevenDaysFromNow.setDate(todayDate.getDate() + 7);
+
       let assignments;
       if (isManager) {
         // Managers see all assignments
-        assignments = await base44.entities.FormAssignmentMetadata.list('-assigned_at');
+        assignments = await base44.entities.FormAssignmentMetadata.list('-assigned_at', 100);
       } else {
         // Staff see only their assignments
         assignments = await base44.entities.FormAssignmentMetadata.filter({
           assigned_to_email: user.email
-        }, '-assigned_at');
+        }, '-assigned_at', 100);
       }
       
-      // Filter for assignments due today or active and not completed
-      const todayDate = new Date();
-      todayDate.setHours(0, 0, 0, 0); // Normalize to start of today
-
+      // Filter for assignments due within next 7 days or active and not completed/archived
       return assignments.filter(a => {
         const dueDate = new Date(a.due_date);
         dueDate.setHours(0, 0, 0, 0); // Normalize due date
         return (
-          dueDate.getTime() === todayDate.getTime() || // Due today
+          (dueDate >= todayDate && dueDate <= sevenDaysFromNow) && // Due within next 7 days
           (a.completion_status !== 'completed' && a.completion_status !== 'archived') // Or not completed/archived
         );
       });
+    },
+    enabled: !!user?.email,
+  });
+
+  // Fetch form responses (completed forms)
+  const { data: responses = [] } = useQuery({
+    queryKey: ['formResponses', user?.email],
+    queryFn: async () => {
+      if (!user?.email) return [];
+      if (isManager) {
+        return await base44.entities.FormResponse.list('-submitted_at', 100);
+      } else {
+        return await base44.entities.FormResponse.filter({
+          staff_email: user.email
+        }, '-submitted_at', 100);
+      }
     },
     enabled: !!user?.email,
   });
@@ -192,6 +212,9 @@ export default function HygieneDashboard() {
     return recordDate.toDateString() === now.toDateString();
   });
 
+  // Filter records specific to the current user for gamification
+  const myTodayRecords = todayRecords.filter(r => r.recorded_by_email === user?.email);
+
   const recordsInRange = records.filter(r => r.is_in_range !== false).length;
   const complianceRate = records.length > 0
     ? Math.round((recordsInRange / records.length) * 100)
@@ -221,6 +244,11 @@ export default function HygieneDashboard() {
     ? Math.round((completedForms / formAssignments.length) * 100)
     : 100;
 
+  // Calculate today's expected tasks vs completed
+  const expectedDailyTasks = 10; // Expected records per day
+  const todayTaskCompletion = Math.min(100, Math.round((myTodayRecords.length / expectedDailyTasks) * 100));
+
+
   // Star rating calculation
   const calculateStarRating = () => {
     const avgRate = (complianceRate + formCompletionRate) / 2;
@@ -248,17 +276,47 @@ export default function HygieneDashboard() {
     // Deduct for low completion (forms)
     if (formCompletionRate < 95) score -= (95 - formCompletionRate);
     
-    // Deduct for missing records (expected vs actual)
-    const expectedRecords = 10; // Expected per day
-    const actualRecords = todayRecords.length;
-    if (actualRecords < expectedRecords) {
-      score -= (expectedRecords - actualRecords) * 3;
+    // Deduct for missing records (expected vs actual) for current user
+    if (myTodayRecords.length < expectedDailyTasks) {
+      score -= (expectedDailyTasks - myTodayRecords.length) * 3;
     }
 
     return Math.max(0, Math.min(100, score));
   };
 
   const auditScore = auditReadiness();
+
+  // Calculate dynamic achievements
+  const achievements = [
+    {
+      title: "Clean Sweep",
+      description: `Complete ${expectedDailyTasks} daily records`,
+      icon: "🧹",
+      progress: todayTaskCompletion,
+      unlocked: myTodayRecords.length >= expectedDailyTasks
+    },
+    {
+      title: "Quick Chill",
+      description: "All temps within safe limits",
+      icon: "❄️",
+      progress: complianceRate,
+      unlocked: complianceRate >= 98
+    },
+    {
+      title: "Zero Alerts",
+      description: "7 days without variance",
+      icon: "✅",
+      progress: Math.min(100, ((myScore?.current_streak || 0) / 7) * 100),
+      unlocked: (myScore?.current_streak || 0) >= 7
+    },
+    {
+      title: "Form Master",
+      description: "Complete all assigned forms",
+      icon: "📋",
+      progress: formAssignments.length > 0 ? Math.round((completedForms / formAssignments.length) * 100) : 100,
+      unlocked: pendingForms === 0 && formAssignments.length > 0
+    },
+  ];
 
   return (
     <div
@@ -285,7 +343,6 @@ export default function HygieneDashboard() {
             </h1>
             <p className="text-gray-600">Smart hygiene tracking with real-time EHO compliance</p>
           </div>
-          {/* Removed selectedPeriod dropdown as per outline */}
         </div>
 
         {/* Top Stats Row - Connected to Forms */}
@@ -298,8 +355,8 @@ export default function HygieneDashboard() {
               <div className="flex justify-between items-start mb-4">
                 <div>
                   <p className="text-sm text-gray-600 mb-1">Today's Records</p>
-                  <p className="text-3xl font-bold text-gray-900">{todayRecords.length}</p>
-                  <p className="text-xs text-gray-500 mt-1">{todayAssignments.length} forms due</p>
+                  <p className="text-3xl font-bold text-gray-900">{myTodayRecords.length}</p>
+                  <p className="text-xs text-gray-500 mt-1">{todayAssignments.length} forms due today</p>
                 </div>
                 <div className="p-3 bg-blue-100 rounded-xl">
                   <CheckCircle className="w-6 h-6 text-blue-600" />
@@ -603,7 +660,7 @@ export default function HygieneDashboard() {
           </motion.div>
         </div>
 
-        {/* Gamification Section */}
+        {/* Gamification Section - Now Live */}
         {myScore && (
           <div className="grid md:grid-cols-2 gap-6 mb-8">
             <Card className="border-none shadow-lg bg-gradient-to-br from-purple-50 to-indigo-50">
@@ -634,7 +691,15 @@ export default function HygieneDashboard() {
                   </div>
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-gray-600">Compliance Rate</span>
-                    <span className="font-bold text-green-600">{myScore.compliance_rate || 0}%</span>
+                    <span className="font-bold text-green-600">{complianceRate}%</span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-gray-600">Forms Completed</span>
+                    <span className="font-bold text-blue-600">{completedForms} / {formAssignments.length}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-gray-600">Records Today</span>
+                    <span className="font-bold text-indigo-600">{myTodayRecords.length} / {expectedDailyTasks}</span>
                   </div>
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-gray-600">Venue Rank</span>
@@ -672,29 +737,7 @@ export default function HygieneDashboard() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {[
-                    {
-                      title: "Clean Sweep",
-                      description: "Complete all daily records",
-                      icon: "🧹",
-                      progress: Math.min(100, (todayRecords.length / 10) * 100),
-                      unlocked: todayRecords.length >= 10
-                    },
-                    {
-                      title: "Quick Chill",
-                      description: "All temps within safe limits",
-                      icon: "❄️",
-                      progress: complianceRate,
-                      unlocked: complianceRate >= 98
-                    },
-                    {
-                      title: "Zero Alerts",
-                      description: "7 days without variance",
-                      icon: "✅",
-                      progress: Math.min(100, ((myScore?.current_streak || 0) / 7) * 100),
-                      unlocked: (myScore?.current_streak || 0) >= 7
-                    },
-                  ].map((achievement, i) => (
+                  {achievements.map((achievement, i) => (
                     <div key={i} className="p-4 bg-white rounded-lg">
                       <div className="flex items-center gap-3 mb-2">
                         <span className="text-2xl">{achievement.icon}</span>
@@ -715,6 +758,7 @@ export default function HygieneDashboard() {
                           style={{ width: `${achievement.progress}%` }}
                         />
                       </div>
+                      <p className="text-xs text-gray-500 mt-1 text-right">{Math.round(achievement.progress)}%</p>
                     </div>
                   ))}
                 </div>
