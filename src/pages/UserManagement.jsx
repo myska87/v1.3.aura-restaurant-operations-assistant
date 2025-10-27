@@ -1,95 +1,23 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-  DialogDescription,
-} from '@/components/ui/dialog';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-  DropdownMenuSeparator,
-} from '@/components/ui/dropdown-menu';
-import {
-  Users,
-  Search,
-  Plus,
-  Edit,
-  Trash2,
-  MoreVertical,
-  Shield,
-  Lock,
-  Unlock,
-  UserPlus,
-  RefreshCw,
-  Home,
-  ArrowLeft,
-  CheckCircle,
-  AlertTriangle,
-  Clock,
-  UserCheck,
-  Mail,
-  Link as LinkIcon,
-  Loader2,
-  X,
-  Copy,
-} from 'lucide-react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
+import { Users, Search, Edit, Trash2, MoreVertical, Lock, Unlock, RefreshCw, Home, ArrowLeft, CheckCircle, AlertTriangle, Shield, UserCheck, UserPlus } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
-import { format } from 'date-fns';
 import { motion } from 'framer-motion';
 
 export default function UserManagement() {
   const queryClient = useQueryClient();
-  const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
   const [filterRole, setFilterRole] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
-  const [editingUser, setEditingUser] = useState(null);
-  const [showEditDialog, setShowEditDialog] = useState(false);
-  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const [userToDelete, setUserToDelete] = useState(null);
   const [syncing, setSyncing] = useState(false);
-  
-  const [showInviteDialog, setShowInviteDialog] = useState(false);
-  const [inviteType, setInviteType] = useState('email');
-  const [inviteFormData, setInviteFormData] = useState({
-    email: '',
-    name: '',
-    position: 'server',
-    department: 'front_of_house',
-  });
-  const [generatedLink, setGeneratedLink] = useState(null);
-  const [showRegistrationRequests, setShowRegistrationRequests] = useState(false);
-
-  const [formData, setFormData] = useState({
-    full_name: '',
-    email: '',
-    position: '',
-    department: '',
-    phone: '',
-    status: 'active',
-    hire_date: '',
-    hourly_rate: '',
-  });
 
   const { data: currentUser } = useQuery({
     queryKey: ['currentUser'],
@@ -99,7 +27,7 @@ export default function UserManagement() {
   const isAdmin = currentUser?.role === 'admin' || currentUser?.position === 'owner';
   const isManager = currentUser?.position === 'manager';
 
-  const { data: allUsers = [], isLoading: loadingUsers, refetch: refetchUsers } = useQuery({
+  const { data: allUsers = [], refetch: refetchUsers } = useQuery({
     queryKey: ['allUsers'],
     queryFn: () => base44.entities.User.list('-created_date'),
     staleTime: 0,
@@ -111,17 +39,7 @@ export default function UserManagement() {
     staleTime: 0,
   });
 
-  const { data: invitations = [] } = useQuery({
-    queryKey: ['userInvitations'],
-    queryFn: () => base44.entities.UserInvitation.list('-created_date'),
-  });
-
-  const { data: registrationRequests = [] } = useQuery({
-    queryKey: ['registrationRequests'],
-    queryFn: () => base44.entities.RegistrationRequest.filter({ status: 'pending' }),
-  });
-
-  const unifiedUsers = React.useMemo(() => {
+  const unifiedUsers = useMemo(() => {
     const userMap = new Map();
 
     allUsers.forEach(user => {
@@ -136,7 +54,6 @@ export default function UserManagement() {
         status: user.status || 'active',
         hire_date: user.hire_date,
         role: user.role,
-        hourly_rate: user.hourly_rate,
         created_date: user.created_date,
         source: 'user',
         has_team_member: false,
@@ -168,10 +85,6 @@ export default function UserManagement() {
           phone: member.phone,
           photo_url: member.photo_url,
           status: member.status,
-          hire_date: member.hire_date,
-          role: 'user',
-          hourly_rate: member.hourly_rate,
-          created_date: member.created_date,
           source: 'team_member_only',
           has_team_member: true,
           team_member_id: member.id,
@@ -200,263 +113,18 @@ export default function UserManagement() {
     synced: unifiedUsers.filter(u => u.has_team_member).length,
   };
 
-  const updateUserMutation = useMutation({
-    mutationFn: async ({ userId, teamMemberId, data }) => {
-      const promises = [];
-      
-      if (userId) {
-        promises.push(base44.entities.User.update(userId, {
-          position: data.position,
-          department: data.department,
-          phone: data.phone,
-          status: data.status,
-          hire_date: data.hire_date,
-          hourly_rate: parseFloat(data.hourly_rate) || 0,
-        }));
-      }
-
-      if (teamMemberId) {
-        promises.push(base44.entities.TeamMember.update(teamMemberId, {
-          staff_name: data.full_name,
-          position: data.position,
-          department: data.department,
-          phone: data.phone,
-          status: data.status,
-          hire_date: data.hire_date,
-          hourly_rate: parseFloat(data.hourly_rate) || 0,
-        }));
-      }
-
-      await Promise.all(promises);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['allUsers'] });
-      queryClient.invalidateQueries({ queryKey: ['allTeamMembers'] });
-      setShowEditDialog(false);
-      setEditingUser(null);
-    },
-  });
-
-  const deleteUserMutation = useMutation({
-    mutationFn: async ({ userId, teamMemberId }) => {
-      const promises = [];
-      
-      if (userId) {
-        promises.push(base44.entities.User.update(userId, { status: 'inactive' }));
-      }
-      if (teamMemberId) {
-        promises.push(base44.entities.TeamMember.update(teamMemberId, { status: 'inactive' }));
-      }
-
-      await Promise.all(promises);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['allUsers'] });
-      queryClient.invalidateQueries({ queryKey: ['allTeamMembers'] });
-      setShowDeleteDialog(false);
-      setUserToDelete(null);
-    },
-  });
-
-  const sendInvitationMutation = useMutation({
-    mutationFn: async (inviteData) => {
-      const invitationCode = `INV-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-      const registrationLink = `${window.location.origin}/register?code=${invitationCode}`;
-      const expiresAt = new Date();
-      expiresAt.setDate(expiresAt.getDate() + 7);
-
-      const invitation = await base44.entities.UserInvitation.create({
-        invitation_code: invitationCode,
-        invited_email: inviteData.email,
-        invited_name: inviteData.name,
-        invited_position: inviteData.position,
-        invited_department: inviteData.department,
-        invited_by: currentUser.email,
-        invited_by_name: currentUser.full_name,
-        invitation_type: inviteData.type,
-        registration_link: registrationLink,
-        status: 'pending',
-        expires_at: expiresAt.toISOString(),
-      });
-
-      if (inviteData.type === 'email') {
-        try {
-          await base44.integrations.Core.SendEmail({
-            to: inviteData.email,
-            subject: `You're invited to join ${currentUser.full_name}'s team`,
-            body: `
-Hello ${inviteData.name},
-
-You've been invited to join our team as a ${inviteData.position}!
-
-To complete your registration, please click the link below:
-${registrationLink}
-
-This invitation will expire in 7 days.
-
-Best regards,
-${currentUser.full_name}
-            `.trim(),
-          });
-
-          await base44.entities.UserInvitation.update(invitation.id, {
-            email_sent_at: new Date().toISOString(),
-          });
-        } catch (error) {
-          console.error('Email send error:', error);
-        }
-      }
-
-      return invitation;
-    },
-    onSuccess: (invitation) => {
-      queryClient.invalidateQueries({ queryKey: ['userInvitations'] });
-      
-      if (inviteType === 'link') {
-        setGeneratedLink(invitation.registration_link);
-      } else {
-        setShowInviteDialog(false);
-        setInviteFormData({ email: '', name: '', position: 'server', department: 'front_of_house' });
-        alert('✅ Invitation sent successfully!');
-      }
-    },
-  });
-
-  const approveRegistrationMutation = useMutation({
-    mutationFn: async (request) => {
-      await base44.entities.RegistrationRequest.update(request.id, {
-        status: 'approved',
-        reviewed_by: currentUser.email,
-        reviewed_by_name: currentUser.full_name,
-        reviewed_at: new Date().toISOString(),
-      });
-
-      try {
-        await base44.integrations.Core.SendEmail({
-          to: request.email,
-          subject: 'Your registration has been approved!',
-          body: `
-Hello ${request.full_name},
-
-Great news! Your registration has been approved.
-
-You can now log in to the system with your credentials.
-
-Welcome to the team!
-
-Best regards,
-${currentUser.full_name}
-          `.trim(),
-        });
-      } catch (error) {
-        console.error('Email error:', error);
-      }
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['registrationRequests'] });
-      alert('✅ Registration approved!');
-    },
-  });
-
-  const rejectRegistrationMutation = useMutation({
-    mutationFn: async ({ request, reason }) => {
-      await base44.entities.RegistrationRequest.update(request.id, {
-        status: 'rejected',
-        reviewed_by: currentUser.email,
-        reviewed_by_name: currentUser.full_name,
-        reviewed_at: new Date().toISOString(),
-        rejection_reason: reason,
-      });
-
-      try {
-        await base44.integrations.Core.SendEmail({
-          to: request.email,
-          subject: 'Registration Update',
-          body: `
-Hello ${request.full_name},
-
-Thank you for your interest in joining our team.
-
-Unfortunately, we are unable to approve your registration at this time.
-
-${reason ? `Reason: ${reason}` : ''}
-
-Best regards,
-${currentUser.full_name}
-          `.trim(),
-        });
-      } catch (error) {
-        console.error('Email error:', error);
-      }
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['registrationRequests'] });
-      alert('Registration rejected');
-    },
-  });
-
-  const handleEdit = (user) => {
-    setEditingUser(user);
-    setFormData({
-      full_name: user.full_name || '',
-      email: user.email || '',
-      position: user.position || '',
-      department: user.department || '',
-      phone: user.phone || '',
-      status: user.status || 'active',
-      hire_date: user.hire_date || '',
-      hourly_rate: user.hourly_rate || '',
-    });
-    setShowEditDialog(true);
-  };
-
-  const handleSaveUser = () => {
-    if (!editingUser) return;
-
-    updateUserMutation.mutate({
-      userId: editingUser.id,
-      teamMemberId: editingUser.team_member_id,
-      data: formData,
-    });
-  };
-
-  const handleDeleteUser = () => {
-    if (!userToDelete) return;
-
-    deleteUserMutation.mutate({
-      userId: userToDelete.id,
-      teamMemberId: userToDelete.team_member_id,
-    });
-  };
-
   const handleSyncAll = async () => {
     setSyncing(true);
     try {
       await refetchUsers();
       await refetchTeamMembers();
       sessionStorage.removeItem('unified_user_sync_done');
-      window.location.reload();
+      alert('✅ Users synced successfully!');
     } catch (error) {
       console.error('Sync error:', error);
+      alert('❌ Sync failed');
     }
     setSyncing(false);
-  };
-
-  const handleSendInvite = () => {
-    if (!inviteFormData.email || !inviteFormData.name) {
-      alert('Please fill in all required fields');
-      return;
-    }
-
-    sendInvitationMutation.mutate({
-      ...inviteFormData,
-      type: inviteType,
-    });
-  };
-
-  const copyToClipboard = (text) => {
-    navigator.clipboard.writeText(text);
-    alert('✅ Copied to clipboard!');
   };
 
   const getRoleColor = (position) => {
@@ -502,6 +170,7 @@ ${currentUser.full_name}
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6 md:p-8">
       <div className="max-w-7xl mx-auto">
+        {/* Navigation */}
         <div className="flex gap-3 mb-6">
           <Link to={createPageUrl('ManagerDashboard')}>
             <Button variant="outline" size="sm">
@@ -517,6 +186,7 @@ ${currentUser.full_name}
           </Link>
         </div>
 
+        {/* Header */}
         <div className="mb-8 flex justify-between items-start">
           <div>
             <div className="flex items-center gap-3 mb-2">
@@ -540,31 +210,10 @@ ${currentUser.full_name}
               {syncing ? 'Syncing...' : 'Sync All'}
             </Button>
             
-            <Button
-              onClick={() => {
-                setShowInviteDialog(true);
-                setGeneratedLink(null);
-                setInviteFormData({ email: '', name: '', position: 'server', department: 'front_of_house' });
-              }}
-              className="bg-blue-600 hover:bg-blue-700"
-            >
+            <Button className="bg-blue-600 hover:bg-blue-700">
               <UserPlus className="w-4 h-4 mr-2" />
               Invite User
             </Button>
-
-            {registrationRequests.length > 0 && (
-              <Button
-                variant="outline"
-                onClick={() => setShowRegistrationRequests(true)}
-                className="relative"
-              >
-                <Users className="w-4 h-4 mr-2" />
-                Registrations
-                <Badge className="ml-2 bg-red-500 text-white">
-                  {registrationRequests.length}
-                </Badge>
-              </Button>
-            )}
           </div>
         </div>
 
@@ -753,34 +402,16 @@ ${currentUser.full_name}
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => handleEdit(user)}>
+                            <DropdownMenuItem>
                               <Edit className="w-4 h-4 mr-2" />
                               Edit User
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => {
-                              setUserToDelete(user);
-                              setShowDeleteDialog(true);
-                            }}>
-                              {user.status === 'active' ? (
-                                <>
-                                  <Lock className="w-4 h-4 mr-2" />
-                                  Deactivate
-                                </>
-                              ) : (
-                                <>
-                                  <Unlock className="w-4 h-4 mr-2" />
-                                  Activate
-                                </>
-                              )}
+                            <DropdownMenuItem>
+                              <Lock className="w-4 h-4 mr-2" />
+                              Deactivate
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
-                            <DropdownMenuItem
-                              className="text-red-600"
-                              onClick={() => {
-                                setUserToDelete(user);
-                                setShowDeleteDialog(true);
-                              }}
-                            >
+                            <DropdownMenuItem className="text-red-600">
                               <Trash2 className="w-4 h-4 mr-2" />
                               Delete
                             </DropdownMenuItem>
@@ -801,8 +432,6 @@ ${currentUser.full_name}
             )}
           </CardContent>
         </Card>
-
-        {/* Dialogs remain the same - truncated for space */}
       </div>
     </div>
   );
