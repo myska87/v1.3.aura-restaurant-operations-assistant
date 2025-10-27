@@ -1,8 +1,7 @@
-
-import React, { useState } from "react"; // useMemo removed as it's no longer directly used in this component
+import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -56,13 +55,12 @@ import {
   MessageCircle,
   FileText,
   DollarSign,
+  RefreshCw,
 } from "lucide-react";
 import { format, differenceInMonths } from "date-fns";
 import { Link, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { motion } from "framer-motion";
-
-import { useUnifiedStaff } from "../components/UnifiedStaffData"; // ADDED
 
 export default function TeamDirectory() {
   const queryClient = useQueryClient();
@@ -71,8 +69,8 @@ export default function TeamDirectory() {
   const [filterPosition, setFilterPosition] = useState("all");
   const [filterDepartment, setFilterDepartment] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
-  const [viewMode, setViewMode] = useState("grid"); // grid or list
-  const [sortBy, setSortBy] = useState("name"); // name, hire_date, position
+  const [viewMode, setViewMode] = useState("grid");
+  const [sortBy, setSortBy] = useState("name");
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [editingMember, setEditingMember] = useState(null);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -106,20 +104,106 @@ export default function TeamDirectory() {
 
   const isManager = user?.position === 'manager' || user?.position === 'owner' || user?.role === 'admin';
 
-  // Use unified staff data instead of separate queries and memoization
-  const { staff: enrichedStaff, isLoading: loadingStaff } = useUnifiedStaff();
+  // Fetch all users
+  const { data: allUsers = [], isLoading: loadingUsers, refetch: refetchUsers } = useQuery({
+    queryKey: ['allUsers'],
+    queryFn: () => base44.entities.User.list(),
+    staleTime: 0, // Always fetch fresh data
+  });
 
-  // Filtering and sorting
+  // Fetch all team members
+  const { data: teamMembers = [], isLoading: loadingTeamMembers, refetch: refetchTeamMembers } = useQuery({
+    queryKey: ['teamMembers'],
+    queryFn: () => base44.entities.TeamMember.list(),
+    staleTime: 0, // Always fetch fresh data
+  });
+
+  // Merge users and team members into unified staff list
+  const enrichedStaff = React.useMemo(() => {
+    const staffMap = new Map();
+    
+    // Add all users first
+    allUsers.forEach(user => {
+      staffMap.set(user.email, {
+        id: user.id,
+        email: user.email,
+        full_name: user.full_name,
+        position: user.position,
+        department: user.department,
+        phone: user.phone,
+        photo_url: user.photo_url,
+        hire_date: user.hire_date,
+        status: user.status || 'active',
+        shift_start: user.shift_start,
+        shift_end: user.shift_end,
+        emergency_contact: user.emergency_contact,
+        hourly_rate: user.hourly_rate,
+        source: 'user',
+        has_team_member: false,
+      });
+    });
+    
+    // Enrich with team member data
+    teamMembers.forEach(member => {
+      if (staffMap.has(member.staff_email)) {
+        // User exists - enrich with team member data
+        const existing = staffMap.get(member.staff_email);
+        staffMap.set(member.staff_email, {
+          ...existing,
+          full_name: member.staff_name || existing.full_name,
+          position: member.position || existing.position,
+          department: member.department || existing.department,
+          phone: member.phone || existing.phone,
+          photo_url: member.photo_url || existing.photo_url,
+          shift_start: member.shift_start || existing.shift_start,
+          shift_end: member.shift_end || existing.shift_end,
+          status: member.status || existing.status,
+          hire_date: member.hire_date || existing.hire_date,
+          hourly_rate: member.hourly_rate || existing.hourly_rate,
+          emergency_contact: member.emergency_contact || existing.emergency_contact,
+          manager_email: member.manager_email,
+          notes: member.notes,
+          source: 'merged',
+          has_team_member: true,
+          team_member_id: member.id,
+        });
+      } else {
+        // Team member without user account - add as pending
+        staffMap.set(member.staff_email, {
+          id: member.id,
+          email: member.staff_email,
+          full_name: member.staff_name,
+          position: member.position,
+          department: member.department,
+          phone: member.phone,
+          photo_url: member.photo_url,
+          hire_date: member.hire_date,
+          status: member.status || 'active',
+          shift_start: member.shift_start,
+          shift_end: member.shift_end,
+          hourly_rate: member.hourly_rate,
+          emergency_contact: member.emergency_contact,
+          manager_email: member.manager_email,
+          notes: member.notes,
+          source: 'team_member_only',
+          has_team_member: true,
+          team_member_id: member.id,
+          isTeamMemberOnly: true, // Flag for pending user account
+        });
+      }
+    });
+    
+    return Array.from(staffMap.values());
+  }, [allUsers, teamMembers]);
+
+  const isLoading = loadingUsers || loadingTeamMembers;
+
+  // Filter staff
   let filteredStaff = enrichedStaff.filter(staff => {
-    // The useUnifiedStaff hook ensures full_name and email are consistent.
-    const nameToSearch = staff.full_name || '';
-    const emailToSearch = staff.email || '';
-    const positionToSearch = staff.position || '';
-
-    const matchesSearch = 
-      nameToSearch.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      emailToSearch.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      positionToSearch.toLowerCase().includes(searchQuery.toLowerCase());
+    const nameMatch = (staff.full_name || '').toLowerCase().includes(searchQuery.toLowerCase());
+    const emailMatch = (staff.email || '').toLowerCase().includes(searchQuery.toLowerCase());
+    const positionMatch = (staff.position || '').toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesSearch = nameMatch || emailMatch || positionMatch;
     
     const matchesPosition = filterPosition === 'all' || staff.position === filterPosition;
     const matchesDepartment = filterDepartment === 'all' || staff.department === filterDepartment;
@@ -128,54 +212,46 @@ export default function TeamDirectory() {
     return matchesSearch && matchesPosition && matchesDepartment && matchesStatus;
   });
 
-  // Sort
+  // Sort staff
   filteredStaff = filteredStaff.sort((a, b) => {
     switch (sortBy) {
       case 'name':
-        return (a.full_name || a.staff_name || '').localeCompare(b.full_name || b.staff_name || '');
+        return (a.full_name || '').localeCompare(b.full_name || '');
       case 'hire_date':
         return new Date(b.hire_date || 0) - new Date(a.hire_date || 0);
       case 'position':
         return (a.position || '').localeCompare(b.position || '');
-      case 'points':
-        return b.totalPoints - a.totalPoints;
-      case 'tenure':
-        return b.tenure - a.tenure;
       default:
         return 0;
     }
   });
 
-  // Stats (recalculated based on enrichedStaff)
+  // Calculate stats
   const stats = {
     total: enrichedStaff.length,
     active: enrichedStaff.filter(s => s.status === 'active').length,
     managers: enrichedStaff.filter(s => s.position === 'manager' || s.position === 'owner').length,
     kitchen: enrichedStaff.filter(s => s.department === 'kitchen').length,
     frontHouse: enrichedStaff.filter(s => s.department === 'front_of_house').length,
-    avgTenure: enrichedStaff.length > 0 ? Math.round(enrichedStaff.reduce((sum, s) => sum + (s.tenure || 0), 0) / enrichedStaff.length) : 0,
-    newHires: enrichedStaff.filter(s => (s.tenure || 0) < 3).length,
   };
 
   // CRUD operations
   const saveMemberMutation = useMutation({
     mutationFn: async (data) => {
-      // The `isTeamMemberOnly` flag and member ID logic needs to be carefully handled.
-      // `useUnifiedStaff` provides a unified view, but the mutations still operate on `TeamMember` entities.
-      // We need to find the correct `TeamMember` ID if editing, or create if new.
-      const existingTeamMember = enrichedStaff.find(tm => tm.staff_email === data.staff_email);
-      const memberId = existingTeamMember?.id; // Assuming `id` from `TeamMember` entity
-
-      if (memberId) {
-        return await base44.entities.TeamMember.update(memberId, data);
+      const existingMember = teamMembers.find(tm => tm.staff_email === data.staff_email);
+      
+      if (existingMember) {
+        return await base44.entities.TeamMember.update(existingMember.id, data);
       } else {
         return await base44.entities.TeamMember.create(data);
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['teamMembers'] }); // Still invalidate underlying queries
-      queryClient.invalidateQueries({ queryKey: ['allStaff'] }); // Invalidate allStaff in case a new user is created and merges later
-      // The useUnifiedStaff hook will re-fetch data based on these invalidations.
+      // Invalidate and refetch both queries
+      queryClient.invalidateQueries({ queryKey: ['teamMembers'] });
+      queryClient.invalidateQueries({ queryKey: ['allUsers'] });
+      refetchTeamMembers();
+      refetchUsers();
       closeDialog();
     },
     onError: (error) => {
@@ -188,11 +264,17 @@ export default function TeamDirectory() {
       return await base44.entities.TeamMember.update(id, { status: 'inactive' });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['teamMembers'] }); // Invalidate underlying queries
+      queryClient.invalidateQueries({ queryKey: ['teamMembers'] });
+      refetchTeamMembers();
       setShowDeleteDialog(false);
       setMemberToDelete(null);
     },
   });
+
+  const handleRefresh = () => {
+    refetchUsers();
+    refetchTeamMembers();
+  };
 
   const handleOpenAddDialog = () => {
     setEditingMember(null);
@@ -220,8 +302,8 @@ export default function TeamDirectory() {
     setEditingMember(member);
     setPhotoPreview(member.photo_url || null);
     setFormData({
-      staff_email: member.email || member.staff_email, // Prefer 'email' from User if available, fallback to 'staff_email' from TeamMember
-      staff_name: member.full_name || member.staff_name, // Prefer 'full_name' from User if available, fallback to 'staff_name' from TeamMember
+      staff_email: member.email || member.staff_email,
+      staff_name: member.full_name || member.staff_name,
       position: member.position || "",
       department: member.department || "",
       phone: member.phone || "",
@@ -248,13 +330,11 @@ export default function TeamDirectory() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Check file type
     if (!file.type.startsWith('image/')) {
       alert('Please upload an image file');
       return;
     }
 
-    // Check file size (max 5MB)
     if (file.size > 5 * 1024 * 1024) {
       alert('Photo size must be less than 5MB');
       return;
@@ -287,8 +367,8 @@ export default function TeamDirectory() {
   };
 
   const confirmDelete = () => {
-    if (memberToDelete && memberToDelete.id) {
-      deleteMemberMutation.mutate(memberToDelete.id);
+    if (memberToDelete && (memberToDelete.team_member_id || memberToDelete.id)) {
+      deleteMemberMutation.mutate(memberToDelete.team_member_id || memberToDelete.id);
     }
   };
 
@@ -328,7 +408,6 @@ export default function TeamDirectory() {
     return colors[status] || 'bg-gray-100 text-gray-800 border-gray-200';
   };
 
-  // Available options
   const availablePositions = [
     { value: "owner", label: "Owner" },
     { value: "manager", label: "Manager" },
@@ -349,7 +428,7 @@ export default function TeamDirectory() {
     { value: "maintenance", label: "Maintenance" },
   ];
 
-  if (loadingStaff) {
+  if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100">
         <div className="flex items-center space-x-2 text-gray-600">
@@ -394,6 +473,10 @@ export default function TeamDirectory() {
           </div>
           
           <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={handleRefresh}>
+              <RefreshCw className="w-4 h-4 mr-2" />
+              Refresh
+            </Button>
             {isManager && (
               <>
                 <Button variant="outline" size="sm">
@@ -409,8 +492,8 @@ export default function TeamDirectory() {
           </div>
         </div>
 
-        {/* Enhanced Stats Grid */}
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4 mb-6">
+        {/* Stats Grid */}
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
             <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
               <CardContent className="p-4 text-center">
@@ -460,33 +543,12 @@ export default function TeamDirectory() {
               </CardContent>
             </Card>
           </motion.div>
-
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}>
-            <Card className="bg-gradient-to-br from-orange-50 to-orange-100 border-orange-200">
-              <CardContent className="p-4 text-center">
-                <Clock className="w-8 h-8 text-orange-600 mx-auto mb-2" />
-                <p className="text-3xl font-bold text-orange-900">{stats.avgTenure}</p>
-                <p className="text-xs text-orange-700 font-medium">Avg Months</p>
-              </CardContent>
-            </Card>
-          </motion.div>
-
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
-            <Card className="bg-gradient-to-br from-teal-50 to-teal-100 border-teal-200">
-              <CardContent className="p-4 text-center">
-                <TrendingUp className="w-8 h-8 text-teal-600 mx-auto mb-2" />
-                <p className="text-3xl font-bold text-teal-900">{stats.newHires}</p>
-                <p className="text-xs text-teal-700 font-medium">New Hires</p>
-              </CardContent>
-            </Card>
-          </motion.div>
         </div>
 
         {/* Filters and Search */}
         <Card className="mb-6">
           <CardContent className="p-4">
             <div className="flex flex-wrap gap-4 items-center">
-              {/* Search */}
               <div className="flex-1 min-w-[250px] relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                 <Input
@@ -497,7 +559,6 @@ export default function TeamDirectory() {
                 />
               </div>
 
-              {/* Filters Toggle */}
               <Button
                 variant="outline"
                 onClick={() => setShowFilters(!showFilters)}
@@ -507,7 +568,6 @@ export default function TeamDirectory() {
                 Filters
               </Button>
 
-              {/* Sort */}
               <Select value={sortBy} onValueChange={setSortBy}>
                 <SelectTrigger className="w-40">
                   <SelectValue />
@@ -516,12 +576,9 @@ export default function TeamDirectory() {
                   <SelectItem value="name">Name</SelectItem>
                   <SelectItem value="hire_date">Hire Date</SelectItem>
                   <SelectItem value="position">Position</SelectItem>
-                  <SelectItem value="points">Points</SelectItem>
-                  <SelectItem value="tenure">Tenure</SelectItem>
                 </SelectContent>
               </Select>
 
-              {/* View Mode */}
               <div className="flex border rounded-lg overflow-hidden">
                 <Button
                   variant={viewMode === 'grid' ? 'default' : 'ghost'}
@@ -542,7 +599,6 @@ export default function TeamDirectory() {
               </div>
             </div>
 
-            {/* Advanced Filters */}
             {showFilters && (
               <motion.div
                 initial={{ opacity: 0, height: 0 }}
@@ -596,7 +652,7 @@ export default function TeamDirectory() {
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredStaff.map((staff, index) => (
               <motion.div
-                key={staff.id || staff.staff_email}
+                key={staff.id || staff.email}
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.3, delay: index * 0.03 }}
@@ -609,12 +665,12 @@ export default function TeamDirectory() {
                         {staff.photo_url ? (
                           <img
                             src={staff.photo_url}
-                            alt={staff.full_name || staff.staff_name}
+                            alt={staff.full_name}
                             className="w-16 h-16 rounded-full object-cover flex-shrink-0 border-2 border-white shadow-md"
                           />
                         ) : (
                           <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-green-500 rounded-full flex items-center justify-center text-white text-2xl font-bold flex-shrink-0">
-                            {(staff.full_name?.charAt(0)?.toUpperCase() || staff.staff_name?.charAt(0)?.toUpperCase() || "?")}
+                            {(staff.full_name?.charAt(0)?.toUpperCase() || "?")}
                           </div>
                         )}
                         {staff.status === 'active' && (
@@ -631,7 +687,7 @@ export default function TeamDirectory() {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-start justify-between gap-2 mb-2">
                           <h3 className="font-bold text-lg text-gray-900 truncate">
-                            {staff.full_name || staff.staff_name || 'Unknown'}
+                            {staff.full_name || 'Unknown'}
                           </h3>
                           {isManager && (
                             <DropdownMenu>
@@ -646,14 +702,6 @@ export default function TeamDirectory() {
                                     <DropdownMenuItem onClick={() => navigate(createPageUrl(`StaffProfile?staff_email=${staff.email}`))}>
                                       <Eye className="w-4 h-4 mr-2" />
                                       View Profile
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => navigate(createPageUrl(`StartCoachingSession?staff_email=${staff.email}`))}>
-                                      <MessageCircle className="w-4 h-4 mr-2" />
-                                      Start Coaching
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => navigate(createPageUrl(`WeeklyRotaSchedule?staff_email=${staff.email}`))}>
-                                      <Calendar className="w-4 h-4 mr-2" />
-                                      View Schedule
                                     </DropdownMenuItem>
                                     <DropdownMenuSeparator />
                                   </>
@@ -702,10 +750,10 @@ export default function TeamDirectory() {
                         </div>
                         
                         {/* Contact Info */}
-                        <div className="space-y-1.5 text-sm mb-3">
+                        <div className="space-y-1.5 text-sm">
                           <div className="flex items-center gap-2 text-gray-600">
                             <Mail className="w-3.5 h-3.5 flex-shrink-0" />
-                            <span className="truncate text-xs">{staff.email || staff.staff_email}</span>
+                            <span className="truncate text-xs">{staff.email}</span>
                           </div>
                           {staff.phone && (
                             <div className="flex items-center gap-2 text-gray-600">
@@ -713,22 +761,6 @@ export default function TeamDirectory() {
                               <span className="text-xs">{staff.phone}</span>
                             </div>
                           )}
-                        </div>
-
-                        {/* Stats */}
-                        <div className="grid grid-cols-3 gap-2 pt-3 border-t">
-                          <div className="text-center">
-                            <p className="text-lg font-bold text-gray-900">{staff.tenure || 0}</p>
-                            <p className="text-[10px] text-gray-500">Months</p>
-                          </div>
-                          <div className="text-center">
-                            <p className="text-lg font-bold text-blue-600">{staff.totalPoints || 0}</p>
-                            <p className="text-[10px] text-gray-500">Points</p>
-                          </div>
-                          <div className="text-center">
-                            <p className="text-lg font-bold text-green-600">{staff.completedSessions || 0}</p>
-                            <p className="text-[10px] text-gray-500">Sessions</p>
-                          </div>
                         </div>
                       </div>
                     </div>
@@ -749,31 +781,29 @@ export default function TeamDirectory() {
                     <th className="text-left p-4 text-sm font-semibold text-gray-700">Team Member</th>
                     <th className="text-left p-4 text-sm font-semibold text-gray-700">Position</th>
                     <th className="text-left p-4 text-sm font-semibold text-gray-700">Department</th>
-                    <th className="text-center p-4 text-sm font-semibold text-gray-700">Tenure</th>
-                    <th className="text-center p-4 text-sm font-semibold text-gray-700">Points</th>
                     <th className="text-center p-4 text-sm font-semibold text-gray-700">Status</th>
                     {isManager && <th className="text-right p-4 text-sm font-semibold text-gray-700">Actions</th>}
                   </tr>
                 </thead>
                 <tbody>
                   {filteredStaff.map((staff) => (
-                    <tr key={staff.id || staff.staff_email} className="border-b hover:bg-gray-50 transition-colors">
+                    <tr key={staff.id || staff.email} className="border-b hover:bg-gray-50 transition-colors">
                       <td className="p-4">
                         <div className="flex items-center gap-3">
                           {staff.photo_url ? (
                             <img
                               src={staff.photo_url}
-                              alt={staff.full_name || staff.staff_name}
+                              alt={staff.full_name}
                               className="w-10 h-10 rounded-full object-cover border-2 border-white shadow-md"
                             />
                           ) : (
                             <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-green-500 rounded-full flex items-center justify-center text-white font-bold">
-                              {(staff.full_name?.charAt(0)?.toUpperCase() || staff.staff_name?.charAt(0)?.toUpperCase() || "?")}
+                              {(staff.full_name?.charAt(0)?.toUpperCase() || "?")}
                             </div>
                           )}
                           <div>
-                            <p className="font-medium text-gray-900">{staff.full_name || staff.staff_name}</p>
-                            <p className="text-sm text-gray-500">{staff.email || staff.staff_email}</p>
+                            <p className="font-medium text-gray-900">{staff.full_name}</p>
+                            <p className="text-sm text-gray-500">{staff.email}</p>
                             {staff.isTeamMemberOnly && (
                               <Badge className="bg-yellow-100 text-yellow-800 border-yellow-200 text-xs mt-1">
                                 Pending User Account
@@ -799,15 +829,6 @@ export default function TeamDirectory() {
                         ) : (
                           <span className="text-gray-400 text-sm">-</span>
                         )}
-                      </td>
-                      <td className="p-4 text-center">
-                        <p className="text-sm font-medium text-gray-900">{staff.tenure || 0} months</p>
-                      </td>
-                      <td className="p-4 text-center">
-                        <div className="flex items-center justify-center gap-1">
-                          <Award className="w-4 h-4 text-yellow-600" />
-                          <span className="text-sm font-bold text-gray-900">{staff.totalPoints || 0}</span>
-                        </div>
                       </td>
                       <td className="p-4 text-center">
                         {staff.status ? (
