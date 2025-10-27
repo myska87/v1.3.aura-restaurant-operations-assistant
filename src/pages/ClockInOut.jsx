@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -210,7 +211,7 @@ export default function ClockInOut() {
     if (isProcessing) return;
     
     if (!nextShift) {
-      alert('❌ No Scheduled Shift\n\nYou don't have a scheduled shift for today. Please contact your manager.');
+      alert('❌ No Scheduled Shift\n\nYou do not have a scheduled shift for today. Please contact your manager.');
       return;
     }
     
