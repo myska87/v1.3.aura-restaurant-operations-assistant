@@ -17,7 +17,8 @@ import {
   CheckCircle,
   ListChecks,
   Clock,
-  ArrowRight
+  ArrowRight,
+  Star 
 } from "lucide-react";
 import StatCard from "../components/dashboard/StatCard";
 import ComplianceChart from "../components/dashboard/ComplianceChart";
@@ -29,7 +30,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
-import QuickBackupWidget from "../components/QuickBackupWidget"; // Added import
+import QuickBackupWidget from "../components/QuickBackupWidget"; 
 
 // Safe number helpers
 const safeNumber = (value, decimals = 2) => {
@@ -40,7 +41,6 @@ const safeNumber = (value, decimals = 2) => {
 export default function Dashboard() {
   const [dailyQuote, setDailyQuote] = useState("");
 
-  // OPTIMIZED: Limit queries to only recent data needed for dashboard
   const { data: complianceChecks = [] } = useQuery({
     queryKey: ['complianceChecks'],
     queryFn: () => base44.entities.ComplianceCheck.list("-check_date", 50), // Limit to 50
@@ -373,7 +373,7 @@ export default function Dashboard() {
         <Card className="bg-white border-none shadow-sm hover:shadow-md transition-shadow">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg">
-              <Zap className="w-5 h-5 text-yellow-600" />
+              <Zap className="w-5 h-5 mr-1 text-yellow-600" />
               Quick Actions
             </CardTitle>
           </CardHeader>
@@ -456,7 +456,49 @@ export default function Dashboard() {
         </Card>
 
         {/* Quick Access Cards */}
-        <div className="grid md::grid-cols-2 gap-6 mt-6">
+        <div className="grid md:grid-cols-3 gap-6 mt-6">
+          {/* Quality Control Card - NEW */}
+          <Link to={createPageUrl("QualityDashboard")}>
+            <Card className="bg-gradient-to-br from-emerald-500 to-green-600 text-white border-none shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer group h-full">
+              <CardContent className="p-6">
+                <div className="flex items-start justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="p-3 bg-white/20 rounded-xl">
+                      <Star className="w-8 h-8" />
+                    </div>
+                    <div>
+                      <h3 className="text-2xl font-bold">Quality Control</h3>
+                      <p className="text-green-100 text-sm">One-tap quality scoring</p>
+                    </div>
+                  </div>
+                  <div className="text-white group-hover:translate-x-2 transition-transform">
+                    <ArrowRight className="w-6 h-6" />
+                  </div>
+                </div>
+
+                <div className="space-y-3 mt-4">
+                  <div className="bg-white/10 rounded-lg p-3 hover:bg-white/20 transition-colors">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">Quick Checks</span>
+                      <Badge className="bg-white text-emerald-600 hover:bg-white">
+                        ⭐ Rate 1-5
+                      </Badge>
+                    </div>
+                  </div>
+                  
+                  <div className="bg-white/10 rounded-lg p-3 hover:bg-white/20 transition-colors">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">AI Insights</span>
+                      <Badge className="bg-yellow-400 text-yellow-900 text-xs">
+                        Smart
+                      </Badge>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </Link>
+
           {/* My Forms Card */}
           <Link to={createPageUrl("FormIntelligence")}>
             <Card className="bg-gradient-to-br from-blue-500 to-indigo-600 text-white border-none shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer group h-full">
@@ -476,7 +518,6 @@ export default function Dashboard() {
                   </div>
                 </div>
 
-                {/* Form Summary */}
                 <div className="space-y-3 mt-4">
                   <div className="bg-white/10 rounded-lg p-3 hover:bg-white/20 transition-colors">
                     <div className="flex items-center justify-between">
@@ -502,7 +543,7 @@ export default function Dashboard() {
 
           {/* Staff Model Card */}
           <Link to={createPageUrl("StaffModel")}>
-            <Card className="bg-gradient-to-br from-green-500 to-emerald-600 text-white border-none shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer group h-full">
+            <Card className="bg-gradient-to-br from-purple-500 to-pink-600 text-white border-none shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer group h-full">
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div>
@@ -510,7 +551,7 @@ export default function Dashboard() {
                       <GraduationCap className="w-8 h-8" />
                       <h3 className="text-2xl font-bold">Staff Model</h3>
                     </div>
-                    <p className="text-green-100">Culture, Training, Performance & Recognition</p>
+                    <p className="text-purple-100">Culture, Training, Performance & Recognition</p>
                   </div>
                   <div className="text-white group-hover:translate-x-2 transition-transform">
                     <ArrowRight className="w-6 h-6" />

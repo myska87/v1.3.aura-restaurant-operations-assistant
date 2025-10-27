@@ -85,6 +85,8 @@ import ScheduleCoaching from './pages/ScheduleCoaching';
 import FeatureList from './pages/FeatureList';
 import QualityDashboard from './pages/QualityDashboard';
 import QuickQualityCheck from './pages/QuickQualityCheck';
+import QualityTemplates from './pages/QualityTemplates';
+import QualityReports from './pages/QualityReports';
 import Layout from './Layout.jsx';
 
 
@@ -176,6 +178,8 @@ export const PAGES = {
     "FeatureList": FeatureList,
     "QualityDashboard": QualityDashboard,
     "QuickQualityCheck": QuickQualityCheck,
+    "QualityTemplates": QualityTemplates,
+    "QualityReports": QualityReports,
 }
 
 export const pagesConfig = {

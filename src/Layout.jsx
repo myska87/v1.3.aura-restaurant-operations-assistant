@@ -30,6 +30,7 @@ import {
   Sparkles, // Added Sparkles icon for Menu Intelligence
   Mic, // Added Mic icon for Meeting Intelligence
   Edit, // Added Edit icon for SOP Builder
+  Star, // Added Star icon for Quality
 } from "lucide-react";
 import WelcomeNewHire from "./components/WelcomeNewHire";
 import ChecklistAutomation from "./components/ChecklistAutomation";
@@ -47,6 +48,7 @@ import FormScheduler from "./components/FormScheduler";
 import { ComplianceStyles } from "./components/ComplianceStyles";
 import MenuAutoUpdateTrigger from './components/MenuAutoUpdateTrigger';
 import { SecurityBadge } from "./components/PermissionGuard"; // Add this import
+import QualityAutomation from "./components/QualityAutomation"; // Added Quality Automation
 
 const Badge = ({ children, className }) => (
   <span className={`inline-flex items-center justify-center rounded-full text-center font-semibold leading-none whitespace-nowrap ${className}`}>
@@ -104,6 +106,12 @@ const navigationItems = [
         url: createPageUrl("FormIntelligence"),
         icon: Settings,
         badge: "AI",
+      },
+      {
+        title: "⭐ Quality Control", // Added Quality Control
+        url: createPageUrl("QualityDashboard"),
+        icon: Star,
+        badge: null,
       },
       {
         title: "Compliance",
@@ -288,6 +296,8 @@ export default function Layout({ children }) {
 
       {/* 🍽️ Menu Auto-Update Service */}
       <MenuAutoUpdateTrigger />
+      {/* ⭐ Quality Automation Service */}
+      <QualityAutomation />
 
       {/* Mobile Header */}
       <div className="lg:hidden fixed top-0 left-0 right-0 bg-white border-b border-slate-200 z-40 px-4 py-3">
