@@ -18,7 +18,9 @@ import {
   ListChecks,
   Clock,
   ArrowRight,
-  Star 
+  Star,
+  Shield, // New import for Manager Tools section
+  Mic // New import for Manager Tools section
 } from "lucide-react";
 import StatCard from "../components/dashboard/StatCard";
 import ComplianceChart from "../components/dashboard/ComplianceChart";
@@ -30,7 +32,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
-import QuickBackupWidget from "../components/QuickBackupWidget"; 
+import QuickBackupWidget from "../components/QuickBackupWidget";
 
 // Safe number helpers
 const safeNumber = (value, decimals = 2) => {
@@ -76,18 +78,18 @@ export default function Dashboard() {
     queryKey: ['myFormAssignmentsDashboard', user?.email],
     queryFn: async () => {
       if (!user?.email) return [];
-      
+
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       const sevenDaysFromNow = new Date(today);
       sevenDaysFromNow.setDate(today.getDate() + 7);
 
       const allAssignments = await base44.entities.FormAssignmentMetadata.list('-due_date', 50);
-      
+
       return allAssignments.filter(a => {
         const dueDate = new Date(a.due_date);
         dueDate.setHours(0, 0, 0, 0);
-        
+
         return (
           a.assigned_to_email === user.email &&
           (a.completion_status === 'pending' || a.completion_status === 'in_progress') &&
@@ -389,7 +391,7 @@ export default function Dashboard() {
                     {activeShift.role} • Started at {activeShift.clock_in_time ? format(new Date(activeShift.clock_in_time), 'h:mm a') : activeShift.start_time}
                   </p>
                 </div>
-                
+
                 <Link to={createPageUrl('ClockInOut')} className="block">
                   <Button className="w-full bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white shadow-lg hover:shadow-xl transition-all">
                     <LogOut className="w-5 h-5 mr-2" />
@@ -415,7 +417,7 @@ export default function Dashboard() {
                     {nextShift.start_time} - {nextShift.end_time}
                   </p>
                 </div>
-                
+
                 <Link to={createPageUrl('ClockInOut')} className="block">
                   <Button className="w-full bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white shadow-lg hover:shadow-xl transition-all">
                     <LogIn className="w-5 h-5 mr-2" />
@@ -457,7 +459,7 @@ export default function Dashboard() {
 
         {/* Quick Access Cards */}
         <div className="grid md:grid-cols-3 gap-6 mt-6">
-          {/* Quality Control Card - NEW */}
+          {/* Quality Control Card */}
           <Link to={createPageUrl("QualityDashboard")}>
             <Card className="bg-gradient-to-br from-emerald-500 to-green-600 text-white border-none shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer group h-full">
               <CardContent className="p-6">
@@ -485,7 +487,7 @@ export default function Dashboard() {
                       </Badge>
                     </div>
                   </div>
-                  
+
                   <div className="bg-white/10 rounded-lg p-3 hover:bg-white/20 transition-colors">
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-medium">AI Insights</span>
@@ -527,7 +529,7 @@ export default function Dashboard() {
                       </Badge>
                     </div>
                   </div>
-                  
+
                   <div className="bg-white/10 rounded-lg p-3 hover:bg-white/20 transition-colors">
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-medium">HACCP & Safety</span>
@@ -561,6 +563,120 @@ export default function Dashboard() {
             </Card>
           </Link>
         </div>
+
+        {/* NEW: Manager Quick Access Cards */}
+        {(user?.position === 'manager' || user?.position === 'owner' || user?.role === 'admin') && (
+          <div className="mt-6 space-y-4">
+            <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+              <Shield className="w-6 h-6 text-purple-600" />
+              Manager Tools
+            </h2>
+
+            <div className="grid md:grid-cols-3 gap-6">
+              {/* User Management Card - NEW */}
+              <Link to={createPageUrl("UserManagement")}>
+                <Card className="bg-gradient-to-br from-indigo-500 to-purple-600 text-white border-none shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer group h-full">
+                  <CardContent className="p-6">
+                    <div className="flex items-start justify-between mb-4">
+                      <div className="flex items-center gap-3">
+                        <div className="p-3 bg-white/20 rounded-xl">
+                          <Users className="w-8 h-8" />
+                        </div>
+                        <div>
+                          <h3 className="text-2xl font-bold">User Management</h3>
+                          <p className="text-indigo-100 text-sm">Invite & manage staff</p>
+                        </div>
+                      </div>
+                      <Badge className="bg-red-500 text-white">NEW</Badge>
+                    </div>
+                    <div className="space-y-2 text-sm">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle className="w-4 h-4" />
+                        <span>Email Invitations</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <CheckCircle className="w-4 h-4" />
+                        <span>QR Code Registration</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <CheckCircle className="w-4 h-4" />
+                        <span>Access Control</span>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </Link>
+
+              {/* EHO Control Center Card - NEW */}
+              <Link to={createPageUrl("EHOControlCenter")}>
+                <Card className="bg-gradient-to-br from-orange-500 to-red-600 text-white border-none shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer group h-full">
+                  <CardContent className="p-6">
+                    <div className="flex items-start justify-between mb-4">
+                      <div className="flex items-center gap-3">
+                        <div className="p-3 bg-white/20 rounded-xl">
+                          <Shield className="w-8 h-8" />
+                        </div>
+                        <div>
+                          <h3 className="text-2xl font-bold">EHO Control</h3>
+                          <p className="text-orange-100 text-sm">Audit & compliance center</p>
+                        </div>
+                      </div>
+                      <Badge className="bg-red-500 text-white">NEW</Badge>
+                    </div>
+                    <div className="space-y-2 text-sm">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle className="w-4 h-4" />
+                        <span>FSA Audit Ready</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <CheckCircle className="w-4 h-4" />
+                        <span>Real-time Monitoring</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <CheckCircle className="w-4 h-4" />
+                        <span>Auto Reports</span>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </Link>
+
+              {/* Meeting Intelligence Card - NEW */}
+              <Link to={createPageUrl("MeetingDashboard")}>
+                <Card className="bg-gradient-to-br from-pink-500 to-rose-600 text-white border-none shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer group h-full">
+                  <CardContent className="p-6">
+                    <div className="flex items-start justify-between mb-4">
+                      <div className="flex items-center gap-3">
+                        <div className="p-3 bg-white/20 rounded-xl">
+                          <Mic className="w-8 h-8" />
+                        </div>
+                        <div>
+                          <h3 className="text-2xl font-bold">Meeting AI</h3>
+                          <p className="text-pink-100 text-sm">Voice-to-notes intelligence</p>
+                        </div>
+                      </div>
+                      <Badge className="bg-yellow-400 text-yellow-900">AI</Badge>
+                    </div>
+                    <div className="space-y-2 text-sm">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle className="w-4 h-4" />
+                        <span>Auto Transcription</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <CheckCircle className="w-4 h-4" />
+                        <span>Action Items</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <CheckCircle className="w-4 h-4" />
+                        <span>Smart Summaries</span>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </Link>
+            </div>
+          </div>
+        )}
 
         {/* Smart Scheduler Quick Access for Managers */}
         {(user?.position === 'manager' || user?.position === 'owner' || user?.role === 'admin') && (

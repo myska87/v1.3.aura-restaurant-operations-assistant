@@ -246,7 +246,7 @@ const managementItems = [
     badge: "AI",
   },
   {
-    title: "EHO Control Center",
+    title: "🏛️ EHO Control Center",
     url: createPageUrl("EHOControlCenter"),
     icon: Shield,
     badge: "AUDIT",
@@ -279,7 +279,7 @@ const managementItems = [
     title: "👥 User Management",
     url: createPageUrl("UserManagement"),
     icon: Users,
-    badge: "ADMIN",
+    badge: "NEW",
   },
   {
     title: "🔒 Security & Permissions",
@@ -298,6 +298,12 @@ const managementItems = [
     url: createPageUrl("DataBridgeMonitor"),
     icon: Activity,
     badge: "LIVE",
+  },
+  {
+    title: "🤖 AI Agent Monitor",
+    url: createPageUrl("AgentMonitor"),
+    icon: Activity,
+    badge: "AI",
   },
 ];
 
