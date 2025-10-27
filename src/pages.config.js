@@ -90,11 +90,11 @@ import QualityReports from './pages/QualityReports';
 import DocumentBuilder from './pages/DocumentBuilder';
 import DocumentLibrary from './pages/DocumentLibrary';
 import DocumentViewer from './pages/DocumentViewer';
+import UserManagement from './pages/UserManagement';
 import BugReport from './pages/BugReport';
 import FeatureIdeas from './pages/FeatureIdeas';
 import DocumentSignatureReport from './pages/DocumentSignatureReport';
 import AgentMonitor from './pages/AgentMonitor';
-import UserManagement from './pages/UserManagement';
 import Layout from './Layout.jsx';
 
 
@@ -191,11 +191,11 @@ export const PAGES = {
     "DocumentBuilder": DocumentBuilder,
     "DocumentLibrary": DocumentLibrary,
     "DocumentViewer": DocumentViewer,
+    "UserManagement": UserManagement,
     "BugReport": BugReport,
     "FeatureIdeas": FeatureIdeas,
     "DocumentSignatureReport": DocumentSignatureReport,
     "AgentMonitor": AgentMonitor,
-    "UserManagement": UserManagement,
 }
 
 export const pagesConfig = {
