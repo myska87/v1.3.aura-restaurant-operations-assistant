@@ -46,6 +46,7 @@ import FormIntelligenceEngine from "./components/FormIntelligenceEngine"; // Imp
 import FormScheduler from "./components/FormScheduler";
 import { ComplianceStyles } from "./components/ComplianceStyles";
 import MenuAutoUpdateTrigger from './components/MenuAutoUpdateTrigger';
+import { SecurityBadge } from "./components/PermissionGuard"; // Add this import
 
 const Badge = ({ children, className }) => (
   <span className={`inline-flex items-center justify-center rounded-full text-center font-semibold leading-none whitespace-nowrap ${className}`}>
@@ -226,6 +227,12 @@ const managementItems = [
     url: createPageUrl("DataManagement"),
     icon: Database,
     badge: null,
+  },
+  {
+    title: "🔒 Security & Permissions",
+    url: createPageUrl("SecurityDashboard"),
+    icon: Shield,
+    badge: "RBAC",
   },
   {
     title: "🔒 Compliance & Privacy",
@@ -423,6 +430,10 @@ export default function Layout({ children }) {
                   {user?.full_name || "User"}
                 </p>
                 <p className="text-xs text-slate-500 truncate">{user?.email}</p>
+                {/* Add Security Badge */}
+                <div className="mt-1">
+                  <SecurityBadge user={user} className="text-[10px] px-2 py-0.5" />
+                </div>
               </div>
               <div className="hidden lg:block">
                 <NotificationBell />
