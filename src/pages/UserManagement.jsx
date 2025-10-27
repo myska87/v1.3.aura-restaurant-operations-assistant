@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -49,20 +48,20 @@ import {
   AlertTriangle,
   Clock,
   UserCheck,
-  Mail, // New import for invite
-  QrCode, // New import for QR code invite
-  Loader2, // New import for loading state
-  X // New import for reject
+  Mail,
+  Link as LinkIcon,
+  Loader2,
+  X,
+  Copy,
 } from 'lucide-react';
-import { Link, useNavigate } from 'react-router-dom'; // Added useNavigate
+import { Link, useNavigate } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import { format } from 'date-fns';
 import { motion } from 'framer-motion';
-import { QRCodeSVG } from 'qrcode.react'; // New import for QR code generation
 
 export default function UserManagement() {
   const queryClient = useQueryClient();
-  const navigate = useNavigate(); // Initialize useNavigate
+  const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
   const [filterRole, setFilterRole] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
@@ -81,7 +80,7 @@ export default function UserManagement() {
     position: 'server',
     department: 'front_of_house',
   });
-  const [generatedQR, setGeneratedQR] = useState(null);
+  const [generatedLink, setGeneratedLink] = useState(null);
   const [showRegistrationRequests, setShowRegistrationRequests] = useState(false);
 
   const [formData, setFormData] = useState({
@@ -321,7 +320,6 @@ ${currentUser.full_name}
           });
         } catch (error) {
           console.error('Email send error:', error);
-          alert('Failed to send invitation email.'); // Add feedback for email errors
         }
       }
 
@@ -330,20 +328,15 @@ ${currentUser.full_name}
     onSuccess: (invitation) => {
       queryClient.invalidateQueries({ queryKey: ['userInvitations'] });
       
-      if (inviteType === 'qr_code') {
-        // Generate QR code
-        const qrData = invitation.registration_link;
-        setGeneratedQR(qrData);
+      if (inviteType === 'link') {
+        // Show link instead of QR
+        setGeneratedLink(invitation.registration_link);
       } else {
         setShowInviteDialog(false);
-        setInviteFormData({ email: '', name: '', position: 'server', department: 'front_of_house' }); // Reset form
+        setInviteFormData({ email: '', name: '', position: 'server', department: 'front_of_house' });
         alert('✅ Invitation sent successfully!');
       }
     },
-    onError: (error) => {
-      console.error('Invitation error:', error);
-      alert('Failed to send invitation.');
-    }
   });
 
   // Approve Registration Mutation
@@ -377,17 +370,12 @@ ${currentUser.full_name}
         });
       } catch (error) {
         console.error('Email error:', error);
-        alert('Failed to send approval email.');
       }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['registrationRequests'] });
       alert('✅ Registration approved!');
     },
-    onError: (error) => {
-      console.error('Approval error:', error);
-      alert('Failed to approve registration.');
-    }
   });
 
   // Reject Registration Mutation
@@ -421,17 +409,12 @@ ${currentUser.full_name}
         });
       } catch (error) {
         console.error('Email error:', error);
-        alert('Failed to send rejection email.');
       }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['registrationRequests'] });
       alert('Registration rejected');
     },
-    onError: (error) => {
-      console.error('Rejection error:', error);
-      alert('Failed to reject registration.');
-    }
   });
 
   const handleEdit = (user) => {
@@ -491,6 +474,11 @@ ${currentUser.full_name}
       ...inviteFormData,
       type: inviteType,
     });
+  };
+
+  const copyToClipboard = (text) => {
+    navigator.clipboard.writeText(text);
+    alert('✅ Copied to clipboard!');
   };
 
   const getRoleColor = (position) => {
@@ -578,8 +566,8 @@ ${currentUser.full_name}
             <Button
               onClick={() => {
                 setShowInviteDialog(true);
-                setGeneratedQR(null); // Reset QR on dialog open
-                setInviteFormData({ email: '', name: '', position: 'server', department: 'front_of_house' }); // Reset form
+                setGeneratedLink(null);
+                setInviteFormData({ email: '', name: '', position: 'server', department: 'front_of_house' });
               }}
               className="bg-blue-600 hover:bg-blue-700"
             >
@@ -843,11 +831,11 @@ ${currentUser.full_name}
             <DialogHeader>
               <DialogTitle>Invite New User</DialogTitle>
               <DialogDescription>
-                Send an invitation via email or generate a QR code
+                Send an invitation via email or generate a registration link
               </DialogDescription>
             </DialogHeader>
 
-            {!generatedQR ? (
+            {!generatedLink ? (
               <div className="space-y-4">
                 <div className="flex gap-2 mb-4">
                   <Button
@@ -859,12 +847,12 @@ ${currentUser.full_name}
                     Email Invitation
                   </Button>
                   <Button
-                    variant={inviteType === 'qr_code' ? 'default' : 'outline'}
-                    onClick={() => setInviteType('qr_code')}
+                    variant={inviteType === 'link' ? 'default' : 'outline'}
+                    onClick={() => setInviteType('link')}
                     className="flex-1"
                   >
-                    <QrCode className="w-4 h-4 mr-2" />
-                    QR Code
+                    <LinkIcon className="w-4 h-4 mr-2" />
+                    Registration Link
                   </Button>
                 </div>
 
@@ -952,8 +940,8 @@ ${currentUser.full_name}
                       </>
                     ) : (
                       <>
-                        {inviteType === 'email' ? <Mail className="w-4 h-4 mr-2" /> : <QrCode className="w-4 h-4 mr-2" />}
-                        {inviteType === 'email' ? 'Send Invitation' : 'Generate QR Code'}
+                        {inviteType === 'email' ? <Mail className="w-4 h-4 mr-2" /> : <LinkIcon className="w-4 h-4 mr-2" />}
+                        {inviteType === 'email' ? 'Send Invitation' : 'Generate Link'}
                       </>
                     )}
                   </Button>
@@ -961,18 +949,18 @@ ${currentUser.full_name}
               </div>
             ) : (
               <div className="text-center space-y-4">
-                <h3 className="text-lg font-semibold">QR Code Generated!</h3>
-                <div className="flex justify-center">
-                  <QRCodeSVG value={generatedQR} size={256} />
+                <h3 className="text-lg font-semibold">Registration Link Generated!</h3>
+                <div className="bg-gray-100 p-4 rounded-lg">
+                  <p className="text-sm text-gray-600 mb-2">Share this link with the new user:</p>
+                  <p className="text-sm font-mono bg-white p-3 rounded border break-all">
+                    {generatedLink}
+                  </p>
                 </div>
-                <p className="text-sm text-gray-600">
-                  Scan this QR code to register
-                </p>
                 <div className="flex gap-2">
                   <Button
                     variant="outline"
                     onClick={() => {
-                      setGeneratedQR(null);
+                      setGeneratedLink(null);
                       setShowInviteDialog(false);
                     }}
                     className="flex-1"
@@ -980,31 +968,11 @@ ${currentUser.full_name}
                     Close
                   </Button>
                   <Button
-                    onClick={() => {
-                      // Download QR code
-                      const svg = document.querySelector('.dialog-qr-code svg'); // Target SVG within the dialog
-                      if (svg) {
-                          const svgData = new XMLSerializer().serializeToString(svg);
-                          const canvas = document.createElement('canvas');
-                          const ctx = canvas.getContext('2d');
-                          const img = new Image();
-                          img.onload = () => {
-                            canvas.width = img.width;
-                            canvas.height = img.height;
-                            ctx.drawImage(img, 0, 0);
-                            const pngFile = canvas.toDataURL('image/png');
-                            const downloadLink = document.createElement('a');
-                            downloadLink.download = 'invitation-qr-code.png';
-                            downloadLink.href = pngFile;
-                            downloadLink.click();
-                          };
-                          img.src = 'data:image/svg+xml;base64,' + btoa(svgData);
-                      }
-                    }}
+                    onClick={() => copyToClipboard(generatedLink)}
                     className="flex-1 bg-blue-600"
                   >
-                    <Download className="w-4 h-4 mr-2" />
-                    Download
+                    <Copy className="w-4 h-4 mr-2" />
+                    Copy Link
                   </Button>
                 </div>
               </div>
@@ -1037,7 +1005,7 @@ ${currentUser.full_name}
                             />
                           ) : (
                             <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white font-bold text-lg">
-                              {request.full_name?.charAt(0)?.toUpperCase()}
+                              {request.full_name?.charAt(0)}
                             </div>
                           )}
                           <div>
@@ -1049,11 +1017,11 @@ ${currentUser.full_name}
                         <div className="grid grid-cols-2 gap-4 mb-3">
                           <div>
                             <p className="text-xs text-gray-500">Position</p>
-                            <p className="font-medium">{request.desired_position || 'N/A'}</p>
+                            <p className="font-medium">{request.desired_position}</p>
                           </div>
                           <div>
                             <p className="text-xs text-gray-500">Department</p>
-                            <p className="font-medium">{request.desired_department || 'N/A'}</p>
+                            <p className="font-medium">{request.desired_department}</p>
                           </div>
                           <div>
                             <p className="text-xs text-gray-500">Phone</p>
