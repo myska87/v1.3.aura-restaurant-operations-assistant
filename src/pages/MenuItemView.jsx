@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -27,10 +28,13 @@ import {
   ShoppingCart,
   BookOpen,
   Eye,
-  FileText
+  FileText,
+  CheckCircle, // Added
+  Sparkles // Added
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
+import { format } from "date-fns"; // Added
 
 const safeNumber = (value, decimals = 2) => {
   const num = parseFloat(value);
@@ -47,6 +51,7 @@ export default function MenuItemView() {
   const [editingIngredients, setEditingIngredients] = useState(false);
   const [selectedIngredient, setSelectedIngredient] = useState("");
   const [ingredientQty, setIngredientQty] = useState("");
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false); // Added
 
   // Get menu item ID from URL
   const urlParams = new URLSearchParams(window.location.search);
@@ -83,12 +88,18 @@ export default function MenuItemView() {
     enabled: !!menuItemId,
   });
 
+  const { data: user } = useQuery({ // Added
+    queryKey: ['currentUser'],
+    queryFn: () => base44.auth.me(),
+  });
+
   const updateMenuItemMutation = useMutation({
     mutationFn: ({ id, data }) => base44.entities.MenuItem.update(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['menuItem', menuItemId] });
       queryClient.invalidateQueries({ queryKey: ['menuItems'] });
       setEditingIngredients(false);
+      setHasUnsavedChanges(false); // Added
     },
   });
 
@@ -146,7 +157,7 @@ export default function MenuItemView() {
       ingredient_name: ingredient.name,
       quantity: quantity,
       unit: ingredient.unit,
-      cost: safeNumber(cost),
+      cost: safeNumber(cost), // ingredient_cost × quantity
     };
 
     const updatedRecipe = [...currentRecipe, newRecipeItem];
@@ -156,11 +167,19 @@ export default function MenuItemView() {
     const newAllergens = ingredient.allergen_tags || [];
     const combinedAllergens = [...new Set([...existingAllergens, ...newAllergens])];
 
-    // Recalculate totals
+    // ✅ SMART CALCULATIONS - Exact Formula
+    // total_cost = sum(ingredient_cost × quantity)
     const totalCost = updatedRecipe.reduce((sum, r) => sum + safeNumber(r.cost), 0);
+    
+    // profit = sell_price - total_cost
     const profitMargin = safeNumber(menuItem.sell_price) - totalCost;
-    const foodCostPercentage = menuItem.sell_price > 0 ? (totalCost / menuItem.sell_price) * 100 : 0;
+    
+    // margin = (profit / sell_price) × 100
+    const foodCostPercentage = menuItem.sell_price > 0 
+      ? ((totalCost / menuItem.sell_price) * 100) 
+      : 0;
 
+    // AUTO-SAVE: Update immediately
     await updateMenuItemMutation.mutateAsync({
       id: menuItem.id,
       data: {
@@ -189,11 +208,14 @@ export default function MenuItemView() {
       }
     });
 
-    // Recalculate totals
+    // ✅ SMART CALCULATIONS - Exact Formula
     const totalCost = updatedRecipe.reduce((sum, r) => sum + safeNumber(r.cost), 0);
     const profitMargin = safeNumber(menuItem.sell_price) - totalCost;
-    const foodCostPercentage = menuItem.sell_price > 0 ? (totalCost / menuItem.sell_price) * 100 : 0;
+    const foodCostPercentage = menuItem.sell_price > 0 
+      ? ((totalCost / menuItem.sell_price) * 100) 
+      : 0;
 
+    // AUTO-SAVE: Update immediately
     await updateMenuItemMutation.mutateAsync({
       id: menuItem.id,
       data: {
@@ -207,6 +229,12 @@ export default function MenuItemView() {
   };
 
   const handleLinkSOP = async (sopId) => {
+    if (sopId === 'create_new') {
+      // Redirect to SOP Builder with pre-filled data
+      navigate(createPageUrl(`SOPBuilder?prefill=${encodeURIComponent(menuItem.name)}&type=recipe&return=${menuItemId}`));
+      return;
+    }
+
     const sop = sops.find(s => s.id === sopId);
     if (!sop) return;
 
@@ -217,8 +245,8 @@ export default function MenuItemView() {
       linked_id: menuItem.id,
       linked_name: menuItem.name,
       link_type: 'preparation',
-      created_by: (await base44.auth.me()).email,
-      created_by_name: (await base44.auth.me()).full_name,
+      created_by: user?.email, // Updated
+      created_by_name: user?.full_name, // Updated
     });
 
     // Also update the menu item with linked_sop_id
@@ -464,14 +492,21 @@ export default function MenuItemView() {
             <TabsContent value="ingredients" className="p-6 space-y-6">
               <div className="flex justify-between items-center">
                 <h3 className="text-xl font-bold text-gray-900">Recipe Ingredients</h3>
-                <Button
-                  onClick={() => setEditingIngredients(!editingIngredients)}
-                  variant={editingIngredients ? "secondary" : "default"}
-                  className={editingIngredients ? "" : "bg-emerald-600 hover:bg-emerald-700"}
-                >
-                  <Edit className="w-4 h-4 mr-2" />
-                  {editingIngredients ? "Done Editing" : "Edit Ingredients"}
-                </Button>
+                <div className="flex gap-2"> {/* Added div for badge */}
+                  {updateMenuItemMutation.isPending && (
+                    <Badge className="bg-blue-100 text-blue-800">
+                      Auto-saving...
+                    </Badge>
+                  )}
+                  <Button
+                    onClick={() => setEditingIngredients(!editingIngredients)}
+                    variant={editingIngredients ? "secondary" : "default"}
+                    className={editingIngredients ? "" : "bg-emerald-600 hover:bg-emerald-700"}
+                  >
+                    <Edit className="w-4 h-4 mr-2" />
+                    {editingIngredients ? "Done Editing" : "Edit Ingredients"}
+                  </Button>
+                </div>
               </div>
 
               {editingIngredients && (
@@ -602,64 +637,172 @@ export default function MenuItemView() {
               )}
             </TabsContent>
 
-            {/* Tab 3: SOP Integration */}
+            {/* Tab 3: SOP / Cooking Instruction - ENHANCED VERSION */}
             <TabsContent value="sop" className="p-6 space-y-6">
               <div className="flex justify-between items-center">
                 <div>
                   <h3 className="text-xl font-bold text-gray-900">Preparation Procedures</h3>
                   <p className="text-sm text-gray-600 mt-1">Standard Operating Procedures for preparing this dish</p>
                 </div>
+                <Button
+                  onClick={() => navigate(createPageUrl(`SOPBuilder?prefill=${encodeURIComponent(menuItem.name)}&type=recipe&menuItem=${menuItemId}`))}
+                  className="bg-purple-600 hover:bg-purple-700"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Create New SOP
+                </Button>
               </div>
 
               {linkedSOPs.length > 0 ? (
-                <div className="grid md:grid-cols-2 gap-4">
+                <div className="space-y-4">
                   {linkedSOPs.map((sop) => (
-                    <Card key={sop.id} className="border-2 hover:shadow-lg transition-shadow">
-                      <CardContent className="p-6">
-                        <div className="flex items-start justify-between mb-4">
+                    <Card key={sop.id} className="border-2 border-purple-200 overflow-hidden">
+                      <CardHeader className="bg-gradient-to-r from-purple-50 to-indigo-50 border-b">
+                        <div className="flex items-start justify-between">
                           <div className="flex-1">
-                            <h4 className="font-bold text-gray-900 text-lg mb-1">{sop.title}</h4>
-                            <p className="text-sm text-gray-600 line-clamp-2">{sop.description}</p>
+                            <CardTitle className="text-xl flex items-center gap-2">
+                              <BookOpen className="w-5 h-5 text-purple-600" />
+                              {sop.title}
+                            </CardTitle>
+                            <p className="text-sm text-gray-600 mt-2">{sop.description}</p>
                           </div>
-                          <Badge className="ml-2 bg-purple-100 text-purple-800">
+                          <Badge className="ml-2 bg-purple-600 text-white">
                             v{sop.version}
                           </Badge>
                         </div>
+                      </CardHeader>
 
-                        <div className="flex flex-wrap gap-2 mb-4">
-                          <Badge variant="outline" className="text-xs">
+                      <CardContent className="p-6 space-y-6">
+                        {/* SOP Info Row */}
+                        <div className="flex flex-wrap gap-3">
+                          <Badge variant="outline" className="capitalize">
+                            <FileText className="w-3 h-3 mr-1" />
                             {sop.category}
                           </Badge>
                           {sop.total_time_minutes && (
-                            <Badge variant="outline" className="text-xs flex items-center gap-1">
-                              <Clock className="w-3 h-3" />
-                              {sop.total_time_minutes} min
+                            <Badge variant="outline">
+                              <Clock className="w-3 h-3 mr-1" />
+                              {sop.total_time_minutes} min total
                             </Badge>
                           )}
-                          <Badge variant="outline" className="text-xs">
+                          <Badge variant="outline">
                             {sop.steps?.length || 0} steps
                           </Badge>
+                          {sop.last_reviewed_date && (
+                            <Badge variant="outline" className="text-green-700 border-green-300">
+                              <CheckCircle className="w-3 h-3 mr-1" />
+                              Reviewed {format(new Date(sop.last_reviewed_date), 'MMM yyyy')}
+                            </Badge>
+                          )}
                         </div>
 
-                        <div className="flex gap-2">
+                        {/* Hero Image or Video */}
+                        {(sop.hero_image_url || sop.video_url) && (
+                          <div className="rounded-lg overflow-hidden bg-gray-100">
+                            {sop.video_url ? (
+                              <video
+                                src={sop.video_url}
+                                controls
+                                className="w-full max-h-64 object-cover"
+                                poster={sop.hero_image_url}
+                              >
+                                Your browser does not support video.
+                              </video>
+                            ) : (
+                              <img
+                                src={sop.hero_image_url}
+                                alt={sop.title}
+                                className="w-full max-h-64 object-cover"
+                              />
+                            )}
+                          </div>
+                        )}
+
+                        {/* Step Preview */}
+                        {sop.steps && sop.steps.length > 0 && (
+                          <div className="bg-gray-50 rounded-lg p-4 border-2 border-gray-200">
+                            <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                              <Sparkles className="w-4 h-4 text-purple-600" />
+                              Quick Preview - First 3 Steps
+                            </h4>
+                            <div className="space-y-3">
+                              {sop.steps.slice(0, 3).map((step, idx) => (
+                                <div key={idx} className="flex gap-3">
+                                  <div className="flex-shrink-0 w-6 h-6 bg-purple-600 text-white rounded-full flex items-center justify-center text-xs font-bold">
+                                    {step.step_number}
+                                  </div>
+                                  <div className="flex-1">
+                                    <p className="font-medium text-gray-900">{step.title}</p>
+                                    <p className="text-sm text-gray-600 line-clamp-2">{step.description}</p>
+                                    {step.time_estimate_minutes && (
+                                      <p className="text-xs text-gray-500 mt-1">
+                                        ⏱️ {step.time_estimate_minutes} minutes
+                                      </p>
+                                    )}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                            {sop.steps.length > 3 && (
+                              <p className="text-sm text-gray-500 mt-3 text-center">
+                                + {sop.steps.length - 3} more steps...
+                              </p>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Safety & Hygiene Notes */}
+                        {(sop.safety_notes || sop.hygiene_notes) && (
+                          <div className="grid md:grid-cols-2 gap-4">
+                            {sop.safety_notes && (
+                              <Card className="bg-amber-50 border-amber-200">
+                                <CardContent className="p-4">
+                                  <div className="flex items-start gap-2">
+                                    <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                                    <div>
+                                      <p className="font-semibold text-amber-900 mb-1">Safety Notes</p>
+                                      <p className="text-sm text-amber-800">{sop.safety_notes}</p>
+                                    </div>
+                                  </div>
+                                </CardContent>
+                              </Card>
+                            )}
+                            {sop.hygiene_notes && (
+                              <Card className="bg-blue-50 border-blue-200">
+                                <CardContent className="p-4">
+                                  <div className="flex items-start gap-2">
+                                    <Sparkles className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                                    <div>
+                                      <p className="font-semibold text-blue-900 mb-1">Hygiene Notes</p>
+                                      <p className="text-sm text-blue-800">{sop.hygiene_notes}</p>
+                                    </div>
+                                  </div>
+                                </CardContent>
+                              </Card>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Action Buttons */}
+                        <div className="flex gap-3 pt-4 border-t">
                           <Link to={createPageUrl(`SOPViewer?id=${sop.id}`)} className="flex-1">
                             <Button className="w-full bg-purple-600 hover:bg-purple-700">
                               <Eye className="w-4 h-4 mr-2" />
-                              View SOP
+                              View Full SOP
                             </Button>
                           </Link>
                           <Button
                             variant="outline"
-                            size="icon"
                             onClick={() => {
                               const link = sopLinks.find(l => l.sop_id === sop.id);
                               if (link && confirm('Unlink this SOP from this menu item?')) {
                                 deleteSOPLinkMutation.mutate(link.id);
                               }
                             }}
-                            className="text-red-500 hover:text-red-700"
+                            className="text-red-600 hover:bg-red-50"
                           >
-                            <Trash2 className="w-4 h-4" />
+                            <Trash2 className="w-4 h-4 mr-2" />
+                            Unlink
                           </Button>
                         </div>
                       </CardContent>
@@ -667,26 +810,52 @@ export default function MenuItemView() {
                   ))}
                 </div>
               ) : (
-                <Card className="border-2 border-gray-200">
+                <Card className="border-2 border-dashed border-gray-300">
                   <CardContent className="p-12 text-center">
-                    <BookOpen className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                    <p className="text-gray-600 mb-2">No SOPs linked to this menu item</p>
-                    <p className="text-sm text-gray-500 mb-4">
-                      Link preparation procedures to ensure consistent quality
+                    <BookOpen className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                    <h4 className="text-lg font-semibold text-gray-900 mb-2">
+                      No Preparation SOP Linked
+                    </h4>
+                    <p className="text-gray-600 mb-6">
+                      Add a Standard Operating Procedure to ensure this dish is prepared consistently every time.
                     </p>
+                    <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                      <Button
+                        onClick={() => navigate(createPageUrl(`SOPBuilder?prefill=${encodeURIComponent(menuItem.name)}&type=recipe&menuItem=${menuItemId}`))}
+                        className="bg-purple-600 hover:bg-purple-700"
+                      >
+                        <Sparkles className="w-4 h-4 mr-2" />
+                        Create New SOP with AI
+                      </Button>
+                      <span className="text-gray-500 self-center">or</span>
+                      <Button variant="outline" onClick={() => setActiveTab("sop")}> {/* Keep it on this tab */}
+                        <BookOpen className="w-4 h-4 mr-2" />
+                        Link Existing SOP
+                      </Button>
+                    </div>
                   </CardContent>
                 </Card>
               )}
 
+              {/* Link Existing SOP Section */}
               <Card className="border-2 border-blue-200 bg-blue-50">
                 <CardContent className="p-6">
-                  <h4 className="font-semibold text-gray-900 mb-3">Link New SOP</h4>
+                  <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                    <Plus className="w-5 h-5 text-blue-600" />
+                    Link Existing SOP
+                  </h4>
                   <div className="flex gap-3">
                     <Select onValueChange={handleLinkSOP}>
                       <SelectTrigger className="flex-1 bg-white">
                         <SelectValue placeholder="Select an SOP to link..." />
                       </SelectTrigger>
                       <SelectContent>
+                        <SelectItem value="create_new">
+                          <div className="flex items-center gap-2">
+                            <Sparkles className="w-4 h-4 text-purple-600" />
+                            <span className="font-semibold">✨ Create New SOP with AI</span>
+                          </div>
+                        </SelectItem>
                         {sops
                           .filter(sop => !linkedSOPs.find(linked => linked.id === sop.id))
                           .map(sop => (
@@ -697,9 +866,12 @@ export default function MenuItemView() {
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="mt-3 flex items-start gap-2 text-sm text-gray-600">
-                    <AlertTriangle className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" />
-                    <p>Linking an SOP helps staff follow standardized preparation procedures and maintains quality consistency.</p>
+                  <div className="mt-3 flex items-start gap-2 text-sm text-blue-800">
+                    <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                    <p>
+                      <strong>Pro Tip:</strong> Linking SOPs helps maintain quality consistency and trains new staff faster. 
+                      Each dish should have a preparation SOP for best results.
+                    </p>
                   </div>
                 </CardContent>
               </Card>
