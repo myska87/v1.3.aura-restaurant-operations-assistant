@@ -87,6 +87,9 @@ import QualityDashboard from './pages/QualityDashboard';
 import QuickQualityCheck from './pages/QuickQualityCheck';
 import QualityTemplates from './pages/QualityTemplates';
 import QualityReports from './pages/QualityReports';
+import DocumentBuilder from './pages/DocumentBuilder';
+import DocumentLibrary from './pages/DocumentLibrary';
+import DocumentViewer from './pages/DocumentViewer';
 import Layout from './Layout.jsx';
 
 
@@ -180,6 +183,9 @@ export const PAGES = {
     "QuickQualityCheck": QuickQualityCheck,
     "QualityTemplates": QualityTemplates,
     "QualityReports": QualityReports,
+    "DocumentBuilder": DocumentBuilder,
+    "DocumentLibrary": DocumentLibrary,
+    "DocumentViewer": DocumentViewer,
 }
 
 export const pagesConfig = {
