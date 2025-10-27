@@ -27,6 +27,7 @@ import {
   Database,
   Activity, // Added Activity icon
   Settings, // Added Settings icon for Form Intelligence
+  Sparkles, // Added Sparkles icon for Menu Intelligence
 } from "lucide-react";
 import WelcomeNewHire from "./components/WelcomeNewHire";
 import ChecklistAutomation from "./components/ChecklistAutomation";
@@ -167,6 +168,18 @@ const managementItems = [
     title: "Smart Scheduler",
     url: createPageUrl("SmartScheduler"),
     icon: Calendar,
+    badge: "AI",
+  },
+  {
+    title: "EHO Control Center",
+    url: createPageUrl("EHOControlCenter"),
+    icon: Shield,
+    badge: "AUDIT",
+  },
+  {
+    title: "Menu Intelligence",
+    url: createPageUrl("MenuIntelligence"),
+    icon: Sparkles,
     badge: "AI",
   },
   {
@@ -354,7 +367,9 @@ export default function Layout({ children }) {
                               ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white' 
                               : item.badge === 'LIVE'
                                 ? 'bg-gradient-to-r from-green-500 to-emerald-500 text-white'
-                                : 'bg-purple-100 text-purple-700'
+                                : item.badge === 'AUDIT'
+                                  ? 'bg-orange-100 text-orange-700' // Added style for AUDIT badge
+                                  : 'bg-purple-100 text-purple-700'
                           }`}>
                             {item.badge}
                           </Badge>

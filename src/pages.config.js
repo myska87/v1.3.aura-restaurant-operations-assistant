@@ -66,6 +66,8 @@ import FormIntelligence from './pages/FormIntelligence';
 import HygieneDashboard from './pages/HygieneDashboard';
 import FormScheduler from './pages/FormScheduler';
 import PerformanceDashboard from './pages/PerformanceDashboard';
+import EHOControlCenter from './pages/EHOControlCenter';
+import MenuIntelligence from './pages/MenuIntelligence';
 import Layout from './Layout.jsx';
 
 
@@ -138,6 +140,8 @@ export const PAGES = {
     "HygieneDashboard": HygieneDashboard,
     "FormScheduler": FormScheduler,
     "PerformanceDashboard": PerformanceDashboard,
+    "EHOControlCenter": EHOControlCenter,
+    "MenuIntelligence": MenuIntelligence,
 }
 
 export const pagesConfig = {
