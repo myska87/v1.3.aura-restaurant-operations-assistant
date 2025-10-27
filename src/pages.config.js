@@ -82,6 +82,7 @@ import SelfReflection from './pages/SelfReflection';
 import GrowthTracker from './pages/GrowthTracker';
 import CoachingAchievements from './pages/CoachingAchievements';
 import ScheduleCoaching from './pages/ScheduleCoaching';
+import FeatureList from './pages/FeatureList';
 import Layout from './Layout.jsx';
 
 
@@ -170,6 +171,7 @@ export const PAGES = {
     "GrowthTracker": GrowthTracker,
     "CoachingAchievements": CoachingAchievements,
     "ScheduleCoaching": ScheduleCoaching,
+    "FeatureList": FeatureList,
 }
 
 export const pagesConfig = {
