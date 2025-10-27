@@ -41,6 +41,7 @@ import ChangeDetector from "./components/ChangeDetector"; // Import the new comp
 import DataBridgeEngine from "./components/DataBridgeEngine"; // Import the new component
 import FormIntelligenceEngine from "./components/FormIntelligenceEngine"; // Import the new component
 import FormScheduler from "./components/FormScheduler";
+import { ComplianceStyles } from "./components/ComplianceStyles";
 
 const Badge = ({ children, className }) => (
   <span className={`inline-flex items-center justify-center rounded-full text-center font-semibold leading-none whitespace-nowrap ${className}`}>
@@ -233,6 +234,7 @@ export default function Layout({ children }) {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+      <ComplianceStyles />
       <AutoBackupScheduler />
       <WelcomeNewHire />
       <ChecklistAutomation />
