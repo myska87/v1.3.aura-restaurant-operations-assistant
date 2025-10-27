@@ -41,14 +41,15 @@ import { StaffDataSync } from "./components/StaffDataSync";
 import MenuImporter from "./components/MenuImporter";
 import SystemStatusCheck from "./components/SystemStatusCheck";
 import ComplianceEventListener from "./components/ComplianceEventListener";
-import ChangeDetector from "./components/ChangeDetector"; // Import the new component
-import DataBridgeEngine from "./components/DataBridgeEngine"; // Import the new component
-import FormIntelligenceEngine from "./components/FormIntelligenceEngine"; // Import the new component
+import ChangeDetector from "./components/ChangeDetector";
+import DataBridgeEngine from "./components/DataBridgeEngine";
+import FormIntelligenceEngine from "./components/FormIntelligenceEngine";
 import FormScheduler from "./components/FormScheduler";
 import { ComplianceStyles } from "./components/ComplianceStyles";
 import MenuAutoUpdateTrigger from './components/MenuAutoUpdateTrigger';
-import { SecurityBadge } from "./components/PermissionGuard"; // Add this import
+import { SecurityBadge } from "./components/PermissionGuard";
 import QualityAutomation from "./components/QualityAutomation"; // Added Quality Automation
+import { UnifiedUserSync } from "./components/UnifiedUserSync"; // Added UnifiedUserSync
 
 const Badge = ({ children, className }) => (
   <span className={`inline-flex items-center justify-center rounded-full text-center font-semibold leading-none whitespace-nowrap ${className}`}>
@@ -282,6 +283,7 @@ export default function Layout({ children }) {
       <WelcomeNewHire />
       
       <StaffDataSync />
+      <UnifiedUserSync /> {/* Added UnifiedUserSync */}
       <MenuImporter />
       <SystemStatusCheck />
       <ComplianceEventListener />
