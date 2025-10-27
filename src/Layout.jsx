@@ -28,6 +28,8 @@ import {
   Activity, // Added Activity icon
   Settings, // Added Settings icon for Form Intelligence
   Sparkles, // Added Sparkles icon for Menu Intelligence
+  Mic, // Added Mic icon for Meeting Intelligence
+  Edit, // Added Edit icon for SOP Builder
 } from "lucide-react";
 import WelcomeNewHire from "./components/WelcomeNewHire";
 import ChecklistAutomation from "./components/ChecklistAutomation";
@@ -89,6 +91,12 @@ const navigationItems = [
   {
     section: "Operations",
     items: [
+      {
+        title: "📚 SOPs & Procedures",
+        url: createPageUrl("SOPDashboard"),
+        icon: FileText,
+        badge: null,
+      },
       {
         title: "Form Intelligence",
         url: createPageUrl("FormIntelligence"),
@@ -169,6 +177,18 @@ const managementItems = [
     url: createPageUrl("AIConsole"),
     icon: Sparkles,
     badge: "AI",
+  },
+  {
+    title: "🎙️ Meeting Intelligence",
+    url: createPageUrl("MeetingDashboard"),
+    icon: Mic,
+    badge: "AI",
+  },
+  {
+    title: "📝 SOP Builder",
+    url: createPageUrl("SOPBuilder"),
+    icon: Edit,
+    badge: null,
   },
   {
     title: "Smart Scheduler",
