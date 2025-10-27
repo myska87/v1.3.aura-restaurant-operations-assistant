@@ -82,6 +82,14 @@
     "popularity_score": {
       "type": "number",
       "description": "Track sales volume"
+    },
+    "linked_sop_id": {
+      "type": "string",
+      "description": "Reference to SOPDocument for preparation instructions"
+    },
+    "linked_sop_title": {
+      "type": "string",
+      "description": "Cached SOP title"
     }
   },
   "required": [

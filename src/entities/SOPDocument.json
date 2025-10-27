@@ -1,0 +1,244 @@
+{
+  "name": "SOPDocument",
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string",
+      "description": "SOP title"
+    },
+    "description": {
+      "type": "string",
+      "description": "Brief description of what this SOP covers"
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "kitchen",
+        "service",
+        "cleaning",
+        "admin",
+        "hygiene",
+        "maintenance",
+        "customer_service",
+        "equipment",
+        "recipe",
+        "other"
+      ],
+      "description": "SOP category"
+    },
+    "frequency": {
+      "type": "string",
+      "enum": [
+        "daily",
+        "weekly",
+        "monthly",
+        "quarterly",
+        "as_needed"
+      ],
+      "description": "How often this SOP should be performed"
+    },
+    "version": {
+      "type": "number",
+      "default": 1,
+      "description": "Current version number"
+    },
+    "content_html": {
+      "type": "string",
+      "description": "Main SOP content in HTML format"
+    },
+    "steps": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "step_number": {
+            "type": "number"
+          },
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "time_estimate_minutes": {
+            "type": "number"
+          },
+          "role_responsible": {
+            "type": "string"
+          },
+          "equipment_needed": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "safety_notes": {
+            "type": "string"
+          },
+          "image_url": {
+            "type": "string"
+          },
+          "video_url": {
+            "type": "string"
+          }
+        }
+      },
+      "description": "Step-by-step instructions"
+    },
+    "total_time_minutes": {
+      "type": "number",
+      "description": "Total estimated time to complete"
+    },
+    "video_url": {
+      "type": "string",
+      "description": "Tutorial video URL"
+    },
+    "pdf_url": {
+      "type": "string",
+      "description": "PDF document URL"
+    },
+    "hero_image_url": {
+      "type": "string",
+      "description": "Main visual for the SOP"
+    },
+    "role_assigned": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "chef",
+          "line_cook",
+          "server",
+          "bartender",
+          "cleaner",
+          "manager",
+          "maintenance",
+          "all"
+        ]
+      },
+      "description": "Which roles should know this SOP"
+    },
+    "allergens": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Allergen information if recipe SOP"
+    },
+    "hygiene_notes": {
+      "type": "string",
+      "description": "Special hygiene considerations"
+    },
+    "safety_notes": {
+      "type": "string",
+      "description": "Safety warnings and precautions"
+    },
+    "equipment_required": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "List of equipment needed"
+    },
+    "created_by": {
+      "type": "string",
+      "description": "Manager who created this SOP"
+    },
+    "created_by_name": {
+      "type": "string",
+      "description": "Creator's name"
+    },
+    "last_updated_by": {
+      "type": "string",
+      "description": "Who last updated"
+    },
+    "last_updated_by_name": {
+      "type": "string",
+      "description": "Name of last updater"
+    },
+    "reviewed_by": {
+      "type": "string",
+      "description": "Compliance officer who reviewed"
+    },
+    "reviewed_by_name": {
+      "type": "string",
+      "description": "Reviewer's name"
+    },
+    "last_reviewed_date": {
+      "type": "string",
+      "format": "date",
+      "description": "When last reviewed"
+    },
+    "next_review_date": {
+      "type": "string",
+      "format": "date",
+      "description": "When next review is due (typically 6 months)"
+    },
+    "review_frequency_months": {
+      "type": "number",
+      "default": 6,
+      "description": "How often to review (in months)"
+    },
+    "requires_signature": {
+      "type": "boolean",
+      "default": true,
+      "description": "Whether staff must sign acknowledgment"
+    },
+    "is_mandatory": {
+      "type": "boolean",
+      "default": false,
+      "description": "Required training for all staff in role"
+    },
+    "active_status": {
+      "type": "boolean",
+      "default": true,
+      "description": "Whether SOP is currently active"
+    },
+    "view_count": {
+      "type": "number",
+      "default": 0,
+      "description": "Total number of views"
+    },
+    "completion_count": {
+      "type": "number",
+      "default": 0,
+      "description": "Total times marked complete"
+    },
+    "signature_count": {
+      "type": "number",
+      "default": 0,
+      "description": "Total signatures received"
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Searchable tags"
+    },
+    "difficulty_level": {
+      "type": "string",
+      "enum": [
+        "beginner",
+        "intermediate",
+        "advanced",
+        "expert"
+      ],
+      "description": "Skill level required"
+    },
+    "language": {
+      "type": "string",
+      "default": "en",
+      "description": "Language code"
+    },
+    "translations": {
+      "type": "object",
+      "description": "Translated versions"
+    }
+  },
+  "required": [
+    "title",
+    "category",
+    "created_by"
+  ]
+}

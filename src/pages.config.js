@@ -70,6 +70,7 @@ import EHOControlCenter from './pages/EHOControlCenter';
 import MenuIntelligence from './pages/MenuIntelligence';
 import AIConsole from './pages/AIConsole';
 import MeetingDashboard from './pages/MeetingDashboard';
+import SOPDashboard from './pages/SOPDashboard';
 import Layout from './Layout.jsx';
 
 
@@ -146,6 +147,7 @@ export const PAGES = {
     "MenuIntelligence": MenuIntelligence,
     "AIConsole": AIConsole,
     "MeetingDashboard": MeetingDashboard,
+    "SOPDashboard": SOPDashboard,
 }
 
 export const pagesConfig = {
