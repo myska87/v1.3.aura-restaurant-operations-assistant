@@ -21,9 +21,9 @@ import {
   Wand2, 
   Plus, 
   X,
-  AlertTriangle, // Added
-  Clock,         // Added
-  Users          // Added
+  AlertTriangle,
+  Clock,
+  Users
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { createPageUrl } from '@/utils';

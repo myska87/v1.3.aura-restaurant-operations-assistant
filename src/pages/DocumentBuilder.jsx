@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -45,6 +46,7 @@ import { createPageUrl } from '@/utils';
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
 import { motion } from 'framer-motion';
+import { format } from 'date-fns'; // Added format import for date-fns
 
 export default function DocumentBuilder() {
   const navigate = useNavigate();
@@ -55,6 +57,10 @@ export default function DocumentBuilder() {
   const [savedDocument, setSavedDocument] = useState(null);
   const [autoSaving, setAutoSaving] = useState(false);
   const [lastSaved, setLastSaved] = useState(null);
+  const [showAIDialog, setShowAIDialog] = useState(false);
+  const [aiPrompt, setAiPrompt] = useState('');
+  const [generatingAI, setGeneratingAI] = useState(false);
+  const [isAIGenerated, setIsAIGenerated] = useState(false); // To track if content is AI generated
 
   const [formData, setFormData] = useState({
     title: '',
@@ -112,6 +118,92 @@ export default function DocumentBuilder() {
     },
   });
 
+  const generateWithAIMutation = useMutation({
+    mutationFn: async (prompt) => {
+      const response = await base44.integrations.Core.InvokeLLM({
+        prompt: `You are an expert restaurant operations consultant. Create a detailed document based on this request: "${prompt}"
+
+Generate professional content with:
+- Clear title
+- Well-structured sections with headers
+- Bullet points where appropriate
+- Step-by-step instructions if relevant
+- Safety notes and best practices
+- Professional formatting in HTML
+
+Make it practical, specific, and ready to use in a restaurant setting.`,
+        response_json_schema: {
+          type: "object",
+          properties: {
+            title: { type: "string" },
+            category: { type: "string" },
+            description: { type: "string" },
+            content_html: { type: "string" },
+            tags: {
+              type: "array",
+              items: { type: "string" }
+            }
+          }
+        }
+      });
+      return response;
+    },
+    onSuccess: (data) => {
+      setFormData((prev) => ({
+        ...prev,
+        title: data.title || prev.title,
+        description: data.description || prev.description,
+        tags: data.tags || prev.tags,
+      }));
+      setContent(data.content_html || '');
+      setIsAIGenerated(true); // Mark as AI generated
+      setShowAIDialog(false);
+      setAiPrompt('');
+      setGeneratingAI(false);
+    },
+    onError: (error) => {
+      console.error('AI generation error:', error);
+      alert('Failed to generate content. Please try again.');
+      setGeneratingAI(false);
+      setIsAIGenerated(false); // Reset if generation fails
+    }
+  });
+
+  const improveWithAIMutation = useMutation({
+    mutationFn: async () => {
+      const response = await base44.integrations.Core.InvokeLLM({
+        prompt: `Improve and enhance this restaurant operations document. Make it more professional, clear, and actionable:
+
+Title: ${formData.title}
+Current Content: ${content.replace(/<[^>]*>/g, '')}
+
+Provide:
+1. Enhanced content with better structure
+2. Additional relevant details
+3. Safety notes if applicable
+4. Professional formatting in HTML`,
+        response_json_schema: {
+          type: "object",
+          properties: {
+            improved_content: { type: "string" },
+            suggestions: { type: "string" }
+          }
+        }
+      });
+      return response;
+    },
+    onSuccess: (data) => {
+      setContent(data.improved_content || content);
+      if (data.suggestions) {
+        alert(`AI Suggestions: ${data.suggestions}`);
+      }
+    },
+    onError: (error) => {
+      console.error('AI improvement error:', error);
+      alert('Failed to improve content. Please try again.');
+    }
+  });
+
   // Auto-save every 2 minutes
   useEffect(() => {
     if (!formData.title || !content || formData.status === 'published') return;
@@ -155,7 +247,7 @@ export default function DocumentBuilder() {
       created_by_name: user.full_name,
       updated_by: user.email,
       updated_by_name: user.full_name,
-      ai_generated: false,
+      ai_generated: isAIGenerated, // Use the state variable
       media_urls: [],
       attachments: [],
       comments_enabled: true,
@@ -238,6 +330,25 @@ export default function DocumentBuilder() {
     });
   };
 
+  const handleAIGenerate = async () => {
+    if (!aiPrompt.trim()) {
+      alert('Please describe what document you want to create');
+      return;
+    }
+
+    setGeneratingAI(true);
+    await generateWithAIMutation.mutateAsync(aiPrompt);
+  };
+
+  const handleAIImprove = async () => {
+    if (!content.trim()) {
+      alert('Please add some content first before using AI improvement');
+      return;
+    }
+
+    await improveWithAIMutation.mutateAsync();
+  };
+
   const quillModules = {
     toolbar: [
       [{ 'header': [1, 2, 3, false] }],
@@ -294,11 +405,40 @@ export default function DocumentBuilder() {
 
         {/* Title */}
         <div className="mb-8">
-          <div className="flex items-center gap-3 mb-2">
-            <FileText className="w-10 h-10 text-blue-600" />
-            <h1 className="text-4xl font-bold text-gray-900">Document Builder</h1>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <FileText className="w-10 h-10 text-blue-600" />
+              <div>
+                <h1 className="text-4xl font-bold text-gray-900">Document Builder</h1>
+                <p className="text-gray-600 text-lg">Create SOPs, policies, guides, and training materials</p>
+              </div>
+            </div>
+            
+            {/* AI Quick Actions */}
+            <div className="flex gap-2">
+              <Button
+                onClick={() => setShowAIDialog(true)}
+                className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white"
+              >
+                <Sparkles className="w-5 h-5 mr-2" />
+                AI Generate
+              </Button>
+              <Button
+                onClick={handleAIImprove}
+                disabled={improveWithAIMutation.isPending || !content}
+                variant="outline"
+                className="border-purple-300 text-purple-700 hover:bg-purple-50"
+              >
+                {improveWithAIMutation.isPending ? (
+                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                ) : (
+                  <Sparkles className="w-4 h-4 mr-2" />
+                )}
+                AI Improve
+              </Button>
+            </div>
           </div>
-          <p className="text-gray-600 text-lg">Create SOPs, policies, guides, and training materials</p>
+          
           {lastSaved && (
             <p className="text-sm text-green-600 mt-2 flex items-center gap-2">
               <CheckCircle className="w-4 h-4" />
@@ -563,6 +703,94 @@ export default function DocumentBuilder() {
           </div>
         </div>
 
+        {/* AI Generation Dialog */}
+        <Dialog open={showAIDialog} onOpenChange={setShowAIDialog}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-2xl">
+                <Sparkles className="w-6 h-6 text-purple-600" />
+                AI Document Generator
+              </DialogTitle>
+              <DialogDescription>
+                Describe what document you want to create, and AI will generate it for you instantly.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4 mt-4">
+              <div>
+                <Label>What do you want to create?</Label>
+                <Textarea
+                  placeholder="e.g., 'Opening checklist for kitchen', 'Customer complaint handling procedure', 'Food safety policy for deep frying'"
+                  value={aiPrompt}
+                  onChange={(e) => setAiPrompt(e.target.value)}
+                  rows={4}
+                  className="mt-2"
+                />
+              </div>
+
+              <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                <h4 className="font-semibold text-purple-900 mb-2">💡 Examples:</h4>
+                <div className="space-y-1 text-sm text-purple-800">
+                  <button 
+                    onClick={() => setAiPrompt('Create a detailed cleaning checklist for the bar area')}
+                    className="block hover:underline text-left"
+                  >
+                    • "Create a detailed cleaning checklist for the bar area"
+                  </button>
+                  <button 
+                    onClick={() => setAiPrompt('Write a customer service guide for handling complaints')}
+                    className="block hover:underline text-left"
+                  >
+                    • "Write a customer service guide for handling complaints"
+                  </button>
+                  <button 
+                    onClick={() => setAiPrompt('Generate an emergency response procedure for kitchen fires')}
+                    className="block hover:underline text-left"
+                  >
+                    • "Generate an emergency response procedure for kitchen fires"
+                  </button>
+                  <button 
+                    onClick={() => setAiPrompt('Create a training guide for new servers')}
+                    className="block hover:underline text-left"
+                  >
+                    • "Create a training guide for new servers"
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-3 justify-end mt-6">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowAIDialog(false);
+                  setAiPrompt('');
+                }}
+                disabled={generatingAI}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleAIGenerate}
+                disabled={generatingAI || !aiPrompt.trim()}
+                className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
+              >
+                {generatingAI ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Generating...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-4 h-4 mr-2" />
+                    Generate Document
+                  </>
+                )}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
         {/* Success Dialog */}
         <Dialog open={showSuccessDialog} onOpenChange={setShowSuccessDialog}>
           <DialogContent>
@@ -613,6 +841,7 @@ export default function DocumentBuilder() {
                   });
                   setContent('');
                   setSavedDocument(null);
+                  setIsAIGenerated(false); // Reset AI generated status
                 }}
                 variant="outline"
                 className="w-full"
