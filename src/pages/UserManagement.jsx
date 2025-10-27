@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -71,7 +72,7 @@ export default function UserManagement() {
   const [userToDelete, setUserToDelete] = useState(null);
   const [syncing, setSyncing] = useState(false);
   
-  // NEW: Invitation state
+  // Invitation state
   const [showInviteDialog, setShowInviteDialog] = useState(false);
   const [inviteType, setInviteType] = useState('email');
   const [inviteFormData, setInviteFormData] = useState({
@@ -102,14 +103,12 @@ export default function UserManagement() {
   const isAdmin = currentUser?.role === 'admin' || currentUser?.position === 'owner';
   const isManager = currentUser?.position === 'manager';
 
-  // Fetch all users
   const { data: allUsers = [], isLoading: loadingUsers, refetch: refetchUsers } = useQuery({
     queryKey: ['allUsers'],
     queryFn: () => base44.entities.User.list('-created_date'),
     staleTime: 0,
   });
 
-  // Fetch all team members
   const { data: teamMembers = [], refetch: refetchTeamMembers } = useQuery({
     queryKey: ['allTeamMembers'],
     queryFn: () => base44.entities.TeamMember.list('-created_date'),
