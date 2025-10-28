@@ -39,7 +39,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 
 import { useUnifiedStaff } from "@/components/UnifiedStaffData";
-import { WeekDuplicator } from "@/components/scheduler/WeekDuplicator"; // Import WeekDuplicator component
+import WeekDuplicator from "@/components/scheduler/WeekDuplicator"; // Import WeekDuplicator component
 
 // ========================================
 // HELPER FUNCTIONS
