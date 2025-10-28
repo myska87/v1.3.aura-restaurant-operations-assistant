@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery } from '@tanstack/react-query';
@@ -76,7 +77,7 @@ export default function AnalyticsDashboard() {
     enabled: isManager,
   });
 
-  // Get latest snapshot
+  // Get latest snapshot - WITH NULL SAFETY
   const latestSnapshot = snapshots[0] || {
     task_completion_rate: 0,
     quality_score_avg: 0,
@@ -85,12 +86,12 @@ export default function AnalyticsDashboard() {
     active_alerts: 0,
   };
 
-  // Prepare chart data
+  // Prepare chart data - WITH NULL SAFETY
   const trendData = snapshots.slice(0, 7).reverse().map(s => ({
     date: format(new Date(s.snapshot_date), 'MMM d'),
-    quality: s.quality_score_avg || 0,
-    tasks: s.task_completion_rate || 0,
-    compliance: s.shift_compliance || 0,
+    quality: Number(s.quality_score_avg) || 0,
+    tasks: Number(s.task_completion_rate) || 0,
+    compliance: Number(s.shift_compliance) || 0,
   }));
 
   const departmentData = [

@@ -15,7 +15,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Progress } from "@/components/ui/progress"; // Added Progress import
+import { Progress } from "@/components/ui/progress";
 import {
   Thermometer,
   Droplets,
@@ -497,6 +497,11 @@ export default function HygieneDashboard() {
                   const user = allUsers.find(u => u.email === score.staff_email);
                   const medals = ['🥇', '🥈', '🥉'];
                   
+                  // SAFE NULL HANDLING
+                  const complianceRateValue = score.compliance_rate !== null && score.compliance_rate !== undefined 
+                    ? Number(score.compliance_rate) 
+                    : 0;
+                  
                   return (
                     <div
                       key={score.id}
@@ -520,7 +525,7 @@ export default function HygieneDashboard() {
                             {score.total_points || 0}
                           </p>
                           <p className="text-xs text-gray-500">points</p>
-                          {score.current_streak > 0 && (
+                          {(score.current_streak || 0) > 0 && (
                             <Badge className="mt-1 bg-orange-500 text-white text-xs">
                               🔥 {score.current_streak} day streak
                             </Badge>
@@ -528,13 +533,13 @@ export default function HygieneDashboard() {
                         </div>
                       </div>
 
-                      {score.compliance_rate !== undefined && (
+                      {complianceRateValue > 0 && (
                         <div className="mt-2">
                           <div className="flex justify-between text-xs text-gray-600 mb-1">
                             <span>Compliance Rate</span>
-                            <span>{score.compliance_rate.toFixed(0)}%</span>
+                            <span>{complianceRateValue.toFixed(0)}%</span>
                           </div>
-                          <Progress value={score.compliance_rate} className="h-2" />
+                          <Progress value={complianceRateValue} className="h-2" />
                         </div>
                       )}
                     </div>

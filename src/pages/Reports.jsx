@@ -61,7 +61,7 @@ export default function Reports() {
     return date;
   });
 
-  // Compliance trend data
+  // Compliance trend data - WITH NULL SAFETY
   const complianceTrendData = dateRange.map(date => {
     const dayChecks = complianceChecks.filter(check => {
       const checkDate = new Date(check.check_date);
@@ -114,16 +114,20 @@ export default function Reports() {
   const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
 
   const exportToCSV = () => {
+    const passRate = complianceChecks.length > 0
+      ? Math.round((complianceChecks.filter(c => c.status === 'passed').length / complianceChecks.length) * 100)
+      : 0;
+
     const csvData = [
       ['AURA Restaurant Report', `Generated: ${format(new Date(), 'PPP')}`],
       [''],
       ['Compliance Summary'],
       ['Total Checks', complianceChecks.length],
-      ['Pass Rate', `${Math.round((complianceChecks.filter(c => c.status === 'passed').length / complianceChecks.length) * 100)}%`],
+      ['Pass Rate', `${passRate}%`],
       [''],
       ['Inventory Summary'],
       ['Total Items', inventoryItems.length],
-      ['Low Stock Items', inventoryItems.filter(i => i.current_quantity <= (i.minimum_quantity || 0)).length],
+      ['Low Stock Items', inventoryItems.filter(i => (Number(i.current_quantity) || 0) <= (Number(i.minimum_quantity) || 0)).length],
       [''],
       ['Maintenance Summary'],
       ['Total Tickets', maintenanceTickets.length],
