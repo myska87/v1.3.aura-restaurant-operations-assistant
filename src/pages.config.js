@@ -100,6 +100,7 @@ import ShiftTemplates from './pages/ShiftTemplates';
 import AIRotaGenerator from './pages/AIRotaGenerator';
 import AttendanceApproval from './pages/AttendanceApproval';
 import MyAttendance from './pages/MyAttendance';
+import CostAnalyticsDashboard from './pages/CostAnalyticsDashboard';
 import Layout from './Layout.jsx';
 
 
@@ -206,6 +207,7 @@ export const PAGES = {
     "AIRotaGenerator": AIRotaGenerator,
     "AttendanceApproval": AttendanceApproval,
     "MyAttendance": MyAttendance,
+    "CostAnalyticsDashboard": CostAnalyticsDashboard,
 }
 
 export const pagesConfig = {
