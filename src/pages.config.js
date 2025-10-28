@@ -120,6 +120,7 @@ import SOPDashboardHub from './pages/SOPDashboardHub';
 import DocumentsDashboard from './pages/DocumentsDashboard';
 import AIHub from './pages/AIHub';
 import SettingsDashboard from './pages/SettingsDashboard';
+import SystemHealthCheck from './pages/SystemHealthCheck';
 import Layout from './Layout.jsx';
 
 
@@ -246,6 +247,7 @@ export const PAGES = {
     "DocumentsDashboard": DocumentsDashboard,
     "AIHub": AIHub,
     "SettingsDashboard": SettingsDashboard,
+    "SystemHealthCheck": SystemHealthCheck,
 }
 
 export const pagesConfig = {
