@@ -108,6 +108,7 @@ import OperationsCore from './pages/OperationsCore';
 import CreateOperationTask from './pages/CreateOperationTask';
 import EventFeed from './pages/EventFeed';
 import EventHub from './pages/EventHub';
+import AnalyticsDashboard from './pages/AnalyticsDashboard';
 import Layout from './Layout.jsx';
 
 
@@ -222,6 +223,7 @@ export const PAGES = {
     "CreateOperationTask": CreateOperationTask,
     "EventFeed": EventFeed,
     "EventHub": EventHub,
+    "AnalyticsDashboard": AnalyticsDashboard,
 }
 
 export const pagesConfig = {
