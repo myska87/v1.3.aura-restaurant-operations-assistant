@@ -103,6 +103,7 @@ import MyAttendance from './pages/MyAttendance';
 import CostAnalyticsDashboard from './pages/CostAnalyticsDashboard';
 import AIStockVerification from './pages/AIStockVerification';
 import SupplierCatalogImport from './pages/SupplierCatalogImport';
+import QualityFormExecution from './pages/QualityFormExecution';
 import Layout from './Layout.jsx';
 
 
@@ -212,6 +213,7 @@ export const PAGES = {
     "CostAnalyticsDashboard": CostAnalyticsDashboard,
     "AIStockVerification": AIStockVerification,
     "SupplierCatalogImport": SupplierCatalogImport,
+    "QualityFormExecution": QualityFormExecution,
 }
 
 export const pagesConfig = {
