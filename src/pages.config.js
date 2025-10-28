@@ -105,6 +105,7 @@ import AIStockVerification from './pages/AIStockVerification';
 import SupplierCatalogImport from './pages/SupplierCatalogImport';
 import QualityFormExecution from './pages/QualityFormExecution';
 import OperationsCore from './pages/OperationsCore';
+import CreateOperationTask from './pages/CreateOperationTask';
 import Layout from './Layout.jsx';
 
 
@@ -216,6 +217,7 @@ export const PAGES = {
     "SupplierCatalogImport": SupplierCatalogImport,
     "QualityFormExecution": QualityFormExecution,
     "OperationsCore": OperationsCore,
+    "CreateOperationTask": CreateOperationTask,
 }
 
 export const pagesConfig = {

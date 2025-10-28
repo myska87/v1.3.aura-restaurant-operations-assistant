@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery } from '@tanstack/react-query';
@@ -18,10 +19,11 @@ import {
   ClipboardCheck,
   User,
   Zap,
+  Target, // ✨ NEW: Added Target icon for Operations
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
-import { format, formatDistanceToNow } from 'date-fns';
+import { format, formatDistanceToNow, startOfWeek } from 'date-fns'; // ✨ NEW: Added startOfWeek for weekly summary
 
 export default function DashboardPro() {
   // Get current user
@@ -47,8 +49,8 @@ export default function DashboardPro() {
   // Fetch tasks
   const { data: tasks = [] } = useQuery({
     queryKey: ['myTasks', user?.email],
-    queryFn: () => base44.entities.StaffTask.filter({ 
-      assigned_to: user?.email 
+    queryFn: () => base44.entities.StaffTask.filter({
+      assigned_to: user?.email
     }),
     enabled: !!user?.email,
   });
@@ -82,20 +84,47 @@ export default function DashboardPro() {
     refetchInterval: 10000, // Auto-refresh every 10 seconds
   });
 
+  // 🎯 NEW: Operations Core Metrics
+  const { data: operationTasks = [] } = useQuery({
+    queryKey: ['operationTasksStats'],
+    queryFn: () => base44.entities.OperationTask.list('-due_date', 100),
+  });
+
+  const { data: weeklySummary } = useQuery({
+    queryKey: ['currentWeeklySummary'],
+    queryFn: async () => {
+      const weekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
+      const summaries = await base44.entities.OperationWeeklySummary.filter({
+        week_start_date: format(weekStart, 'yyyy-MM-dd')
+      });
+      return summaries[0] || null;
+    },
+  });
+
   // Calculate metrics
-  const myActiveShift = shifts.find(s => 
+  const myActiveShift = shifts.find(s =>
     s.staff_email === user?.email && s.status === 'in_progress'
   );
 
-  const pendingTasks = tasks.filter(t => 
+  const pendingTasks = tasks.filter(t =>
     t.status === 'pending' || t.status === 'in_progress'
   ).length;
 
-  const pendingForms = forms.filter(f => 
+  const pendingForms = forms.filter(f =>
     f.completion_status === 'pending' || f.completion_status === 'in_progress'
   ).length;
 
   const staffOnDuty = shifts.filter(s => s.status === 'in_progress').length;
+
+  const operationsStats = {
+    totalTasks: operationTasks.length,
+    completedTasks: operationTasks.filter(t => t.status === 'completed').length,
+    overdueTasks: operationTasks.filter(t => t.status === 'overdue').length,
+    completionRate: operationTasks.length > 0
+      ? Math.round((operationTasks.filter(t => t.status === 'completed').length / operationTasks.length) * 100)
+      : 0,
+    auditPerformance: weeklySummary?.avg_score || 0,
+  };
 
   // Activity icon mapper
   const getActivityIcon = (activityType) => {
@@ -139,9 +168,9 @@ export default function DashboardPro() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-4 md:p-8">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-emerald-50 p-6 md:p-8">
       <div className="max-w-7xl mx-auto">
-        
+
         {/* Welcome Header */}
         <div className="mb-8">
           <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-2">
@@ -176,9 +205,84 @@ export default function DashboardPro() {
           </Card>
         )}
 
+        {/* 🎯 NEW: Operations Core Banner */}
+        <Link to={createPageUrl('OperationsCore')}>
+          <Card className="mb-6 bg-gradient-to-r from-emerald-600 to-teal-600 text-white border-none hover:shadow-2xl transition-all cursor-pointer">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="w-14 h-14 bg-white/20 backdrop-blur rounded-2xl flex items-center justify-center">
+                    <Target className="w-8 h-8" />
+                  </div>
+                  <div>
+                    <h3 className="text-2xl font-bold mb-1">Operations Central</h3>
+                    <p className="text-emerald-100">Unified view of all SOPs, Audits & Checklists</p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="text-4xl font-bold mb-1">{operationsStats.completionRate}%</p>
+                  <p className="text-sm opacity-90">Completion Rate</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
+
+        {/* 🎯 Operations Core Quick Stats */}
+        <div className="grid md:grid-cols-4 gap-4 mb-6">
+          <Card className="border-l-4 border-l-emerald-500">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <CheckCircle className="w-8 h-8 text-emerald-600" />
+                <div>
+                  <p className="text-2xl font-bold text-gray-900">{operationsStats.completedTasks}</p>
+                  <p className="text-sm text-gray-600">Tasks Completed</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-l-4 border-l-red-500">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <AlertTriangle className="w-8 h-8 text-red-600" />
+                <div>
+                  <p className="text-2xl font-bold text-gray-900">{operationsStats.overdueTasks}</p>
+                  <p className="text-sm text-gray-600">Overdue Tasks</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-l-4 border-l-amber-500">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <Star className="w-8 h-8 text-amber-600" />
+                <div>
+                  <p className="text-2xl font-bold text-gray-900">{operationsStats.auditPerformance.toFixed(1)}</p>
+                  <p className="text-sm text-gray-600">Audit Score</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-l-4 border-l-purple-500">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <TrendingUp className="w-8 h-8 text-purple-600" />
+                <div>
+                  <p className="text-2xl font-bold text-gray-900">{operationsStats.completionRate}%</p>
+                  <p className="text-sm text-gray-600">Completion Rate</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+
         {/* KPI Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-          
+
           {/* Tasks Card */}
           <Card className="bg-white border-none shadow-sm hover:shadow-md transition-shadow">
             <CardHeader className="pb-3">
