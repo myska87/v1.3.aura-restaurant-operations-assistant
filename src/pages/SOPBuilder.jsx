@@ -126,11 +126,12 @@ export default function SOPBuilder() {
     return () => clearInterval(interval);
   }, [formData, sopId]);
 
-  const saveMutation = useMutation({
+  // ✅ ENHANCED: Add auto-refresh trigger after save
+  const saveSopMutation = useMutation({
     mutationFn: async (data) => {
-      if (sopId) {
+      if (existingSOP) { // Use existingSOP to determine if editing
         // Update existing
-        return await base44.entities.SOPDocument.update(sopId, {
+        return await base44.entities.SOPDocument.update(existingSOP.id, {
           ...data,
           last_updated_by: user?.email,
           last_updated_by_name: user?.full_name,
@@ -146,11 +147,31 @@ export default function SOPBuilder() {
         });
       }
     },
-    onSuccess: (data) => {
+    onSuccess: async (savedSOP) => {
+      // Invalidate queries to trigger refresh
       queryClient.invalidateQueries({ queryKey: ['sops'] });
-      navigate(createPageUrl(`SOPViewer?id=${data.id}`));
+
+      // ✨ Log activity for new SOPs
+      if (!existingSOP) { // If it was a new SOP
+        await base44.entities.ActivityLog.create({
+          activity_type: 'sop_added',
+          title: 'New SOP Created',
+          description: savedSOP.title,
+          user_email: user.email,
+          user_name: user.full_name,
+          icon: 'file',
+          color: 'purple',
+          related_entity: 'SOPDocument',
+          related_entity_id: savedSOP.id,
+          is_important: true,
+        });
+      }
+
+      alert(existingSOP ? '✅ SOP Updated Successfully!' : '✅ SOP Created Successfully!');
+      navigate(createPageUrl('SOPDashboard'));
     },
   });
+
 
   const handleSave = async (status = 'draft') => {
     const dataToSave = {
@@ -160,7 +181,7 @@ export default function SOPBuilder() {
       next_review_date: new Date(Date.now() + (formData.review_frequency_months * 30 * 24 * 60 * 60 * 1000)).toISOString(),
     };
 
-    await saveMutation.mutateAsync(dataToSave);
+    await saveSopMutation.mutateAsync(dataToSave);
   };
 
   const handleFileUpload = async (e) => {
@@ -210,7 +231,7 @@ export default function SOPBuilder() {
   const updateStep = (index, field, value) => {
     setFormData(prev => ({
       ...prev,
-      procedure_steps: prev.procedure_steps.map((step, i) => 
+      procedure_steps: prev.procedure_steps.map((step, i) =>
         i === index ? { ...step, [field]: value } : step
       )
     }));
@@ -248,7 +269,7 @@ export default function SOPBuilder() {
               Dashboard
             </Button>
           </Link>
-          
+
           {lastSaved && (
             <Badge variant="outline" className="ml-auto">
               <Clock className="w-3 h-3 mr-1" />
@@ -589,7 +610,7 @@ export default function SOPBuilder() {
               <Button
                 onClick={() => handleSave('draft')}
                 variant="outline"
-                disabled={saveMutation.isPending}
+                disabled={saveSopMutation.isPending}
               >
                 <Save className="w-4 h-4 mr-2" />
                 Save as Draft
@@ -598,10 +619,10 @@ export default function SOPBuilder() {
               <Button
                 onClick={() => handleSave('active')}
                 className="bg-gradient-to-r from-[#014D40] to-emerald-600"
-                disabled={saveMutation.isPending}
+                disabled={saveSopMutation.isPending}
               >
                 <CheckCircle className="w-4 h-4 mr-2" />
-                {saveMutation.isPending ? 'Publishing...' : 'Publish SOP'}
+                {saveSopMutation.isPending ? 'Publishing...' : 'Publish SOP'}
               </Button>
 
               {sopId && (
