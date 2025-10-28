@@ -104,6 +104,8 @@ import CostAnalyticsDashboard from './pages/CostAnalyticsDashboard';
 import AIStockVerification from './pages/AIStockVerification';
 import SupplierCatalogImport from './pages/SupplierCatalogImport';
 import QualityFormExecution from './pages/QualityFormExecution';
+import PayrollDashboard from './pages/PayrollDashboard';
+import SystemHealthCheck from './pages/SystemHealthCheck';
 import Layout from './Layout.jsx';
 
 
@@ -214,6 +216,8 @@ export const PAGES = {
     "AIStockVerification": AIStockVerification,
     "SupplierCatalogImport": SupplierCatalogImport,
     "QualityFormExecution": QualityFormExecution,
+    "PayrollDashboard": PayrollDashboard,
+    "SystemHealthCheck": SystemHealthCheck,
 }
 
 export const pagesConfig = {
