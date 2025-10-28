@@ -95,6 +95,7 @@ import BugReport from './pages/BugReport';
 import FeatureIdeas from './pages/FeatureIdeas';
 import DocumentSignatureReport from './pages/DocumentSignatureReport';
 import SOPCore from './pages/SOPCore';
+import DashboardPro from './pages/DashboardPro';
 import Layout from './Layout.jsx';
 
 
@@ -196,6 +197,7 @@ export const PAGES = {
     "FeatureIdeas": FeatureIdeas,
     "DocumentSignatureReport": DocumentSignatureReport,
     "SOPCore": SOPCore,
+    "DashboardPro": DashboardPro,
 }
 
 export const pagesConfig = {
