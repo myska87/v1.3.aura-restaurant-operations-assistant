@@ -109,6 +109,7 @@ import CreateOperationTask from './pages/CreateOperationTask';
 import EventFeed from './pages/EventFeed';
 import EventHub from './pages/EventHub';
 import AnalyticsDashboard from './pages/AnalyticsDashboard';
+import AuraIntelligence from './pages/AuraIntelligence';
 import Layout from './Layout.jsx';
 
 
@@ -224,6 +225,7 @@ export const PAGES = {
     "EventFeed": EventFeed,
     "EventHub": EventHub,
     "AnalyticsDashboard": AnalyticsDashboard,
+    "AuraIntelligence": AuraIntelligence,
 }
 
 export const pagesConfig = {

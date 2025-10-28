@@ -47,6 +47,7 @@ import {
   ShoppingCart,
   FilePlus,
   Bell, // Added Bell icon import
+  Brain, // Added Brain icon import
 } from "lucide-react";
 import WelcomeNewHire from "./components/WelcomeNewHire";
 import WelcomeNewUser from "./components/WelcomeNewUser";
@@ -373,6 +374,12 @@ const managementItems = [
     title: "📊 Analytics Dashboard",
     url: createPageUrl("AnalyticsDashboard"),
     icon: BarChart3,
+    badge: "AI",
+  },
+  {
+    title: "🧠 AURA Intelligence",
+    url: createPageUrl("AuraIntelligence"),
+    icon: Brain,
     badge: "AI",
   },
   {
