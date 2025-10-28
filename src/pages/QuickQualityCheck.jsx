@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -7,71 +6,63 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Star, Camera, Mic, ArrowLeft, CheckCircle, Sparkles } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Star,
+  Camera,
+  Send,
+  Home,
+  ArrowLeft,
+  Loader2,
+  AlertTriangle,
+  CheckCircle,
+} from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 
 export default function QuickQualityCheck() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const [uploading, setUploading] = useState(false);
 
-  const [checkTitle, setCheckTitle] = useState("");
-  const [category, setCategory] = useState("");
-  const [area, setArea] = useState("");
-  const [score, setScore] = useState(0);
-  const [comments, setComments] = useState("");
-  const [photoUrl, setPhotoUrl] = useState("");
-  const [linkedEntityType, setLinkedEntityType] = useState("none");
-  const [linkedEntityId, setLinkedEntityId] = useState("");
+  const urlParams = new URLSearchParams(window.location.search);
+  const templateId = urlParams.get('templateId');
 
   const { data: user } = useQuery({
     queryKey: ['currentUser'],
     queryFn: () => base44.auth.me(),
   });
 
-  // Fetch active shift
-  const { data: activeShift } = useQuery({
-    queryKey: ['activeShift', user?.email],
+  const { data: template } = useQuery({
+    queryKey: ['qualityTemplate', templateId],
     queryFn: async () => {
-      if (!user?.email) return null;
-      const today = new Date().toISOString().split('T')[0];
-      const shifts = await base44.entities.Shift.filter({
-        staff_email: user.email,
-        shift_date: today,
-        status: 'in_progress'
-      }, '-created_date', 1);
-      return shifts[0] || null;
+      if (!templateId) return null;
+      const templates = await base44.entities.QualityTemplate.list();
+      return templates.find(t => t.id === templateId);
     },
-    enabled: !!user?.email,
+    enabled: !!templateId,
   });
 
-  // ✅ ENHANCED: Add activity logging and preserve corrective task creation
+  const [formData, setFormData] = useState({
+    check_title: '',
+    category: 'food_quality',
+    area: 'kitchen',
+    score: 0,
+    comments: '',
+    photo_url: '',
+  });
+
+  // ✅ FIXED: Proper mutation with activity logging
   const submitCheckMutation = useMutation({
     mutationFn: async (data) => {
-      const record = await base44.entities.QualityRecord.create(data);
-      
-      // Auto-create corrective task if score < 3 (preserving original functionality)
-      if (data.score < 3) {
-        const taskData = {
-          task_name: `Quality Issue: ${data.check_title}`,
-          description: `Quality check scored ${data.score}/5. ${data.comments || 'Needs immediate attention.'}`,
-          category: 'cleaning',
-          assigned_to: user.email,
-          due_date: new Date().toISOString(),
-          status: 'pending'
-        };
-        
-        const task = await base44.entities.StaffTask.create(taskData);
-        
-        // Update quality record with task reference
-        await base44.entities.QualityRecord.update(record.id, {
-          corrective_action_required: true,
-          corrective_task_id: task.id
-        });
-      }
-      
-      return record;
+      return await base44.entities.QualityRecord.create(data);
     },
     onSuccess: async (savedRecord) => {
       queryClient.invalidateQueries({ queryKey: ['qualityRecords'] });
@@ -94,89 +85,113 @@ export default function QuickQualityCheck() {
       navigate(createPageUrl('QualityDashboard'));
     },
     onError: (error) => {
-      alert(`❌ Error: ${error.message}`);
-    }
+      alert(`❌ Failed to submit: ${error.message}`);
+    },
   });
+
+  const handlePhotoUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploading(true);
+    try {
+      const { file_url } = await base44.integrations.Core.UploadFile({ file });
+      setFormData(prev => ({ ...prev, photo_url: file_url }));
+    } catch (error) {
+      alert('Photo upload failed');
+    }
+    setUploading(false);
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    if (!checkTitle || !category || !area || score === 0) {
-      alert('Please fill all required fields');
+
+    if (!formData.check_title || formData.score === 0) {
+      alert('Please provide a title and score');
       return;
     }
 
-    const data = {
-      check_title: checkTitle,
-      category,
-      area,
-      score,
-      comments,
-      photo_url: photoUrl,
+    const checkData = {
+      ...formData,
       checked_by_email: user.email,
       checked_by_name: user.full_name,
-      linked_entity_type: linkedEntityType,
-      linked_entity_id: linkedEntityId || null,
-      shift_id: activeShift?.id || null,
-      status: score >= 3 ? 'recorded' : 'needs_action',
-      priority: score < 3 ? 'high' : 'medium',
-      corrective_action_required: score < 3
+      template_id: templateId || null,
+      corrective_action_required: formData.score < 3,
+      status: formData.score < 3 ? 'needs_action' : 'recorded',
     };
 
-    submitCheckMutation.mutate(data);
+    await submitCheckMutation.mutateAsync(checkData);
   };
 
-  const handlePhotoUpload = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    try {
-      const result = await base44.integrations.Core.UploadFile({ file });
-      setPhotoUrl(result.file_url);
-    } catch (error) {
-      alert('Failed to upload photo');
+  // Pre-fill from template if available
+  useEffect(() => {
+    if (template) {
+      setFormData(prev => ({
+        ...prev,
+        check_title: template.template_name,
+        category: template.category,
+      }));
     }
-  };
+  }, [template]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6 md:p-8">
       <div className="max-w-3xl mx-auto">
-        <Link to={createPageUrl('QualityDashboard')}>
-          <Button variant="outline" size="sm" className="mb-6">
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Dashboard
-          </Button>
-        </Link>
+        {/* Navigation */}
+        <div className="flex gap-3 mb-6">
+          <Link to={createPageUrl('QualityDashboard')}>
+            <Button variant="outline" size="sm">
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back
+            </Button>
+          </Link>
+          <Link to={createPageUrl('Dashboard')}>
+            <Button variant="outline" size="sm">
+              <Home className="w-4 h-4 mr-2" />
+              Dashboard
+            </Button>
+          </Link>
+        </div>
 
-        <Card className="border-none shadow-xl">
-          <CardHeader className="bg-gradient-to-r from-emerald-500 to-green-600 text-white rounded-t-lg">
-            <CardTitle className="text-2xl flex items-center gap-2">
-              <Star className="w-7 h-7" />
-              Quick Quality Check
-            </CardTitle>
-            <p className="text-emerald-50 text-sm">Rate quality in seconds - swipe and score!</p>
-          </CardHeader>
+        {/* Header */}
+        <div className="mb-6">
+          <h1 className="text-4xl font-bold bg-gradient-to-r from-emerald-600 to-green-600 bg-clip-text text-transparent mb-2">
+            Quick Quality Check
+          </h1>
+          <p className="text-gray-600">Record a quality inspection or spot check</p>
+          {template && (
+            <Badge className="mt-2 bg-blue-100 text-blue-800">
+              Using template: {template.template_name}
+            </Badge>
+          )}
+        </div>
 
-          <CardContent className="p-8">
-            <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Basic Info */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Check Details</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
               <div>
-                <Label htmlFor="checkTitle">What are you checking? *</Label>
+                <Label>What are you checking? *</Label>
                 <Input
-                  id="checkTitle"
-                  value={checkTitle}
-                  onChange={(e) => setCheckTitle(e.target.value)}
-                  placeholder="e.g., 'Karak Chai Quality', 'Kitchen Cleanliness'"
-                  className="mt-2"
+                  value={formData.check_title}
+                  onChange={(e) => setFormData({...formData, check_title: e.target.value})}
+                  placeholder="e.g., Karak Chai Quality, Kitchen Cleanliness"
                   required
                 />
               </div>
 
               <div className="grid md:grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="category">Category *</Label>
-                  <Select value={category} onValueChange={setCategory} required>
-                    <SelectTrigger className="mt-2">
-                      <SelectValue placeholder="Select category" />
+                  <Label>Category *</Label>
+                  <Select
+                    value={formData.category}
+                    onValueChange={(value) => setFormData({...formData, category: value})}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="food_quality">Food Quality</SelectItem>
@@ -194,10 +209,13 @@ export default function QuickQualityCheck() {
                 </div>
 
                 <div>
-                  <Label htmlFor="area">Area *</Label>
-                  <Select value={area} onValueChange={setArea} required>
-                    <SelectTrigger className="mt-2">
-                      <SelectValue placeholder="Select area" />
+                  <Label>Area *</Label>
+                  <Select
+                    value={formData.area}
+                    onValueChange={(value) => setFormData({...formData, area: value})}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="kitchen">Kitchen</SelectItem>
@@ -213,123 +231,131 @@ export default function QuickQualityCheck() {
                   </Select>
                 </div>
               </div>
+            </CardContent>
+          </Card>
 
-              <div>
-                <Label>Quality Score * (Tap to Rate)</Label>
-                <div className="flex gap-3 mt-3">
-                  {[1, 2, 3, 4, 5].map((rating) => (
-                    <button
-                      key={rating}
-                      type="button"
-                      onClick={() => setScore(rating)}
-                      className={`flex-1 h-20 rounded-xl border-2 transition-all ${
-                        score === rating
-                          ? rating < 3
-                            ? 'bg-red-500 border-red-600 text-white scale-105 shadow-lg'
-                            : rating === 3
-                            ? 'bg-yellow-500 border-yellow-600 text-white scale-105 shadow-lg'
-                            : 'bg-green-500 border-green-600 text-white scale-105 shadow-lg'
-                          : 'bg-white border-gray-300 hover:border-gray-400'
-                      }`}
-                    >
-                      <Star
-                        className={`w-8 h-8 mx-auto ${
-                          score === rating ? 'fill-current' : ''
-                        }`}
-                      />
-                      <p className="mt-1 font-bold text-lg">{rating}</p>
-                      <p className="text-xs">
-                        {rating === 1 && 'Poor'}
-                        {rating === 2 && 'Needs Work'}
-                        {rating === 3 && 'Okay'}
-                        {rating === 4 && 'Good'}
-                        {rating === 5 && 'Excellent'}
-                      </p>
-                    </button>
-                  ))}
-                </div>
+          {/* Star Rating */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Quality Rating *</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex justify-center gap-4 py-4">
+                {[1, 2, 3, 4, 5].map(score => (
+                  <button
+                    key={score}
+                    type="button"
+                    onClick={() => setFormData({...formData, score})}
+                    className={`flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all ${
+                      formData.score === score
+                        ? 'bg-amber-500 border-amber-600 text-white scale-110 shadow-xl'
+                        : 'bg-white border-gray-300 hover:border-amber-400 hover:scale-105'
+                    }`}
+                  >
+                    <Star className={`w-10 h-10 ${formData.score === score ? 'fill-current' : ''}`} />
+                    <span className="font-bold text-lg">{score}</span>
+                    <span className="text-xs">
+                      {score === 1 ? 'Poor' : score === 2 ? 'Below Avg' : score === 3 ? 'Average' : score === 4 ? 'Good' : 'Excellent'}
+                    </span>
+                  </button>
+                ))}
               </div>
+              {formData.score < 3 && formData.score > 0 && (
+                <div className="flex items-center gap-2 p-3 bg-orange-50 border border-orange-200 rounded-lg mt-4">
+                  <AlertTriangle className="w-5 h-5 text-orange-600" />
+                  <p className="text-sm text-orange-800">
+                    Low score - a corrective action task will be automatically created
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
 
+          {/* Comments & Photo */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Additional Details</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
               <div>
-                <Label htmlFor="comments">Comments (Optional)</Label>
+                <Label>Comments / Observations</Label>
                 <Textarea
-                  id="comments"
-                  value={comments}
-                  onChange={(e) => setComments(e.target.value)}
-                  placeholder="Add any observations or notes..."
-                  className="mt-2 h-24"
+                  value={formData.comments}
+                  onChange={(e) => setFormData({...formData, comments: e.target.value})}
+                  placeholder="Add any notes, observations, or details..."
+                  rows={4}
                 />
               </div>
 
-              <div className="grid md:grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="photo">Add Photo (Optional)</Label>
-                  <div className="mt-2">
-                    <label htmlFor="photoUpload" className="flex items-center justify-center gap-2 p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-emerald-500 hover:bg-emerald-50 cursor-pointer transition-colors">
-                      <Camera className="w-5 h-5 text-gray-600" />
-                      <span className="text-sm text-gray-600">
-                        {photoUrl ? 'Photo attached ✓' : 'Tap to upload photo'}
-                      </span>
-                      <input
-                        id="photoUpload"
-                        type="file"
-                        accept="image/*"
-                        className="hidden"
-                        onChange={handlePhotoUpload}
-                      />
-                    </label>
-                  </div>
+              <div>
+                <Label>Photo Evidence (Optional)</Label>
+                <div className="flex items-center gap-3">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => document.getElementById('photo-upload').click()}
+                    disabled={uploading}
+                  >
+                    <Camera className="w-4 h-4 mr-2" />
+                    {uploading ? 'Uploading...' : formData.photo_url ? 'Change Photo' : 'Add Photo'}
+                  </Button>
+                  <input
+                    id="photo-upload"
+                    type="file"
+                    accept="image/*"
+                    onChange={handlePhotoUpload}
+                    className="hidden"
+                  />
+                  {formData.photo_url && (
+                    <Badge className="bg-green-100 text-green-800">
+                      <CheckCircle className="w-3 h-3 mr-1" />
+                      Photo uploaded
+                    </Badge>
+                  )}
                 </div>
-
-                <div>
-                  <Label htmlFor="linkedEntity">Link to (Optional)</Label>
-                  <Select value={linkedEntityType} onValueChange={setLinkedEntityType}>
-                    <SelectTrigger className="mt-2">
-                      <SelectValue placeholder="None" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">None</SelectItem>
-                      <SelectItem value="checklist">Checklist</SelectItem>
-                      <SelectItem value="sop">SOP</SelectItem>
-                      <SelectItem value="menu_item">Menu Item</SelectItem>
-                      <SelectItem value="hygiene_record">Hygiene Record</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              {score < 3 && score > 0 && (
-                <div className="p-4 bg-orange-50 border border-orange-200 rounded-lg">
-                  <div className="flex items-start gap-2">
-                    <Sparkles className="w-5 h-5 text-orange-600 mt-0.5" />
-                    <div>
-                      <p className="font-semibold text-orange-900">AI Suggestion</p>
-                      <p className="text-sm text-orange-800 mt-1">
-                        Score below 3 detected. A corrective task will be automatically created
-                        and assigned to you for follow-up.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              <Button
-                type="submit"
-                disabled={submitCheckMutation.isPending}
-                className="w-full h-14 bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white text-lg font-bold shadow-lg hover:shadow-xl transition-all"
-              >
-                {submitCheckMutation.isPending ? (
-                  'Submitting...'
-                ) : (
-                  <>
-                    <CheckCircle className="w-5 h-5 mr-2" />
-                    Submit Quality Check
-                  </>
+                {formData.photo_url && (
+                  <img
+                    src={formData.photo_url}
+                    alt="Quality check"
+                    className="mt-3 w-full max-w-md h-64 object-cover rounded-lg border"
+                  />
                 )}
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Submit Button */}
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex justify-end gap-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => navigate(createPageUrl('QualityDashboard'))}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={submitCheckMutation.isPending || formData.score === 0}
+                  className="bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700"
+                >
+                  {submitCheckMutation.isPending ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Submitting...
+                    </>
+                  ) : (
+                    <>
+                      <Send className="w-4 h-4 mr-2" />
+                      Submit Quality Check
+                    </>
+                  )}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </form>
       </div>
     </div>
   );
