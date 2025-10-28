@@ -370,6 +370,12 @@ const managementItems = [
     badge: "MGMT",
   },
   {
+    title: "📊 Analytics Dashboard",
+    url: createPageUrl("AnalyticsDashboard"),
+    icon: BarChart3,
+    badge: "AI",
+  },
+  {
     title: "💰 Payroll Dashboard",
     url: createPageUrl("PayrollDashboard"),
     icon: DollarSign,

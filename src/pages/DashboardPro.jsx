@@ -20,6 +20,8 @@ import {
   User,
   Zap,
   Target, // ✨ NEW: Added Target icon for Operations
+  Lightbulb, // ✨ NEW: Added Lightbulb icon for AI Insights
+  BarChart3, // ✨ NEW: Added BarChart3 icon for Analytics
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
@@ -84,7 +86,7 @@ export default function DashboardPro() {
     refetchInterval: 10000, // Auto-refresh every 10 seconds
   });
 
-  // 🎯 NEW: Operations Core Metrics
+  // 🎯 Operations Core Metrics
   const { data: operationTasks = [] } = useQuery({
     queryKey: ['operationTasksStats'],
     queryFn: () => base44.entities.OperationTask.list('-due_date', 100),
@@ -99,6 +101,20 @@ export default function DashboardPro() {
       });
       return summaries[0] || null;
     },
+  });
+
+  // 📊 Analytics Data
+  const { data: latestAnalytics } = useQuery({
+    queryKey: ['latestAnalyticsSnapshot'],
+    queryFn: async () => {
+      const snapshots = await base44.entities.AnalyticsSnapshot.list('-snapshot_date', 1);
+      return snapshots[0] || null;
+    },
+  });
+
+  const { data: latestInsights = [] } = useQuery({
+    queryKey: ['latestInsights'],
+    queryFn: () => base44.entities.AnalyticsInsight.list('-insight_date', 3),
   });
 
   // Calculate metrics
@@ -205,7 +221,35 @@ export default function DashboardPro() {
           </Card>
         )}
 
-        {/* 🎯 NEW: Operations Core Banner */}
+        {/* 📊 AI Analytics Summary Card */}
+        {latestAnalytics && (
+          <Link to={createPageUrl('AnalyticsDashboard')}>
+            <Card className="mb-6 bg-gradient-to-r from-blue-600 to-purple-600 text-white border-none hover:shadow-2xl transition-all cursor-pointer">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="w-14 h-14 bg-white/20 backdrop-blur rounded-2xl flex items-center justify-center">
+                      <BarChart3 className="w-8 h-8" />
+                    </div>
+                    <div>
+                      <h3 className="text-2xl font-bold mb-1">This Week: Intelligence Summary</h3>
+                      <p className="text-blue-100">
+                        {latestAnalytics.task_completion_rate}% compliance,
+                        {latestAnalytics.quality_score_avg > 0 && ` ${latestAnalytics.quality_score_avg.toFixed(1)}★ quality`}
+                        {latestAnalytics.inventory_cost_variance > 0 && `, ${latestAnalytics.inventory_cost_variance.toFixed(1)}% cost variance`}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm opacity-90">View Full Analytics →</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </Link>
+        )}
+
+        {/* 🎯 Operations Core Banner */}
         <Link to={createPageUrl('OperationsCore')}>
           <Card className="mb-6 bg-gradient-to-r from-emerald-600 to-teal-600 text-white border-none hover:shadow-2xl transition-all cursor-pointer">
             <CardContent className="p-6">
@@ -227,6 +271,39 @@ export default function DashboardPro() {
             </CardContent>
           </Card>
         </Link>
+
+        {/* Latest AI Insights */}
+        {latestInsights.length > 0 && (
+          <Card className="mb-6 bg-gradient-to-r from-purple-50 to-pink-50 border-purple-200">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Lightbulb className="w-5 h-5 text-purple-600" />
+                Latest AI Insights
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                {latestInsights.map((insight) => (
+                  <div key={insight.id} className="p-3 bg-white rounded-lg border border-purple-200">
+                    <div className="flex items-start gap-2">
+                      <Badge className={
+                        insight.severity === 'positive' ? 'bg-green-100 text-green-800' :
+                        insight.severity === 'warning' ? 'bg-amber-100 text-amber-800' :
+                        'bg-blue-100 text-blue-800'
+                      }>
+                        {insight.category}
+                      </Badge>
+                      <div className="flex-1">
+                        <p className="text-sm font-semibold text-gray-900">{insight.title}</p>
+                        <p className="text-xs text-gray-700">{insight.message}</p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* 🎯 Operations Core Quick Stats */}
         <div className="grid md:grid-cols-4 gap-4 mb-6">
