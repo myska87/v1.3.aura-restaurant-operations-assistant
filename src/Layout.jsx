@@ -67,7 +67,7 @@ import { ComplianceStyles } from "./components/ComplianceStyles";
 import MenuAutoUpdateTrigger from './components/MenuAutoUpdateTrigger';
 import { SecurityBadge } from "./components/PermissionGuard";
 import QualityAutomation from './components/QualityAutomation';
-import { UnifiedUserSync } from "./components/UnifiedUserSync';
+import { UnifiedUserSync } from './components/UnifiedUserSync';
 import SmartRoleSync from './components/SmartRoleSync';
 import ActivityTracker from './components/ActivityTracker';
 import TaskAutomationEngine from './components/operationscore/TaskAutomationEngine';
