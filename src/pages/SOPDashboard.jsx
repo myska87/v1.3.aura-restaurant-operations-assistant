@@ -1,34 +1,25 @@
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   FileText,
   Search,
   Plus,
-  Eye,
-  Edit,
-  Archive,
-  Clock,
-  Users,
+  Home,
   CheckCircle,
-  PlayCircle,
+  Edit,
   TrendingUp,
   Award,
-  Filter,
   BookOpen,
-  Home,
-  ArrowLeft,
+  Target,
+  Zap,
+  Utensils,
+  ShieldCheck,
+  Sparkles,
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -37,9 +28,9 @@ import { motion } from "framer-motion";
 
 export default function SOPDashboard() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
-  const [selectedStatus, setSelectedStatus] = useState("all");
 
   const { data: user } = useQuery({
     queryKey: ['currentUser'],
@@ -51,6 +42,7 @@ export default function SOPDashboard() {
   const { data: sops = [], isLoading } = useQuery({
     queryKey: ['sops'],
     queryFn: () => base44.entities.SOPDocument.list('-created_date', 100),
+    refetchInterval: 5000, // Auto-refresh every 5 seconds
   });
 
   const { data: signatures = [] } = useQuery({
@@ -71,7 +63,6 @@ export default function SOPDashboard() {
       sop.description?.toLowerCase().includes(searchQuery.toLowerCase());
     
     const matchesCategory = selectedCategory === 'all' || sop.category === selectedCategory;
-    const matchesStatus = selectedStatus === 'all' || sop.status === selectedStatus;
     
     const matchesRole = !user?.position || 
       !sop.role_assigned || 
@@ -79,7 +70,7 @@ export default function SOPDashboard() {
       sop.role_assigned.includes('all') ||
       sop.role_assigned.includes(user.position);
     
-    return matchesSearch && matchesCategory && matchesStatus && matchesRole;
+    return matchesSearch && matchesCategory && matchesRole;
   });
 
   // Calculate stats
@@ -93,14 +84,20 @@ export default function SOPDashboard() {
       : 0,
   };
 
+  // Category counts
+  const categoryCounts = sops.reduce((acc, sop) => {
+    acc[sop.category] = (acc[sop.category] || 0) + 1;
+    return acc;
+  }, {});
+
   const categories = [
-    { value: 'all', label: 'All SOPs', icon: '📚' },
-    { value: 'kitchen', label: 'Kitchen', icon: '🍳' },
-    { value: 'service', label: 'Service', icon: '🍽️' },
-    { value: 'cleaning', label: 'Cleaning', icon: '🧹' },
-    { value: 'hygiene', label: 'Hygiene', icon: '🧼' },
-    { value: 'recipe', label: 'Recipes', icon: '📖' },
-    { value: 'equipment', label: 'Equipment', icon: '⚙️' },
+    { value: 'all', label: 'All SOPs', icon: FileText, color: 'bg-gray-500' },
+    { value: 'kitchen', label: 'Kitchen', icon: Utensils, color: 'bg-orange-500' },
+    { value: 'service', label: 'Service', icon: Target, color: 'bg-blue-500' },
+    { value: 'cleaning', label: 'Cleaning', icon: Sparkles, color: 'bg-purple-500' },
+    { value: 'hygiene', label: 'Hygiene', icon: ShieldCheck, color: 'bg-green-500' },
+    { value: 'equipment', label: 'Equipment', icon: Zap, color: 'bg-amber-500' },
+    { value: 'recipe', label: 'Recipes', icon: BookOpen, color: 'bg-pink-500' },
   ];
 
   const getCategoryColor = (category) => {
@@ -133,12 +130,6 @@ export default function SOPDashboard() {
       <div className="max-w-7xl mx-auto">
         {/* Navigation */}
         <div className="flex gap-3 mb-6">
-          <Link to={createPageUrl("Dashboard")}>
-            <Button variant="outline" size="sm">
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Back
-            </Button>
-          </Link>
           <Link to={createPageUrl("Dashboard")}>
             <Button variant="outline" size="sm">
               <Home className="w-4 h-4 mr-2" />
@@ -227,45 +218,48 @@ export default function SOPDashboard() {
           </Card>
         </div>
 
-        {/* Search and Filter */}
-        <Card className="mb-6 border-none shadow-lg">
-          <CardContent className="p-6">
-            <div className="flex flex-col md:flex-row gap-4">
-              <div className="flex-1 relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                <Input
-                  placeholder="Search SOPs..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-              
-              <div className="flex gap-2 flex-wrap">
-                {categories.map(cat => (
-                  <Button
+        {/* Category Tabs */}
+        <Card className="mb-6 overflow-hidden">
+          <CardContent className="p-0">
+            <div className="flex overflow-x-auto scrollbar-hide">
+              {categories.map((cat) => {
+                const Icon = cat.icon;
+                const count = cat.value === 'all' ? stats.totalSOPs : (categoryCounts[cat.value] || 0);
+                const isActive = selectedCategory === cat.value;
+                
+                return (
+                  <button
                     key={cat.value}
-                    variant={selectedCategory === cat.value ? "default" : "outline"}
-                    size="sm"
                     onClick={() => setSelectedCategory(cat.value)}
-                    className={selectedCategory === cat.value ? "bg-[#014D40]" : ""}
+                    className={`flex items-center gap-2 px-6 py-4 border-b-2 transition-all whitespace-nowrap ${
+                      isActive 
+                        ? 'border-[#014D40] bg-emerald-50 text-[#014D40] font-semibold' 
+                        : 'border-transparent hover:bg-gray-50 text-gray-600 hover:text-gray-900'
+                    }`}
                   >
-                    {cat.icon} {cat.label}
-                  </Button>
-                ))}
-              </div>
+                    <Icon className={`w-5 h-5 ${isActive ? cat.color.replace('bg-', 'text-') : 'text-gray-400'}`} />
+                    <span>{cat.label}</span>
+                    <Badge variant="outline" className={isActive ? 'bg-emerald-100 border-emerald-300' : ''}>
+                      {count}
+                    </Badge>
+                  </button>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
 
-              <Select value={selectedStatus} onValueChange={setSelectedStatus}>
-                <SelectTrigger className="w-32">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="draft">Draft</SelectItem>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="archived">Archived</SelectItem>
-                </SelectContent>
-              </Select>
+        {/* Search */}
+        <Card className="mb-6 border-none shadow-lg">
+          <CardContent className="p-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <Input
+                placeholder="Search SOPs..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10"
+              />
             </div>
           </CardContent>
         </Card>
@@ -297,7 +291,7 @@ export default function SOPDashboard() {
                     <CardContent className="p-6">
                       <div className="flex items-start justify-between mb-4">
                         <div className="flex-1">
-                          <h3 className="font-bold text-lg text-gray-900 mb-2 group-hover:text-[#014D40] transition-colors">
+                          <h3 className="font-bold text-lg text-gray-900 group-hover:text-[#014D40] transition-colors mb-2">
                             {sop.title}
                           </h3>
                           <p className="text-sm text-gray-600 line-clamp-2 mb-3">
@@ -329,15 +323,13 @@ export default function SOPDashboard() {
                       <div className="flex items-center justify-between text-sm text-gray-600 mb-4">
                         <span>v{sop.version || 1}</span>
                         {sop.last_reviewed_date && (
-                          <span className="flex items-center gap-1">
-                            <Clock className="w-4 h-4" />
+                          <span className="flex items-center gap-1 text-xs">
                             {format(new Date(sop.last_reviewed_date), 'MMM d, yyyy')}
                           </span>
                         )}
                         {sop.view_count > 0 && (
                           <span className="flex items-center gap-1">
-                            <Eye className="w-4 h-4" />
-                            {sop.view_count}
+                            👁 {sop.view_count}
                           </span>
                         )}
                       </div>
@@ -383,7 +375,7 @@ export default function SOPDashboard() {
                 No SOPs Found
               </h3>
               <p className="text-gray-600 mb-6">
-                {searchQuery || selectedCategory !== 'all' || selectedStatus !== 'all'
+                {searchQuery || selectedCategory !== 'all'
                   ? 'Try adjusting your search or filters'
                   : 'No procedures have been created yet'}
               </p>
