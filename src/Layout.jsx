@@ -50,9 +50,9 @@ import FormScheduler from "./components/FormScheduler";
 import { ComplianceStyles } from "./components/ComplianceStyles";
 import MenuAutoUpdateTrigger from './components/MenuAutoUpdateTrigger';
 import { SecurityBadge } from "./components/PermissionGuard";
-import QualityAutomation from "./components/QualityAutomation"; // Added Quality Automation
-import { UnifiedUserSync } from "./components/UnifiedUserSync"; // Added UnifiedUserSync
-import { SmartRoleSync } from "./components/SmartRoleSync"; // Added SmartRoleSync
+import QualityAutomation from "./components/QualityAutomation";
+import { UnifiedUserSync } from "./components/UnifiedUserSync";
+import SmartRoleSync from "./components/SmartRoleSync"; // Fix: Changed to default import
 
 const Badge = ({ children, className }) => (
   <span className={`inline-flex items-center justify-center rounded-full text-center font-semibold leading-none whitespace-nowrap ${className}`}>
@@ -327,7 +327,7 @@ export default function Layout({ children, currentPageName }) {
       <WelcomeNewHire />
       
       <StaffDataSync />
-      <UnifiedUserSync /> {/* Added UnifiedUserSync */}
+      <UnifiedUserSync />
       <MenuImporter />
       <SystemStatusCheck />
       <ComplianceEventListener />
