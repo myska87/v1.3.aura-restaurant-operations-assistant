@@ -68,6 +68,9 @@ import QualityAutomation from "./components/QualityAutomation";
 import { UnifiedUserSync } from "./components/UnifiedUserSync";
 import SmartRoleSync from "./components/SmartRoleSync";
 import ActivityTracker from "./components/ActivityTracker";
+import TaskAutomationEngine from './components/operationscore/TaskAutomationEngine';
+import AISummaryEngine from './components/operationscore/AISummaryEngine';
+import OperationsLinkManager from './components/operationscore/OperationsLinkManager';
 
 const Badge = ({ children, className }) => (
   <span className={`inline-flex items-center justify-center rounded-full text-center font-semibold leading-none whitespace-nowrap ${className}`}>
@@ -84,6 +87,12 @@ const navigationItems = [
         url: createPageUrl("Dashboard"),
         icon: LayoutDashboard,
         badge: null,
+      },
+      {
+        title: "🎯 Operations Central",
+        url: createPageUrl("OperationsCore"),
+        icon: Target,
+        badge: "NEW",
       },
       {
         title: "My Tasks",
@@ -662,6 +671,11 @@ export default function Layout({ children, currentPageName }) {
       <SmartRoleSync />
       {/* ✨ NEW: Activity Tracker - Auto-logs all activities */}
       <ActivityTracker />
+
+      {/* 🎯 NEW: OperationsCore Integration System */}
+      <TaskAutomationEngine />
+      <AISummaryEngine />
+      <OperationsLinkManager />
 
       {/* Mobile Header */}
       <div className="lg:hidden fixed top-0 left-0 right-0 bg-white border-b border-slate-200 z-40 px-4 py-3">

@@ -104,6 +104,7 @@ import CostAnalyticsDashboard from './pages/CostAnalyticsDashboard';
 import AIStockVerification from './pages/AIStockVerification';
 import SupplierCatalogImport from './pages/SupplierCatalogImport';
 import QualityFormExecution from './pages/QualityFormExecution';
+import OperationsCore from './pages/OperationsCore';
 import Layout from './Layout.jsx';
 
 
@@ -214,6 +215,7 @@ export const PAGES = {
     "AIStockVerification": AIStockVerification,
     "SupplierCatalogImport": SupplierCatalogImport,
     "QualityFormExecution": QualityFormExecution,
+    "OperationsCore": OperationsCore,
 }
 
 export const pagesConfig = {

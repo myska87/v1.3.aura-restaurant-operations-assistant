@@ -1,0 +1,102 @@
+{
+  "name": "OperationWeeklySummary",
+  "type": "object",
+  "properties": {
+    "week_start_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Start of week for this summary"
+    },
+    "week_end_date": {
+      "type": "string",
+      "format": "date",
+      "description": "End of week"
+    },
+    "total_tasks": {
+      "type": "number",
+      "default": 0,
+      "description": "Total operational tasks this week"
+    },
+    "completed_tasks": {
+      "type": "number",
+      "default": 0,
+      "description": "Tasks completed"
+    },
+    "overdue_tasks": {
+      "type": "number",
+      "default": 0,
+      "description": "Tasks that went overdue"
+    },
+    "completion_rate": {
+      "type": "number",
+      "description": "Percentage completion rate"
+    },
+    "sop_completion": {
+      "type": "number",
+      "description": "SOP tasks completed"
+    },
+    "audit_completion": {
+      "type": "number",
+      "description": "Audit tasks completed"
+    },
+    "checklist_completion": {
+      "type": "number",
+      "description": "Checklist tasks completed"
+    },
+    "avg_score": {
+      "type": "number",
+      "description": "Average quality score for the week"
+    },
+    "ai_summary": {
+      "type": "string",
+      "description": "AI-generated weekly insights"
+    },
+    "top_performers": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "staff_email": {
+            "type": "string"
+          },
+          "staff_name": {
+            "type": "string"
+          },
+          "tasks_completed": {
+            "type": "number"
+          }
+        }
+      },
+      "description": "Top 3 performers this week"
+    },
+    "areas_needing_attention": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Departments or task types with low completion"
+    },
+    "highlights": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Positive achievements this week"
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "generated_by": {
+      "type": "string",
+      "default": "ai",
+      "description": "System or user who generated"
+    }
+  },
+  "required": [
+    "week_start_date",
+    "week_end_date",
+    "total_tasks",
+    "completion_rate"
+  ]
+}
