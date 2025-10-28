@@ -102,6 +102,7 @@ import AttendanceApproval from './pages/AttendanceApproval';
 import MyAttendance from './pages/MyAttendance';
 import CostAnalyticsDashboard from './pages/CostAnalyticsDashboard';
 import AIStockVerification from './pages/AIStockVerification';
+import SupplierCatalogImport from './pages/SupplierCatalogImport';
 import Layout from './Layout.jsx';
 
 
@@ -210,6 +211,7 @@ export const PAGES = {
     "MyAttendance": MyAttendance,
     "CostAnalyticsDashboard": CostAnalyticsDashboard,
     "AIStockVerification": AIStockVerification,
+    "SupplierCatalogImport": SupplierCatalogImport,
 }
 
 export const pagesConfig = {
