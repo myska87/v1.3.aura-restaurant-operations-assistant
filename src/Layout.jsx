@@ -68,8 +68,8 @@ import MenuAutoUpdateTrigger from './components/MenuAutoUpdateTrigger';
 import { SecurityBadge } from "./components/PermissionGuard";
 import QualityAutomation from "./components/QualityAutomation";
 import { UnifiedUserSync } from "./components/UnifiedUserSync";
-import SmartRoleSync from "./components/SmartRoleSync";
-import ActivityTracker from "./components/ActivityTracker";
+import SmartRoleSync from './components/SmartRoleSync';
+import ActivityTracker from './components/ActivityTracker';
 import TaskAutomationEngine from './components/operationscore/TaskAutomationEngine';
 import AISummaryEngine from './components/operationscore/AISummaryEngine';
 import OperationsLinkManager from './components/operationscore/OperationsLinkManager';
@@ -177,6 +177,12 @@ const navigationItems = [
         url: createPageUrl("QualityDashboard"),
         icon: Star,
         badge: null,
+      },
+      {
+        title: "🛡️ Compliance Centre",
+        url: createPageUrl("ComplianceCore"),
+        icon: Shield,
+        badge: "NEW",
       },
       {
         title: "Compliance",

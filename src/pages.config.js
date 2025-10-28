@@ -110,6 +110,7 @@ import EventFeed from './pages/EventFeed';
 import EventHub from './pages/EventHub';
 import AnalyticsDashboard from './pages/AnalyticsDashboard';
 import AuraIntelligence from './pages/AuraIntelligence';
+import ComplianceCore from './pages/ComplianceCore';
 import Layout from './Layout.jsx';
 
 
@@ -226,6 +227,7 @@ export const PAGES = {
     "EventHub": EventHub,
     "AnalyticsDashboard": AnalyticsDashboard,
     "AuraIntelligence": AuraIntelligence,
+    "ComplianceCore": ComplianceCore,
 }
 
 export const pagesConfig = {
