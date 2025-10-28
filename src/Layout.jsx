@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -33,8 +32,19 @@ import {
   Star,
   AlertTriangle,
   Lightbulb,
-  DollarSign, 
-  CreditCard, 
+  DollarSign,
+  CreditCard,
+  Camera,
+  Upload,
+  Briefcase,
+  Target,
+  Award,
+  BookOpen,
+  Heart,
+  Zap,
+  TrendingDown,
+  ShoppingCart,
+  FilePlus,
 } from "lucide-react";
 import WelcomeNewHire from "./components/WelcomeNewHire";
 import WelcomeNewUser from "./components/WelcomeNewUser";
@@ -55,7 +65,7 @@ import MenuAutoUpdateTrigger from './components/MenuAutoUpdateTrigger';
 import { SecurityBadge } from "./components/PermissionGuard";
 import QualityAutomation from "./components/QualityAutomation";
 import { UnifiedUserSync } from "./components/UnifiedUserSync";
-import SmartRoleSync from "./components/SmartRoleSync"; 
+import SmartRoleSync from "./components/SmartRoleSync";
 
 const Badge = ({ children, className }) => (
   <span className={`inline-flex items-center justify-center rounded-full text-center font-semibold leading-none whitespace-nowrap ${className}`}>
@@ -92,9 +102,15 @@ const navigationItems = [
         badge: null,
       },
       {
-        title: "📊 My Attendance", // Added My Attendance
+        title: "📊 My Attendance",
         url: createPageUrl("MyAttendance"),
-        icon: ClipboardCheck, // Using ClipboardCheck icon
+        icon: ClipboardCheck,
+        badge: null,
+      },
+      {
+        title: "My Checklists",
+        url: createPageUrl("MyChecklists"),
+        icon: ClipboardList,
         badge: null,
       },
       {
@@ -121,13 +137,25 @@ const navigationItems = [
         badge: null,
       },
       {
+        title: "✍️ Document Builder",
+        url: createPageUrl("DocumentBuilder"),
+        icon: FilePlus,
+        badge: null,
+      },
+      {
+        title: "Daily Checklists",
+        url: createPageUrl("DailyChecklists"),
+        icon: ClipboardList,
+        badge: null,
+      },
+      {
         title: "Form Intelligence",
         url: createPageUrl("FormIntelligence"),
         icon: Settings,
         badge: "AI",
       },
       {
-        title: "⭐ Quality Control", // Added Quality Control
+        title: "⭐ Quality Control",
         url: createPageUrl("QualityDashboard"),
         icon: Star,
         badge: null,
@@ -152,12 +180,30 @@ const navigationItems = [
       {
         title: "🍽️ Menu",
         url: createPageUrl("Menu"),
-        icon: Package, // Reusing Package icon for Menu as it fits well for products/items
+        icon: ShoppingCart,
         badge: null,
+      },
+      {
+        title: "Menu Management",
+        url: createPageUrl("MenuManagement"),
+        icon: Edit,
+        badge: null,
+      },
+      {
+        title: "Menu Intelligence",
+        url: createPageUrl("MenuIntelligence"),
+        icon: Sparkles,
+        badge: "AI",
       },
       {
         title: "Inventory Hub",
         url: createPageUrl("Inventory"),
+        icon: Package,
+        badge: null,
+      },
+      {
+        title: "Ingredient Stock",
+        url: createPageUrl("IngredientStock"),
         icon: Package,
         badge: null,
       },
@@ -167,11 +213,29 @@ const navigationItems = [
         icon: Calculator,
         badge: null,
       },
+      {
+        title: "Suppliers",
+        url: createPageUrl("SupplierManagement"),
+        icon: Users,
+        badge: null,
+      },
+      {
+        title: "Purchase Orders",
+        url: createPageUrl("Ordering"),
+        icon: ShoppingCart,
+        badge: null,
+      },
     ]
   },
   {
     section: "Team & People",
     items: [
+      {
+        title: "Team Directory",
+        url: createPageUrl("TeamDirectory"),
+        icon: Users,
+        badge: null,
+      },
       {
         title: "Staff Model",
         url: createPageUrl("StaffModel"),
@@ -179,15 +243,62 @@ const navigationItems = [
         badge: null,
       },
       {
-        title: "Shift & Rota",
-        url: createPageUrl("StaffRota"),
-        icon: Users,
+        title: "Onboarding & Training",
+        url: createPageUrl("OnboardingTraining"),
+        icon: BookOpen,
         badge: null,
       },
+      {
+        title: "Performance & Growth",
+        url: createPageUrl("PerformanceGrowth"),
+        icon: TrendingUp,
+        badge: null,
+      },
+      {
+        title: "My Coaching",
+        url: createPageUrl("MyCoaching"),
+        icon: Target,
+        badge: null,
+      },
+      {
+        title: "Shift & Rota",
+        url: createPageUrl("StaffRota"),
+        icon: Calendar,
+        badge: null,
+      },
+      {
+        title: "Manage Availability",
+        url: createPageUrl("ManageAvailability"),
+        icon: Calendar,
+        badge: null,
+      },
+    ]
+  },
+  {
+    section: "Communication",
+    items: [
       {
         title: "Team Chat",
         url: createPageUrl("TeamChat"),
         icon: MessageCircle,
+        badge: null,
+      },
+      {
+        title: "📢 Announcements",
+        url: createPageUrl("Announcements"),
+        icon: MessageCircle,
+        badge: null,
+      },
+      {
+        title: "Suggestion Box",
+        url: createPageUrl("SuggestionBox"),
+        icon: Lightbulb,
+        badge: null,
+      },
+      {
+        title: "Culture Building",
+        url: createPageUrl("CultureBuilding"),
+        icon: Heart,
         badge: null,
       },
     ]
@@ -195,12 +306,6 @@ const navigationItems = [
   {
     section: "Feedback & Updates",
     items: [
-      {
-        title: "📢 Announcements",
-        url: createPageUrl("Announcements"),
-        icon: MessageCircle,
-        badge: "NEW",
-      },
       {
         title: "🐛 Report a Bug",
         url: createPageUrl("BugReport"),
@@ -211,6 +316,12 @@ const navigationItems = [
         title: "💡 Feature Ideas",
         url: createPageUrl("FeatureIdeas"),
         icon: Lightbulb,
+        badge: null,
+      },
+      {
+        title: "Feature List",
+        url: createPageUrl("FeatureList"),
+        icon: Zap,
         badge: null,
       },
     ]
@@ -225,28 +336,52 @@ const managementItems = [
     badge: "MGMT",
   },
   {
-    title: "💰 Payroll Overview", // Added Payroll Overview
+    title: "💰 Payroll Dashboard",
+    url: createPageUrl("PayrollDashboard"),
+    icon: DollarSign,
+    badge: "NEW",
+  },
+  {
+    title: "💵 Weekly Payroll",
     url: createPageUrl("WeeklyPayrollReport"),
     icon: DollarSign,
     badge: null,
   },
   {
-    title: "✅ Attendance Approval", // Added Attendance Approval
+    title: "💳 Staff Wages",
+    url: createPageUrl("StaffWagesReport"),
+    icon: CreditCard,
+    badge: null,
+  },
+  {
+    title: "✅ Attendance Approval",
     url: createPageUrl("AttendanceApproval"),
     icon: ClipboardCheck,
     badge: null,
   },
   {
-    title: "📊 Attendance Reports", // Added Attendance Reports
+    title: "📊 Attendance Reports",
     url: createPageUrl("AttendanceReports"),
     icon: BarChart3,
     badge: null,
   },
   {
-    title: "💵 Staff Wages", // Added Staff Wages
-    url: createPageUrl("StaffWagesReport"),
-    icon: CreditCard,
-    badge: null,
+    title: "📊 Cost Analytics",
+    url: createPageUrl("CostAnalyticsDashboard"),
+    icon: TrendingUp,
+    badge: "AI",
+  },
+  {
+    title: "🤖 AI Stock Verification",
+    url: createPageUrl("AIStockVerification"),
+    icon: Camera,
+    badge: "AI",
+  },
+  {
+    title: "📦 Supplier Catalog",
+    url: createPageUrl("SupplierCatalogImport"),
+    icon: Upload,
+    badge: "NEW",
   },
   {
     title: "🤖 Hey AURA - AI Console",
@@ -267,10 +402,10 @@ const managementItems = [
     badge: null,
   },
   {
-    title: "✍️ Document Builder",
-    url: createPageUrl("DocumentBuilder"),
-    icon: FileText,
-    badge: "NEW",
+    title: "🎓 SOP Certifications",
+    url: createPageUrl("SOPCertifications"),
+    icon: Award,
+    badge: null,
   },
   {
     title: "Smart Scheduler",
@@ -279,21 +414,117 @@ const managementItems = [
     badge: "AI",
   },
   {
+    title: "🤖 AI Rota Generator",
+    url: createPageUrl("AIRotaGenerator"),
+    icon: Zap,
+    badge: "AI",
+  },
+  {
+    title: "📋 Shift Templates",
+    url: createPageUrl("ShiftTemplates"),
+    icon: ClipboardList,
+    badge: null,
+  },
+  {
+    title: "Weekly Rota",
+    url: createPageUrl("WeeklyRota"),
+    icon: Calendar,
+    badge: null,
+  },
+  {
     title: "EHO Control Center",
     url: createPageUrl("EHOControlCenter"),
     icon: Shield,
     badge: "AUDIT",
   },
   {
-    title: "Menu Intelligence",
-    url: createPageUrl("MenuIntelligence"),
-    icon: Sparkles,
-    badge: "AI",
+    title: "🏢 Leafe Dashboard",
+    url: createPageUrl("LeafeDashboard"),
+    icon: Activity,
+    badge: null,
+  },
+  {
+    title: "Performance Dashboard",
+    url: createPageUrl("PerformanceDashboard"),
+    icon: TrendingUp,
+    badge: null,
+  },
+  {
+    title: "Coaching Dashboard",
+    url: createPageUrl("CoachingDashboard"),
+    icon: Target,
+    badge: null,
+  },
+  {
+    title: "Quick Quality Check",
+    url: createPageUrl("QuickQualityCheck"),
+    icon: Zap,
+    badge: null,
+  },
+  {
+    title: "Quality Templates",
+    url: createPageUrl("QualityTemplates"),
+    icon: ClipboardList,
+    badge: null,
+  },
+  {
+    title: "Quality Reports",
+    url: createPageUrl("QualityReports"),
+    icon: BarChart3,
+    badge: null,
+  },
+  {
+    title: "Checklist Builder",
+    url: createPageUrl("ChecklistBuilder"),
+    icon: Edit,
+    badge: null,
+  },
+  {
+    title: "Checklist Monitor",
+    url: createPageUrl("ChecklistMonitor"),
+    icon: Activity,
+    badge: null,
+  },
+  {
+    title: "Form Builder",
+    url: createPageUrl("FormBuilder"),
+    icon: Edit,
+    badge: null,
+  },
+  {
+    title: "Form Library",
+    url: createPageUrl("FormLibrary"),
+    icon: FileText,
+    badge: null,
+  },
+  {
+    title: "Form Scheduler",
+    url: createPageUrl("FormScheduler"),
+    icon: Calendar,
+    badge: null,
+  },
+  {
+    title: "Task Reports",
+    url: createPageUrl("TaskReports"),
+    icon: BarChart3,
+    badge: null,
   },
   {
     title: "Reports & Analytics",
     url: createPageUrl("Reports"),
     icon: BarChart3,
+    badge: null,
+  },
+  {
+    title: "Menu Analysis",
+    url: createPageUrl("MenuAnalysis"),
+    icon: BarChart3,
+    badge: null,
+  },
+  {
+    title: "Order History",
+    url: createPageUrl("OrderHistory"),
+    icon: FileText,
     badge: null,
   },
   {
@@ -303,9 +534,27 @@ const managementItems = [
     badge: null,
   },
   {
+    title: "📝 Document Signatures",
+    url: createPageUrl("DocumentSignatureReport"),
+    icon: Edit,
+    badge: null,
+  },
+  {
     title: "Data Management",
     url: createPageUrl("DataManagement"),
     icon: Database,
+    badge: null,
+  },
+  {
+    title: "Backup Settings",
+    url: createPageUrl("BackupSettings"),
+    icon: Database,
+    badge: null,
+  },
+  {
+    title: "Privacy Center",
+    url: createPageUrl("PrivacyCenter"),
+    icon: Shield,
     badge: null,
   },
   {
@@ -327,10 +576,22 @@ const managementItems = [
     badge: "GDPR",
   },
   {
+    title: "📧 Email Integration",
+    url: createPageUrl("EmailIntegrationHub"),
+    icon: MessageCircle,
+    badge: null,
+  },
+  {
     title: "🌉 DataBridge Monitor",
     url: createPageUrl("DataBridgeMonitor"),
     icon: Activity,
     badge: "LIVE",
+  },
+  {
+    title: "🛡️ System Protection",
+    url: createPageUrl("SystemProtection"),
+    icon: Shield,
+    badge: null,
   },
 ];
 
@@ -410,11 +671,11 @@ export default function Layout({ children, currentPageName }) {
       <aside
         className={`fixed top-0 left-0 h-full bg-white border-r border-slate-200 z-50 transition-transform duration-300 ${
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
-        } lg:translate-x-0 w-64`}
+        } lg:translate-x-0 w-64 overflow-y-auto`}
       >
         <div className="flex flex-col h-full">
           {/* Logo Section */}
-          <div className="p-6 border-b border-slate-200">
+          <div className="p-6 border-b border-slate-200 flex-shrink-0">
             <div className="flex flex-col items-center justify-center">
               <AuraLogo size="default" />
               <p className="text-xs text-center text-slate-600 font-medium mt-3">
@@ -424,7 +685,7 @@ export default function Layout({ children, currentPageName }) {
           </div>
 
           {/* Navigation */}
-          <nav className="flex-1 overflow-y-auto p-4 space-y-6">
+          <nav className="flex-1 overflow-y-auto p-4 space-y-6 pb-32">
             {navigationItems.map((section, sectionIdx) => (
               <div key={sectionIdx}>
                 <div className="px-3 mb-2">
@@ -499,10 +760,14 @@ export default function Layout({ children, currentPageName }) {
                                 : item.badge === 'AUDIT'
                                   ? 'bg-orange-100 text-orange-700'
                                   : item.badge === 'NEW'
-                                    ? 'bg-red-100 text-red-700' // Style for NEW badge
+                                    ? 'bg-red-100 text-red-700'
                                     : item.badge === 'ADMIN'
-                                      ? 'bg-teal-100 text-teal-700' // Style for ADMIN badge
-                                      : 'bg-purple-100 text-purple-700'
+                                      ? 'bg-teal-100 text-teal-700'
+                                      : item.badge === 'RBAC'
+                                        ? 'bg-indigo-100 text-indigo-700'
+                                        : item.badge === 'GDPR'
+                                          ? 'bg-purple-100 text-purple-700'
+                                          : 'bg-purple-100 text-purple-700'
                           }`}>
                             {item.badge}
                           </Badge>
@@ -516,7 +781,7 @@ export default function Layout({ children, currentPageName }) {
           </nav>
 
           {/* User Section */}
-          <div className="p-4 border-t border-slate-200">
+          <div className="p-4 border-t border-slate-200 flex-shrink-0">
             <div className="flex items-center gap-3 mb-3 px-2">
               <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-green-500 rounded-full flex items-center justify-center text-white font-semibold">
                 {user?.full_name?.charAt(0)?.toUpperCase() || "U"}
