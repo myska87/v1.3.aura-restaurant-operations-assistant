@@ -33,12 +33,11 @@ import {
   Star,
   AlertTriangle,
   Lightbulb,
-  DollarSign, // Added DollarSign icon
-  CreditCard, // Added CreditCard icon
-  Receipt, // Added Receipt icon (although not explicitly used in the outline, it's good practice to add if it's in the import list)
+  DollarSign, 
+  CreditCard, 
 } from "lucide-react";
 import WelcomeNewHire from "./components/WelcomeNewHire";
-import WelcomeNewUser from "./components/WelcomeNewUser"; // Added this line
+import WelcomeNewUser from "./components/WelcomeNewUser";
 import ChecklistAutomation from "./components/ChecklistAutomation";
 import NotificationBell from "./components/NotificationBell";
 import AuraLogo from "./components/AuraLogo";
@@ -56,7 +55,7 @@ import MenuAutoUpdateTrigger from './components/MenuAutoUpdateTrigger';
 import { SecurityBadge } from "./components/PermissionGuard";
 import QualityAutomation from "./components/QualityAutomation";
 import { UnifiedUserSync } from "./components/UnifiedUserSync";
-import SmartRoleSync from "./components/SmartRoleSync"; // Fix: Changed to default import
+import SmartRoleSync from "./components/SmartRoleSync"; 
 
 const Badge = ({ children, className }) => (
   <span className={`inline-flex items-center justify-center rounded-full text-center font-semibold leading-none whitespace-nowrap ${className}`}>
