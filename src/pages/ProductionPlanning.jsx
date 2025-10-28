@@ -1,5 +1,4 @@
-
-import { useState } from "react";
+import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -491,16 +490,16 @@ export default function ProductionPlanning() {
     <div className="p-6 md:p-8 bg-gray-50 min-h-screen">
       <div className="max-w-7xl mx-auto">
         <div className="flex gap-3 mb-6">
-          <Link to={createPageUrl("Dashboard")}>
+          <Link to={createPageUrl("InventoryDashboard")}>
             <Button variant="outline" size="sm">
               <ArrowLeft className="w-4 h-4 mr-2" />
               Back
             </Button>
           </Link>
-          <Link to={createPageUrl("Inventory")}>
+          <Link to={createPageUrl("Dashboard")}>
             <Button variant="outline" size="sm">
               <Home className="w-4 h-4 mr-2" />
-              Inventory Hub
+              Dashboard
             </Button>
           </Link>
         </div>
@@ -600,7 +599,7 @@ export default function ProductionPlanning() {
                   </div>
 
                   <div className="flex gap-2">
-                    {plan.status === 'approved' && !plan.orders_created && (
+                    {!plan.orders_created && (
                       <>
                         <Button
                           onClick={() => handleOrderIngredients(plan)}
@@ -620,9 +619,14 @@ export default function ProductionPlanning() {
                         </Button>
                       </>
                     )}
+                    {plan.orders_created && (
+                      <Badge className="bg-green-100 text-green-800 py-2 px-4">
+                        ✅ Orders Created
+                      </Badge>
+                    )}
                   </div>
 
-                  {plan.ingredients_needed?.some(ing => safeNumber(ing.to_order) > 0) && (
+                  {plan.ingredients_needed?.some(ing => safeNumber(ing.to_order) > 0) && !plan.orders_created && (
                     <div className="mt-4 p-3 bg-amber-50 rounded-lg">
                       <p className="text-sm text-amber-800 flex items-center gap-2">
                         <AlertTriangle className="w-4 h-4" />
@@ -637,7 +641,10 @@ export default function ProductionPlanning() {
         </div>
 
         {/* Production Plan Form Dialog */}
-        <Dialog open={showForm} onOpenChange={(open) => !open && resetForm()}>
+        <Dialog open={showForm} onOpenChange={(open) => {
+          if (!open) resetForm();
+          setShowForm(open);
+        }}>
           <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>{editingPlan ? 'Edit' : 'Create'} Production Plan</DialogTitle>
@@ -762,7 +769,7 @@ export default function ProductionPlanning() {
           </DialogContent>
         </Dialog>
 
-        {/* Shopping Cart Dialog - FULLY COMPLETED */}
+        {/* Shopping Cart Dialog */}
         <Dialog open={showCart} onOpenChange={setShowCart}>
           <DialogContent className="max-w-4xl max-h-[90vh]">
             <DialogHeader>
