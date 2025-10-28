@@ -328,6 +328,23 @@ const navigationItems = [
       },
     ]
   },
+  {
+    section: "🔧 System Admin",
+    items: [
+      {
+        title: "🏥 System Health",
+        url: createPageUrl("SystemHealthCheck"),
+        icon: Activity,
+        badge: "ADMIN",
+      },
+      {
+        title: "🔍 System Analysis",
+        url: createPageUrl("SystemAnalysis"),
+        icon: TrendingUp,
+        badge: "ADMIN",
+      },
+    ]
+  },
 ];
 
 const managementItems = [
