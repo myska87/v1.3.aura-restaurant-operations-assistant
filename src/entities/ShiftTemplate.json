@@ -1,0 +1,220 @@
+{
+  "name": "ShiftTemplate",
+  "type": "object",
+  "properties": {
+    "template_name": {
+      "type": "string",
+      "description": "Name of the shift template (e.g., 'Standard Week', 'Holiday Week')"
+    },
+    "description": {
+      "type": "string",
+      "description": "Template description and purpose"
+    },
+    "template_type": {
+      "type": "string",
+      "enum": [
+        "weekly",
+        "weekend",
+        "special_event",
+        "holiday",
+        "custom"
+      ],
+      "default": "weekly",
+      "description": "Type of template"
+    },
+    "shifts_config": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "day_of_week": {
+            "type": "string",
+            "enum": [
+              "monday",
+              "tuesday",
+              "wednesday",
+              "thursday",
+              "friday",
+              "saturday",
+              "sunday"
+            ]
+          },
+          "role": {
+            "type": "string",
+            "description": "Position/role for this shift"
+          },
+          "department": {
+            "type": "string",
+            "enum": [
+              "kitchen",
+              "front_of_house",
+              "bar",
+              "management",
+              "cleaning",
+              "maintenance"
+            ]
+          },
+          "shift_type": {
+            "type": "string",
+            "enum": [
+              "opening",
+              "mid_shift",
+              "closing"
+            ]
+          },
+          "start_time": {
+            "type": "string",
+            "description": "Shift start time (HH:mm)"
+          },
+          "end_time": {
+            "type": "string",
+            "description": "Shift end time (HH:mm)"
+          },
+          "staff_count": {
+            "type": "number",
+            "default": 1,
+            "description": "Number of staff needed for this shift"
+          },
+          "preferred_staff_emails": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Preferred staff members for this shift"
+          },
+          "notes": {
+            "type": "string",
+            "description": "Additional notes for this shift"
+          }
+        }
+      },
+      "description": "Array of shift configurations for the week"
+    },
+    "total_shifts": {
+      "type": "number",
+      "description": "Total number of shifts in template"
+    },
+    "total_hours": {
+      "type": "number",
+      "description": "Total hours across all shifts"
+    },
+    "estimated_cost": {
+      "type": "number",
+      "description": "Estimated weekly labor cost"
+    },
+    "created_by": {
+      "type": "string",
+      "description": "Manager who created template"
+    },
+    "created_by_name": {
+      "type": "string",
+      "description": "Manager name"
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true,
+      "description": "Whether template is active"
+    },
+    "is_default": {
+      "type": "boolean",
+      "default": false,
+      "description": "Default template for new weeks"
+    },
+    "last_used": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Last time template was applied"
+    },
+    "times_used": {
+      "type": "number",
+      "default": 0,
+      "description": "How many times template has been used"
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Tags for organizing templates"
+    }
+  },
+  "required": [
+    "template_name",
+    "template_type",
+    "shifts_config",
+    "created_by"
+  ],
+  "rls": {
+    "create": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "manager"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        }
+      ]
+    },
+    "read": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "manager"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "manager"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        }
+      ]
+    }
+  }
+}

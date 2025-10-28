@@ -96,6 +96,7 @@ import FeatureIdeas from './pages/FeatureIdeas';
 import DocumentSignatureReport from './pages/DocumentSignatureReport';
 import SOPCore from './pages/SOPCore';
 import DashboardPro from './pages/DashboardPro';
+import ShiftTemplates from './pages/ShiftTemplates';
 import Layout from './Layout.jsx';
 
 
@@ -198,6 +199,7 @@ export const PAGES = {
     "DocumentSignatureReport": DocumentSignatureReport,
     "SOPCore": SOPCore,
     "DashboardPro": DashboardPro,
+    "ShiftTemplates": ShiftTemplates,
 }
 
 export const pagesConfig = {

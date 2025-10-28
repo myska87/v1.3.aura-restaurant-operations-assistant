@@ -28,7 +28,9 @@ import {
   Users,
   TrendingUp,
   Calendar as CalendarIcon,
-  Copy, // Added Copy icon
+  Copy,
+  BookTemplate, // Added BookTemplate icon
+  Download, // Added Download icon
 } from "lucide-react";
 import { format, startOfWeek, addDays, addWeeks, subWeeks, parseISO, parse, isSameDay } from "date-fns";
 import { Link } from "react-router-dom";
@@ -38,7 +40,13 @@ import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 
 import { useUnifiedStaff } from "@/components/UnifiedStaffData";
 
-// Helper function to get default department based on position
+// ========================================
+// HELPER FUNCTIONS
+// ========================================
+
+/**
+ * Get default department based on position
+ */
 const getDefaultDepartment = (position) => {
   const departmentMap = {
     'chef': 'kitchen',
@@ -59,6 +67,29 @@ const getDefaultDepartment = (position) => {
   return departmentMap[position?.toLowerCase()] || 'front_of_house';
 };
 
+/**
+ * Calculate shift duration in hours
+ */
+const calculateShiftDuration = (startTime, endTime) => {
+  const start = parse(startTime, 'HH:mm', new Date());
+  const end = parse(endTime, 'HH:mm', new Date());
+  const diffMinutes = (end - start) / (1000 * 60);
+  return (diffMinutes / 60).toFixed(1);
+};
+
+/**
+ * Check if two time ranges overlap
+ */
+const doTimesOverlap = (start1, end1, start2, end2) => {
+  const s1 = parse(start1, 'HH:mm', new Date());
+  const e1 = parse(end1, 'HH:mm', new Date());
+  const s2 = parse(start2, 'HH:mm', new Date());
+  const e2 = parse(end2, 'HH:mm', new Date());
+  
+  return (s1 >= s2 && s1 < e2) || (e1 > s2 && e1 <= e2) || (s1 <= s2 && e1 >= e2);
+};
+
+
 export default function SmartScheduler() {
   const queryClient = useQueryClient();
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -68,6 +99,7 @@ export default function SmartScheduler() {
   const [showAIDialog, setShowAIDialog] = useState(false);
   const [aiSuggestions, setAiSuggestions] = useState([]);
   const [generatingAI, setGeneratingAI] = useState(false);
+  const [showTemplateDialog, setShowTemplateDialog] = useState(false); // Added new state for template dialog
 
   const [shiftForm, setShiftForm] = useState({
     staff_email: "",
@@ -116,14 +148,17 @@ export default function SmartScheduler() {
     },
   });
 
+  // Fetch shift templates
+  const { data: templates = [] } = useQuery({
+    queryKey: ['shiftTemplates'],
+    queryFn: () => base44.entities.ShiftTemplate.list('-last_used'), // Fetch templates, ordered by last_used
+  });
+
   // Check for overlapping shifts
   const checkForOverlaps = (formData, editingShiftId = null) => {
     const newShiftDate = formData.shift_date;
     const newStartTime = formData.start_time;
     const newEndTime = formData.end_time;
-
-    const newStart = parse(newStartTime, 'HH:mm', new Date());
-    const newEnd = parse(newEndTime, 'HH:mm', new Date());
 
     const overlappingShifts = shifts.filter(shift => {
       if (editingShiftId && shift.id === editingShiftId) {
@@ -134,14 +169,7 @@ export default function SmartScheduler() {
         return false;
       }
 
-      const existingStart = parse(shift.start_time, 'HH:mm', new Date());
-      const existingEnd = parse(shift.end_time, 'HH:mm', new Date());
-
-      return (
-        (newStart >= existingStart && newStart < existingEnd) ||
-        (newEnd > existingStart && newEnd <= existingEnd) ||
-        (newStart <= existingStart && newEnd >= existingEnd)
-      );
+      return doTimesOverlap(newStartTime, newEndTime, shift.start_time, shift.end_time);
     });
 
     return overlappingShifts;
@@ -152,11 +180,9 @@ export default function SmartScheduler() {
     mutationFn: (data) => base44.entities.Shift.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['weekShifts'] });
-      // Specific alert/refetch should be handled by the caller (handleSubmit or handleCopyDayShifts)
     },
     onError: (error) => {
       console.error('Error creating shift:', error);
-      // Specific alert should be handled by the caller
     }
   });
 
@@ -165,11 +191,9 @@ export default function SmartScheduler() {
     mutationFn: ({ id, data }) => base44.entities.Shift.update(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['weekShifts'] });
-      // Specific alert/refetch should be handled by the caller (handleSubmit or handleDragEnd)
     },
     onError: (error) => {
       console.error('Error updating shift:', error);
-      // Specific alert should be handled by the caller
     }
   });
 
@@ -178,11 +202,9 @@ export default function SmartScheduler() {
     mutationFn: (id) => base44.entities.Shift.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['weekShifts'] });
-      // Specific alert/refetch should be handled by the caller (handleDeleteShift)
     },
     onError: (error) => {
       console.error('Error deleting shift:', error);
-      // Specific alert should be handled by the caller
     }
   });
 
@@ -393,7 +415,7 @@ export default function SmartScheduler() {
     const sourceDateStr = format(sourceDate, 'EEE, MMM d');
     const nextDayDisplayStr = format(nextDay, 'EEE, MMM d');
 
-    if (!window.confirm(`Are you sure you want to copy ${shiftsToCopy.length} shifts from ${sourceDateStr} to ${nextDayDisplayStr}?`)) {
+    if (!window.confirm(`Copy ${shiftsToCopy.length} shifts from ${sourceDateStr} to ${nextDayDisplayStr}?`)) {
         return;
     }
 
@@ -407,8 +429,8 @@ export default function SmartScheduler() {
             ...shift,
             shift_date: nextDayStr,
             id: undefined, // Ensure a new ID is generated by the backend
-            created_at: undefined,
-            updated_at: undefined,
+            created_at: undefined, // Ensure these are not carried over for new entities
+            updated_at: undefined, // Ensure these are not carried over for new entities
         };
 
         // Check for staff availability on the next day
@@ -439,16 +461,16 @@ export default function SmartScheduler() {
 
     await Promise.allSettled(operations); // Use Promise.allSettled to ensure all operations complete, even if some fail
 
-    let feedbackMessage = `Finished copying shifts from ${sourceDateStr} to ${nextDayDisplayStr}:\n`;
+    let feedbackMessage = `Finished copying shifts:\n`;
     feedbackMessage += `✅ ${copiedCount} shifts copied.\n`;
     if (unavailableStaff.length > 0) {
-        feedbackMessage += `⚠️ ${unavailableStaff.length} shifts skipped due to unavailability: ${unavailableStaff.join(', ')}\n`;
+        feedbackMessage += `⚠️ ${unavailableStaff.length} skipped (unavailable): ${unavailableStaff.join(', ')}\n`;
     }
     if (conflicts.length > 0) {
-        feedbackMessage += `❌ ${conflicts.length} shifts skipped due to existing overlaps: ${conflicts.join(', ')}\n`;
+        feedbackMessage += `❌ ${conflicts.length} skipped (conflicts): ${conflicts.join(', ')}\n`;
     }
     if (skippedCount > 0) {
-        feedbackMessage += `❌ ${skippedCount} shifts failed to copy due to other errors.\n`;
+        feedbackMessage += `❌ ${skippedCount} failed.\n`;
     }
 
     alert(feedbackMessage);
@@ -483,9 +505,9 @@ export default function SmartScheduler() {
       if (overworkedStaff.length > 0) {
         suggestions.push({
           type: 'warning',
-          title: 'Workload Imbalance Detected',
-          description: `${overworkedStaff.map(s => s.full_name).join(', ')} working ${overworkedStaff[0] ? staffWorkload[overworkedStaff[0].email] : 0}+ shifts this week`,
-          action: 'Redistribute shifts to reduce burnout',
+          title: 'Workload Imbalance', // Changed title
+          description: `${overworkedStaff.map(s => s.full_name).join(', ')} working ${overworkedStaff[0] ? staffWorkload[overworkedStaff[0].email] : 0}+ shifts`, // Changed description
+          action: 'Redistribute shifts', // Changed action
         });
       }
 
@@ -493,56 +515,59 @@ export default function SmartScheduler() {
       if (understaffedDays.length > 0) {
         suggestions.push({
           type: 'alert',
-          title: 'Understaffed Days',
-          description: `${understaffedDays.map(d => format(d, 'EEE MMM d')).join(', ')} need more coverage`,
-          action: 'Add shifts for these days',
+          title: 'Understaffed Days', // Changed title
+          description: `${understaffedDays.map(d => format(d, 'EEE MMM d')).join(', ')} need more coverage`, // Changed description
+          action: 'Add more shifts', // Changed action
         });
       }
 
-      // Suggestion 3: Skill matching
+      // Suggestion 3: Skill matching (example, could be more complex)
       const kitchenShifts = shifts.filter(s => s.department === 'kitchen');
       const kitchenStaff = allStaff.filter(s => s.department === 'kitchen');
-      if (kitchenShifts.length > kitchenStaff.length * 3) {
+      // This is a simplified check; actual capacity planning would be more involved.
+      if (kitchenShifts.length > kitchenStaff.length * 3 && kitchenStaff.length > 0) {
         suggestions.push({
           type: 'info',
           title: 'Kitchen Staff Capacity',
-          description: 'Kitchen shifts may exceed staff capacity',
-          action: 'Consider cross-training or hiring',
+          description: 'High number of kitchen shifts relative to available staff',
+          action: 'Consider cross-training or hiring for kitchen roles',
         });
       }
+
 
       // Suggestion 4: Availability optimization
       const availableButNotScheduled = allStaff.filter(s => {
         const staffShifts = shifts.filter(shift => shift.staff_email === s.email);
         const staffAvails = availabilities.filter(a => a.staff_email === s.email && a.is_available);
-        return staffAvails.length > staffShifts.length + 2;
+        return staffAvails.length > staffShifts.length + 2; // Arbitrary threshold for 'underutilized'
       });
 
       if (availableButNotScheduled.length > 0) {
         suggestions.push({
           type: 'success',
-          title: 'Underutilized Staff',
-          description: `${availableButNotScheduled.map(s => s.full_name).join(', ')} available but not fully scheduled`,
-          action: 'Add more shifts for these staff members',
+          title: 'Underutilized Staff', // Changed title
+          description: `${availableButNotScheduled.map(s => s.full_name).join(', ')} available but not fully scheduled`, // Changed description
+          action: 'Add more shifts for these staff', // Changed action
         });
       }
 
-      // Suggestion 5: Pattern detection
-      const mondayShifts = getShiftsForDay(weekDays[0]);
-      const fridayShifts = getShiftsForDay(weekDays[4]);
-      if (fridayShifts.length < mondayShifts.length * 0.7) {
+      // Suggestion 5: Pattern detection (e.g., weekend staffing)
+      const fridayShifts = getShiftsForDay(weekDays[4]); // Friday
+      const saturdayShifts = getShiftsForDay(weekDays[5]); // Saturday
+      if (saturdayShifts.length < fridayShifts.length * 0.7 && fridayShifts.length > 0) {
         suggestions.push({
           type: 'info',
           title: 'Weekend Staffing Pattern',
-          description: 'Friday has significantly fewer shifts than Monday',
+          description: 'Saturday has significantly fewer shifts than Friday',
           action: 'Ensure adequate weekend coverage',
         });
       }
 
+
       setAiSuggestions(suggestions.length > 0 ? suggestions : [{
         type: 'success',
         title: 'Schedule Looks Good!',
-        description: 'No major issues detected in current schedule',
+        description: 'No major issues detected',
         action: 'Keep up the good work',
       }]);
 
@@ -559,15 +584,118 @@ export default function SmartScheduler() {
     setGeneratingAI(false);
   };
 
+  // ============ APPLY TEMPLATE ============
+  const handleApplyTemplate = async (template) => {
+    if (!window.confirm(`Apply template "${template.template_name}" to week of ${format(weekStart, 'MMM d, yyyy')}?\n\nThis will create ${template.total_shifts} shifts.`)) {
+      return;
+    }
+
+    let createdCount = 0;
+    let skippedCount = 0;
+    let templateConflicts = [];
+    let templateUnavailableStaff = [];
+
+    const operations = template.shifts_config.map(async (shiftConfig) => {
+      const dayIndex = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].indexOf(shiftConfig.day_of_week);
+      const shiftDate = format(addDays(weekStart, dayIndex), 'yyyy-MM-dd');
+
+      const staffToSchedule = shiftConfig.preferred_staff_emails && shiftConfig.preferred_staff_emails.length > 0
+        ? shiftConfig.preferred_staff_emails
+        : [null]; // If no preferred staff, try to create without specific staff (requires UI to fill later)
+
+      for (const staffEmail of staffToSchedule) {
+        const staff = staffEmail ? allStaff.find(s => s.email === staffEmail) : null;
+        if (staffEmail && !staff) {
+          console.warn(`Template references non-existent staff: ${staffEmail}`);
+          skippedCount++;
+          continue;
+        }
+
+        const dataToCreate = {
+          staff_email: staffEmail || "unassigned", // Use "unassigned" if no preferred staff
+          staff_name: staff?.full_name || "Unassigned",
+          role: shiftConfig.role,
+          department: shiftConfig.department,
+          shift_date: shiftDate,
+          shift_type: shiftConfig.shift_type,
+          start_time: shiftConfig.start_time,
+          end_time: shiftConfig.end_time,
+          location: shiftConfig.location || "",
+          notes: shiftConfig.notes || `Created from template: ${template.template_name}`,
+          status: 'scheduled',
+        };
+
+        // Check for availability
+        if (staffEmail) { // Only check availability for assigned staff
+          const staffAvailability = availabilities.find(
+            a => a.staff_email === staffEmail && a.date === shiftDate
+          );
+          if (staffAvailability && !staffAvailability.is_available) {
+            templateUnavailableStaff.push(`${staff?.full_name || staffEmail} on ${format(parseISO(shiftDate), 'MMM d')}`);
+            return Promise.resolve(); // Skip this specific shift
+          }
+        }
+
+        // Check for conflicts
+        if (staffEmail) { // Only check conflicts for assigned staff
+          const overlaps = checkForOverlaps(dataToCreate, null);
+          if (overlaps.length > 0) {
+            templateConflicts.push(`${staff?.full_name || staffEmail} on ${format(parseISO(shiftDate), 'MMM d')} (${overlaps[0].start_time}-${overlaps[0].end_time})`);
+            return Promise.resolve(); // Skip this specific shift
+          }
+        }
+
+        try {
+          await createShiftMutation.mutateAsync(dataToCreate);
+          createdCount++;
+          // If staff was unassigned, we only create one "unassigned" shift for this config
+          if (!staffEmail) break;
+        } catch (error) {
+          console.error('Failed to create shift from template:', error);
+          skippedCount++;
+        }
+      }
+    });
+
+    await Promise.allSettled(operations);
+
+    // Update template usage metadata
+    try {
+        await base44.entities.ShiftTemplate.update(template.id, {
+            last_used: new Date().toISOString(),
+            times_used: (template.times_used || 0) + 1,
+        });
+        queryClient.invalidateQueries({ queryKey: ['shiftTemplates'] }); // Invalidate to update usage stats
+    } catch (updateError) {
+        console.error('Failed to update template usage:', updateError);
+    }
+
+    let feedbackMessage = `✅ Template applied!\n${createdCount} shifts created.`;
+    if (templateUnavailableStaff.length > 0) {
+      feedbackMessage += `\n⚠️ ${templateUnavailableStaff.length} shifts skipped due to staff unavailability.`;
+    }
+    if (templateConflicts.length > 0) {
+      feedbackMessage += `\n❌ ${templateConflicts.length} shifts skipped due to existing conflicts.`;
+    }
+    if (skippedCount > 0) {
+      feedbackMessage += `\n❌ ${skippedCount} shifts skipped due to other errors.`;
+    }
+
+    alert(feedbackMessage);
+    refetchShifts();
+    setShowTemplateDialog(false);
+  };
+
+
   return (
-    <div className="p-6 md:p-8 bg-gray-50 min-h-screen">
+    <div className="p-4 md:p-8 bg-gray-50 min-h-screen">
       <div className="max-w-7xl mx-auto">
         {/* Navigation */}
         <div className="flex gap-3 mb-6">
           <Link to={createPageUrl("StaffRota")}>
             <Button variant="outline" size="sm">
               <ArrowLeft className="w-4 h-4 mr-2" />
-              Back to Rota
+              Back
             </Button>
           </Link>
           <Link to={createPageUrl("Dashboard")}>
@@ -579,18 +707,27 @@ export default function SmartScheduler() {
         </div>
 
         {/* Page Header */}
-        <div className="flex flex-wrap justify-between items-start gap-4 mb-8">
+        <div className="flex flex-col md:flex-row md:justify-between md:items-start gap-4 mb-8">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-2 flex items-center gap-3">
-              <Sparkles className="w-8 h-8 text-purple-600" />
+            <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-2 flex items-center gap-3">
+              <Sparkles className="w-6 md:w-8 h-6 md:h-8 text-purple-600" />
               Smart Drag & Drop Scheduler
             </h1>
-            <p className="text-gray-600">Drag shifts between days • AI-powered scheduling assistance</p>
+            <p className="text-sm md:text-base text-gray-600">Drag shifts between days • AI-powered insights</p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
+            <Button 
+              onClick={() => setShowTemplateDialog(true)}
+              variant="outline"
+              size="sm"
+            >
+              <BookTemplate className="w-4 h-4 mr-2" />
+              Templates
+            </Button>
             <Button 
               onClick={generateAISuggestions}
               className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
+              size="sm"
             >
               <Wand2 className="w-4 h-4 mr-2" />
               AI Insights
@@ -599,9 +736,11 @@ export default function SmartScheduler() {
               onClick={() => {
                 setSelectedShift(null);
                 setValidationError(null);
+                setShiftForm({ ...shiftForm, shift_date: format(currentDate, 'yyyy-MM-dd') }); // Pre-fill date with current date
                 setShowAddShiftDialog(true);
               }} 
               className="bg-purple-600 hover:bg-purple-700"
+              size="sm"
             >
               <Plus className="w-4 h-4 mr-2" />
               Add Shift
@@ -660,9 +799,8 @@ export default function SmartScheduler() {
                 <div>
                   <p className="text-2xl font-bold">
                     {Math.round(shifts.reduce((total, s) => {
-                      const start = parse(s.start_time, 'HH:mm', new Date());
-                      const end = parse(s.end_time, 'HH:mm', new Date());
-                      return total + (end - start) / (1000 * 60 * 60);
+                      const duration = calculateShiftDuration(s.start_time, s.end_time);
+                      return total + parseFloat(duration);
                     }, 0))}h
                   </p>
                   <p className="text-xs text-gray-600">Total Hours</p>
@@ -703,7 +841,7 @@ export default function SmartScheduler() {
                         transition-all duration-200
                       `}
                     >
-                      <CardHeader className="p-3 bg-gradient-to-br from-purple-50 to-blue-50 rounded-t-lg relative"> {/* Added relative positioning */}
+                      <CardHeader className="p-3 bg-gradient-to-br from-purple-50 to-blue-50 rounded-t-lg relative">
                         <CardTitle className="text-sm font-semibold text-gray-800 text-center">
                           {format(day, 'EEE')}
                           <br />
@@ -1042,7 +1180,7 @@ export default function SmartScheduler() {
         <Dialog open={showAIDialog} onOpenChange={setShowAIDialog}>
           <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle className="text-2xl flex items-center gap-2">
+              <DialogTitle className="2xl flex items-center gap-2">
                 <Wand2 className="w-6 h-6 text-purple-600" />
                 AI Schedule Insights
               </DialogTitle>
@@ -1092,6 +1230,86 @@ export default function SmartScheduler() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {/* Template Selection Dialog */}
+        <Dialog open={showTemplateDialog} onOpenChange={setShowTemplateDialog}>
+          <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="text-2xl flex items-center gap-2">
+                <BookTemplate className="w-6 h-6 text-purple-600" />
+                Shift Templates
+              </DialogTitle>
+            </DialogHeader>
+
+            <div className="space-y-4 mt-4">
+              {templates.length === 0 ? (
+                <div className="text-center py-8">
+                  <BookTemplate className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+                  <p className="text-gray-600">No templates found</p>
+                  <p className="text-sm text-gray-500 mt-1">Create templates to quickly populate schedules</p>
+                </div>
+              ) : (
+                templates.map((template) => (
+                  <Card key={template.id} className="hover:shadow-md transition-shadow">
+                    <CardContent className="p-4">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-2">
+                            <h3 className="font-bold text-gray-900">{template.template_name}</h3>
+                            {template.is_default && (
+                              <Badge className="bg-purple-100 text-purple-800 text-xs">Default</Badge>
+                            )}
+                          </div>
+                          <p className="text-sm text-gray-600 mb-3">{template.description}</p>
+                          <div className="flex flex-wrap gap-2 text-xs text-gray-600">
+                            <span className="flex items-center gap-1">
+                              <Users className="w-3 h-3" />
+                              {template.total_shifts} shifts
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <Clock className="w-3 h-3" />
+                              {template.total_hours}h total
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <Download className="w-3 h-3" />
+                              Used {template.times_used || 0} times
+                            </span>
+                            {template.last_used && (
+                                <span className="flex items-center gap-1">
+                                    <CalendarIcon className="w-3 h-3" />
+                                    Last used: {format(parseISO(template.last_used), 'MMM dd, yyyy')}
+                                </span>
+                            )}
+                          </div>
+                        </div>
+                        <Button
+                          onClick={() => handleApplyTemplate(template)}
+                          size="sm"
+                          className="bg-purple-600 hover:bg-purple-700"
+                        >
+                          Apply
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))
+              )}
+            </div>
+
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowTemplateDialog(false)}>
+                Close
+              </Button>
+              <Link to={createPageUrl('ShiftTemplates')}>
+                <Button className="bg-[#014D40] hover:bg-[#013830]">
+                  <Plus className="w-4 h-4 mr-2" />
+                  Create Template
+                </Button>
+              </Link>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
       </div>
     </div>
   );
