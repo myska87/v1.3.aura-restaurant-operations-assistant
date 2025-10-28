@@ -97,6 +97,7 @@ import DocumentSignatureReport from './pages/DocumentSignatureReport';
 import SOPCore from './pages/SOPCore';
 import DashboardPro from './pages/DashboardPro';
 import ShiftTemplates from './pages/ShiftTemplates';
+import AIRotaGenerator from './pages/AIRotaGenerator';
 import Layout from './Layout.jsx';
 
 
@@ -200,6 +201,7 @@ export const PAGES = {
     "SOPCore": SOPCore,
     "DashboardPro": DashboardPro,
     "ShiftTemplates": ShiftTemplates,
+    "AIRotaGenerator": AIRotaGenerator,
 }
 
 export const pagesConfig = {
