@@ -26,27 +26,19 @@
       ],
       "description": "SOP category"
     },
-    "frequency": {
+    "objective": {
       "type": "string",
-      "enum": [
-        "daily",
-        "weekly",
-        "monthly",
-        "quarterly",
-        "as_needed"
-      ],
-      "description": "How often this SOP should be performed"
+      "description": "Purpose and goals of this SOP"
     },
-    "version": {
-      "type": "number",
-      "default": 1,
-      "description": "Current version number"
-    },
-    "content_html": {
+    "scope": {
       "type": "string",
-      "description": "Main SOP content in HTML format"
+      "description": "What this SOP covers and applies to"
     },
-    "steps": {
+    "roles_responsibilities": {
+      "type": "object",
+      "description": "Roles and their specific responsibilities"
+    },
+    "procedure_steps": {
       "type": "array",
       "items": {
         "type": "object",
@@ -85,6 +77,44 @@
       },
       "description": "Step-by-step instructions"
     },
+    "quality_standards": {
+      "type": "string",
+      "description": "Quality expectations and standards"
+    },
+    "frequency": {
+      "type": "string",
+      "enum": [
+        "daily",
+        "weekly",
+        "monthly",
+        "quarterly",
+        "as_needed"
+      ],
+      "description": "How often this SOP should be performed"
+    },
+    "version": {
+      "type": "number",
+      "default": 1,
+      "description": "Current version number"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "active",
+        "archived"
+      ],
+      "default": "draft",
+      "description": "Current status"
+    },
+    "content_html": {
+      "type": "string",
+      "description": "Main SOP content in HTML format"
+    },
+    "content_markdown": {
+      "type": "string",
+      "description": "Content in Markdown format"
+    },
     "total_time_minutes": {
       "type": "number",
       "description": "Total estimated time to complete"
@@ -96,6 +126,31 @@
     "pdf_url": {
       "type": "string",
       "description": "PDF document URL"
+    },
+    "attachments": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "file_name": {
+            "type": "string"
+          },
+          "file_url": {
+            "type": "string"
+          },
+          "file_type": {
+            "type": "string"
+          },
+          "uploaded_by": {
+            "type": "string"
+          },
+          "uploaded_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "description": "Attached files"
     },
     "hero_image_url": {
       "type": "string",
@@ -234,108 +289,20 @@
     "translations": {
       "type": "object",
       "description": "Translated versions"
+    },
+    "draft_data": {
+      "type": "object",
+      "description": "Auto-saved draft content"
+    },
+    "last_autosave": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Last auto-save timestamp"
     }
   },
   "required": [
     "title",
     "category",
     "created_by"
-  ],
-  "rls": {
-    "create": {
-      "$or": [
-        {
-          "user_condition": {
-            "role": "admin"
-          }
-        },
-        {
-          "user_condition": {
-            "position": "manager"
-          }
-        },
-        {
-          "user_condition": {
-            "position": "owner"
-          }
-        }
-      ]
-    },
-    "read": {
-      "$or": [
-        {
-          "user_condition": {
-            "role": "admin"
-          }
-        },
-        {
-          "user_condition": {
-            "position": "manager"
-          }
-        },
-        {
-          "user_condition": {
-            "position": "owner"
-          }
-        },
-        {
-          "created_by": "{{user.email}}"
-        },
-        {
-          "user_condition": {
-            "position": "chef"
-          }
-        },
-        {
-          "user_condition": {
-            "position": "sous_chef"
-          }
-        },
-        {
-          "user_condition": {
-            "position": "line_cook"
-          }
-        },
-        {
-          "user_condition": {
-            "position": "server"
-          }
-        },
-        {
-          "user_condition": {
-            "position": "bartender"
-          }
-        },
-        {
-          "user_condition": {
-            "position": "cleaner"
-          }
-        }
-      ]
-    },
-    "update": {
-      "$or": [
-        {
-          "user_condition": {
-            "role": "admin"
-          }
-        },
-        {
-          "user_condition": {
-            "position": "manager"
-          }
-        },
-        {
-          "user_condition": {
-            "position": "owner"
-          }
-        }
-      ]
-    },
-    "delete": {
-      "user_condition": {
-        "role": "admin"
-      }
-    }
-  }
+  ]
 }
