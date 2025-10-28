@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -35,6 +36,10 @@ import {
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 
+import LoadingSpinner from '../components/common/LoadingSpinner';
+import EmptyState from '../components/common/EmptyState';
+import ConfirmDialog from '../components/ConfirmDialog';
+
 export default function InventoryManagement() {
   const queryClient = useQueryClient();
   const [showForm, setShowForm] = useState(false);
@@ -45,6 +50,7 @@ export default function InventoryManagement() {
   const [sortBy, setSortBy] = useState("name");
   const [cart, setCart] = useState([]);
   const [showCart, setShowCart] = useState(false);
+  const [confirmDialog, setConfirmDialog] = useState({ open: false, onConfirm: null, title: '', description: '' });
 
   const [formData, setFormData] = useState({
     name: "",
@@ -59,12 +65,12 @@ export default function InventoryManagement() {
     auto_order_quantity: "",
   });
 
-  const { data: ingredients = [] } = useQuery({
+  const { data: ingredients = [], isLoading: isLoadingIngredients } = useQuery({
     queryKey: ['ingredients'],
     queryFn: () => base44.entities.Ingredient.list(),
   });
 
-  const { data: suppliers = [] } = useQuery({
+  const { data: suppliers = [], isLoading: isLoadingSuppliers } = useQuery({
     queryKey: ['suppliers'],
     queryFn: () => base44.entities.Supplier.list(),
   });
@@ -73,6 +79,7 @@ export default function InventoryManagement() {
     mutationFn: ({ id, data }) => base44.entities.Ingredient.update(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['ingredients'] });
+      resetForm();
     },
   });
 
@@ -90,6 +97,10 @@ export default function InventoryManagement() {
       queryClient.invalidateQueries({ queryKey: ['purchaseOrders'] });
     },
   });
+
+  const showConfirm = (title, description, onConfirm) => {
+    setConfirmDialog({ open: true, title, description, onConfirm });
+  };
 
   const addToCart = (ingredient, quantity = 1) => {
     if (!ingredient.supplier_id) {
@@ -133,16 +144,57 @@ export default function InventoryManagement() {
     }
 
     if (lowStockWithoutSuppliers.length > 0) {
-      if (!confirm(`⚠️ ${lowStockWithoutSuppliers.length} low stock item(s) don't have suppliers assigned:\n\n${lowStockWithoutSuppliers.map(i => `• ${i.name}`).join('\n')}\n\nDo you want to add the remaining ${lowStockWithSuppliers.length} items with suppliers to cart?`)) {
-        return;
-      }
-    }
+      showConfirm(
+        'Items Missing Suppliers',
+        `${lowStockWithoutSuppliers.length} low stock item(s) don't have suppliers assigned. Do you want to add the remaining ${lowStockWithSuppliers.length} items with suppliers to cart?`,
+        () => {
+          if (lowStockWithSuppliers.length === 0) {
+            alert('⚠️ None of the low stock items have suppliers assigned.');
+            return;
+          }
+          // Add items to cart logic
+          let itemsAddedOrUpdated = 0;
+          setCart(prevCart => {
+            let updatedCart = [...prevCart];
+            lowStockWithSuppliers.forEach(ingredient => {
+              const quantityToOrder = ingredient.auto_order_quantity ||
+                (ingredient.par_level ? ingredient.par_level - ingredient.current_stock : 10);
 
-    if (lowStockWithSuppliers.length === 0) {
-      alert('⚠️ None of the low stock items have suppliers assigned. Please assign suppliers first.');
+              const existingItemIndex = updatedCart.findIndex(item => item.ingredient_id === ingredient.id);
+              const currentSupplier = suppliers.find(s => s.id === ingredient.supplier_id);
+
+              if (existingItemIndex !== -1) {
+                updatedCart = updatedCart.map((item, index) =>
+                  index === existingItemIndex
+                    ? { ...item, quantity: item.quantity + quantityToOrder, line_total: (item.quantity + quantityToOrder) * ingredient.unit_cost }
+                    : item
+                );
+              } else {
+                updatedCart.push({
+                  ingredient_id: ingredient.id,
+                  ingredient_name: ingredient.name,
+                  quantity: quantityToOrder,
+                  unit: ingredient.unit,
+                  unit_cost: ingredient.unit_cost,
+                  supplier_id: ingredient.supplier_id,
+                  supplier_name: currentSupplier?.name || 'Unknown Supplier',
+                  supplier_email: currentSupplier?.email || null,
+                  line_total: quantityToOrder * ingredient.unit_cost,
+                });
+              }
+              itemsAddedOrUpdated++;
+            });
+            return updatedCart;
+          });
+
+          alert(`✅ ${itemsAddedOrUpdated} low stock item(s) added to cart!`);
+          setShowCart(true);
+        }
+      );
       return;
     }
 
+    // Rest of original logic for when all items have suppliers
     let itemsAddedOrUpdated = 0;
     setCart(prevCart => {
       let updatedCart = [...prevCart];
@@ -176,7 +228,6 @@ export default function InventoryManagement() {
       });
       return updatedCart;
     });
-
 
     alert(`✅ ${itemsAddedOrUpdated} low stock item(s) added/updated in cart!`);
     setShowCart(true);
@@ -459,6 +510,10 @@ export default function InventoryManagement() {
       }
     });
 
+  if (isLoadingIngredients || isLoadingSuppliers) {
+    return <LoadingSpinner />;
+  }
+
   return (
     <div className="p-6 md:p-8 bg-gray-50 min-h-screen">
       <div className="max-w-[1800px] mx-auto">
@@ -672,6 +727,14 @@ export default function InventoryManagement() {
             </div>
           </CardHeader>
           <CardContent>
+            {filteredIngredients.length === 0 ? (
+              <EmptyState
+                title="No ingredients found"
+                description="Adjust your filters or add a new ingredient."
+                icon={Package}
+                action={<Button onClick={() => setShowForm(true)}><Plus className="w-4 h-4 mr-2"/>Add Ingredient</Button>}
+              />
+            ) : (
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
@@ -771,6 +834,7 @@ export default function InventoryManagement() {
                 </tbody>
               </table>
             </div>
+            )}
           </CardContent>
         </Card>
 
@@ -1049,6 +1113,14 @@ export default function InventoryManagement() {
           </DialogContent>
         </Dialog>
       </div>
+      <ConfirmDialog
+        open={confirmDialog.open}
+        onOpenChange={(open) => setConfirmDialog({ ...confirmDialog, open })}
+        title={confirmDialog.title}
+        description={confirmDialog.description}
+        onConfirm={confirmDialog.onConfirm}
+        variant="default"
+      />
     </div>
   );
 }
