@@ -15,6 +15,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { Progress } from "@/components/ui/progress"; // Added Progress import
 import {
   Thermometer,
   Droplets,
@@ -46,6 +47,8 @@ import { motion } from "framer-motion";
 export default function HygieneDashboard() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const [showRecordForm, setShowRecordForm] = useState(false);
+  const [showLeaderboard, setShowLeaderboard] = useState(true);
 
   const { data: user } = useQuery({
     queryKey: ['currentUser'],
@@ -170,6 +173,17 @@ export default function HygieneDashboard() {
         equipment: allForms.find(f => f.form_name === 'Equipment Safety Check')
       };
     },
+  });
+
+  // Calculate leaderboard
+  const { data: userScores = [] } = useQuery({
+    queryKey: ['hygieneUserScores'],
+    queryFn: () => base44.entities.HygieneUserScore.list('-total_points'),
+  });
+
+  const { data: allUsers = [] } = useQuery({
+    queryKey: ['allUsers'],
+    queryFn: () => base44.entities.User.list(),
   });
 
   const handleQuickAction = (actionType) => {
@@ -322,7 +336,7 @@ export default function HygieneDashboard() {
     <div
       className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-emerald-50 p-6 md:p-8"
     >
-      <div className="max-w-7xl mx-auto">
+      <div className="max-w-7xl mx-auto space-y-6"> {/* Added space-y-6 here */}
         {/* Header */}
         <div className="flex gap-3 mb-6">
           <Link to={createPageUrl("Dashboard")}>
@@ -346,7 +360,7 @@ export default function HygieneDashboard() {
         </div>
 
         {/* Top Stats Row - Connected to Forms */}
-        <div className="grid md:grid-cols-4 gap-4 mb-8">
+        <div className="grid md:grid-cols-4 gap-4"> {/* Removed mb-8 */}
           <Card 
             className="border-none shadow-lg bg-white/80 backdrop-blur cursor-pointer hover:shadow-xl transition-all"
             onClick={() => navigate(createPageUrl('FormIntelligence'))}
@@ -459,9 +473,81 @@ export default function HygieneDashboard() {
           </Card>
         </div>
 
+        {/* Leaderboard Card */}
+        {showLeaderboard && userScores.length > 0 && (
+          <Card className="bg-gradient-to-br from-emerald-50 to-green-50 border-2 border-emerald-200">
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between">
+                <span className="flex items-center gap-2">
+                  <Trophy className="w-5 h-5 text-emerald-600" />
+                  🏆 Hygiene Champions
+                </span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowLeaderboard(false)}
+                >
+                  Hide
+                </Button>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                {userScores.slice(0, 5).map((score, index) => {
+                  const user = allUsers.find(u => u.email === score.staff_email);
+                  const medals = ['🥇', '🥈', '🥉'];
+                  
+                  return (
+                    <div
+                      key={score.id}
+                      className={`p-4 rounded-lg border-2 ${
+                        index === 0 ? 'border-yellow-300 bg-yellow-50' :
+                        index === 1 ? 'border-gray-300 bg-gray-50' :
+                        index === 2 ? 'border-orange-300 bg-orange-50' :
+                        'border-gray-200 bg-white'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <span className="text-2xl">{medals[index] || `#${index + 1}`}</span>
+                          <div>
+                            <p className="font-bold text-gray-900">{score.staff_name}</p>
+                            <p className="text-sm text-gray-600">{user?.position || 'Staff'}</p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-2xl font-bold text-emerald-600">
+                            {score.total_points || 0}
+                          </p>
+                          <p className="text-xs text-gray-500">points</p>
+                          {score.current_streak > 0 && (
+                            <Badge className="mt-1 bg-orange-500 text-white text-xs">
+                              🔥 {score.current_streak} day streak
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+
+                      {score.compliance_rate !== undefined && (
+                        <div className="mt-2">
+                          <div className="flex justify-between text-xs text-gray-600 mb-1">
+                            <span>Compliance Rate</span>
+                            <span>{score.compliance_rate.toFixed(0)}%</span>
+                          </div>
+                          <Progress value={score.compliance_rate} className="h-2" />
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Active Alerts */}
         {alerts.length > 0 && (
-          <Card className="mb-8 border-none shadow-lg bg-gradient-to-r from-red-50 to-orange-50">
+          <Card className="border-none shadow-lg bg-gradient-to-r from-red-50 to-orange-50"> {/* Removed mb-8 */}
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-red-900">
                 <AlertTriangle className="w-5 h-5" />
@@ -502,7 +588,7 @@ export default function HygieneDashboard() {
 
         {/* Pending Forms Section */}
         {pendingForms > 0 && (
-          <Card className="mb-8 border-none shadow-lg bg-gradient-to-r from-blue-50 to-indigo-50">
+          <Card className="border-none shadow-lg bg-gradient-to-r from-blue-50 to-indigo-50"> {/* Removed mb-8 */}
             <CardHeader>
               <CardTitle className="flex items-center justify-between">
                 <span className="flex items-center gap-2 text-blue-900">
@@ -554,7 +640,7 @@ export default function HygieneDashboard() {
         )}
 
         {/* Quick Actions - Now Linked to Forms */}
-        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4"> {/* Removed mb-8 */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -662,7 +748,7 @@ export default function HygieneDashboard() {
 
         {/* Gamification Section - Now Live */}
         {myScore && (
-          <div className="grid md:grid-cols-2 gap-6 mb-8">
+          <div className="grid md:grid-cols-2 gap-6"> {/* Removed mb-8 */}
             <Card className="border-none shadow-lg bg-gradient-to-br from-purple-50 to-indigo-50">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
