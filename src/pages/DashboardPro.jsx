@@ -1,511 +1,308 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
 import {
   CheckCircle,
   Clock,
-  AlertTriangle,
   Users,
   Package,
-  ClipboardCheck,
-  Calendar,
   Star,
-  ArrowRight,
-  RefreshCw,
-  Sparkles,
-  Activity,
-  Target,
-  Award,
-  Zap,
-  BarChart3,
-  MessageCircle,
+  Calendar,
+  TrendingUp,
+  AlertTriangle,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import { format } from 'date-fns';
-import { motion } from 'framer-motion';
-
-// Import Dashboard API from components folder
-import { getDashboardSummary, getWeeklyTrends } from '@/components/dashboard-api';
-
-// Import Chart Components
-import ComplianceChart from '@/components/dashboard/ComplianceChart';
-import QualityTrendChart from '@/components/dashboard/QualityTrendChart';
-import TaskCompletionChart from '@/components/dashboard/TaskCompletionChart';
 
 export default function DashboardPro() {
-  const [refreshing, setRefreshing] = useState(false);
-
-  // Current User
+  // Get current user
   const { data: user } = useQuery({
     queryKey: ['currentUser'],
     queryFn: () => base44.auth.me(),
   });
 
-  // Dashboard Summary (Main Metrics)
-  const { data: summary, refetch: refetchSummary, isLoading } = useQuery({
-    queryKey: ['dashboardSummary', user?.email],
-    queryFn: () => getDashboardSummary(user),
-    enabled: !!user,
-    staleTime: 2 * 60 * 1000, // 2 minutes
-    refetchInterval: 5 * 60 * 1000, // Auto-refresh every 5 minutes
+  // Determine role
+  const isAdmin = user?.role === 'admin';
+  const isManager = user?.position === 'manager' || user?.position === 'owner';
+  const isStaff = !isAdmin && !isManager;
+
+  // Get today's date
+  const todayStr = format(new Date(), 'yyyy-MM-dd');
+
+  // Fetch shifts
+  const { data: shifts = [] } = useQuery({
+    queryKey: ['todayShifts', todayStr],
+    queryFn: () => base44.entities.Shift.filter({ shift_date: todayStr }),
   });
 
-  // Weekly Trends (For Charts)
-  const { data: weeklyTrends, refetch: refetchTrends } = useQuery({
-    queryKey: ['weeklyTrends', user?.email],
-    queryFn: () => getWeeklyTrends(user),
-    enabled: !!user && (user.role === 'admin' || user.position === 'manager' || user.position === 'owner'),
-    staleTime: 10 * 60 * 1000, // 10 minutes
+  // Fetch tasks
+  const { data: tasks = [] } = useQuery({
+    queryKey: ['myTasks', user?.email],
+    queryFn: () => base44.entities.StaffTask.filter({ 
+      assigned_to: user?.email 
+    }),
+    enabled: !!user?.email,
   });
 
-  // Role Detection
-  const isStaff = summary?.role === 'staff';
-  const isManager = summary?.role === 'manager' || summary?.role === 'admin';
+  // Fetch forms
+  const { data: forms = [] } = useQuery({
+    queryKey: ['myForms', user?.email],
+    queryFn: () => base44.entities.FormAssignmentMetadata.filter({
+      assigned_to_email: user?.email
+    }),
+    enabled: !!user?.email,
+  });
 
-  // Refresh Handler
-  const handleRefresh = async () => {
-    setRefreshing(true);
-    await Promise.all([
-      refetchSummary(),
-      refetchTrends(),
-    ]);
-    setTimeout(() => setRefreshing(false), 1000);
-  };
+  // Calculate metrics
+  const myActiveShift = shifts.find(s => 
+    s.staff_email === user?.email && s.status === 'in_progress'
+  );
 
-  // Loading State
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center">
-        <div className="text-center">
-          <RefreshCw className="w-12 h-12 text-[#014D40] animate-spin mx-auto mb-4" />
-          <p className="text-gray-600">Loading your dashboard...</p>
+  const pendingTasks = tasks.filter(t => 
+    t.status === 'pending' || t.status === 'in_progress'
+  ).length;
+
+  const pendingForms = forms.filter(f => 
+    f.completion_status === 'pending' || f.completion_status === 'in_progress'
+  ).length;
+
+  const staffOnDuty = shifts.filter(s => s.status === 'in_progress').length;
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-4 md:p-8">
+      <div className="max-w-7xl mx-auto">
+        
+        {/* Welcome Header */}
+        <div className="mb-8">
+          <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-2">
+            Welcome back, {user?.full_name || 'User'}! 👋
+          </h1>
+          <p className="text-gray-600">
+            {format(new Date(), 'EEEE, MMMM d, yyyy')}
+          </p>
         </div>
-      </div>
-    );
-  }
 
-  // ========================================
-  // RENDER: STAFF VIEW
-  // ========================================
+        {/* Active Shift Banner */}
+        {myActiveShift && (
+          <Card className="mb-6 bg-gradient-to-r from-emerald-500 to-teal-600 text-white border-none">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <Clock className="w-5 h-5" />
+                    <span className="font-semibold">Currently Clocked In</span>
+                  </div>
+                  <p className="text-emerald-50">
+                    {myActiveShift.role} • Started at {myActiveShift.start_time}
+                  </p>
+                </div>
+                <Link to={createPageUrl('ClockInOut')}>
+                  <Button variant="secondary" size="sm">
+                    View Shift
+                  </Button>
+                </Link>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
-  if (isStaff && summary) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-4 md:p-8">
-        <div className="max-w-6xl mx-auto space-y-6">
+        {/* KPI Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
           
-          {/* Welcome Header */}
-          <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="flex items-center justify-between"
-          >
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">
-                Welcome back, {summary.user.name?.split(' ')[0] || 'Team Member'}! 👋
-              </h1>
-              <p className="text-gray-600 mt-1">{format(new Date(), 'EEEE, MMMM d, yyyy')}</p>
-            </div>
-            <Button
-              onClick={handleRefresh}
-              variant="outline"
-              size="sm"
-              disabled={refreshing}
-            >
-              <RefreshCw className={`w-4 h-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
-              Refresh
-            </Button>
-          </motion.div>
-
-          {/* KPI Cards - Staff */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
-              <Card className="border-l-4 border-l-blue-500">
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-gray-600 mb-1">My Tasks</p>
-                      <h3 className="text-3xl font-bold text-gray-900">{summary.summary.my_tasks_pending}</h3>
-                      <p className="text-xs text-gray-500 mt-2">{summary.summary.my_tasks_completed} completed</p>
-                    </div>
-                    <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-                      <CheckCircle className="w-6 h-6 text-blue-600" />
-                    </div>
-                  </div>
-                  <Progress 
-                    value={summary.metrics.task_completion_rate} 
-                    className="h-2 mt-4"
-                  />
-                </CardContent>
-              </Card>
-            </motion.div>
-
-            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
-              <Card className="border-l-4 border-l-purple-500">
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-gray-600 mb-1">Pending Forms</p>
-                      <h3 className="text-3xl font-bold text-gray-900">{summary.summary.my_forms_pending}</h3>
-                      <p className="text-xs text-gray-500 mt-2">{summary.summary.my_forms_completed} completed</p>
-                    </div>
-                    <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
-                      <ClipboardCheck className="w-6 h-6 text-purple-600" />
-                    </div>
-                  </div>
-                  <Progress 
-                    value={summary.metrics.form_completion_rate} 
-                    className="h-2 mt-4"
-                  />
-                </CardContent>
-              </Card>
-            </motion.div>
-
-            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
-              <Card className="border-l-4 border-l-green-500">
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-gray-600 mb-1">Shift Status</p>
-                      <h3 className="text-2xl font-bold text-gray-900">
-                        {summary.summary.my_shift_status === 'active' ? 'On Duty' : 'Off Duty'}
-                      </h3>
-                      <p className="text-xs text-gray-500 mt-2">
-                        {summary.summary.my_shift_status === 'active' ? 'Currently working' : 'Not clocked in'}
-                      </p>
-                    </div>
-                    <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
-                      <Clock className="w-6 h-6 text-green-600" />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </motion.div>
-          </div>
-
-          {/* Quick Actions - Staff */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Zap className="w-5 h-5 text-[#014D40]" />
-                Quick Actions
+          {/* Tasks Card */}
+          <Card className="bg-white border-none shadow-sm hover:shadow-md transition-shadow">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium text-gray-600 flex items-center gap-2">
+                <CheckCircle className="w-4 h-4 text-blue-600" />
+                My Tasks
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <Link to={createPageUrl('ClockInOut')}>
-                  <Button className="w-full bg-[#014D40] hover:bg-[#013830]">
-                    <Clock className="w-4 h-4 mr-2" />
-                    Clock In/Out
-                  </Button>
-                </Link>
+              <div className="flex items-end justify-between">
+                <div>
+                  <div className="text-3xl font-bold text-gray-900">
+                    {pendingTasks}
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">Pending</p>
+                </div>
                 <Link to={createPageUrl('MyTasks')}>
-                  <Button variant="outline" className="w-full">
-                    <CheckCircle className="w-4 h-4 mr-2" />
-                    My Tasks
-                  </Button>
-                </Link>
-                <Link to={createPageUrl('MyShifts')}>
-                  <Button variant="outline" className="w-full">
-                    <Calendar className="w-4 h-4 mr-2" />
-                    My Schedule
-                  </Button>
-                </Link>
-                <Link to={createPageUrl('TeamChat')}>
-                  <Button variant="outline" className="w-full">
-                    <MessageCircle className="w-4 h-4 mr-2" />
-                    Team Chat
+                  <Button variant="ghost" size="sm">
+                    View →
                   </Button>
                 </Link>
               </div>
             </CardContent>
           </Card>
 
-        </div>
-      </div>
-    );
-  }
-
-  // ========================================
-  // RENDER: MANAGER/ADMIN VIEW
-  // ========================================
-
-  if (isManager && summary) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-4 md:p-8">
-        <div className="max-w-7xl mx-auto space-y-6">
-          
-          {/* Welcome Header */}
-          <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="flex items-center justify-between"
-          >
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">
-                Operations Command Center
-              </h1>
-              <p className="text-gray-600 mt-1">
-                {format(new Date(), 'EEEE, MMMM d, yyyy')} • Real-time insights
-              </p>
-            </div>
-            <Button
-              onClick={handleRefresh}
-              variant="outline"
-              size="sm"
-              disabled={refreshing}
-            >
-              <RefreshCw className={`w-4 h-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
-              Refresh
-            </Button>
-          </motion.div>
-
-          {/* KPI Summary - Manager/Admin */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
-              <Card className="border-l-4 border-l-blue-500">
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-gray-600 mb-1">Staff on Duty</p>
-                      <h3 className="text-3xl font-bold text-gray-900">{summary.summary.staff_on_duty}</h3>
-                      <p className="text-xs text-gray-500 mt-2">of {summary.summary.staff_scheduled} scheduled</p>
-                    </div>
-                    <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-                      <Users className="w-6 h-6 text-blue-600" />
-                    </div>
+          {/* Forms Card */}
+          <Card className="bg-white border-none shadow-sm hover:shadow-md transition-shadow">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium text-gray-600 flex items-center gap-2">
+                <Star className="w-4 h-4 text-amber-600" />
+                Forms Due
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-end justify-between">
+                <div>
+                  <div className="text-3xl font-bold text-gray-900">
+                    {pendingForms}
                   </div>
-                </CardContent>
-              </Card>
-            </motion.div>
+                  <p className="text-xs text-gray-500 mt-1">To Complete</p>
+                </div>
+                <Link to={createPageUrl('FormLibrary')}>
+                  <Button variant="ghost" size="sm">
+                    View →
+                  </Button>
+                </Link>
+              </div>
+            </CardContent>
+          </Card>
 
-            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
-              <Card className="border-l-4 border-l-orange-500">
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-gray-600 mb-1">Checklist Progress</p>
-                      <h3 className="text-3xl font-bold text-gray-900">{summary.summary.checklist_progress}%</h3>
-                      <p className="text-xs text-gray-500 mt-2">{summary.summary.tasks_pending} tasks pending</p>
-                    </div>
-                    <div className="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center">
-                      <ClipboardCheck className="w-6 h-6 text-orange-600" />
-                    </div>
+          {/* Shifts Card */}
+          <Card className="bg-white border-none shadow-sm hover:shadow-md transition-shadow">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium text-gray-600 flex items-center gap-2">
+                <Calendar className="w-4 h-4 text-emerald-600" />
+                Today's Shifts
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-end justify-between">
+                <div>
+                  <div className="text-3xl font-bold text-gray-900">
+                    {shifts.length}
                   </div>
-                  <Progress 
-                    value={summary.summary.checklist_progress} 
-                    className="h-2 mt-4"
-                  />
-                </CardContent>
-              </Card>
-            </motion.div>
+                  <p className="text-xs text-gray-500 mt-1">Scheduled</p>
+                </div>
+                <Link to={createPageUrl('MyShifts')}>
+                  <Button variant="ghost" size="sm">
+                    View →
+                  </Button>
+                </Link>
+              </div>
+            </CardContent>
+          </Card>
 
-            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
-              <Card className="border-l-4 border-l-red-500">
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-gray-600 mb-1">Inventory Alerts</p>
-                      <h3 className="text-3xl font-bold text-gray-900">{summary.summary.inventory_alerts}</h3>
-                      <p className="text-xs text-gray-500 mt-2">Items need reordering</p>
-                    </div>
-                    <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
-                      <Package className="w-6 h-6 text-red-600" />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </motion.div>
-
-            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}>
-              <Card className="border-l-4 border-l-green-500">
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-gray-600 mb-1">Quality Score</p>
-                      <h3 className="text-3xl font-bold text-gray-900">{summary.summary.quality_score.toFixed(1)}</h3>
-                      <p className="text-xs text-gray-500 mt-2">out of 5.0</p>
-                    </div>
-                    <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
-                      <Star className="w-6 h-6 text-green-600" />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </motion.div>
-          </div>
-
-          {/* Charts Row */}
-          {weeklyTrends && (
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <QualityTrendChart data={weeklyTrends} />
-              <TaskCompletionChart data={weeklyTrends} />
-              <ComplianceChart data={weeklyTrends} />
-            </div>
-          )}
-
-          {/* Operations Snapshot */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            
-            {/* Critical Alerts */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <AlertTriangle className="w-5 h-5 text-red-500" />
-                  Critical Alerts
+          {/* Staff On Duty (Manager Only) */}
+          {(isManager || isAdmin) && (
+            <Card className="bg-white border-none shadow-sm hover:shadow-md transition-shadow">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-medium text-gray-600 flex items-center gap-2">
+                  <Users className="w-4 h-4 text-purple-600" />
+                  Staff On Duty
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                {summary.summary.inventory_alerts > 0 || summary.summary.tasks_pending > 10 ? (
-                  <div className="space-y-3">
-                    {summary.summary.inventory_alerts > 0 && (
-                      <div className="flex items-center justify-between p-3 bg-red-50 rounded-lg border border-red-200">
-                        <div>
-                          <p className="font-medium text-red-900">Low Stock Items</p>
-                          <p className="text-sm text-red-700">
-                            {summary.summary.inventory_alerts} items need immediate reordering
-                          </p>
-                        </div>
-                        <Link to={createPageUrl('InventoryManagement')}>
-                          <Button size="sm" variant="destructive">
-                            View
-                          </Button>
-                        </Link>
-                      </div>
-                    )}
-                    {summary.summary.tasks_pending > 10 && (
-                      <div className="flex items-center justify-between p-3 bg-yellow-50 rounded-lg border border-yellow-200">
-                        <div>
-                          <p className="font-medium text-yellow-900">High Task Backlog</p>
-                          <p className="text-sm text-yellow-700">
-                            {summary.summary.tasks_pending} tasks pending completion
-                          </p>
-                        </div>
-                        <Link to={createPageUrl('MyTasks')}>
-                          <Button size="sm" variant="outline">
-                            Review
-                          </Button>
-                        </Link>
-                      </div>
-                    )}
+                <div className="flex items-end justify-between">
+                  <div>
+                    <div className="text-3xl font-bold text-gray-900">
+                      {staffOnDuty}
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">Currently Working</p>
                   </div>
-                ) : (
-                  <div className="text-center py-8">
-                    <CheckCircle className="w-12 h-12 text-green-500 mx-auto mb-3" />
-                    <p className="text-gray-600">No critical alerts</p>
-                    <p className="text-sm text-gray-500">All systems operating normally</p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* AI Insights Panel */}
-            <Card className="bg-gradient-to-br from-[#014D40] to-[#013830] text-white">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Sparkles className="w-5 h-5" />
-                  AI Insights & Recommendations
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {summary.summary.quality_score >= 4.5 && (
-                    <div className="flex items-start gap-3 p-3 bg-white/10 rounded-lg backdrop-blur">
-                      <Award className="w-5 h-5 mt-0.5" />
-                      <div>
-                        <p className="font-medium">Excellence Achievement</p>
-                        <p className="text-sm opacity-90">
-                          Quality score of {summary.summary.quality_score}/5 - Outstanding performance!
-                        </p>
-                      </div>
-                    </div>
-                  )}
-                  {summary.summary.inventory_alerts > 0 && (
-                    <div className="flex items-start gap-3 p-3 bg-white/10 rounded-lg backdrop-blur">
-                      <Target className="w-5 h-5 mt-0.5" />
-                      <div>
-                        <p className="font-medium">Stock Optimization</p>
-                        <p className="text-sm opacity-90">
-                          {summary.summary.inventory_alerts} items need reordering. Review inventory now.
-                        </p>
-                      </div>
-                    </div>
-                  )}
-                  {summary.summary.checklist_progress >= 90 && (
-                    <div className="flex items-start gap-3 p-3 bg-white/10 rounded-lg backdrop-blur">
-                      <CheckCircle className="w-5 h-5 mt-0.5" />
-                      <div>
-                        <p className="font-medium">Great Progress</p>
-                        <p className="text-sm opacity-90">
-                          {summary.summary.checklist_progress}% checklist completion - Keep it up!
-                        </p>
-                      </div>
-                    </div>
-                  )}
+                  <Link to={createPageUrl('StaffRota')}>
+                    <Button variant="ghost" size="sm">
+                      View →
+                    </Button>
+                  </Link>
                 </div>
               </CardContent>
             </Card>
-
-          </div>
-
-          {/* Quick Actions - Manager */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Zap className="w-5 h-5 text-[#014D40]" />
-                Quick Actions
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-                <Link to={createPageUrl('StaffRota')}>
-                  <Button variant="outline" className="w-full">
-                    <Users className="w-4 h-4 mr-2" />
-                    Staff Rota
-                  </Button>
-                </Link>
-                <Link to={createPageUrl('MyTasks')}>
-                  <Button variant="outline" className="w-full">
-                    <CheckCircle className="w-4 h-4 mr-2" />
-                    Tasks
-                  </Button>
-                </Link>
-                <Link to={createPageUrl('InventoryManagement')}>
-                  <Button variant="outline" className="w-full">
-                    <Package className="w-4 h-4 mr-2" />
-                    Inventory
-                  </Button>
-                </Link>
-                <Link to={createPageUrl('QualityDashboard')}>
-                  <Button variant="outline" className="w-full">
-                    <Star className="w-4 h-4 mr-2" />
-                    Quality
-                  </Button>
-                </Link>
-                <Link to={createPageUrl('Reports')}>
-                  <Button variant="outline" className="w-full">
-                    <BarChart3 className="w-4 h-4 mr-2" />
-                    Reports
-                  </Button>
-                </Link>
-                <Link to={createPageUrl('SOPDashboard')}>
-                  <Button variant="outline" className="w-full">
-                    <ClipboardCheck className="w-4 h-4 mr-2" />
-                    SOPs
-                  </Button>
-                </Link>
-              </div>
-            </CardContent>
-          </Card>
-
+          )}
         </div>
-      </div>
-    );
-  }
 
-  return null;
+        {/* Quick Actions */}
+        <Card className="bg-white border-none shadow-sm mb-8">
+          <CardHeader>
+            <CardTitle>Quick Actions</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <Link to={createPageUrl('ClockInOut')}>
+                <Button variant="outline" className="w-full">
+                  <Clock className="w-4 h-4 mr-2" />
+                  Clock In/Out
+                </Button>
+              </Link>
+              <Link to={createPageUrl('MyTasks')}>
+                <Button variant="outline" className="w-full">
+                  <CheckCircle className="w-4 h-4 mr-2" />
+                  My Tasks
+                </Button>
+              </Link>
+              <Link to={createPageUrl('MyShifts')}>
+                <Button variant="outline" className="w-full">
+                  <Calendar className="w-4 h-4 mr-2" />
+                  My Shifts
+                </Button>
+              </Link>
+              {(isManager || isAdmin) && (
+                <Link to={createPageUrl('ManagerDashboard')}>
+                  <Button variant="outline" className="w-full">
+                    <TrendingUp className="w-4 h-4 mr-2" />
+                    Manager View
+                  </Button>
+                </Link>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Recent Activity */}
+        <Card className="bg-white border-none shadow-sm">
+          <CardHeader>
+            <CardTitle>Today's Activity</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {shifts.length === 0 && tasks.length === 0 && forms.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">
+                <p>No activity scheduled for today</p>
+                <p className="text-sm mt-2">Check back tomorrow or view your upcoming schedule</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {pendingTasks > 0 && (
+                  <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-lg">
+                    <CheckCircle className="w-5 h-5 text-blue-600" />
+                    <div>
+                      <p className="font-medium text-gray-900">
+                        {pendingTasks} task{pendingTasks !== 1 ? 's' : ''} pending
+                      </p>
+                      <p className="text-sm text-gray-600">Complete your assigned tasks</p>
+                    </div>
+                  </div>
+                )}
+                {pendingForms > 0 && (
+                  <div className="flex items-center gap-3 p-3 bg-amber-50 rounded-lg">
+                    <Star className="w-5 h-5 text-amber-600" />
+                    <div>
+                      <p className="font-medium text-gray-900">
+                        {pendingForms} form{pendingForms !== 1 ? 's' : ''} due
+                      </p>
+                      <p className="text-sm text-gray-600">Fill out required forms</p>
+                    </div>
+                  </div>
+                )}
+                {!myActiveShift && shifts.some(s => s.staff_email === user?.email) && (
+                  <div className="flex items-center gap-3 p-3 bg-emerald-50 rounded-lg">
+                    <Calendar className="w-5 h-5 text-emerald-600" />
+                    <div>
+                      <p className="font-medium text-gray-900">Shift scheduled today</p>
+                      <p className="text-sm text-gray-600">Remember to clock in on time</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+      </div>
+    </div>
+  );
 }
