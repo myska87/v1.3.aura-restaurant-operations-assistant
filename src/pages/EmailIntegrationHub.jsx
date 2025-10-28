@@ -67,8 +67,7 @@ export default function EmailIntegrationHub() {
     setSendingTest(true);
 
     try {
-      // In production, this would integrate with Gmail API
-      // For now, we'll just create a log entry
+      // Create email log entry
       await createEmailLogMutation.mutateAsync({
         email_type: 'other',
         recipient_email: testEmail,
@@ -84,7 +83,11 @@ export default function EmailIntegrationHub() {
         contains_personal_data: false,
       });
 
-      alert('✅ Test email logged successfully!\n\n(Note: Gmail integration requires OAuth setup)');
+      // Create mailto link and open email client
+      const mailtoLink = `mailto:${testEmail}?subject=${encodeURIComponent(testSubject)}&body=${encodeURIComponent(testBody)}`;
+      window.location.href = mailtoLink;
+
+      alert('✅ Email client opened! Email logged successfully.\n\n(Note: Full Gmail integration requires OAuth setup)');
       setTestEmail("");
       setTestBody("This is a test email from the AURA system.");
     } catch (error) {
@@ -327,6 +330,28 @@ export default function EmailIntegrationHub() {
                   </Button>
                 </>
               )}
+              
+              <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                <h4 className="font-semibold text-blue-900 mb-2">How Email Integration Works</h4>
+                <ul className="text-sm text-blue-800 space-y-2">
+                  <li className="flex items-start gap-2">
+                    <CheckCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                    <span>All emails are automatically logged for compliance</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <CheckCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                    <span>Purchase orders can be emailed directly to suppliers</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <CheckCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                    <span>Staff notifications sent via system</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <Clock className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                    <span>Full Gmail OAuth integration coming soon</span>
+                  </li>
+                </ul>
+              </div>
             </CardContent>
           </Card>
         </div>
@@ -341,11 +366,15 @@ export default function EmailIntegrationHub() {
           </CardHeader>
           <CardContent>
             {emailLogs.length === 0 ? (
-              <p className="text-center text-gray-500 py-8">No emails logged yet</p>
+              <div className="text-center py-12">
+                <Mail className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                <p className="text-gray-500 font-medium mb-2">No emails logged yet</p>
+                <p className="text-sm text-gray-400">Send a test email to see it appear here</p>
+              </div>
             ) : (
               <div className="space-y-2">
                 {emailLogs.map((log) => (
-                  <div key={log.id} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg text-sm">
+                  <div key={log.id} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg text-sm hover:bg-gray-100 transition-colors">
                     <div className="flex-1">
                       <p className="font-medium text-gray-900">{log.subject}</p>
                       <p className="text-xs text-gray-600">
