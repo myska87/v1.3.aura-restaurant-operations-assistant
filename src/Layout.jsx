@@ -25,14 +25,17 @@ import {
   Shield,
   FileText,
   Database,
-  Activity, // Added Activity icon
-  Settings, // Added Settings icon for Form Intelligence
-  Sparkles, // Added Sparkles icon for Menu Intelligence
-  Mic, // Added Mic icon for Meeting Intelligence
-  Edit, // Added Edit icon for SOP Builder
-  Star, // Added Star icon for Quality
-  AlertTriangle, // Added for BugReport
-  Lightbulb, // Added for FeatureIdeas
+  Activity,
+  Settings,
+  Sparkles,
+  Mic,
+  Edit,
+  Star,
+  AlertTriangle,
+  Lightbulb,
+  DollarSign, // Added DollarSign icon
+  CreditCard, // Added CreditCard icon
+  Receipt, // Added Receipt icon (although not explicitly used in the outline, it's good practice to add if it's in the import list)
 } from "lucide-react";
 import WelcomeNewHire from "./components/WelcomeNewHire";
 import WelcomeNewUser from "./components/WelcomeNewUser"; // Added this line
@@ -87,6 +90,12 @@ const navigationItems = [
         title: "Clock In/Out",
         url: createPageUrl("ClockInOut"),
         icon: Clock,
+        badge: null,
+      },
+      {
+        title: "📊 My Attendance", // Added My Attendance
+        url: createPageUrl("MyAttendance"),
+        icon: ClipboardCheck, // Using ClipboardCheck icon
         badge: null,
       },
       {
@@ -215,6 +224,30 @@ const managementItems = [
     url: createPageUrl("ManagerDashboard"),
     icon: TrendingUp,
     badge: "MGMT",
+  },
+  {
+    title: "💰 Payroll Overview", // Added Payroll Overview
+    url: createPageUrl("WeeklyPayrollReport"),
+    icon: DollarSign,
+    badge: null,
+  },
+  {
+    title: "✅ Attendance Approval", // Added Attendance Approval
+    url: createPageUrl("AttendanceApproval"),
+    icon: ClipboardCheck,
+    badge: null,
+  },
+  {
+    title: "📊 Attendance Reports", // Added Attendance Reports
+    url: createPageUrl("AttendanceReports"),
+    icon: BarChart3,
+    badge: null,
+  },
+  {
+    title: "💵 Staff Wages", // Added Staff Wages
+    url: createPageUrl("StaffWagesReport"),
+    icon: CreditCard,
+    badge: null,
   },
   {
     title: "🤖 Hey AURA - AI Console",
