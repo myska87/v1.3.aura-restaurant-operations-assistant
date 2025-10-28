@@ -29,8 +29,8 @@ import { createPageUrl } from '@/utils';
 import { format } from 'date-fns';
 import { motion } from 'framer-motion';
 
-// Import Dashboard API
-import { getDashboardSummary, getWeeklyTrends } from '@/api/dashboard-api';
+// Import Dashboard API from components folder
+import { getDashboardSummary, getWeeklyTrends } from '@/components/dashboard-api';
 
 // Import Chart Components
 import ComplianceChart from '@/components/dashboard/ComplianceChart';
