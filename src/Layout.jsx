@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -66,6 +67,7 @@ import { SecurityBadge } from "./components/PermissionGuard";
 import QualityAutomation from "./components/QualityAutomation";
 import { UnifiedUserSync } from "./components/UnifiedUserSync";
 import SmartRoleSync from "./components/SmartRoleSync";
+import ActivityTracker from "./components/ActivityTracker";
 
 const Badge = ({ children, className }) => (
   <span className={`inline-flex items-center justify-center rounded-full text-center font-semibold leading-none whitespace-nowrap ${className}`}>
@@ -641,6 +643,8 @@ export default function Layout({ children, currentPageName }) {
       <QualityAutomation />
       {/* 🔄 Smart Role Sync - Automatic Workflow Updates on Position Change */}
       <SmartRoleSync />
+      {/* ✨ NEW: Activity Tracker - Auto-logs all activities */}
+      <ActivityTracker />
 
       {/* Mobile Header */}
       <div className="lg:hidden fixed top-0 left-0 right-0 bg-white border-b border-slate-200 z-40 px-4 py-3">
