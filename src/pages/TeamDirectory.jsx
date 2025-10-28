@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -104,23 +105,32 @@ export default function TeamDirectory() {
 
   const isManager = user?.position === 'manager' || user?.position === 'owner' || user?.role === 'admin';
 
-  // Fetch all users
+  // Fetch all users with NO cache
   const { data: allUsers = [], isLoading: loadingUsers, refetch: refetchUsers } = useQuery({
     queryKey: ['allUsers'],
-    queryFn: () => base44.entities.User.list(),
+    queryFn: () => base44.entities.User.list('-created_date'),
     staleTime: 0, // Always fetch fresh data
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: true,
   });
 
-  // Fetch all team members
+  // Fetch all team members with NO cache
   const { data: teamMembers = [], isLoading: loadingTeamMembers, refetch: refetchTeamMembers } = useQuery({
     queryKey: ['teamMembers'],
-    queryFn: () => base44.entities.TeamMember.list(),
+    queryFn: () => base44.entities.TeamMember.list('-created_date'),
     staleTime: 0, // Always fetch fresh data
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: true,
   });
 
   // Merge users and team members into unified staff list
   const enrichedStaff = React.useMemo(() => {
     const staffMap = new Map();
+    
+    console.log('[TeamDirectory] Building enriched staff list', {
+      users: allUsers.length,
+      teamMembers: teamMembers.length,
+    });
     
     // Add all users first
     allUsers.forEach(user => {
@@ -188,12 +198,15 @@ export default function TeamDirectory() {
           source: 'team_member_only',
           has_team_member: true,
           team_member_id: member.id,
-          isTeamMemberOnly: true, // Flag for pending user account
+          isTeamMemberOnly: true,
         });
       }
     });
     
-    return Array.from(staffMap.values());
+    const result = Array.from(staffMap.values());
+    console.log('[TeamDirectory] Enriched staff count:', result.length);
+    
+    return result;
   }, [allUsers, teamMembers]);
 
   const isLoading = loadingUsers || loadingTeamMembers;
@@ -250,6 +263,7 @@ export default function TeamDirectory() {
       // Invalidate and refetch both queries
       queryClient.invalidateQueries({ queryKey: ['teamMembers'] });
       queryClient.invalidateQueries({ queryKey: ['allUsers'] });
+      queryClient.invalidateQueries({ queryKey: ['allTeamMembers'] });
       refetchTeamMembers();
       refetchUsers();
       closeDialog();
@@ -265,6 +279,7 @@ export default function TeamDirectory() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['teamMembers'] });
+      queryClient.invalidateQueries({ queryKey: ['allTeamMembers'] });
       refetchTeamMembers();
       setShowDeleteDialog(false);
       setMemberToDelete(null);
@@ -272,8 +287,12 @@ export default function TeamDirectory() {
   });
 
   const handleRefresh = () => {
+    console.log('[TeamDirectory] Manual refresh triggered');
     refetchUsers();
     refetchTeamMembers();
+    queryClient.invalidateQueries({ queryKey: ['allUsers'] });
+    queryClient.invalidateQueries({ queryKey: ['allTeamMembers'] });
+    queryClient.invalidateQueries({ queryKey: ['teamMembers'] });
   };
 
   const handleOpenAddDialog = () => {

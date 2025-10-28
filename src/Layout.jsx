@@ -35,6 +35,7 @@ import {
   Lightbulb, // Added for FeatureIdeas
 } from "lucide-react";
 import WelcomeNewHire from "./components/WelcomeNewHire";
+import WelcomeNewUser from "./components/WelcomeNewUser"; // Added this line
 import ChecklistAutomation from "./components/ChecklistAutomation";
 import NotificationBell from "./components/NotificationBell";
 import AuraLogo from "./components/AuraLogo";
@@ -325,6 +326,7 @@ export default function Layout({ children, currentPageName }) {
       <ComplianceStyles />
       <AutoBackupScheduler />
       <WelcomeNewHire />
+      <WelcomeNewUser />
       
       <StaffDataSync />
       <UnifiedUserSync />

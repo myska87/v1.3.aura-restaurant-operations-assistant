@@ -6,6 +6,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
  * Unified User Synchronization System
  * Ensures TeamMember entity is always in sync with User entity
  * TeamMember = AURAUserCore (single source of truth for all staff data)
+ * 
+ * CRITICAL FIX: Ensures new users appear in team list immediately
  */
 export function UnifiedUserSync() {
   const queryClient = useQueryClient();
@@ -13,13 +15,15 @@ export function UnifiedUserSync() {
   const { data: users = [] } = useQuery({
     queryKey: ['allUsers'],
     queryFn: () => base44.entities.User.list(),
-    staleTime: 60000, // 1 minute
+    staleTime: 0, // Always fetch fresh
+    refetchInterval: 30000, // Refetch every 30 seconds
   });
 
   const { data: teamMembers = [] } = useQuery({
     queryKey: ['allTeamMembers'],
     queryFn: () => base44.entities.TeamMember.list(),
-    staleTime: 60000,
+    staleTime: 0,
+    refetchInterval: 30000,
   });
 
   const { data: currentUser } = useQuery({
@@ -33,6 +37,7 @@ export function UnifiedUserSync() {
     mutationFn: (data) => base44.entities.TeamMember.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['allTeamMembers'] });
+      queryClient.invalidateQueries({ queryKey: ['teamMembers'] });
     },
   });
 
@@ -40,6 +45,7 @@ export function UnifiedUserSync() {
     mutationFn: ({ id, data }) => base44.entities.TeamMember.update(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['allTeamMembers'] });
+      queryClient.invalidateQueries({ queryKey: ['teamMembers'] });
     },
   });
 
@@ -48,9 +54,22 @@ export function UnifiedUserSync() {
     if (!isAdmin || users.length === 0) return;
 
     const performSync = async () => {
+      console.log('[UnifiedUserSync] Starting sync...', {
+        users: users.length,
+        teamMembers: teamMembers.length,
+      });
+
       try {
+        let syncedCount = 0;
+        let createdCount = 0;
+        let updatedCount = 0;
+
         for (const user of users) {
-          if (!user.email || !user.full_name) continue;
+          // Skip users without email or name
+          if (!user.email || !user.full_name) {
+            console.warn('[UnifiedUserSync] Skipping user - missing email or name:', user);
+            continue;
+          }
 
           const existingMember = teamMembers.find(tm => tm.staff_email === user.email);
 
@@ -78,22 +97,43 @@ export function UnifiedUserSync() {
               id: existingMember.id,
               data: userData,
             });
+            updatedCount++;
+            console.log('[UnifiedUserSync] Updated TeamMember:', user.email);
           } else {
             // Create new TeamMember
             await createTeamMemberMutation.mutateAsync(userData);
+            createdCount++;
+            console.log('[UnifiedUserSync] Created new TeamMember:', user.email);
           }
+          
+          syncedCount++;
         }
+
+        console.log('[UnifiedUserSync] Sync complete:', {
+          total: syncedCount,
+          created: createdCount,
+          updated: updatedCount,
+        });
+
+        // Invalidate all related queries
+        queryClient.invalidateQueries({ queryKey: ['allUsers'] });
+        queryClient.invalidateQueries({ queryKey: ['allTeamMembers'] });
+        queryClient.invalidateQueries({ queryKey: ['teamMembers'] });
+
       } catch (error) {
-        console.error('User sync error:', error);
+        console.error('[UnifiedUserSync] Sync error:', error);
       }
     };
 
-    // Run sync once per session
-    const hasSynced = sessionStorage.getItem('unified_user_sync_done');
-    if (!hasSynced) {
+    // Run sync immediately on mount
+    performSync();
+
+    // Also run when users array changes significantly
+    const interval = setInterval(() => {
       performSync();
-      sessionStorage.setItem('unified_user_sync_done', 'true');
-    }
+    }, 60000); // Every minute
+
+    return () => clearInterval(interval);
   }, [users, teamMembers, isAdmin]);
 
   // Component doesn't render anything
