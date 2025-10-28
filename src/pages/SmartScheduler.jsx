@@ -35,6 +35,23 @@ import { Textarea } from "@/components/ui/textarea";
 // ========================================
 
 /**
+ * Generate time options in 10-minute intervals
+ */
+const generateTimeOptions = () => {
+  const times = [];
+  for (let hour = 0; hour < 24; hour++) {
+    for (let minute = 0; minute < 60; minute += 10) {
+      const hourStr = hour.toString().padStart(2, '0');
+      const minuteStr = minute.toString().padStart(2, '0');
+      times.push(`${hourStr}:${minuteStr}`);
+    }
+  }
+  return times;
+};
+
+const TIME_OPTIONS = generateTimeOptions();
+
+/**
  * Get default department based on position
  */
 const getDefaultDepartment = (position) => {
@@ -653,28 +670,44 @@ export default function SmartScheduler() {
                   </Select>
                 </div>
 
-                {/* Start Time */}
+                {/* Start Time - 10-MINUTE INTERVALS */}
                 <div>
                   <Label htmlFor="start_time">Start Time *</Label>
-                  <Input
-                    id="start_time"
-                    type="time"
+                  <Select
                     value={shiftFormData.start_time}
-                    onChange={(e) => setShiftFormData({ ...shiftFormData, start_time: e.target.value })}
-                    required
-                  />
+                    onValueChange={(value) => setShiftFormData({ ...shiftFormData, start_time: value })}
+                  >
+                    <SelectTrigger id="start_time">
+                      <SelectValue placeholder="Select time" />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-[300px]">
+                      {TIME_OPTIONS.map(time => (
+                        <SelectItem key={time} value={time}>
+                          {time}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
 
-                {/* End Time */}
+                {/* End Time - 10-MINUTE INTERVALS */}
                 <div>
                   <Label htmlFor="end_time">End Time *</Label>
-                  <Input
-                    id="end_time"
-                    type="time"
+                  <Select
                     value={shiftFormData.end_time}
-                    onChange={(e) => setShiftFormData({ ...shiftFormData, end_time: e.target.value })}
-                    required
-                  />
+                    onValueChange={(value) => setShiftFormData({ ...shiftFormData, end_time: value })}
+                  >
+                    <SelectTrigger id="end_time">
+                      <SelectValue placeholder="Select time" />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-[300px]">
+                      {TIME_OPTIONS.map(time => (
+                        <SelectItem key={time} value={time}>
+                          {time}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 {/* Location */}
