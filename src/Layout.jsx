@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -83,9 +84,16 @@ import AIComplianceSummary from "./components/compliancecore/AIComplianceSummary
 import ErrorBoundary from "./components/ErrorBoundary";
 import { Badge } from "@/components/ui/badge";
 
+// 🧠 AURA Brain Imports
+import HygieneAgent from './components/aurabrain/HygieneAgent';
+import InventoryAgent from './components/aurabrain/InventoryAgent';
+import QualityAgent from './components/aurabrain/QualityAgent';
+import EventBus from './components/aurabrain/EventBus';
+import AgentInitializer from './components/aurabrain/AgentInitializer';
+
 const navigationItems = [
   {
-    section: "Daily Essentials",
+    section: "Main",
     items: [
       {
         title: "Dashboard",
@@ -94,11 +102,46 @@ const navigationItems = [
         badge: null,
       },
       {
-        title: "🎯 Operations Central",
-        url: createPageUrl("OperationsCore"),
+        title: "🎯 Operations",
+        url: createPageUrl("OperationsDashboard"),
         icon: Target,
-        badge: "NEW",
+        badge: null,
       },
+      {
+        title: "👥 Staff",
+        url: createPageUrl("StaffDashboard"),
+        icon: Users,
+        badge: null,
+      },
+      {
+        title: "📦 Inventory",
+        url: createPageUrl("InventoryDashboard"),
+        icon: Package,
+        badge: null,
+      },
+      {
+        title: "📚 SOPs",
+        url: createPageUrl("SOPDashboardHub"),
+        icon: FileText,
+        badge: null,
+      },
+      {
+        title: "⭐ Quality",
+        url: createPageUrl("QualityDashboard"),
+        icon: Star,
+        badge: null,
+      },
+      {
+        title: "📄 Documents",
+        url: createPageUrl("DocumentsDashboard"),
+        icon: FilePlus,
+        badge: null,
+      },
+    ]
+  },
+  {
+    section: "My Work",
+    items: [
       {
         title: "My Tasks",
         url: createPageUrl("MyTasks"),
@@ -118,231 +161,26 @@ const navigationItems = [
         badge: null,
       },
       {
-        title: "📊 My Attendance",
-        url: createPageUrl("MyAttendance"),
-        icon: ClipboardCheck,
-        badge: null,
-      },
-      {
-        title: "My Checklists",
-        url: createPageUrl("MyChecklists"),
-        icon: ClipboardList,
-        badge: null,
-      },
-      {
-        title: "Hygiene Central",
-        url: createPageUrl("HygieneDashboard"),
-        icon: Activity,
-        badge: null,
-      },
-    ]
-  },
-  {
-    section: "Operations",
-    items: [
-      {
-        title: "📚 SOPs & Procedures",
-        url: createPageUrl("SOPDashboard"),
-        icon: FileText,
-        badge: null,
-      },
-      {
-        title: "📝 Document Library",
-        url: createPageUrl("DocumentLibrary"),
-        icon: FileText,
-        badge: null,
-      },
-      {
-        title: "✍️ Document Builder",
-        url: createPageUrl("DocumentBuilder"),
-        icon: FilePlus,
-        badge: null,
-      },
-      {
-        title: "Daily Checklists",
-        url: createPageUrl("DailyChecklists"),
-        icon: ClipboardList,
-        badge: null,
-      },
-      {
-        title: "Form Intelligence",
-        url: createPageUrl("FormIntelligence"),
-        icon: Settings,
-        badge: "AI",
-      },
-      {
-        title: "⭐ Quality Control",
-        url: createPageUrl("QualityDashboard"),
-        icon: Star,
-        badge: null,
-      },
-      {
-        title: "🛡️ Compliance Centre",
-        url: createPageUrl("ComplianceCore"),
-        icon: Shield,
-        badge: "NEW",
-      },
-      {
-        title: "Compliance",
-        url: createPageUrl("Compliance"),
-        icon: Shield,
-        badge: null,
-      },
-      {
-        title: "Maintenance",
-        url: createPageUrl("Maintenance"),
-        icon: Wrench,
-        badge: null,
-      },
-    ]
-  },
-  {
-    section: "Inventory & Stock",
-    items: [
-      {
-        title: "Inventory",
-        url: createPageUrl("InventoryManagement"),
-        icon: Package,
-        badge: null,
-      },
-      {
-        title: "Ingredient Stock",
-        url: createPageUrl("IngredientStock"),
-        icon: Package,
-        badge: null,
-      },
-      {
-        title: "Suppliers",
-        url: createPageUrl("SupplierManagement"),
-        icon: ShoppingCart,
-        badge: null,
-      },
-      {
-        title: "Production Planning",
-        url: createPageUrl("ProductionPlanning"),
-        icon: Calculator,
-        badge: null,
-      },
-      {
-        title: "Order History",
-        url: createPageUrl("OrderHistory"),
-        icon: ClipboardCheck,
-        badge: null,
-      },
-    ]
-  },
-  {
-    section: "Menu & Kitchen",
-    items: [
-      {
-        title: "Menu Management",
-        url: createPageUrl("MenuManagement"),
-        icon: FileText,
-        badge: null,
-      },
-      {
-        title: "Allergen Table",
-        url: createPageUrl("AllergyTable"),
-        icon: AlertTriangle,
-        badge: null,
-      },
-      {
-        title: "Menu Analysis",
-        url: createPageUrl("MenuAnalysis"),
-        icon: TrendingUp,
-        badge: null,
-      },
-    ]
-  },
-  {
-    section: "Staff & Training",
-    items: [
-      {
-        title: "Team Directory",
-        url: createPageUrl("TeamDirectory"),
-        icon: Users,
-        badge: null,
-      },
-      {
-        title: "Staff Management",
-        url: createPageUrl("Staff"),
-        icon: Users,
-        badge: null,
-      },
-      {
         title: "My Coaching",
         url: createPageUrl("MyCoaching"),
         icon: GraduationCap,
         badge: null,
       },
-      {
-        title: "Training & Culture",
-        url: createPageUrl("OnboardingTraining"),
-        icon: GraduationCap,
-        badge: null,
-      },
-      {
-        title: "Performance & Growth",
-        url: createPageUrl("PerformanceGrowth"),
-        icon: TrendingUp,
-        badge: null,
-      },
     ]
   },
   {
-    section: "Communication",
+    section: "Intelligence",
     items: [
       {
-        title: "Team Chat",
-        url: createPageUrl("TeamChat"),
-        icon: MessageCircle,
-        badge: null,
-      },
-      {
-        title: "Announcements",
-        url: createPageUrl("Announcements"),
-        icon: Bell,
-        badge: null,
-      },
-      {
-        title: "Suggestion Box",
-        url: createPageUrl("SuggestionBox"),
-        icon: Lightbulb,
-        badge: null,
-      },
-      {
-        title: "🔔 Event Feed",
-        url: createPageUrl("EventFeed"),
-        icon: Bell,
-        badge: null,
-      },
-    ]
-  },
-  {
-    section: "Analytics & AI",
-    items: [
-      {
-        title: "Reports",
-        url: createPageUrl("Reports"),
-        icon: BarChart3,
-        badge: null,
-      },
-      {
-        title: "📊 Analytics Dashboard",
-        url: createPageUrl("AnalyticsDashboard"),
-        icon: BarChart3,
-        badge: "AI",
-      },
-      {
-        title: "🧠 AURA Intelligence",
-        url: createPageUrl("AuraIntelligence"),
+        title: "🧠 AURA Brain",
+        url: createPageUrl("AIHub"),
         icon: Brain,
         badge: "AI",
       },
       {
-        title: "Performance Dashboard",
-        url: createPageUrl("PerformanceDashboard"),
-        icon: TrendingUp,
+        title: "Reports",
+        url: createPageUrl("Reports"),
+        icon: BarChart3,
         badge: null,
       },
     ]
@@ -361,34 +199,14 @@ const managementItems = [
     icon: Calendar,
   },
   {
-    title: "💰 Payroll Dashboard",
-    url: createPageUrl("PayrollDashboard"),
-    icon: DollarSign,
-  },
-  {
-    title: "Attendance Approval",
-    url: createPageUrl("AttendanceApproval"),
-    icon: CheckCircle,
-  },
-  {
-    title: "Task Reports",
-    url: createPageUrl("TaskReports"),
-    icon: ClipboardCheck,
-  },
-  {
-    title: "User Management",
-    url: createPageUrl("UserManagement"),
-    icon: Users,
-  },
-  {
-    title: "🔐 Security Dashboard",
-    url: createPageUrl("SecurityDashboard"),
+    title: "🛡️ Compliance Centre",
+    url: createPageUrl("ComplianceCore"),
     icon: Shield,
   },
   {
-    title: "Data Management",
-    url: createPageUrl("DataManagement"),
-    icon: Database,
+    title: "⚙️ Settings",
+    url: createPageUrl("SettingsDashboard"),
+    icon: Settings,
   },
 ];
 
@@ -446,6 +264,13 @@ export default function Layout({ children, currentPageName }) {
 
         <RenewalMonitor />
         <AIComplianceSummary />
+
+        {/* 🧠 AURA Brain - Intelligent Agents */}
+        <AgentInitializer />
+        <EventBus />
+        <HygieneAgent />
+        <InventoryAgent />
+        <QualityAgent />
 
         {/* Mobile Header */}
         <header className="lg:hidden fixed top-0 left-0 right-0 bg-white border-b border-slate-200 z-50 px-4 py-3 flex items-center justify-between">
