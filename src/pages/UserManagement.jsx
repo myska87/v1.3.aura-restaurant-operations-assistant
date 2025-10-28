@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -50,6 +51,7 @@ import {
   Loader2,
   X,
   Copy,
+  User,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
@@ -68,12 +70,22 @@ export default function UserManagement() {
   const [syncing, setSyncing] = useState(false);
   
   const [showInviteDialog, setShowInviteDialog] = useState(false);
+  const [showManualAddDialog, setShowManualAddDialog] = useState(false);
   const [inviteType, setInviteType] = useState('email');
   const [inviteFormData, setInviteFormData] = useState({
     email: '',
     name: '',
     position: 'server',
     department: 'front_of_house',
+  });
+  const [manualUserData, setManualUserData] = useState({
+    email: '',
+    full_name: '',
+    position: 'server',
+    department: 'front_of_house',
+    phone: '',
+    hire_date: format(new Date(), 'yyyy-MM-dd'),
+    hourly_rate: '',
   });
   const [generatedLink, setGeneratedLink] = useState(null);
   const [showRegistrationRequests, setShowRegistrationRequests] = useState(false);
@@ -256,6 +268,46 @@ export default function UserManagement() {
     },
   });
 
+  const createManualUserMutation = useMutation({
+    mutationFn: async (userData) => {
+      // Create TeamMember first (this is our single source of truth)
+      const teamMember = await base44.entities.TeamMember.create({
+        staff_email: userData.email,
+        staff_name: userData.full_name,
+        position: userData.position,
+        department: userData.department,
+        phone: userData.phone || '',
+        hire_date: userData.hire_date,
+        hourly_rate: parseFloat(userData.hourly_rate) || 0,
+        status: 'active',
+        shift_start: '09:00',
+        shift_end: '17:00',
+        notes: 'Manually added by manager',
+      });
+
+      return teamMember;
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['allTeamMembers'] });
+      await queryClient.invalidateQueries({ queryKey: ['allUsers'] });
+      setShowManualAddDialog(false);
+      setManualUserData({
+        email: '',
+        full_name: '',
+        position: 'server',
+        department: 'front_of_house',
+        phone: '',
+        hire_date: format(new Date(), 'yyyy-MM-dd'),
+        hourly_rate: '',
+      });
+      alert('✅ User added successfully! They can now register with this email.');
+    },
+    onError: (error) => {
+      console.error('Error creating user:', error);
+      alert('❌ Failed to create user. Please check if email already exists.');
+    },
+  });
+
   const sendInvitationMutation = useMutation({
     mutationFn: async (inviteData) => {
       const invitationCode = `INV-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
@@ -281,9 +333,8 @@ export default function UserManagement() {
         try {
           await base44.integrations.Core.SendEmail({
             to: inviteData.email,
-            subject: `You are invited to join ${currentUser.full_name} team`,
-            body: `
-Hello ${inviteData.name},
+            subject: `You're invited to join our team!`,
+            body: `Hello ${inviteData.name},
 
 You have been invited to join our team as a ${inviteData.position}!
 
@@ -293,8 +344,7 @@ ${registrationLink}
 This invitation will expire in 7 days.
 
 Best regards,
-${currentUser.full_name}
-            `.trim(),
+${currentUser.full_name}`,
           });
 
           await base44.entities.UserInvitation.update(invitation.id, {
@@ -318,6 +368,10 @@ ${currentUser.full_name}
         alert('✅ Invitation sent successfully!');
       }
     },
+    onError: (error) => {
+      console.error('Invitation error:', error);
+      alert('❌ Failed to send invitation. Please try again.');
+    },
   });
 
   const approveRegistrationMutation = useMutation({
@@ -333,8 +387,7 @@ ${currentUser.full_name}
         await base44.integrations.Core.SendEmail({
           to: request.email,
           subject: 'Your registration has been approved!',
-          body: `
-Hello ${request.full_name},
+          body: `Hello ${request.full_name},
 
 Great news! Your registration has been approved.
 
@@ -343,8 +396,7 @@ You can now log in to the system with your credentials.
 Welcome to the team!
 
 Best regards,
-${currentUser.full_name}
-          `.trim(),
+${currentUser.full_name}`,
         });
       } catch (error) {
         console.error('Email error:', error);
@@ -370,8 +422,7 @@ ${currentUser.full_name}
         await base44.integrations.Core.SendEmail({
           to: request.email,
           subject: 'Registration Update',
-          body: `
-Hello ${request.full_name},
+          body: `Hello ${request.full_name},
 
 Thank you for your interest in joining our team.
 
@@ -380,8 +431,7 @@ Unfortunately, we are unable to approve your registration at this time.
 ${reason ? `Reason: ${reason}` : ''}
 
 Best regards,
-${currentUser.full_name}
-          `.trim(),
+${currentUser.full_name}`,
         });
       } catch (error) {
         console.error('Email error:', error);
@@ -450,6 +500,22 @@ ${currentUser.full_name}
       ...inviteFormData,
       type: inviteType,
     });
+  };
+
+  const handleManualAddUser = () => {
+    if (!manualUserData.email || !manualUserData.full_name) {
+      alert('Please fill in email and full name');
+      return;
+    }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(manualUserData.email)) {
+      alert('Please enter a valid email address');
+      return;
+    }
+
+    createManualUserMutation.mutate(manualUserData);
   };
 
   const copyToClipboard = (text) => {
@@ -538,6 +604,14 @@ ${currentUser.full_name}
               {syncing ? 'Syncing...' : 'Sync All'}
             </Button>
             
+            <Button
+              onClick={() => setShowManualAddDialog(true)}
+              className="bg-emerald-600 hover:bg-emerald-700"
+            >
+              <User className="w-4 h-4 mr-2" />
+              Add User Manually
+            </Button>
+
             <Button
               onClick={() => {
                 setShowInviteDialog(true);
@@ -796,6 +870,145 @@ ${currentUser.full_name}
             )}
           </CardContent>
         </Card>
+
+        {/* Manual Add User Dialog */}
+        <Dialog open={showManualAddDialog} onOpenChange={setShowManualAddDialog}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Add User Manually</DialogTitle>
+              <DialogDescription>
+                Create a user account directly. They can register later with this email.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4 py-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="manualEmail">Email Address *</Label>
+                  <Input
+                    id="manualEmail"
+                    type="email"
+                    value={manualUserData.email}
+                    onChange={(e) => setManualUserData({ ...manualUserData, email: e.target.value })}
+                    placeholder="user@example.com"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="manualName">Full Name *</Label>
+                  <Input
+                    id="manualName"
+                    value={manualUserData.full_name}
+                    onChange={(e) => setManualUserData({ ...manualUserData, full_name: e.target.value })}
+                    placeholder="John Doe"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="manualPosition">Position</Label>
+                  <Select
+                    value={manualUserData.position}
+                    onValueChange={(value) => setManualUserData({ ...manualUserData, position: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select position" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="manager">Manager</SelectItem>
+                      <SelectItem value="chef">Chef</SelectItem>
+                      <SelectItem value="sous_chef">Sous Chef</SelectItem>
+                      <SelectItem value="line_cook">Line Cook</SelectItem>
+                      <SelectItem value="server">Server</SelectItem>
+                      <SelectItem value="bartender">Bartender</SelectItem>
+                      <SelectItem value="host">Host</SelectItem>
+                      <SelectItem value="cleaner">Cleaner</SelectItem>
+                      <SelectItem value="maintenance">Maintenance</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label htmlFor="manualDepartment">Department</Label>
+                  <Select
+                    value={manualUserData.department}
+                    onValueChange={(value) => setManualUserData({ ...manualUserData, department: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select department" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="management">Management</SelectItem>
+                      <SelectItem value="kitchen">Kitchen</SelectItem>
+                      <SelectItem value="front_of_house">Front of House</SelectItem>
+                      <SelectItem value="bar">Bar</SelectItem>
+                      <SelectItem value="cleaning">Cleaning</SelectItem>
+                      <SelectItem value="maintenance">Maintenance</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="manualPhone">Phone</Label>
+                  <Input
+                    id="manualPhone"
+                    value={manualUserData.phone}
+                    onChange={(e) => setManualUserData({ ...manualUserData, phone: e.target.value })}
+                    placeholder="Phone number"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="manualHireDate">Hire Date</Label>
+                  <Input
+                    id="manualHireDate"
+                    type="date"
+                    value={manualUserData.hire_date}
+                    onChange={(e) => setManualUserData({ ...manualUserData, hire_date: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <Label htmlFor="manualRate">Hourly Rate (£)</Label>
+                <Input
+                  id="manualRate"
+                  type="number"
+                  step="0.01"
+                  value={manualUserData.hourly_rate}
+                  onChange={(e) => setManualUserData({ ...manualUserData, hourly_rate: e.target.value })}
+                  placeholder="0.00"
+                />
+              </div>
+            </div>
+
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowManualAddDialog(false)}>
+                Cancel
+              </Button>
+              <Button
+                onClick={handleManualAddUser}
+                disabled={createManualUserMutation.isPending}
+                className="bg-emerald-600 hover:bg-emerald-700"
+              >
+                {createManualUserMutation.isPending ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Creating...
+                  </>
+                ) : (
+                  <>
+                    <User className="w-4 h-4 mr-2" />
+                    Create User
+                  </>
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         <Dialog open={showInviteDialog} onOpenChange={setShowInviteDialog}>
           <DialogContent className="max-w-2xl">
