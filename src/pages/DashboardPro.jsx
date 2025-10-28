@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -6,8 +6,6 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import {
-  TrendingUp,
-  TrendingDown,
   CheckCircle,
   Clock,
   AlertTriangle,
@@ -28,8 +26,16 @@ import {
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
-import { format, isToday, parseISO } from 'date-fns';
+import { format } from 'date-fns';
 import { motion } from 'framer-motion';
+
+// Import Dashboard API
+import { getDashboardSummary, getWeeklyTrends } from '@/api/dashboard-api';
+
+// Import Chart Components
+import ComplianceChart from '@/components/dashboard/ComplianceChart';
+import QualityTrendChart from '@/components/dashboard/QualityTrendChart';
+import TaskCompletionChart from '@/components/dashboard/TaskCompletionChart';
 
 export default function DashboardPro() {
   const [refreshing, setRefreshing] = useState(false);
@@ -40,144 +46,54 @@ export default function DashboardPro() {
     queryFn: () => base44.auth.me(),
   });
 
+  // Dashboard Summary (Main Metrics)
+  const { data: summary, refetch: refetchSummary, isLoading } = useQuery({
+    queryKey: ['dashboardSummary', user?.email],
+    queryFn: () => getDashboardSummary(user),
+    enabled: !!user,
+    staleTime: 2 * 60 * 1000, // 2 minutes
+    refetchInterval: 5 * 60 * 1000, // Auto-refresh every 5 minutes
+  });
+
+  // Weekly Trends (For Charts)
+  const { data: weeklyTrends, refetch: refetchTrends } = useQuery({
+    queryKey: ['weeklyTrends', user?.email],
+    queryFn: () => getWeeklyTrends(user),
+    enabled: !!user && (user.role === 'admin' || user.position === 'manager' || user.position === 'owner'),
+    staleTime: 10 * 60 * 1000, // 10 minutes
+  });
+
   // Role Detection
-  const isAdmin = user?.role === 'admin';
-  const isManager = user?.position === 'manager' || user?.position === 'owner';
-  const isStaff = !isAdmin && !isManager;
+  const isStaff = summary?.role === 'staff';
+  const isManager = summary?.role === 'manager' || summary?.role === 'admin';
 
-  // ========================================
-  // DATA FETCHING (Optimized for Performance)
-  // ========================================
-
-  // Today's Shifts
-  const todayStr = format(new Date(), 'yyyy-MM-dd');
-  const { data: todayShifts = [], refetch: refetchShifts } = useQuery({
-    queryKey: ['todayShifts', todayStr],
-    queryFn: () => base44.entities.Shift.filter({ shift_date: todayStr }),
-    staleTime: 2 * 60 * 1000,
-  });
-
-  // My Active Shift
-  const myActiveShift = useMemo(() => 
-    todayShifts.find(s => s.staff_email === user?.email && s.status === 'in_progress'),
-    [todayShifts, user?.email]
-  );
-
-  // My Tasks (Staff View)
-  const { data: myTasks = [] } = useQuery({
-    queryKey: ['myTasks', user?.email],
-    queryFn: () => base44.entities.StaffTask.filter({ 
-      assigned_to: user?.email,
-      status: { $in: ['pending', 'in_progress'] }
-    }),
-    enabled: !!user?.email && isStaff,
-    staleTime: 2 * 60 * 1000,
-  });
-
-  // My Forms (Staff View)
-  const { data: myForms = [] } = useQuery({
-    queryKey: ['myForms', user?.email],
-    queryFn: async () => {
-      const forms = await base44.entities.FormAssignmentMetadata.filter({
-        assigned_to_email: user?.email,
-        completion_status: { $in: ['pending', 'in_progress'] }
-      });
-      return forms.filter(f => new Date(f.due_date) >= new Date());
-    },
-    enabled: !!user?.email && isStaff,
-    staleTime: 2 * 60 * 1000,
-  });
-
-  // Manager/Admin Data
-  const { data: allTasks = [] } = useQuery({
-    queryKey: ['allPendingTasks'],
-    queryFn: () => base44.entities.StaffTask.filter({ 
-      status: { $in: ['pending', 'in_progress'] }
-    }),
-    enabled: isManager || isAdmin,
-    staleTime: 5 * 60 * 1000,
-  });
-
-  const { data: allForms = [] } = useQuery({
-    queryKey: ['allPendingForms'],
-    queryFn: () => base44.entities.FormAssignmentMetadata.filter({
-      completion_status: { $in: ['pending', 'in_progress'] }
-    }),
-    enabled: isManager || isAdmin,
-    staleTime: 5 * 60 * 1000,
-  });
-
-  const { data: inventory = [] } = useQuery({
-    queryKey: ['inventoryAlerts'],
-    queryFn: async () => {
-      const items = await base44.entities.Ingredient.list('', 100);
-      return items.filter(item => 
-        parseFloat(item.current_stock || 0) <= parseFloat(item.reorder_point || 0)
-      );
-    },
-    enabled: isManager || isAdmin,
-    staleTime: 10 * 60 * 1000,
-  });
-
-  const { data: qualityRecords = [] } = useQuery({
-    queryKey: ['todayQuality'],
-    queryFn: async () => {
-      const records = await base44.entities.QualityRecord.list('-created_date', 20);
-      return records.filter(r => isToday(parseISO(r.created_date)));
-    },
-    enabled: isManager || isAdmin,
-    staleTime: 5 * 60 * 1000,
-  });
-
-  // ========================================
-  // COMPUTED METRICS
-  // ========================================
-
-  const kpis = useMemo(() => {
-    if (isStaff) {
-      return {
-        myTasksCount: myTasks.length,
-        myFormsCount: myForms.length,
-        tasksCompleted: 0,
-        myShiftStatus: myActiveShift ? 'active' : 'none',
-      };
-    }
-
-    // Manager/Admin KPIs
-    const avgQuality = qualityRecords.length > 0
-      ? (qualityRecords.reduce((sum, r) => sum + r.score, 0) / qualityRecords.length).toFixed(1)
-      : 0;
-
-    const staffOnDuty = todayShifts.filter(s => s.status === 'in_progress').length;
-    
-    return {
-      staffOnDuty,
-      pendingTasks: allTasks.length,
-      pendingForms: allForms.length,
-      lowStockItems: inventory.length,
-      avgQualityScore: avgQuality,
-      totalShiftsToday: todayShifts.length,
-      qualityChecksToday: qualityRecords.length,
-    };
-  }, [isStaff, myTasks, myForms, myActiveShift, allTasks, allForms, inventory, qualityRecords, todayShifts]);
-
-  // ========================================
-  // REFRESH HANDLER
-  // ========================================
-
+  // Refresh Handler
   const handleRefresh = async () => {
     setRefreshing(true);
     await Promise.all([
-      refetchShifts(),
+      refetchSummary(),
+      refetchTrends(),
     ]);
     setTimeout(() => setRefreshing(false), 1000);
   };
+
+  // Loading State
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center">
+        <div className="text-center">
+          <RefreshCw className="w-12 h-12 text-[#014D40] animate-spin mx-auto mb-4" />
+          <p className="text-gray-600">Loading your dashboard...</p>
+        </div>
+      </div>
+    );
+  }
 
   // ========================================
   // RENDER: STAFF VIEW
   // ========================================
 
-  if (isStaff) {
+  if (isStaff && summary) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-4 md:p-8">
         <div className="max-w-6xl mx-auto space-y-6">
@@ -190,9 +106,9 @@ export default function DashboardPro() {
           >
             <div>
               <h1 className="text-3xl font-bold text-gray-900">
-                Welcome back, {user?.full_name?.split(' ')[0] || 'Team Member'}! 👋
+                Welcome back, {summary.user.name?.split(' ')[0] || 'Team Member'}! 👋
               </h1>
-              <p className="text-gray-600 mt-1">Here's your day at a glance</p>
+              <p className="text-gray-600 mt-1">{format(new Date(), 'EEEE, MMMM d, yyyy')}</p>
             </div>
             <Button
               onClick={handleRefresh}
@@ -213,13 +129,17 @@ export default function DashboardPro() {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm text-gray-600 mb-1">My Tasks</p>
-                      <h3 className="text-3xl font-bold text-gray-900">{kpis.myTasksCount}</h3>
-                      <p className="text-xs text-gray-500 mt-2">Pending completion</p>
+                      <h3 className="text-3xl font-bold text-gray-900">{summary.summary.my_tasks_pending}</h3>
+                      <p className="text-xs text-gray-500 mt-2">{summary.summary.my_tasks_completed} completed</p>
                     </div>
                     <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
                       <CheckCircle className="w-6 h-6 text-blue-600" />
                     </div>
                   </div>
+                  <Progress 
+                    value={summary.metrics.task_completion_rate} 
+                    className="h-2 mt-4"
+                  />
                 </CardContent>
               </Card>
             </motion.div>
@@ -230,13 +150,17 @@ export default function DashboardPro() {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm text-gray-600 mb-1">Pending Forms</p>
-                      <h3 className="text-3xl font-bold text-gray-900">{kpis.myFormsCount}</h3>
-                      <p className="text-xs text-gray-500 mt-2">Need completion</p>
+                      <h3 className="text-3xl font-bold text-gray-900">{summary.summary.my_forms_pending}</h3>
+                      <p className="text-xs text-gray-500 mt-2">{summary.summary.my_forms_completed} completed</p>
                     </div>
                     <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
                       <ClipboardCheck className="w-6 h-6 text-purple-600" />
                     </div>
                   </div>
+                  <Progress 
+                    value={summary.metrics.form_completion_rate} 
+                    className="h-2 mt-4"
+                  />
                 </CardContent>
               </Card>
             </motion.div>
@@ -248,10 +172,10 @@ export default function DashboardPro() {
                     <div>
                       <p className="text-sm text-gray-600 mb-1">Shift Status</p>
                       <h3 className="text-2xl font-bold text-gray-900">
-                        {myActiveShift ? 'On Duty' : 'Off Duty'}
+                        {summary.summary.my_shift_status === 'active' ? 'On Duty' : 'Off Duty'}
                       </h3>
                       <p className="text-xs text-gray-500 mt-2">
-                        {myActiveShift ? `Since ${myActiveShift.clock_in_time}` : 'Not clocked in'}
+                        {summary.summary.my_shift_status === 'active' ? 'Currently working' : 'Not clocked in'}
                       </p>
                     </div>
                     <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
@@ -301,38 +225,6 @@ export default function DashboardPro() {
             </CardContent>
           </Card>
 
-          {/* My Tasks List */}
-          {myTasks.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Today's Tasks</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {myTasks.slice(0, 5).map(task => (
-                    <div key={task.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                      <div className="flex-1">
-                        <h4 className="font-medium text-gray-900">{task.title}</h4>
-                        <p className="text-sm text-gray-500">Due: {format(new Date(task.due_date), 'PPp')}</p>
-                      </div>
-                      <Badge variant={task.priority === 'high' ? 'destructive' : 'secondary'}>
-                        {task.priority}
-                      </Badge>
-                    </div>
-                  ))}
-                </div>
-                {myTasks.length > 5 && (
-                  <Link to={createPageUrl('MyTasks')}>
-                    <Button variant="ghost" className="w-full mt-4">
-                      View All Tasks
-                      <ArrowRight className="w-4 h-4 ml-2" />
-                    </Button>
-                  </Link>
-                )}
-              </CardContent>
-            </Card>
-          )}
-
         </div>
       </div>
     );
@@ -342,301 +234,278 @@ export default function DashboardPro() {
   // RENDER: MANAGER/ADMIN VIEW
   // ========================================
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-4 md:p-8">
-      <div className="max-w-7xl mx-auto space-y-6">
-        
-        {/* Welcome Header */}
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="flex items-center justify-between"
-        >
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">
-              Operations Command Center
-            </h1>
-            <p className="text-gray-600 mt-1">
-              {format(new Date(), 'EEEE, MMMM d, yyyy')} • Real-time insights
-            </p>
-          </div>
-          <Button
-            onClick={handleRefresh}
-            variant="outline"
-            size="sm"
-            disabled={refreshing}
-          >
-            <RefreshCw className={`w-4 h-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
-            Refresh
-          </Button>
-        </motion.div>
-
-        {/* KPI Summary - Manager/Admin */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
-            <Card className="border-l-4 border-l-blue-500">
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600 mb-1">Staff on Duty</p>
-                    <h3 className="text-3xl font-bold text-gray-900">{kpis.staffOnDuty}</h3>
-                    <p className="text-xs text-gray-500 mt-2">of {kpis.totalShiftsToday} scheduled</p>
-                  </div>
-                  <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-                    <Users className="w-6 h-6 text-blue-600" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </motion.div>
-
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
-            <Card className="border-l-4 border-l-orange-500">
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600 mb-1">Pending Tasks</p>
-                    <h3 className="text-3xl font-bold text-gray-900">{kpis.pendingTasks}</h3>
-                    <p className="text-xs text-gray-500 mt-2">{kpis.pendingForms} forms pending</p>
-                  </div>
-                  <div className="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center">
-                    <ClipboardCheck className="w-6 h-6 text-orange-600" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </motion.div>
-
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
-            <Card className="border-l-4 border-l-red-500">
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600 mb-1">Low Stock Alert</p>
-                    <h3 className="text-3xl font-bold text-gray-900">{kpis.lowStockItems}</h3>
-                    <p className="text-xs text-gray-500 mt-2">Items need reordering</p>
-                  </div>
-                  <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
-                    <Package className="w-6 h-6 text-red-600" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </motion.div>
-
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}>
-            <Card className="border-l-4 border-l-green-500">
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600 mb-1">Quality Score</p>
-                    <h3 className="text-3xl font-bold text-gray-900">{kpis.avgQualityScore}%</h3>
-                    <p className="text-xs text-gray-500 mt-2">{kpis.qualityChecksToday} checks today</p>
-                  </div>
-                  <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
-                    <Star className="w-6 h-6 text-green-600" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </motion.div>
-        </div>
-
-        {/* Operations Snapshot */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+  if (isManager && summary) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-4 md:p-8">
+        <div className="max-w-7xl mx-auto space-y-6">
           
-          {/* Critical Alerts */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <AlertTriangle className="w-5 h-5 text-red-500" />
-                Critical Alerts
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {kpis.lowStockItems > 0 || kpis.pendingTasks > 10 ? (
+          {/* Welcome Header */}
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="flex items-center justify-between"
+          >
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">
+                Operations Command Center
+              </h1>
+              <p className="text-gray-600 mt-1">
+                {format(new Date(), 'EEEE, MMMM d, yyyy')} • Real-time insights
+              </p>
+            </div>
+            <Button
+              onClick={handleRefresh}
+              variant="outline"
+              size="sm"
+              disabled={refreshing}
+            >
+              <RefreshCw className={`w-4 h-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
+              Refresh
+            </Button>
+          </motion.div>
+
+          {/* KPI Summary - Manager/Admin */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
+              <Card className="border-l-4 border-l-blue-500">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-gray-600 mb-1">Staff on Duty</p>
+                      <h3 className="text-3xl font-bold text-gray-900">{summary.summary.staff_on_duty}</h3>
+                      <p className="text-xs text-gray-500 mt-2">of {summary.summary.staff_scheduled} scheduled</p>
+                    </div>
+                    <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+                      <Users className="w-6 h-6 text-blue-600" />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+              <Card className="border-l-4 border-l-orange-500">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-gray-600 mb-1">Checklist Progress</p>
+                      <h3 className="text-3xl font-bold text-gray-900">{summary.summary.checklist_progress}%</h3>
+                      <p className="text-xs text-gray-500 mt-2">{summary.summary.tasks_pending} tasks pending</p>
+                    </div>
+                    <div className="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center">
+                      <ClipboardCheck className="w-6 h-6 text-orange-600" />
+                    </div>
+                  </div>
+                  <Progress 
+                    value={summary.summary.checklist_progress} 
+                    className="h-2 mt-4"
+                  />
+                </CardContent>
+              </Card>
+            </motion.div>
+
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
+              <Card className="border-l-4 border-l-red-500">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-gray-600 mb-1">Inventory Alerts</p>
+                      <h3 className="text-3xl font-bold text-gray-900">{summary.summary.inventory_alerts}</h3>
+                      <p className="text-xs text-gray-500 mt-2">Items need reordering</p>
+                    </div>
+                    <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
+                      <Package className="w-6 h-6 text-red-600" />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}>
+              <Card className="border-l-4 border-l-green-500">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-gray-600 mb-1">Quality Score</p>
+                      <h3 className="text-3xl font-bold text-gray-900">{summary.summary.quality_score.toFixed(1)}</h3>
+                      <p className="text-xs text-gray-500 mt-2">out of 5.0</p>
+                    </div>
+                    <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
+                      <Star className="w-6 h-6 text-green-600" />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          </div>
+
+          {/* Charts Row */}
+          {weeklyTrends && (
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <QualityTrendChart data={weeklyTrends} />
+              <TaskCompletionChart data={weeklyTrends} />
+              <ComplianceChart data={weeklyTrends} />
+            </div>
+          )}
+
+          {/* Operations Snapshot */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            
+            {/* Critical Alerts */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <AlertTriangle className="w-5 h-5 text-red-500" />
+                  Critical Alerts
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {summary.summary.inventory_alerts > 0 || summary.summary.tasks_pending > 10 ? (
+                  <div className="space-y-3">
+                    {summary.summary.inventory_alerts > 0 && (
+                      <div className="flex items-center justify-between p-3 bg-red-50 rounded-lg border border-red-200">
+                        <div>
+                          <p className="font-medium text-red-900">Low Stock Items</p>
+                          <p className="text-sm text-red-700">
+                            {summary.summary.inventory_alerts} items need immediate reordering
+                          </p>
+                        </div>
+                        <Link to={createPageUrl('InventoryManagement')}>
+                          <Button size="sm" variant="destructive">
+                            View
+                          </Button>
+                        </Link>
+                      </div>
+                    )}
+                    {summary.summary.tasks_pending > 10 && (
+                      <div className="flex items-center justify-between p-3 bg-yellow-50 rounded-lg border border-yellow-200">
+                        <div>
+                          <p className="font-medium text-yellow-900">High Task Backlog</p>
+                          <p className="text-sm text-yellow-700">
+                            {summary.summary.tasks_pending} tasks pending completion
+                          </p>
+                        </div>
+                        <Link to={createPageUrl('MyTasks')}>
+                          <Button size="sm" variant="outline">
+                            Review
+                          </Button>
+                        </Link>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <CheckCircle className="w-12 h-12 text-green-500 mx-auto mb-3" />
+                    <p className="text-gray-600">No critical alerts</p>
+                    <p className="text-sm text-gray-500">All systems operating normally</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* AI Insights Panel */}
+            <Card className="bg-gradient-to-br from-[#014D40] to-[#013830] text-white">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Sparkles className="w-5 h-5" />
+                  AI Insights & Recommendations
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
                 <div className="space-y-3">
-                  {kpis.lowStockItems > 0 && (
-                    <div className="flex items-center justify-between p-3 bg-red-50 rounded-lg border border-red-200">
+                  {summary.summary.quality_score >= 4.5 && (
+                    <div className="flex items-start gap-3 p-3 bg-white/10 rounded-lg backdrop-blur">
+                      <Award className="w-5 h-5 mt-0.5" />
                       <div>
-                        <p className="font-medium text-red-900">Low Stock Items</p>
-                        <p className="text-sm text-red-700">{kpis.lowStockItems} items need immediate reordering</p>
+                        <p className="font-medium">Excellence Achievement</p>
+                        <p className="text-sm opacity-90">
+                          Quality score of {summary.summary.quality_score}/5 - Outstanding performance!
+                        </p>
                       </div>
-                      <Link to={createPageUrl('IngredientStock')}>
-                        <Button size="sm" variant="destructive">
-                          View
-                        </Button>
-                      </Link>
                     </div>
                   )}
-                  {kpis.pendingTasks > 10 && (
-                    <div className="flex items-center justify-between p-3 bg-yellow-50 rounded-lg border border-yellow-200">
+                  {summary.summary.inventory_alerts > 0 && (
+                    <div className="flex items-start gap-3 p-3 bg-white/10 rounded-lg backdrop-blur">
+                      <Target className="w-5 h-5 mt-0.5" />
                       <div>
-                        <p className="font-medium text-yellow-900">High Task Backlog</p>
-                        <p className="text-sm text-yellow-700">{kpis.pendingTasks} tasks pending completion</p>
+                        <p className="font-medium">Stock Optimization</p>
+                        <p className="text-sm opacity-90">
+                          {summary.summary.inventory_alerts} items need reordering. Review inventory now.
+                        </p>
                       </div>
-                      <Link to={createPageUrl('MyTasks')}>
-                        <Button size="sm" variant="outline">
-                          Review
-                        </Button>
-                      </Link>
+                    </div>
+                  )}
+                  {summary.summary.checklist_progress >= 90 && (
+                    <div className="flex items-start gap-3 p-3 bg-white/10 rounded-lg backdrop-blur">
+                      <CheckCircle className="w-5 h-5 mt-0.5" />
+                      <div>
+                        <p className="font-medium">Great Progress</p>
+                        <p className="text-sm opacity-90">
+                          {summary.summary.checklist_progress}% checklist completion - Keep it up!
+                        </p>
+                      </div>
                     </div>
                   )}
                 </div>
-              ) : (
-                <div className="text-center py-8">
-                  <CheckCircle className="w-12 h-12 text-green-500 mx-auto mb-3" />
-                  <p className="text-gray-600">No critical alerts</p>
-                  <p className="text-sm text-gray-500">All systems operating normally</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
 
-          {/* Today's Activity */}
+          </div>
+
+          {/* Quick Actions - Manager */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Activity className="w-5 h-5 text-[#014D40]" />
-                Today's Activity
+                <Zap className="w-5 h-5 text-[#014D40]" />
+                Quick Actions
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-600">Staff Attendance</span>
-                  <span className="font-medium">{kpis.staffOnDuty}/{kpis.totalShiftsToday}</span>
-                </div>
-                <Progress 
-                  value={(kpis.staffOnDuty / kpis.totalShiftsToday) * 100} 
-                  className="h-2"
-                />
-
-                <div className="flex items-center justify-between mt-4">
-                  <span className="text-sm text-gray-600">Task Completion</span>
-                  <span className="font-medium">
-                    {kpis.pendingTasks > 0 ? 
-                      `${kpis.pendingTasks} pending` : 
-                      'All clear'}
-                  </span>
-                </div>
-                <Progress 
-                  value={kpis.pendingTasks > 0 ? 40 : 100} 
-                  className="h-2"
-                />
-
-                <div className="flex items-center justify-between mt-4">
-                  <span className="text-sm text-gray-600">Quality Standard</span>
-                  <span className="font-medium">{kpis.avgQualityScore}%</span>
-                </div>
-                <Progress 
-                  value={parseFloat(kpis.avgQualityScore)} 
-                  className="h-2"
-                />
+              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                <Link to={createPageUrl('StaffRota')}>
+                  <Button variant="outline" className="w-full">
+                    <Users className="w-4 h-4 mr-2" />
+                    Staff Rota
+                  </Button>
+                </Link>
+                <Link to={createPageUrl('MyTasks')}>
+                  <Button variant="outline" className="w-full">
+                    <CheckCircle className="w-4 h-4 mr-2" />
+                    Tasks
+                  </Button>
+                </Link>
+                <Link to={createPageUrl('InventoryManagement')}>
+                  <Button variant="outline" className="w-full">
+                    <Package className="w-4 h-4 mr-2" />
+                    Inventory
+                  </Button>
+                </Link>
+                <Link to={createPageUrl('QualityDashboard')}>
+                  <Button variant="outline" className="w-full">
+                    <Star className="w-4 h-4 mr-2" />
+                    Quality
+                  </Button>
+                </Link>
+                <Link to={createPageUrl('Reports')}>
+                  <Button variant="outline" className="w-full">
+                    <BarChart3 className="w-4 h-4 mr-2" />
+                    Reports
+                  </Button>
+                </Link>
+                <Link to={createPageUrl('SOPDashboard')}>
+                  <Button variant="outline" className="w-full">
+                    <ClipboardCheck className="w-4 h-4 mr-2" />
+                    SOPs
+                  </Button>
+                </Link>
               </div>
             </CardContent>
           </Card>
 
         </div>
-
-        {/* Quick Actions - Manager */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Zap className="w-5 h-5 text-[#014D40]" />
-              Quick Actions
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-              <Link to={createPageUrl('StaffRota')}>
-                <Button variant="outline" className="w-full">
-                  <Users className="w-4 h-4 mr-2" />
-                  Staff Rota
-                </Button>
-              </Link>
-              <Link to={createPageUrl('MyTasks')}>
-                <Button variant="outline" className="w-full">
-                  <CheckCircle className="w-4 h-4 mr-2" />
-                  Tasks
-                </Button>
-              </Link>
-              <Link to={createPageUrl('IngredientStock')}>
-                <Button variant="outline" className="w-full">
-                  <Package className="w-4 h-4 mr-2" />
-                  Inventory
-                </Button>
-              </Link>
-              <Link to={createPageUrl('QualityDashboard')}>
-                <Button variant="outline" className="w-full">
-                  <Star className="w-4 h-4 mr-2" />
-                  Quality
-                </Button>
-              </Link>
-              <Link to={createPageUrl('Reports')}>
-                <Button variant="outline" className="w-full">
-                  <BarChart3 className="w-4 h-4 mr-2" />
-                  Reports
-                </Button>
-              </Link>
-              <Link to={createPageUrl('SOPDashboard')}>
-                <Button variant="outline" className="w-full">
-                  <ClipboardCheck className="w-4 h-4 mr-2" />
-                  SOPs
-                </Button>
-              </Link>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* AI Insights Panel */}
-        <Card className="bg-gradient-to-br from-[#014D40] to-[#013830] text-white">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Sparkles className="w-5 h-5" />
-              AI Insights & Recommendations
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {kpis.lowStockItems > 0 && (
-                <div className="flex items-start gap-3 p-3 bg-white/10 rounded-lg backdrop-blur">
-                  <Target className="w-5 h-5 mt-0.5" />
-                  <div>
-                    <p className="font-medium">Stock Optimization Needed</p>
-                    <p className="text-sm opacity-90">
-                      {kpis.lowStockItems} items below reorder point. Consider bulk ordering to save 15% on costs.
-                    </p>
-                  </div>
-                </div>
-              )}
-              {kpis.avgQualityScore > 90 && (
-                <div className="flex items-start gap-3 p-3 bg-white/10 rounded-lg backdrop-blur">
-                  <Award className="w-5 h-5 mt-0.5" />
-                  <div>
-                    <p className="font-medium">Excellence Achievement</p>
-                    <p className="text-sm opacity-90">
-                      Your team is maintaining {kpis.avgQualityScore}% quality score. Great work!
-                    </p>
-                  </div>
-                </div>
-              )}
-              {kpis.pendingTasks > 5 && (
-                <div className="flex items-start gap-3 p-3 bg-white/10 rounded-lg backdrop-blur">
-                  <Activity className="w-5 h-5 mt-0.5" />
-                  <div>
-                    <p className="font-medium">Task Distribution Suggestion</p>
-                    <p className="text-sm opacity-90">
-                      High task volume detected. Consider redistributing tasks among {kpis.staffOnDuty} staff on duty.
-                    </p>
-                  </div>
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
       </div>
-    </div>
-  );
+    );
+  }
+
+  return null;
 }
