@@ -107,6 +107,7 @@ import QualityFormExecution from './pages/QualityFormExecution';
 import OperationsCore from './pages/OperationsCore';
 import CreateOperationTask from './pages/CreateOperationTask';
 import EventFeed from './pages/EventFeed';
+import EventHub from './pages/EventHub';
 import Layout from './Layout.jsx';
 
 
@@ -220,6 +221,7 @@ export const PAGES = {
     "OperationsCore": OperationsCore,
     "CreateOperationTask": CreateOperationTask,
     "EventFeed": EventFeed,
+    "EventHub": EventHub,
 }
 
 export const pagesConfig = {

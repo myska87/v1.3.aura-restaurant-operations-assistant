@@ -46,6 +46,7 @@ import {
   TrendingDown,
   ShoppingCart,
   FilePlus,
+  Bell, // Added Bell icon import
 } from "lucide-react";
 import WelcomeNewHire from "./components/WelcomeNewHire";
 import WelcomeNewUser from "./components/WelcomeNewUser";
@@ -615,6 +616,18 @@ const managementItems = [
     badge: null,
   },
   {
+    title: "🔔 EventHub",
+    url: createPageUrl("EventHub"),
+    icon: Bell,
+    badge: "AUTO",
+  },
+  {
+    title: "📊 Event Feed",
+    url: createPageUrl("EventFeed"),
+    icon: Activity,
+    badge: null,
+  },
+  {
     title: "🌉 DataBridge Monitor",
     url: createPageUrl("DataBridgeMonitor"),
     icon: Activity,
@@ -812,7 +825,9 @@ export default function Layout({ children, currentPageName }) {
                                         ? 'bg-indigo-100 text-indigo-700'
                                         : item.badge === 'GDPR'
                                           ? 'bg-purple-100 text-purple-700'
-                                          : 'bg-purple-100 text-purple-700'
+                                          : item.badge === 'AUTO' // Added for EventHub badge
+                                            ? 'bg-emerald-100 text-emerald-700'
+                                            : 'bg-purple-100 text-purple-700'
                           }`}>
                             {item.badge}
                           </Badge>
