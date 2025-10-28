@@ -106,6 +106,7 @@ import SupplierCatalogImport from './pages/SupplierCatalogImport';
 import QualityFormExecution from './pages/QualityFormExecution';
 import OperationsCore from './pages/OperationsCore';
 import CreateOperationTask from './pages/CreateOperationTask';
+import EventFeed from './pages/EventFeed';
 import Layout from './Layout.jsx';
 
 
@@ -218,6 +219,7 @@ export const PAGES = {
     "QualityFormExecution": QualityFormExecution,
     "OperationsCore": OperationsCore,
     "CreateOperationTask": CreateOperationTask,
+    "EventFeed": EventFeed,
 }
 
 export const pagesConfig = {
