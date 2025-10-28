@@ -13,10 +13,15 @@ import {
   Calendar,
   TrendingUp,
   AlertTriangle,
+  Activity,
+  FileText,
+  ClipboardCheck,
+  User,
+  Zap,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
-import { format } from 'date-fns';
+import { format, formatDistanceToNow } from 'date-fns';
 
 export default function DashboardPro() {
   // Get current user
@@ -57,6 +62,26 @@ export default function DashboardPro() {
     enabled: !!user?.email,
   });
 
+  // ✨ NEW: Fetch recent activities with auto-refresh
+  const { data: recentActivities = [] } = useQuery({
+    queryKey: ['recentActivities'],
+    queryFn: async () => {
+      if (isManager || isAdmin) {
+        // Managers see all activities
+        return await base44.entities.ActivityLog.list('-created_date', 20);
+      } else {
+        // Staff see only their activities
+        return await base44.entities.ActivityLog.filter(
+          { user_email: user?.email },
+          '-created_date',
+          20
+        );
+      }
+    },
+    enabled: !!user?.email,
+    refetchInterval: 10000, // Auto-refresh every 10 seconds
+  });
+
   // Calculate metrics
   const myActiveShift = shifts.find(s => 
     s.staff_email === user?.email && s.status === 'in_progress'
@@ -71,6 +96,47 @@ export default function DashboardPro() {
   ).length;
 
   const staffOnDuty = shifts.filter(s => s.status === 'in_progress').length;
+
+  // Activity icon mapper
+  const getActivityIcon = (activityType) => {
+    const iconMap = {
+      clock_in: <Clock className="w-4 h-4 text-green-600" />,
+      clock_out: <Clock className="w-4 h-4 text-blue-600" />,
+      sop_added: <FileText className="w-4 h-4 text-purple-600" />,
+      sop_signed: <CheckCircle className="w-4 h-4 text-green-600" />,
+      document_uploaded: <FileText className="w-4 h-4 text-blue-600" />,
+      document_signed: <CheckCircle className="w-4 h-4 text-emerald-600" />,
+      quality_check: <Star className="w-4 h-4 text-amber-600" />,
+      checklist_completed: <ClipboardCheck className="w-4 h-4 text-green-600" />,
+      form_submitted: <ClipboardCheck className="w-4 h-4 text-indigo-600" />,
+      shift_started: <Calendar className="w-4 h-4 text-teal-600" />,
+      shift_completed: <Calendar className="w-4 h-4 text-blue-600" />,
+      task_completed: <CheckCircle className="w-4 h-4 text-green-600" />,
+      maintenance_reported: <AlertTriangle className="w-4 h-4 text-orange-600" />,
+      order_created: <Package className="w-4 h-4 text-purple-600" />,
+    };
+    return iconMap[activityType] || <Activity className="w-4 h-4 text-gray-600" />;
+  };
+
+  const getActivityColor = (activityType) => {
+    const colorMap = {
+      clock_in: 'bg-green-50 border-green-200',
+      clock_out: 'bg-blue-50 border-blue-200',
+      sop_added: 'bg-purple-50 border-purple-200',
+      sop_signed: 'bg-green-50 border-green-200',
+      document_uploaded: 'bg-blue-50 border-blue-200',
+      document_signed: 'bg-emerald-50 border-emerald-200',
+      quality_check: 'bg-amber-50 border-amber-200',
+      checklist_completed: 'bg-green-50 border-green-200',
+      form_submitted: 'bg-indigo-50 border-indigo-200',
+      shift_started: 'bg-teal-50 border-teal-200',
+      shift_completed: 'bg-blue-50 border-blue-200',
+      task_completed: 'bg-green-50 border-green-200',
+      maintenance_reported: 'bg-orange-50 border-orange-200',
+      order_created: 'bg-purple-50 border-purple-200',
+    };
+    return colorMap[activityType] || 'bg-gray-50 border-gray-200';
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-4 md:p-8">
@@ -253,50 +319,63 @@ export default function DashboardPro() {
           </CardContent>
         </Card>
 
-        {/* Recent Activity */}
+        {/* ✨ NEW: Recent Activity Feed */}
         <Card className="bg-white border-none shadow-sm">
-          <CardHeader>
-            <CardTitle>Today's Activity</CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle className="flex items-center gap-2">
+              <Activity className="w-5 h-5 text-blue-600" />
+              Recent Activity
+              <Badge variant="outline" className="ml-2">Live</Badge>
+            </CardTitle>
+            <div className="flex items-center gap-2 text-xs text-gray-500">
+              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+              Auto-refreshing
+            </div>
           </CardHeader>
           <CardContent>
-            {shifts.length === 0 && tasks.length === 0 && forms.length === 0 ? (
-              <div className="text-center py-8 text-gray-500">
-                <p>No activity scheduled for today</p>
-                <p className="text-sm mt-2">Check back tomorrow or view your upcoming schedule</p>
+            {recentActivities.length === 0 ? (
+              <div className="text-center py-12 text-gray-500">
+                <Activity className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                <p className="font-medium">No recent activity</p>
+                <p className="text-sm mt-2">Activities will appear here as they happen</p>
               </div>
             ) : (
-              <div className="space-y-3">
-                {pendingTasks > 0 && (
-                  <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-lg">
-                    <CheckCircle className="w-5 h-5 text-blue-600" />
-                    <div>
-                      <p className="font-medium text-gray-900">
-                        {pendingTasks} task{pendingTasks !== 1 ? 's' : ''} pending
-                      </p>
-                      <p className="text-sm text-gray-600">Complete your assigned tasks</p>
+              <div className="space-y-3 max-h-[500px] overflow-y-auto">
+                {recentActivities.map((activity, index) => (
+                  <div
+                    key={activity.id}
+                    className={`flex items-start gap-3 p-3 rounded-lg border ${getActivityColor(activity.activity_type)} transition-all hover:shadow-md`}
+                  >
+                    <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center shadow-sm flex-shrink-0">
+                      {getActivityIcon(activity.activity_type)}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1">
+                          <p className="font-semibold text-gray-900 text-sm">
+                            {activity.title}
+                          </p>
+                          <p className="text-sm text-gray-700 mt-0.5">
+                            {activity.description}
+                          </p>
+                          <div className="flex items-center gap-2 mt-1">
+                            <div className="flex items-center gap-1 text-xs text-gray-500">
+                              <User className="w-3 h-3" />
+                              {activity.user_name}
+                            </div>
+                            <span className="text-xs text-gray-400">•</span>
+                            <span className="text-xs text-gray-500">
+                              {formatDistanceToNow(new Date(activity.created_date), { addSuffix: true })}
+                            </span>
+                          </div>
+                        </div>
+                        {activity.is_important && (
+                          <Zap className="w-4 h-4 text-amber-500" />
+                        )}
+                      </div>
                     </div>
                   </div>
-                )}
-                {pendingForms > 0 && (
-                  <div className="flex items-center gap-3 p-3 bg-amber-50 rounded-lg">
-                    <Star className="w-5 h-5 text-amber-600" />
-                    <div>
-                      <p className="font-medium text-gray-900">
-                        {pendingForms} form{pendingForms !== 1 ? 's' : ''} due
-                      </p>
-                      <p className="text-sm text-gray-600">Fill out required forms</p>
-                    </div>
-                  </div>
-                )}
-                {!myActiveShift && shifts.some(s => s.staff_email === user?.email) && (
-                  <div className="flex items-center gap-3 p-3 bg-emerald-50 rounded-lg">
-                    <Calendar className="w-5 h-5 text-emerald-600" />
-                    <div>
-                      <p className="font-medium text-gray-900">Shift scheduled today</p>
-                      <p className="text-sm text-gray-600">Remember to clock in on time</p>
-                    </div>
-                  </div>
-                )}
+                ))}
               </div>
             )}
           </CardContent>
