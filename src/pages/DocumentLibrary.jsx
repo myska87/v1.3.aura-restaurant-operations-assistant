@@ -26,13 +26,16 @@ import {
   Edit,
   Trash2,
   MoreVertical,
-  ArrowLeft,
   Home,
-  Filter,
   BookOpen,
   Users,
   CheckCircle,
   Clock,
+  Shield,
+  GraduationCap,
+  Star,
+  AlertCircle,
+  Sparkles,
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
@@ -43,7 +46,7 @@ export default function DocumentLibrary() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState('');
-  const [filterCategory, setFilterCategory] = useState('all');
+  const [selectedCategory, setSelectedCategory] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
 
   const { data: user } = useQuery({
@@ -80,7 +83,7 @@ export default function DocumentLibrary() {
   const filteredDocuments = documents.filter(doc => {
     const matchesSearch = doc.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          doc.description?.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCategory = filterCategory === 'all' || doc.category === filterCategory;
+    const matchesCategory = selectedCategory === 'all' || doc.category === selectedCategory;
     const matchesStatus = filterStatus === 'all' || doc.status === filterStatus;
     
     return matchesSearch && matchesCategory && matchesStatus && doc.status !== 'archived';
@@ -93,6 +96,23 @@ export default function DocumentLibrary() {
     drafts: documents.filter(d => d.status === 'draft').length,
     mySigned: mySignatures.length,
   };
+
+  // Category counts
+  const categoryCounts = documents.reduce((acc, doc) => {
+    if (doc.status === 'archived') return acc;
+    acc[doc.category] = (acc[doc.category] || 0) + 1;
+    return acc;
+  }, {});
+
+  const categories = [
+    { value: 'all', label: 'All Documents', icon: FileText, color: 'text-gray-600' },
+    { value: 'sop', label: 'SOPs', icon: BookOpen, color: 'text-blue-600' },
+    { value: 'policy', label: 'Policies', icon: Shield, color: 'text-purple-600' },
+    { value: 'training', label: 'Training', icon: GraduationCap, color: 'text-green-600' },
+    { value: 'quality', label: 'Quality', icon: Star, color: 'text-amber-600' },
+    { value: 'guide', label: 'Guides', icon: Sparkles, color: 'text-pink-600' },
+    { value: 'emergency', label: 'Emergency', icon: AlertCircle, color: 'text-red-600' },
+  ];
 
   const getCategoryIcon = (category) => {
     const icons = {
@@ -218,7 +238,38 @@ export default function DocumentLibrary() {
           </motion.div>
         </div>
 
-        {/* Filters */}
+        {/* Category Tabs */}
+        <Card className="mb-6 overflow-hidden">
+          <CardContent className="p-0">
+            <div className="flex overflow-x-auto scrollbar-hide">
+              {categories.map((cat) => {
+                const Icon = cat.icon;
+                const count = cat.value === 'all' ? stats.total : (categoryCounts[cat.value] || 0);
+                const isActive = selectedCategory === cat.value;
+                
+                return (
+                  <button
+                    key={cat.value}
+                    onClick={() => setSelectedCategory(cat.value)}
+                    className={`flex items-center gap-2 px-6 py-4 border-b-2 transition-all whitespace-nowrap ${
+                      isActive 
+                        ? 'border-blue-600 bg-blue-50 text-blue-700 font-semibold' 
+                        : 'border-transparent hover:bg-gray-50 text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    <Icon className={`w-5 h-5 ${isActive ? cat.color : 'text-gray-400'}`} />
+                    <span>{cat.label}</span>
+                    <Badge variant="outline" className={isActive ? 'bg-blue-100 border-blue-300' : ''}>
+                      {count}
+                    </Badge>
+                  </button>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Search & Filters */}
         <Card className="mb-6">
           <CardContent className="p-4">
             <div className="flex flex-wrap gap-4">
@@ -231,23 +282,6 @@ export default function DocumentLibrary() {
                   className="pl-10"
                 />
               </div>
-
-              <Select value={filterCategory} onValueChange={setFilterCategory}>
-                <SelectTrigger className="w-40">
-                  <SelectValue placeholder="Category" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Categories</SelectItem>
-                  <SelectItem value="sop">SOPs</SelectItem>
-                  <SelectItem value="policy">Policies</SelectItem>
-                  <SelectItem value="training">Training</SelectItem>
-                  <SelectItem value="guide">Guides</SelectItem>
-                  <SelectItem value="quality">Quality</SelectItem>
-                  <SelectItem value="procedure">Procedures</SelectItem>
-                  <SelectItem value="emergency">Emergency</SelectItem>
-                  <SelectItem value="customer_service">Customer Service</SelectItem>
-                </SelectContent>
-              </Select>
 
               {isManager && (
                 <Select value={filterStatus} onValueChange={setFilterStatus}>
@@ -274,7 +308,7 @@ export default function DocumentLibrary() {
               animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: index * 0.03 }}
             >
-              <Card className="hover:shadow-xl transition-all duration-300 group">
+              <Card className="hover:shadow-xl transition-all duration-300 group h-full">
                 <CardContent className="p-6">
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex-1">
@@ -381,11 +415,11 @@ export default function DocumentLibrary() {
                 No Documents Found
               </h3>
               <p className="text-gray-600 mb-6">
-                {searchQuery || filterCategory !== 'all'
+                {searchQuery || selectedCategory !== 'all'
                   ? 'Try adjusting your filters'
                   : 'Start by creating your first document'}
               </p>
-              {isManager && !searchQuery && filterCategory === 'all' && (
+              {isManager && !searchQuery && selectedCategory === 'all' && (
                 <Link to={createPageUrl('DocumentBuilder')}>
                   <Button>
                     <Plus className="w-4 h-4 mr-2" />
