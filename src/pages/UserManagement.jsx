@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import { useToast } from '@/components/ui/use-toast';
 import {
   Select,
   SelectContent,
@@ -60,6 +61,7 @@ import { motion } from 'framer-motion';
 
 export default function UserManagement() {
   const queryClient = useQueryClient();
+  const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState('');
   const [filterRole, setFilterRole] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
@@ -109,16 +111,32 @@ export default function UserManagement() {
   const isAdmin = currentUser?.role === 'admin' || currentUser?.position === 'owner';
   const isManager = currentUser?.position === 'manager';
 
+  // Fetch all users with proper ordering and NO caching
   const { data: allUsers = [], isLoading: loadingUsers, refetch: refetchUsers } = useQuery({
     queryKey: ['allUsers'],
-    queryFn: () => base44.entities.User.list('-created_date'),
+    queryFn: async () => {
+      console.log('[UserManagement] Fetching all users...');
+      const users = await base44.entities.User.list('-created_date');
+      console.log('[UserManagement] Fetched users:', users.length);
+      return users;
+    },
     staleTime: 0,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: true,
   });
 
-  const { data: teamMembers = [], refetch: refetchTeamMembers } = useQuery({
+  // Fetch all team members with NO caching
+  const { data: teamMembers = [], isLoading: loadingTeamMembers, refetch: refetchTeamMembers } = useQuery({
     queryKey: ['allTeamMembers'],
-    queryFn: () => base44.entities.TeamMember.list('-created_date'),
+    queryFn: async () => {
+      console.log('[UserManagement] Fetching all team members...');
+      const members = await base44.entities.TeamMember.list('-created_date');
+      console.log('[UserManagement] Fetched team members:', members.length);
+      return members;
+    },
     staleTime: 0,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: true,
   });
 
   const { data: invitations = [] } = useQuery({
@@ -131,8 +149,14 @@ export default function UserManagement() {
     queryFn: () => base44.entities.RegistrationRequest.filter({ status: 'pending' }),
   });
 
+  // Unified users list with proper merging
   const unifiedUsers = React.useMemo(() => {
     const userMap = new Map();
+
+    console.log('[UserManagement] Building unified users...', {
+      users: allUsers.length,
+      teamMembers: teamMembers.length,
+    });
 
     allUsers.forEach(user => {
       userMap.set(user.email, {
@@ -148,6 +172,7 @@ export default function UserManagement() {
         role: user.role,
         hourly_rate: user.hourly_rate,
         created_date: user.created_date,
+        created_by: user.created_by,
         source: 'user',
         has_team_member: false,
         team_member_id: null,
@@ -189,9 +214,14 @@ export default function UserManagement() {
       }
     });
 
-    return Array.from(userMap.values()).sort((a, b) => 
-      (a.full_name || '').localeCompare(b.full_name || '')
-    );
+    const result = Array.from(userMap.values()).sort((a, b) => {
+      const dateA = new Date(a.created_date || 0);
+      const dateB = new Date(b.created_date || 0);
+      return dateB - dateA; // Most recent first
+    });
+
+    console.log('[UserManagement] Unified users count:', result.length);
+    return result;
   }, [allUsers, teamMembers]);
 
   const filteredUsers = unifiedUsers.filter(user => {
@@ -210,6 +240,238 @@ export default function UserManagement() {
     synced: unifiedUsers.filter(u => u.has_team_member).length,
   };
 
+  // Manual sync function
+  const handleSyncAll = async () => {
+    setSyncing(true);
+    console.log('[UserManagement] Manual sync triggered');
+    
+    toast({
+      title: "🔄 Syncing...",
+      description: "Refreshing user data from database",
+    });
+
+    try {
+      // Force refetch all queries
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['allUsers'] }),
+        queryClient.invalidateQueries({ queryKey: ['allTeamMembers'] }),
+        queryClient.invalidateQueries({ queryKey: ['teamMembers'] }), // Assuming 'teamMembers' is another query key you might have
+        queryClient.invalidateQueries({ queryKey: ['userInvitations'] }),
+        queryClient.invalidateQueries({ queryKey: ['registrationRequests'] }),
+      ]);
+
+      await Promise.all([
+        refetchUsers(),
+        refetchTeamMembers(),
+      ]);
+
+      // Trigger UnifiedUserSync by reloading
+      sessionStorage.removeItem('unified_user_sync_done');
+      
+      console.log('[UserManagement] Sync complete');
+      
+      toast({
+        title: "✅ Sync Complete",
+        description: `Updated ${unifiedUsers.length} users`,
+      });
+
+      // Reload page to trigger all background syncs
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000);
+
+    } catch (error) {
+      console.error('[UserManagement] Sync error:', error);
+      toast({
+        title: "❌ Sync Failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  // Create user manually
+  const createManualUserMutation = useMutation({
+    mutationFn: async (userData) => {
+      console.log('[UserManagement] Creating manual user:', userData.email);
+      
+      // Create TeamMember first (single source of truth)
+      const teamMember = await base44.entities.TeamMember.create({
+        staff_email: userData.email,
+        staff_name: userData.full_name,
+        position: userData.position,
+        department: userData.department,
+        phone: userData.phone || '',
+        hire_date: userData.hire_date,
+        hourly_rate: parseFloat(userData.hourly_rate) || 0,
+        status: 'active',
+        shift_start: '09:00',
+        shift_end: '17:00',
+        notes: `Manually added by ${currentUser.full_name}`,
+      });
+
+      console.log('[UserManagement] TeamMember created:', teamMember.id);
+
+      // Send welcome email
+      try {
+        await base44.integrations.Core.SendEmail({
+          to: userData.email,
+          subject: 'Welcome to AURA One Pro! 🎉',
+          body: `Hello ${userData.full_name},
+
+You have been added to AURA One Pro by ${currentUser.full_name}.
+
+Position: ${userData.position}
+Department: ${userData.department}
+
+To access your account, please register using this email address: ${userData.email}
+
+If you have any questions, please contact your manager.
+
+Best regards,
+AURA Team`,
+        });
+        console.log('[UserManagement] Welcome email sent to:', userData.email);
+      } catch (emailError) {
+        console.error('[UserManagement] Email error:', emailError);
+        // Don't fail user creation if email fails
+      }
+
+      return teamMember;
+    },
+    onSuccess: async (teamMember) => {
+      console.log('[UserManagement] User creation successful');
+      
+      // Invalidate and refetch all queries
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['allUsers'] }),
+        queryClient.invalidateQueries({ queryKey: ['allTeamMembers'] }),
+        queryClient.invalidateQueries({ queryKey: ['teamMembers'] }),
+      ]);
+
+      await Promise.all([
+        refetchUsers(),
+        refetchTeamMembers(),
+      ]);
+
+      setShowManualAddDialog(false);
+      setManualUserData({
+        email: '',
+        full_name: '',
+        position: 'server',
+        department: 'front_of_house',
+        phone: '',
+        hire_date: format(new Date(), 'yyyy-MM-dd'),
+        hourly_rate: '',
+      });
+
+      toast({
+        title: "✅ User Created Successfully!",
+        description: `${manualUserData.full_name} (${manualUserData.email}) has been added to the team. Welcome email sent!`,
+      });
+
+      console.log('[UserManagement] User visible in list');
+    },
+    onError: (error) => {
+      console.error('[UserManagement] User creation error:', error);
+      toast({
+        title: "❌ Failed to Create User",
+        description: error.message || 'Please check if email already exists.',
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Send invitation
+  const sendInvitationMutation = useMutation({
+    mutationFn: async (inviteData) => {
+      console.log('[UserManagement] Sending invitation to:', inviteData.email);
+      
+      const invitationCode = `INV-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      const registrationLink = `${window.location.origin}/register?code=${invitationCode}`;
+      const expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + 7);
+
+      const invitation = await base44.entities.UserInvitation.create({
+        invitation_code: invitationCode,
+        invited_email: inviteData.email,
+        invited_name: inviteData.name,
+        invited_position: inviteData.position,
+        invited_department: inviteData.department,
+        invited_by: currentUser.email,
+        invited_by_name: currentUser.full_name,
+        invitation_type: inviteData.type,
+        registration_link: registrationLink,
+        status: 'pending',
+        expires_at: expiresAt.toISOString(),
+      });
+
+      console.log('[UserManagement] Invitation created:', invitation.id);
+
+      if (inviteData.type === 'email') {
+        try {
+          await base44.integrations.Core.SendEmail({
+            to: inviteData.email,
+            subject: `You're invited to join AURA One Pro! 🎉`,
+            body: `Hello ${inviteData.name},
+
+You have been invited to join our team as a ${inviteData.position}!
+
+To complete your registration, please click the link below:
+${registrationLink}
+
+This invitation will expire in 7 days.
+
+Position: ${inviteData.position}
+Department: ${inviteData.department}
+
+Best regards,
+${currentUser.full_name}`,
+          });
+
+          await base44.entities.UserInvitation.update(invitation.id, {
+            email_sent_at: new Date().toISOString(),
+          });
+
+          console.log('[UserManagement] Invitation email sent');
+        } catch (error) {
+          console.error('[UserManagement] Email send error:', error);
+        }
+      }
+
+      return invitation;
+    },
+    onSuccess: (invitation) => {
+      queryClient.invalidateQueries({ queryKey: ['userInvitations'] });
+      
+      if (inviteType === 'link') {
+        setGeneratedLink(invitation.registration_link);
+        toast({
+          title: "✅ Registration Link Generated",
+          description: "Copy the link to share with the new user",
+        });
+      } else {
+        setShowInviteDialog(false);
+        setInviteFormData({ email: '', name: '', position: 'server', department: 'front_of_house' });
+        toast({
+          title: "✅ Invitation Sent!",
+          description: `Email invitation sent to ${inviteFormData.name} (${inviteFormData.email})`,
+        });
+      }
+    },
+    onError: (error) => {
+      console.error('[UserManagement] Invitation error:', error);
+      toast({
+        title: "❌ Failed to Send Invitation",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Update user
   const updateUserMutation = useMutation({
     mutationFn: async ({ userId, teamMemberId, data }) => {
       const promises = [];
@@ -242,11 +504,27 @@ export default function UserManagement() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['allUsers'] });
       queryClient.invalidateQueries({ queryKey: ['allTeamMembers'] });
+      refetchUsers();
+      refetchTeamMembers();
       setShowEditDialog(false);
       setEditingUser(null);
+      
+      toast({
+        title: "✅ User Updated",
+        description: "Changes saved successfully",
+      });
+    },
+    onError: (error) => {
+      console.error('[UserManagement] Update user error:', error);
+      toast({
+        title: "❌ Failed to Update User",
+        description: error.message,
+        variant: "destructive",
+      });
     },
   });
 
+  // Delete/Deactivate user
   const deleteUserMutation = useMutation({
     mutationFn: async ({ userId, teamMemberId }) => {
       const promises = [];
@@ -263,117 +541,27 @@ export default function UserManagement() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['allUsers'] });
       queryClient.invalidateQueries({ queryKey: ['allTeamMembers'] });
+      refetchUsers();
+      refetchTeamMembers();
       setShowDeleteDialog(false);
       setUserToDelete(null);
-    },
-  });
-
-  const createManualUserMutation = useMutation({
-    mutationFn: async (userData) => {
-      // Create TeamMember first (this is our single source of truth)
-      const teamMember = await base44.entities.TeamMember.create({
-        staff_email: userData.email,
-        staff_name: userData.full_name,
-        position: userData.position,
-        department: userData.department,
-        phone: userData.phone || '',
-        hire_date: userData.hire_date,
-        hourly_rate: parseFloat(userData.hourly_rate) || 0,
-        status: 'active',
-        shift_start: '09:00',
-        shift_end: '17:00',
-        notes: 'Manually added by manager',
-      });
-
-      return teamMember;
-    },
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['allTeamMembers'] });
-      await queryClient.invalidateQueries({ queryKey: ['allUsers'] });
-      setShowManualAddDialog(false);
-      setManualUserData({
-        email: '',
-        full_name: '',
-        position: 'server',
-        department: 'front_of_house',
-        phone: '',
-        hire_date: format(new Date(), 'yyyy-MM-dd'),
-        hourly_rate: '',
-      });
-      alert('✅ User added successfully! They can now register with this email.');
-    },
-    onError: (error) => {
-      console.error('Error creating user:', error);
-      alert('❌ Failed to create user. Please check if email already exists.');
-    },
-  });
-
-  const sendInvitationMutation = useMutation({
-    mutationFn: async (inviteData) => {
-      const invitationCode = `INV-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-      const registrationLink = `${window.location.origin}/register?code=${invitationCode}`;
-      const expiresAt = new Date();
-      expiresAt.setDate(expiresAt.getDate() + 7);
-
-      const invitation = await base44.entities.UserInvitation.create({
-        invitation_code: invitationCode,
-        invited_email: inviteData.email,
-        invited_name: inviteData.name,
-        invited_position: inviteData.position,
-        invited_department: inviteData.department,
-        invited_by: currentUser.email,
-        invited_by_name: currentUser.full_name,
-        invitation_type: inviteData.type,
-        registration_link: registrationLink,
-        status: 'pending',
-        expires_at: expiresAt.toISOString(),
-      });
-
-      if (inviteData.type === 'email') {
-        try {
-          await base44.integrations.Core.SendEmail({
-            to: inviteData.email,
-            subject: `You're invited to join our team!`,
-            body: `Hello ${inviteData.name},
-
-You have been invited to join our team as a ${inviteData.position}!
-
-To complete your registration, please click the link below:
-${registrationLink}
-
-This invitation will expire in 7 days.
-
-Best regards,
-${currentUser.full_name}`,
-          });
-
-          await base44.entities.UserInvitation.update(invitation.id, {
-            email_sent_at: new Date().toISOString(),
-          });
-        } catch (error) {
-          console.error('Email send error:', error);
-        }
-      }
-
-      return invitation;
-    },
-    onSuccess: (invitation) => {
-      queryClient.invalidateQueries({ queryKey: ['userInvitations'] });
       
-      if (inviteType === 'link') {
-        setGeneratedLink(invitation.registration_link);
-      } else {
-        setShowInviteDialog(false);
-        setInviteFormData({ email: '', name: '', position: 'server', department: 'front_of_house' });
-        alert('✅ Invitation sent successfully!');
-      }
+      toast({
+        title: "✅ User Deactivated",
+        description: "User has been marked as inactive",
+      });
     },
     onError: (error) => {
-      console.error('Invitation error:', error);
-      alert('❌ Failed to send invitation. Please try again.');
+      console.error('[UserManagement] Deactivate user error:', error);
+      toast({
+        title: "❌ Failed to Deactivate User",
+        description: error.message,
+        variant: "destructive",
+      });
     },
   });
 
+  // Approve registration request
   const approveRegistrationMutation = useMutation({
     mutationFn: async (request) => {
       await base44.entities.RegistrationRequest.update(request.id, {
@@ -386,12 +574,15 @@ ${currentUser.full_name}`,
       try {
         await base44.integrations.Core.SendEmail({
           to: request.email,
-          subject: 'Your registration has been approved!',
+          subject: 'Your registration has been approved! 🎉',
           body: `Hello ${request.full_name},
 
-Great news! Your registration has been approved.
+Great news! Your registration has been approved by ${currentUser.full_name}.
 
-You can now log in to the system with your credentials.
+You can now log in to AURA One Pro with your credentials.
+
+Position: ${request.desired_position}
+Department: ${request.desired_department}
 
 Welcome to the team!
 
@@ -399,15 +590,27 @@ Best regards,
 ${currentUser.full_name}`,
         });
       } catch (error) {
-        console.error('Email error:', error);
+        console.error('[UserManagement] Email error:', error);
       }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['registrationRequests'] });
-      alert('✅ Registration approved!');
+      toast({
+        title: "✅ Registration Approved",
+        description: "User has been notified via email",
+      });
+    },
+    onError: (error) => {
+      console.error('[UserManagement] Approve registration error:', error);
+      toast({
+        title: "❌ Failed to Approve Registration",
+        description: error.message,
+        variant: "destructive",
+      });
     },
   });
 
+  // Reject registration request
   const rejectRegistrationMutation = useMutation({
     mutationFn: async ({ request, reason }) => {
       await base44.entities.RegistrationRequest.update(request.id, {
@@ -430,16 +633,29 @@ Unfortunately, we are unable to approve your registration at this time.
 
 ${reason ? `Reason: ${reason}` : ''}
 
+If you have any questions, please contact us.
+
 Best regards,
 ${currentUser.full_name}`,
         });
       } catch (error) {
-        console.error('Email error:', error);
+        console.error('[UserManagement] Email error:', error);
       }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['registrationRequests'] });
-      alert('Registration rejected');
+      toast({
+        title: "Registration Rejected",
+        description: "User has been notified",
+      });
+    },
+    onError: (error) => {
+      console.error('[UserManagement] Reject registration error:', error);
+      toast({
+        title: "❌ Failed to Reject Registration",
+        description: error.message,
+        variant: "destructive",
+      });
     },
   });
 
@@ -477,22 +693,13 @@ ${currentUser.full_name}`,
     });
   };
 
-  const handleSyncAll = async () => {
-    setSyncing(true);
-    try {
-      await refetchUsers();
-      await refetchTeamMembers();
-      sessionStorage.removeItem('unified_user_sync_done');
-      window.location.reload();
-    } catch (error) {
-      console.error('Sync error:', error);
-    }
-    setSyncing(false);
-  };
-
   const handleSendInvite = () => {
     if (!inviteFormData.email || !inviteFormData.name) {
-      alert('Please fill in all required fields');
+      toast({
+        title: "❌ Missing Information",
+        description: "Please fill in all required fields (Email and Full Name).",
+        variant: "destructive",
+      });
       return;
     }
 
@@ -504,14 +711,22 @@ ${currentUser.full_name}`,
 
   const handleManualAddUser = () => {
     if (!manualUserData.email || !manualUserData.full_name) {
-      alert('Please fill in email and full name');
+      toast({
+        title: "❌ Missing Information",
+        description: "Please fill in email and full name.",
+        variant: "destructive",
+      });
       return;
     }
 
     // Validate email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(manualUserData.email)) {
-      alert('Please enter a valid email address');
+      toast({
+        title: "❌ Invalid Email",
+        description: "Please enter a valid email address.",
+        variant: "destructive",
+      });
       return;
     }
 
@@ -520,7 +735,10 @@ ${currentUser.full_name}`,
 
   const copyToClipboard = (text) => {
     navigator.clipboard.writeText(text);
-    alert('✅ Copied to clipboard!');
+    toast({
+      title: "✅ Copied!",
+      description: "Link copied to clipboard",
+    });
   };
 
   const getRoleColor = (position) => {
@@ -531,14 +749,22 @@ ${currentUser.full_name}`,
       server: 'bg-blue-100 text-blue-800 border-blue-200',
       bartender: 'bg-indigo-100 text-indigo-800 border-indigo-200',
       cleaner: 'bg-green-100 text-green-800 border-green-200',
+      'sous_chef': 'bg-orange-100 text-orange-800 border-orange-200',
+      'line_cook': 'bg-yellow-100 text-yellow-800 border-yellow-200',
+      'host': 'bg-teal-100 text-teal-800 border-teal-200',
+      'maintenance': 'bg-gray-100 text-gray-800 border-gray-200',
     };
     return colors[position] || 'bg-gray-100 text-gray-800 border-gray-200';
   };
 
   const getStatusColor = (status) => {
-    return status === 'active' 
-      ? 'bg-green-100 text-green-800 border-green-200'
-      : 'bg-gray-100 text-gray-800 border-gray-200';
+    const colors = {
+      active: 'bg-green-100 text-green-800 border-green-200',
+      inactive: 'bg-gray-100 text-gray-800 border-gray-200',
+      on_leave: 'bg-yellow-100 text-yellow-800 border-yellow-200',
+      probation: 'bg-orange-100 text-orange-800 border-orange-200',
+    };
+    return colors[status] || 'bg-gray-100 text-gray-800 border-gray-200';
   };
 
   if (!isAdmin && !isManager) {
@@ -640,6 +866,7 @@ ${currentUser.full_name}`,
           </div>
         </div>
 
+        {/* Stats Cards */}
         <div className="grid md:grid-cols-4 gap-4 mb-6">
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
             <Card>
@@ -698,6 +925,7 @@ ${currentUser.full_name}`,
           </motion.div>
         </div>
 
+        {/* Search and Filters */}
         <Card className="mb-6">
           <CardContent className="p-4">
             <div className="flex flex-wrap gap-4">
@@ -720,9 +948,13 @@ ${currentUser.full_name}`,
                   <SelectItem value="owner">Owner</SelectItem>
                   <SelectItem value="manager">Manager</SelectItem>
                   <SelectItem value="chef">Chef</SelectItem>
+                  <SelectItem value="sous_chef">Sous Chef</SelectItem>
+                  <SelectItem value="line_cook">Line Cook</SelectItem>
                   <SelectItem value="server">Server</SelectItem>
                   <SelectItem value="bartender">Bartender</SelectItem>
+                  <SelectItem value="host">Host</SelectItem>
                   <SelectItem value="cleaner">Cleaner</SelectItem>
+                  <SelectItem value="maintenance">Maintenance</SelectItem>
                 </SelectContent>
               </Select>
 
@@ -734,12 +966,15 @@ ${currentUser.full_name}`,
                   <SelectItem value="all">All Status</SelectItem>
                   <SelectItem value="active">Active</SelectItem>
                   <SelectItem value="inactive">Inactive</SelectItem>
+                  <SelectItem value="on_leave">On Leave</SelectItem>
+                  <SelectItem value="probation">Probation</SelectItem>
                 </SelectContent>
               </Select>
             </div>
           </CardContent>
         </Card>
 
+        {/* Users Table */}
         <Card>
           <CardContent className="p-0">
             <div className="overflow-x-auto">
@@ -1010,6 +1245,7 @@ ${currentUser.full_name}`,
           </DialogContent>
         </Dialog>
 
+        {/* Invite User Dialog */}
         <Dialog open={showInviteDialog} onOpenChange={setShowInviteDialog}>
           <DialogContent className="max-w-2xl">
             <DialogHeader>
@@ -1164,6 +1400,7 @@ ${currentUser.full_name}`,
           </DialogContent>
         </Dialog>
 
+        {/* Registration Requests Dialog */}
         <Dialog open={showRegistrationRequests} onOpenChange={setShowRegistrationRequests}>
           <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
             <DialogHeader>
@@ -1261,6 +1498,7 @@ ${currentUser.full_name}`,
           </DialogContent>
         </Dialog>
 
+        {/* Edit User Dialog */}
         <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
           <DialogContent className="sm:max-w-[500px]">
             <DialogHeader>
@@ -1397,6 +1635,7 @@ ${currentUser.full_name}`,
           </DialogContent>
         </Dialog>
 
+        {/* Delete/Deactivate User Dialog */}
         <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
           <DialogContent>
             <DialogHeader>
