@@ -112,6 +112,7 @@ import AnalyticsDashboard from './pages/AnalyticsDashboard';
 import AuraIntelligence from './pages/AuraIntelligence';
 import ComplianceCore from './pages/ComplianceCore';
 import PayrollDashboard from './pages/PayrollDashboard';
+import AuraBrainDashboard from './pages/AuraBrainDashboard';
 import Layout from './Layout.jsx';
 
 
@@ -230,6 +231,7 @@ export const PAGES = {
     "AuraIntelligence": AuraIntelligence,
     "ComplianceCore": ComplianceCore,
     "PayrollDashboard": PayrollDashboard,
+    "AuraBrainDashboard": AuraBrainDashboard,
 }
 
 export const pagesConfig = {
