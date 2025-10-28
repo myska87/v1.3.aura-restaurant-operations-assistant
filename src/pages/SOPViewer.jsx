@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -6,24 +5,19 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
-  FileText, // Existing
-  ArrowLeft, // Existing
-  Home, // Existing
-  Edit, // Existing
-  CheckCircle, // Existing
-  Clock, // Existing
-  Users, // New
-  AlertCircle, // New (though AlertTriangle was present, AlertCircle is in outline)
-  Download, // New
-  Printer, // New
-  BookOpen, // New (was also present as `BookOpen` in the original)
-  Mic, // New (replaces Volume2)
+  FileText,
+  ArrowLeft,
+  Home,
+  Edit,
+  CheckCircle,
+  Clock,
+  Users,
+  BookOpen,
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import { format } from 'date-fns';
 import SOPSignatureCanvas from '../components/SOPSignatureCanvas';
-// SOPStepTimeline import removed as per outline
 
 export default function SOPViewer() {
   const navigate = useNavigate();
@@ -53,8 +47,6 @@ export default function SOPViewer() {
   const { data: mySignature } = useQuery({
     queryKey: ['sopSignature', sopId, user?.email],
     queryFn: async () => {
-      // Ensure sopId and user.email are available before making the request
-      if (!sopId || !user?.email) return null; 
       const signatures = await base44.entities.SOPSignatureLog.filter({
         sop_id: sopId,
         staff_email: user.email
@@ -64,25 +56,20 @@ export default function SOPViewer() {
     enabled: !!sopId && !!user?.email,
   });
 
-  // ✅ ENHANCED: Increment view count on load
+  // Increment view count on load
   useEffect(() => {
     if (sop && user) {
-      // No need for an explicit async IIFE, just call the async function and catch errors
       base44.entities.SOPDocument.update(sop.id, {
         view_count: (sop.view_count || 0) + 1
-      }).catch(err => console.error('View count update failed:', err)); // Changed console.log to console.error
+      }).catch(err => console.log('View count update failed:', err));
     }
-  }, [sop?.id, user?.email]); // Changed dependency from user?.id to user?.email as per outline
+  }, [sop?.id, user?.email]);
 
-  // ✅ ENHANCED: Sign SOP mutation with activity logging
+  // Sign SOP mutation with activity logging
   const signSOPMutation = useMutation({
     mutationFn: async (signatureUrl) => {
-      if (!sop || !user) {
-        throw new Error("SOP or user data is not available for signing.");
-      }
-      const timeSpent = Math.round((new Date().getTime() - startTime.getTime()) / 60000); // minutes, rounded
+      const timeSpent = Math.round((new Date() - startTime) / 60000);
 
-      // Create signature log
       const signature = await base44.entities.SOPSignatureLog.create({
         sop_id: sop.id,
         sop_title: sop.title,
@@ -97,12 +84,10 @@ export default function SOPViewer() {
         completion_time_minutes: timeSpent,
       });
 
-      // Update SOP signature count
       await base44.entities.SOPDocument.update(sop.id, {
         signature_count: (sop.signature_count || 0) + 1
       });
 
-      // ✨ Log activity
       await base44.entities.ActivityLog.create({
         activity_type: 'sop_signed',
         title: 'SOP Signed',
@@ -125,39 +110,12 @@ export default function SOPViewer() {
       setShowSignature(false);
       alert('✅ SOP Signed Successfully!');
     },
-    onError: (error) => {
-      console.error("Failed to sign SOP:", error);
-      alert(`Error signing SOP: ${error.message}`);
-    }
   });
 
-  // handleSign function removed as per outline
-  // handleVoiceMode function removed as per outline
-
-  if (isLoading) {
+  if (isLoading || !sop) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin w-12 h-12 border-4 border-[#014D40] border-t-transparent rounded-full"></div>
-      </div>
-    );
-  }
-
-  if (!sop) { // This condition was part of isLoading, now separate for a more specific message
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center">
-        <Card>
-          <CardContent className="p-12 text-center">
-            <AlertCircle className="w-12 h-12 text-orange-500 mx-auto mb-4" /> {/* Changed AlertTriangle to AlertCircle */}
-            <h2 className="text-xl font-bold text-gray-900 mb-2">SOP Not Found</h2>
-            <p className="text-gray-600 mb-4">The SOP you're looking for doesn't exist or has been removed.</p>
-            <Link to={createPageUrl('SOPDashboard')}>
-              <Button>
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Back to SOPs
-              </Button>
-            </Link>
-          </CardContent>
-        </Card>
       </div>
     );
   }
@@ -223,7 +181,7 @@ export default function SOPViewer() {
               </div>
               {sop.view_count > 0 && (
                 <div className="flex items-center gap-2">
-                  <span role="img" aria-label="eye">👁️</span> <span>{sop.view_count} views</span>
+                  👁️ <span>{sop.view_count} views</span>
                 </div>
               )}
             </div>
@@ -234,15 +192,12 @@ export default function SOPViewer() {
         <Card className="mb-6">
           <CardContent className="p-8">
             {sop.content_html ? (
-              <div
+              <div 
                 className="prose prose-lg max-w-none"
                 dangerouslySetInnerHTML={{ __html: sop.content_html }}
               />
             ) : sop.content_markdown ? (
-              <div className="prose prose-lg max-w-none">
-                {/* For markdown, we'd typically use a markdown renderer component.
-                    For simplicity, just showing the raw markdown as text here,
-                    but in a real app, it would be `react-markdown` or similar. */}
+              <div className="prose prose-lg max-w-none whitespace-pre-wrap">
                 {sop.content_markdown}
               </div>
             ) : (
@@ -252,8 +207,8 @@ export default function SOPViewer() {
         </Card>
 
         {/* Signature Section */}
-        {!mySignature && sop.requires_signature && ( // Added sop.requires_signature check
-          <Card className="bg-blue-50 border-blue-200 mb-6"> {/* Added mb-6 for spacing */}
+        {!mySignature && (
+          <Card className="bg-blue-50 border-blue-200">
             <CardContent className="p-6">
               <div className="flex items-start justify-between">
                 <div className="flex-1">
@@ -266,7 +221,6 @@ export default function SOPViewer() {
                   <Button
                     onClick={() => setShowSignature(true)}
                     className="bg-[#014D40] hover:bg-[#013830]"
-                    disabled={signSOPMutation.isPending} // Disable button while signing
                   >
                     <CheckCircle className="w-4 h-4 mr-2" />
                     Sign SOP
@@ -278,7 +232,7 @@ export default function SOPViewer() {
         )}
 
         {mySignature && (
-          <Card className="bg-green-50 border-green-200 mb-6"> {/* Added mb-6 for spacing */}
+          <Card className="bg-green-50 border-green-200">
             <CardContent className="p-6">
               <div className="flex items-center gap-3">
                 <CheckCircle className="w-8 h-8 text-green-600" />
@@ -293,34 +247,12 @@ export default function SOPViewer() {
           </Card>
         )}
 
-        {/* Optional: Add voice mode button if desired, outline implies removal of `handleVoiceMode` but `Mic` icon exists */}
-        <div className="flex gap-3 mb-6">
-            <Button
-              onClick={() => navigate(createPageUrl(`SOPVoiceMode?id=${sopId}`))}
-              className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
-            >
-              <Mic className="w-5 h-5 mr-2" />
-              🎧 Voice Mode
-            </Button>
-            {/* Download and Print buttons could go here */}
-             <Button variant="outline">
-              <Download className="w-4 h-4 mr-2" />
-              Download PDF
-            </Button>
-             <Button variant="outline">
-              <Printer className="w-4 h-4 mr-2" />
-              Print
-            </Button>
-        </div>
-
-
         {/* Signature Dialog */}
         {showSignature && (
           <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
             <Card className="max-w-2xl w-full">
               <CardHeader>
                 <CardTitle>Sign SOP</CardTitle>
-                <p className="text-sm text-gray-500">Draw your signature below to acknowledge this SOP.</p>
               </CardHeader>
               <CardContent>
                 <SOPSignatureCanvas
