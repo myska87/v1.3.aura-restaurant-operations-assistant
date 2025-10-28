@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -104,7 +105,7 @@ export default function OperationsCore() {
     inProgress: operationTasks.filter(t => t.status === 'in_progress').length,
     completed: operationTasks.filter(t => t.status === 'completed').length,
     overdue: operationTasks.filter(t => t.status === 'overdue').length,
-    completionRate: operationTasks.length > 0 
+    completionRate: operationTasks.length > 0
       ? Math.round((operationTasks.filter(t => t.status === 'completed').length / operationTasks.length) * 100)
       : 0,
   };
@@ -160,10 +161,12 @@ export default function OperationsCore() {
             </div>
           </div>
           {isManager && (
-            <Button className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700">
-              <Plus className="w-4 h-4 mr-2" />
-              Create Task
-            </Button>
+            <Link to={createPageUrl('CreateOperationTask')}>
+              <Button className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700">
+                <Plus className="w-4 h-4 mr-2" />
+                Create Task
+              </Button>
+            </Link>
           )}
         </div>
 
@@ -417,7 +420,7 @@ export default function OperationsCore() {
                                   {task.type}
                                 </Badge>
                               </div>
-                              
+
                               <div className="flex flex-wrap gap-2 text-sm text-gray-700 mb-2">
                                 {task.department && (
                                   <span className="capitalize">📍 {task.department}</span>
