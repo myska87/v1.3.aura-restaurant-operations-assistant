@@ -194,6 +194,11 @@ const managementItems = [
     icon: Briefcase,
   },
   {
+    title: "🌟 Workflow Mode",
+    url: createPageUrl("WorkflowMode"),
+    icon: Zap,
+  },
+  {
     title: "📅 Smart Scheduler",
     url: createPageUrl("SmartScheduler"),
     icon: Calendar,

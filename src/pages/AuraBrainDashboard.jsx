@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+
+import React, { useState, useMemo } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -6,10 +7,10 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
+import { Progress } from '@/components/ui/progress'; // Added Progress import
 import {
   Brain,
   Activity,
-  TrendingUp,
   Package,
   Star,
   Shield,
@@ -18,8 +19,6 @@ import {
   Clock,
   Zap,
   Home,
-  Download,
-  Eye,
   ThumbsUp,
   ThumbsDown,
 } from 'lucide-react';
@@ -32,8 +31,8 @@ import EmptyState from '../components/common/EmptyState';
 
 export default function AuraBrainDashboard() {
   const queryClient = useQueryClient();
-  const [filterAgent, setFilterAgent] = useState('all');
-  const [filterStatus, setFilterStatus] = useState('all');
+  const [selectedAgent, setSelectedAgent] = useState(null); // New state variable
+  const [dismissingAction, setDismissingAction] = useState(null); // New state variable
 
   const { data: user } = useQuery({
     queryKey: ['currentUser'],
@@ -43,18 +42,10 @@ export default function AuraBrainDashboard() {
   const isManager = user?.role === 'admin' || user?.position === 'manager' || user?.position === 'owner';
 
   const { data: agentLogs = [], isLoading } = useQuery({
-    queryKey: ['agentLogs', filterAgent, filterStatus],
+    queryKey: ['agentLogs'], // Removed filterAgent, filterStatus from queryKey
     queryFn: async () => {
+      // Fetch all logs, filtering will be done client-side based on selectedAgent
       let logs = await base44.entities.AgentLog.list('-created_date', 100);
-      
-      if (filterAgent !== 'all') {
-        logs = logs.filter(l => l.agent_name === filterAgent);
-      }
-      
-      if (filterStatus !== 'all') {
-        logs = logs.filter(l => l.status === filterStatus);
-      }
-      
       return logs;
     },
   });
@@ -65,44 +56,54 @@ export default function AuraBrainDashboard() {
   });
 
   const toggleAgentMutation = useMutation({
-    mutationFn: ({ agentId, enabled }) => 
+    mutationFn: ({ agentId, enabled }) =>
       base44.entities.AgentConfig.update(agentId, {
         is_enabled: enabled,
         updated_by: user?.email,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['agentConfigs'] });
+      queryClient.invalidateQueries({ queryKey: ['agentLogs'] }); // Invalidate logs as agent activity might change
     },
   });
 
-  const approveActionMutation = useMutation({
-    mutationFn: (logId) =>
-      base44.entities.AgentLog.update(logId, {
+  // Consolidated mutation for updating agent log status
+  const updateAgentLogMutation = useMutation({
+    mutationFn: ({ id, data }) => base44.entities.AgentLog.update(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['agentLogs'] });
+      queryClient.invalidateQueries({ queryKey: ['agentConfigs'] }); // Agent configs might be affected if metrics are derived
+    },
+  });
+
+  const handleApproveAction = async (log) => {
+    await updateAgentLogMutation.mutateAsync({
+      id: log.id,
+      data: {
         status: 'approved',
         approved_by: user?.email,
         approved_at: new Date().toISOString(),
-      }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['agentLogs'] });
-      alert('✅ Action approved!');
-    },
-  });
+      }
+    });
+    alert('✅ Agent action approved!');
+  };
 
-  const dismissActionMutation = useMutation({
-    mutationFn: ({ logId, reason }) =>
-      base44.entities.AgentLog.update(logId, {
+  const handleDismissAction = async (log, reason) => {
+    setDismissingAction(log.id);
+    await updateAgentLogMutation.mutateAsync({
+      id: log.id,
+      data: {
         status: 'dismissed',
         dismissed_by: user?.email,
         dismissed_at: new Date().toISOString(),
-        dismissal_reason: reason,
-      }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['agentLogs'] });
-      alert('Action dismissed');
-    },
-  });
+        dismissal_reason: reason || 'Not needed',
+      }
+    });
+    setDismissingAction(null);
+    alert('✅ Agent action dismissed');
+  };
 
-  // Calculate stats
+  // Calculate global stats (for overview cards)
   const stats = {
     total: agentLogs.length,
     pending: agentLogs.filter(l => l.status === 'pending').length,
@@ -110,50 +111,37 @@ export default function AuraBrainDashboard() {
     failed: agentLogs.filter(l => l.status === 'failed').length,
   };
 
-  const agentStats = [
-    {
-      name: 'Hygiene Agent',
-      agent_name: 'hygiene_agent',
-      icon: Activity,
-      color: 'from-blue-500 to-cyan-500',
-      actions: agentLogs.filter(l => l.agent_name === 'hygiene_agent').length,
-    },
-    {
-      name: 'Inventory Agent',
-      agent_name: 'inventory_agent',
-      icon: Package,
-      color: 'from-purple-500 to-pink-500',
-      actions: agentLogs.filter(l => l.agent_name === 'inventory_agent').length,
-    },
-    {
-      name: 'Quality Agent',
-      agent_name: 'quality_agent',
-      icon: Star,
-      color: 'from-amber-500 to-orange-500',
-      actions: agentLogs.filter(l => l.agent_name === 'quality_agent').length,
-    },
-  ];
-
-  const getAgentIcon = (agentName) => {
-    switch (agentName) {
-      case 'hygiene_agent': return Activity;
-      case 'inventory_agent': return Package;
-      case 'quality_agent': return Star;
-      case 'operations_agent': return Zap;
-      case 'compliance_agent': return Shield;
-      default: return Brain;
-    }
+  // Agent icons mapping
+  const agentIcons = {
+    'hygiene_agent': Activity,
+    'inventory_agent': Package,
+    'quality_agent': Star,
+    'operations_agent': Zap,
+    'compliance_agent': Shield,
+    // Add other agents if needed
   };
 
-  const getSeverityColor = (severity) => {
-    switch (severity) {
-      case 'critical': return 'bg-red-100 text-red-800 border-red-200';
-      case 'high': return 'bg-orange-100 text-orange-800 border-orange-200';
-      case 'medium': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-      case 'low': return 'bg-blue-100 text-blue-800 border-blue-200';
-      default: return 'bg-gray-100 text-gray-800 border-gray-200';
-    }
-  };
+  // Calculate agent-specific metrics
+  const agentMetrics = useMemo(() => {
+    const metrics = {};
+    agentConfigs.forEach(config => {
+      metrics[config.agent_name] = { total: 0, pending: 0, success: 0 };
+    });
+
+    agentLogs.forEach(log => {
+      if (metrics[log.agent_name]) {
+        metrics[log.agent_name].total++;
+        if (log.status === 'pending') {
+          metrics[log.agent_name].pending++;
+        }
+        if (log.status === 'completed' || log.status === 'approved') {
+          metrics[log.agent_name].success++;
+        }
+      }
+    });
+    return metrics;
+  }, [agentLogs, agentConfigs]);
+
 
   if (!isManager) {
     return (
@@ -259,115 +247,104 @@ export default function AuraBrainDashboard() {
           </Card>
         </div>
 
-        {/* Agent Cards */}
-        <div className="grid md:grid-cols-3 gap-6 mb-8">
-          {agentStats.map((agent, index) => {
-            const Icon = agent.icon;
-            const config = agentConfigs.find(c => c.agent_name === agent.agent_name);
-            
+        {/* Agent Status Cards */}
+        <div className="grid md:grid-cols-3 gap-4 mb-8">
+          {agentConfigs.map((config) => {
+            const metrics = agentMetrics[config.agent_name] || { total: 0, pending: 0, success: 0 };
+            const Icon = agentIcons[config.agent_name] || Brain;
+
             return (
-              <motion.div
-                key={agent.agent_name}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.1 }}
+              <Card
+                key={config.agent_name}
+                className={`cursor-pointer transition-all hover:shadow-lg ${
+                  selectedAgent === config.agent_name ? 'border-2 border-emerald-500' : ''
+                }`}
+                onClick={() => setSelectedAgent(config.agent_name === selectedAgent ? null : config.agent_name)}
               >
-                <Card className={`bg-gradient-to-br ${agent.color} text-white border-none shadow-lg`}>
-                  <CardContent className="p-6">
-                    <div className="flex items-start justify-between mb-4">
-                      <Icon className="w-12 h-12 opacity-90" />
-                      <div className="flex items-center gap-2">
-                        <Label htmlFor={`toggle-${agent.agent_name}`} className="text-white text-sm">
-                          {config?.is_enabled ? 'Active' : 'Disabled'}
-                        </Label>
-                        <Switch
-                          id={`toggle-${agent.agent_name}`}
-                          checked={config?.is_enabled || false}
-                          onCheckedChange={(checked) => {
-                            if (config) {
-                              toggleAgentMutation.mutate({ agentId: config.id, enabled: checked });
-                            }
-                          }}
-                        />
+                <CardContent className="p-6">
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-12 h-12 rounded-full ${
+                        config.is_enabled ? 'bg-emerald-100' : 'bg-gray-100'
+                      } flex items-center justify-center`}>
+                        <Icon className={`w-6 h-6 ${
+                          config.is_enabled ? 'text-emerald-600' : 'text-gray-400'
+                        }`} />
+                      </div>
+                      <div>
+                        <h3 className="font-bold text-gray-900 text-lg">
+                          {config.agent_name.replace(/_/g, ' ').replace(/\bagent\b/i, '').trim()}
+                        </h3>
+                        <Badge className={
+                          config.is_enabled ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                        }>
+                          {config.is_enabled ? 'Active' : 'Disabled'}
+                        </Badge>
                       </div>
                     </div>
-                    <h3 className="text-2xl font-bold mb-2">{agent.name}</h3>
-                    <p className="text-white/80 text-sm mb-4">
-                      {agent.actions} actions taken
-                    </p>
-                    <div className="bg-white/20 rounded-lg p-3">
-                      <p className="text-xs text-white/90">Last run: {config?.last_run_at ? format(new Date(config.last_run_at), 'MMM d, h:mm a') : 'Never'}</p>
+                    <Switch
+                      id={`toggle-${config.agent_name}`}
+                      checked={config.is_enabled || false}
+                      onCheckedChange={(checked) => {
+                        toggleAgentMutation.mutate({ agentId: config.id, enabled: checked });
+                      }}
+                      onClick={(e) => e.stopPropagation()} // Prevent card click when toggling switch
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-2 text-center mt-4">
+                    <div>
+                      <p className="text-xs text-gray-600">Total</p>
+                      <p className="text-lg font-bold">{metrics.total}</p>
                     </div>
-                  </CardContent>
-                </Card>
-              </motion.div>
+                    <div>
+                      <p className="text-xs text-gray-600">Pending</p>
+                      <p className="text-lg font-bold text-amber-600">{metrics.pending}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-600">Success</p>
+                      <p className="text-lg font-bold text-green-600">
+                        {metrics.total > 0 ? Math.round((metrics.success / metrics.total) * 100) : 0}%
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
             );
           })}
         </div>
 
-        {/* Filters */}
-        <Card className="mb-6">
-          <CardContent className="p-4">
-            <div className="flex flex-wrap gap-4">
-              <div className="flex items-center gap-2">
-                <Label>Agent:</Label>
-                <select
-                  value={filterAgent}
-                  onChange={(e) => setFilterAgent(e.target.value)}
-                  className="px-3 py-2 border rounded-lg"
-                >
-                  <option value="all">All Agents</option>
-                  <option value="hygiene_agent">Hygiene Agent</option>
-                  <option value="inventory_agent">Inventory Agent</option>
-                  <option value="quality_agent">Quality Agent</option>
-                  <option value="operations_agent">Operations Agent</option>
-                  <option value="compliance_agent">Compliance Agent</option>
-                </select>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <Label>Status:</Label>
-                <select
-                  value={filterStatus}
-                  onChange={(e) => setFilterStatus(e.target.value)}
-                  className="px-3 py-2 border rounded-lg"
-                >
-                  <option value="all">All Status</option>
-                  <option value="pending">Pending Review</option>
-                  <option value="completed">Completed</option>
-                  <option value="approved">Approved</option>
-                  <option value="dismissed">Dismissed</option>
-                  <option value="failed">Failed</option>
-                </select>
-              </div>
-
-              <Button variant="outline" className="ml-auto">
-                <Download className="w-4 h-4 mr-2" />
-                Export Logs
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Agent Activity Feed */}
-        <Card>
+        {/* Recent Agent Actions */}
+        <Card className="space-y-6">
           <CardHeader>
-            <CardTitle>Agent Activity Feed</CardTitle>
+            <CardTitle className="flex items-center justify-between">
+              <span>Recent AI Actions</span>
+              {selectedAgent && (
+                <Badge variant="outline">
+                  Filtered: {selectedAgent.replace(/_/g, ' ')}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-4 w-4 ml-2 -mr-1"
+                    onClick={() => setSelectedAgent(null)}
+                  >
+                    X
+                  </Button>
+                </Badge>
+              )}
+            </CardTitle>
           </CardHeader>
           <CardContent>
             {isLoading ? (
               <LoadingSpinner message="Loading AI activity..." />
-            ) : agentLogs.length === 0 ? (
-              <EmptyState
-                icon={Brain}
-                title="No AI activity yet"
-                description="AURA Brain agents will appear here once they start monitoring your operations"
-              />
             ) : (
               <div className="space-y-3">
-                {agentLogs.map((log, index) => {
-                  const AgentIcon = getAgentIcon(log.agent_name);
-                  
+                {(selectedAgent
+                  ? agentLogs.filter(log => log.agent_name === selectedAgent)
+                  : agentLogs
+                ).slice(0, 10).map((log, index) => {
+                  const Icon = agentIcons[log.agent_name] || Brain;
+
                   return (
                     <motion.div
                       key={log.id}
@@ -375,107 +352,118 @@ export default function AuraBrainDashboard() {
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ delay: index * 0.03 }}
                     >
-                      <Card className="border-2 hover:shadow-md transition-shadow">
-                        <CardContent className="p-4">
-                          <div className="flex items-start justify-between gap-4">
-                            <div className="flex items-start gap-3 flex-1">
-                              <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-indigo-500 rounded-lg flex items-center justify-center">
-                                <AgentIcon className="w-5 h-5 text-white" />
+                      <div
+                        className={`p-4 rounded-lg border-2 ${
+                          log.status === 'approved' ? 'border-green-200 bg-green-50' :
+                          log.status === 'dismissed' ? 'border-gray-200 bg-gray-50' :
+                          log.severity === 'critical' ? 'border-red-200 bg-red-50' :
+                          'border-blue-200 bg-blue-50'
+                        }`}
+                      >
+                        <div className="flex items-start justify-between mb-3">
+                          <div className="flex items-start gap-3 flex-1">
+                            <Icon className="w-5 h-5 text-emerald-600 mt-0.5" />
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-1">
+                                <h4 className="font-semibold text-gray-900">{log.action_description}</h4>
+                                <Badge className={
+                                  log.severity === 'critical' ? 'bg-red-500 text-white' :
+                                  log.severity === 'high' ? 'bg-orange-500 text-white' :
+                                  log.severity === 'medium' ? 'bg-yellow-500 text-white' :
+                                  'bg-blue-500 text-white'
+                                }>
+                                  {log.severity || 'info'}
+                                </Badge>
                               </div>
-                              
-                              <div className="flex-1">
-                                <div className="flex items-center gap-2 mb-1">
-                                  <h4 className="font-semibold text-gray-900">{log.action_description}</h4>
-                                  <Badge className={getSeverityColor(log.severity)}>
-                                    {log.severity}
-                                  </Badge>
-                                </div>
-                                
-                                <p className="text-sm text-gray-600 mb-2">{log.decision_reasoning}</p>
-                                
-                                <div className="flex flex-wrap gap-2 text-xs text-gray-500">
-                                  <span className="flex items-center gap-1">
-                                    <Clock className="w-3 h-3" />
-                                    {format(new Date(log.created_date), 'MMM d, h:mm a')}
-                                  </span>
-                                  <span>•</span>
-                                  <span className="capitalize">{log.agent_name.replace('_', ' ')}</span>
-                                  <span>•</span>
-                                  <span className="capitalize">{log.action_type.replace('_', ' ')}</span>
-                                  {log.confidence_score && (
-                                    <>
-                                      <span>•</span>
-                                      <span>Confidence: {Math.round(log.confidence_score * 100)}%</span>
-                                    </>
-                                  )}
-                                </div>
+                              <p className="text-sm text-gray-600 mb-2">{log.decision_reasoning}</p>
 
-                                {log.decision_data && (
-                                  <div className="mt-3 p-3 bg-gray-50 rounded-lg text-xs">
-                                    <p className="font-semibold text-gray-700 mb-1">Decision Data:</p>
-                                    <pre className="text-gray-600 overflow-x-auto">
-                                      {JSON.stringify(log.decision_data, null, 2)}
-                                    </pre>
+                              {log.confidence_score !== undefined && (
+                                <div className="mb-2">
+                                  <div className="flex items-center justify-between text-xs text-gray-600 mb-1">
+                                    <span>AI Confidence</span>
+                                    <span>{Math.round(log.confidence_score * 100)}%</span>
                                   </div>
-                                )}
-                              </div>
-                            </div>
-
-                            <div className="flex flex-col gap-2">
-                              <Badge className={
-                                log.status === 'completed' || log.status === 'approved' ? 'bg-green-100 text-green-800' :
-                                log.status === 'pending' ? 'bg-amber-100 text-amber-800' :
-                                log.status === 'failed' ? 'bg-red-100 text-red-800' :
-                                'bg-gray-100 text-gray-800'
-                              }>
-                                {log.status}
-                              </Badge>
-
-                              {log.status === 'pending' && (
-                                <div className="flex gap-2">
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={() => approveActionMutation.mutate(log.id)}
-                                    className="bg-green-50 text-green-700 hover:bg-green-100"
-                                  >
-                                    <ThumbsUp className="w-3 h-3 mr-1" />
-                                    Approve
-                                  </Button>
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={() => dismissActionMutation.mutate({ logId: log.id, reason: 'Not needed' })}
-                                    className="bg-red-50 text-red-700 hover:bg-red-100"
-                                  >
-                                    <ThumbsDown className="w-3 h-3 mr-1" />
-                                    Dismiss
-                                  </Button>
+                                  <Progress value={log.confidence_score * 100} className="h-1" />
                                 </div>
                               )}
 
-                              {log.created_task_id && (
-                                <Button size="sm" variant="outline">
-                                  <Eye className="w-3 h-3 mr-1" />
-                                  View Task
-                                </Button>
+                              {log.related_entity_name && (
+                                <p className="text-xs text-gray-500">
+                                  Related: {log.related_entity_name}
+                                </p>
                               )}
-                              
-                              {log.created_order_id && (
-                                <Link to={createPageUrl('Ordering')}>
-                                  <Button size="sm" variant="outline">
-                                    <Eye className="w-3 h-3 mr-1" />
-                                    View Order
-                                  </Button>
-                                </Link>
-                              )}
+
+                              <p className="text-xs text-gray-400 mt-2">
+                                {format(new Date(log.created_date), 'MMM d, yyyy • h:mm a')}
+                              </p>
                             </div>
                           </div>
-                        </CardContent>
-                      </Card>
+
+                          <div className="flex items-center gap-2">
+                            <Badge className={
+                              log.status === 'approved' ? 'bg-green-100 text-green-800' :
+                              log.status === 'dismissed' ? 'bg-gray-100 text-gray-800' :
+                              log.status === 'completed' ? 'bg-blue-100 text-blue-800' :
+                              'bg-amber-100 text-amber-800'
+                            }>
+                              {log.status}
+                            </Badge>
+                          </div>
+                        </div>
+
+                        {/* Action Buttons for Pending Actions */}
+                        {log.status === 'pending' && (user?.position === 'manager' || user?.position === 'owner' || user?.role === 'admin') && (
+                          <div className="flex gap-2 pt-3 border-t border-gray-200">
+                            <Button
+                              size="sm"
+                              onClick={() => handleApproveAction(log)}
+                              className="flex-1 bg-green-600 hover:bg-green-700 text-white"
+                            >
+                              <CheckCircle className="w-4 h-4 mr-2" />
+                              Approve
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                const reason = prompt('Reason for dismissing this action?');
+                                if (reason !== null && reason.trim() !== '') {
+                                  handleDismissAction(log, reason);
+                                } else if (reason !== null) {
+                                  handleDismissAction(log, 'No reason provided');
+                                }
+                              }}
+                              className="flex-1"
+                              disabled={dismissingAction === log.id}
+                            >
+                              Dismiss
+                            </Button>
+                          </div>
+                        )}
+
+                        {/* Dismissal Reason Display */}
+                        {log.status === 'dismissed' && log.dismissal_reason && (
+                          <div className="mt-3 p-2 bg-gray-100 rounded text-xs text-gray-700">
+                            <strong>Dismissed:</strong> {log.dismissal_reason}
+                          </div>
+                        )}
+                      </div>
                     </motion.div>
                   );
                 })}
+
+                {(selectedAgent
+                  ? agentLogs.filter(log => log.agent_name === selectedAgent)
+                  : agentLogs
+                ).slice(0, 10).length === 0 && (
+                  <div className="text-center py-12">
+                    <Brain className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                    <p className="text-gray-500">No agent activity yet</p>
+                    <p className="text-sm text-gray-400 mt-1">
+                      AURA Brain learns from your operations
+                    </p>
+                  </div>
+                )}
               </div>
             )}
           </CardContent>

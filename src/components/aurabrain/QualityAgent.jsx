@@ -1,3 +1,4 @@
+
 import React, { useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQueryClient } from '@tanstack/react-query';
@@ -9,6 +10,134 @@ import { useQueryClient } from '@tanstack/react-query';
  */
 export default function QualityAgent() {
   const queryClient = useQueryClient();
+
+  const processQualityData = async (qualityRecords, sopSignatures) => {
+    try {
+      // Calculate quality metrics
+      const totalChecks = qualityRecords.length;
+      const avgScore = totalChecks > 0
+        ? qualityRecords.reduce((sum, r) => sum + r.score, 0) / totalChecks
+        : 0;
+
+      const lowScoreChecks = qualityRecords.filter(r => r.score < 3);
+      const excellentChecks = qualityRecords.filter(r => r.score === 5);
+
+      // SOP adherence rate
+      const totalSOPs = sopSignatures.length;
+      const onTimeSOPs = sopSignatures.filter(s => {
+        // Consider on-time if signed within reasonable timeframe (e.g., within 60 minutes)
+        return s.completion_time_minutes && s.completion_time_minutes <= 60;
+      }).length;
+      const sopAdherence = totalSOPs > 0 ? (onTimeSOPs / totalSOPs) * 100 : 100;
+
+      // 1. Low Quality Alert
+      if (lowScoreChecks.length >= 3) {
+        await base44.entities.AgentLog.create({
+          agent_name: 'quality_agent',
+          action_type: 'alert_triggered',
+          action_description: `⚠️ ${lowScoreChecks.length} quality checks scored below 3/5`,
+          trigger_event: 'quality_monitoring',
+          related_entity: 'QualityRecord',
+          decision_data: {
+            low_score_count: lowScoreChecks.length,
+            areas_affected: [...new Set(lowScoreChecks.map(r => r.area))],
+            categories: [...new Set(lowScoreChecks.map(r => r.category))],
+          },
+          decision_reasoning: `Multiple low quality scores detected. Areas needing attention: ${[...new Set(lowScoreChecks.map(r => r.area))].join(', ')}. Recommend targeted training and process review.`,
+          confidence_score: 0.85,
+          severity: lowScoreChecks.length >= 5 ? 'high' : 'medium',
+          status: 'pending',
+        });
+      }
+
+      // 2. Excellence Recognition
+      if (excellentChecks.length >= 5) {
+        const topPerformers = excellentChecks.reduce((acc, r) => {
+          acc[r.checked_by_email] = (acc[r.checked_by_email] || 0) + 1;
+          return acc;
+        }, {});
+
+        const topPerformer = Object.keys(topPerformers).length > 0
+            ? Object.entries(topPerformers).sort((a, b) => b[1] - a[1])[0]
+            : null;
+
+        if (topPerformer) {
+          await base44.entities.AgentLog.create({
+            agent_name: 'quality_agent',
+            action_type: 'recommendation_made',
+            action_description: `⭐ Excellent quality performance detected`,
+            trigger_event: 'performance_recognition',
+            decision_data: {
+              excellent_count: excellentChecks.length,
+              top_performer: topPerformer[0],
+              perfect_scores: topPerformer[1],
+            },
+            decision_reasoning: `${topPerformer[1]} perfect quality scores. Recommend recognition or reward for consistent excellence.`,
+            confidence_score: 0.9,
+            severity: 'info',
+            status: 'completed',
+          });
+        }
+      }
+
+      // 3. Overall Quality Analysis
+      let qualityTier = 'N/A'; // Default value if totalChecks is less than 10
+      if (totalChecks >= 10) {
+        qualityTier = avgScore >= 4.5 ? 'Exceptional' :
+                           avgScore >= 4.0 ? 'Excellent' :
+                           avgScore >= 3.5 ? 'Good' :
+                           avgScore >= 3.0 ? 'Satisfactory' : 'Needs Improvement';
+
+        await base44.entities.AgentLog.create({
+          agent_name: 'quality_agent',
+          action_type: 'analysis',
+          action_description: `📊 Quality score: ${avgScore.toFixed(1)}/5 - ${qualityTier}`,
+          trigger_event: 'daily_analysis',
+          decision_data: {
+            total_checks: totalChecks,
+            average_score: avgScore,
+            low_scores: lowScoreChecks.length,
+            excellent_scores: excellentChecks.length,
+            sop_adherence: sopAdherence,
+          },
+          decision_reasoning: avgScore >= 4.0
+            ? `Strong quality performance. ${excellentChecks.length} perfect scores out of ${totalChecks} checks. SOP adherence at ${sopAdherence.toFixed(0)}%.`
+            : `Quality needs attention. Focus areas: ${[...new Set(lowScoreChecks.map(r => r.area))].slice(0, 3).join(', ')}.`,
+          confidence_score: totalChecks >= 20 ? 0.95 : 0.75,
+          severity: avgScore >= 4.0 ? 'info' : 'medium',
+          status: 'completed',
+        });
+      }
+
+      // 5. SOP Adherence Alert
+      if (sopAdherence < 80 && totalSOPs >= 5) {
+        await base44.entities.AgentLog.create({
+          agent_name: 'quality_agent',
+          action_type: 'recommendation_made',
+          action_description: `📋 SOP adherence below target: ${sopAdherence.toFixed(0)}%`,
+          trigger_event: 'sop_monitoring',
+          decision_data: {
+            total_sops: totalSOPs,
+            on_time_completions: onTimeSOPs,
+            adherence_rate: sopAdherence,
+          },
+          decision_reasoning: `Staff taking longer than expected to complete SOPs. Recommend reviewing SOP clarity and providing additional training support.`,
+          confidence_score: 0.8,
+          severity: 'medium',
+          status: 'pending',
+        });
+      }
+
+      console.log('[QualityAgent] Analysis complete:', {
+        avgScore,
+        qualityTier,
+        sopAdherence,
+      });
+
+    } catch (error) {
+      console.error('[QualityAgent] Error processing data:', error);
+    }
+  };
 
   useEffect(() => {
     const runAgent = async () => {
@@ -25,6 +154,12 @@ export default function QualityAgent() {
         // 1️⃣ Analyze recent quality records
         const records = await base44.entities.QualityRecord.list('-created_date', 100);
         
+        // Fetch SOP completions for adherence checks (assuming 'SOPCompletion' is the entity)
+        const sopSignatures = await base44.entities.SOPCompletion.list('-completion_date', 100); 
+
+        // Call the new processQualityData function for overall analysis and alerts
+        await processQualityData(records, sopSignatures);
+
         // Find areas with consistently low scores
         const areaScores = {};
         for (const record of records) {

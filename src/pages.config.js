@@ -121,6 +121,7 @@ import DocumentsDashboard from './pages/DocumentsDashboard';
 import AIHub from './pages/AIHub';
 import SettingsDashboard from './pages/SettingsDashboard';
 import SystemHealthCheck from './pages/SystemHealthCheck';
+import WorkflowMode from './pages/WorkflowMode';
 import Layout from './Layout.jsx';
 
 
@@ -248,6 +249,7 @@ export const PAGES = {
     "AIHub": AIHub,
     "SettingsDashboard": SettingsDashboard,
     "SystemHealthCheck": SystemHealthCheck,
+    "WorkflowMode": WorkflowMode,
 }
 
 export const pagesConfig = {
