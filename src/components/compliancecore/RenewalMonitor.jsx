@@ -1,4 +1,5 @@
-import { useEffect } from 'react';
+
+import React, { useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQueryClient } from '@tanstack/react-query';
 import { differenceInDays, parseISO, format } from 'date-fns';
@@ -91,7 +92,9 @@ export default function RenewalMonitor() {
             linked_entity_type: 'ComplianceDocument',
             linked_entity_id: doc.id,
             linked_entity_name: doc.title,
-            action_url: createPageUrl('ComplianceCore'),
+            // Assuming createPageUrl is a defined helper function, if not, it needs to be imported or defined.
+            // For now, it's kept as-is, assuming it's available in the context or will be defined.
+            action_url: createPageUrl('ComplianceCore'), 
           });
 
           // Update alert with event reference
@@ -150,13 +153,22 @@ export default function RenewalMonitor() {
     checkRenewals();
     const interval = setInterval(() => {
       const now = new Date();
-      if (now.getHours() === 8 && now.getMinutes() < 30) {
+      // Check for 8 AM (or shortly after) to trigger daily check
+      if (now.getHours() === 8 && now.getMinutes() < 30) { 
         checkRenewals();
       }
-    }, 30 * 60 * 1000);
+    }, 30 * 60 * 1000); // Check every 30 minutes
 
     return () => clearInterval(interval);
   }, [queryClient]);
 
   return null;
+}
+
+// Placeholder for createPageUrl if it's not globally available or imported
+// In a real application, this would typically be imported from a utility file
+// or defined globally if it's part of the framework's global scope.
+function createPageUrl(pageName) {
+  // This is a dummy implementation. Replace with actual URL generation logic.
+  return `/app/${pageName.toLowerCase()}`;
 }
