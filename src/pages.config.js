@@ -101,6 +101,7 @@ import AIRotaGenerator from './pages/AIRotaGenerator';
 import AttendanceApproval from './pages/AttendanceApproval';
 import MyAttendance from './pages/MyAttendance';
 import CostAnalyticsDashboard from './pages/CostAnalyticsDashboard';
+import AIStockVerification from './pages/AIStockVerification';
 import Layout from './Layout.jsx';
 
 
@@ -208,6 +209,7 @@ export const PAGES = {
     "AttendanceApproval": AttendanceApproval,
     "MyAttendance": MyAttendance,
     "CostAnalyticsDashboard": CostAnalyticsDashboard,
+    "AIStockVerification": AIStockVerification,
 }
 
 export const pagesConfig = {
