@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -45,12 +46,12 @@ export default function QuickQualityCheck() {
     enabled: !!user?.email,
   });
 
-  // Create quality record mutation
-  const createRecordMutation = useMutation({
+  // ✅ ENHANCED: Add activity logging and preserve corrective task creation
+  const submitCheckMutation = useMutation({
     mutationFn: async (data) => {
       const record = await base44.entities.QualityRecord.create(data);
       
-      // Auto-create corrective task if score < 3
+      // Auto-create corrective task if score < 3 (preserving original functionality)
       if (data.score < 3) {
         const taskData = {
           task_name: `Quality Issue: ${data.check_title}`,
@@ -72,9 +73,24 @@ export default function QuickQualityCheck() {
       
       return record;
     },
-    onSuccess: () => {
+    onSuccess: async (savedRecord) => {
       queryClient.invalidateQueries({ queryKey: ['qualityRecords'] });
-      alert('✅ Quality check recorded successfully!');
+      
+      // ✨ Log activity
+      await base44.entities.ActivityLog.create({
+        activity_type: 'quality_check',
+        title: 'Quality Check Completed',
+        description: `${savedRecord.check_title} - ${savedRecord.score}⭐`,
+        user_email: user.email,
+        user_name: user.full_name,
+        icon: 'star',
+        color: 'amber',
+        related_entity: 'QualityRecord',
+        related_entity_id: savedRecord.id,
+        is_important: savedRecord.score < 3,
+      });
+      
+      alert(`✅ Quality check recorded! Score: ${savedRecord.score}⭐`);
       navigate(createPageUrl('QualityDashboard'));
     },
     onError: (error) => {
@@ -107,7 +123,7 @@ export default function QuickQualityCheck() {
       corrective_action_required: score < 3
     };
 
-    createRecordMutation.mutate(data);
+    submitCheckMutation.mutate(data);
   };
 
   const handlePhotoUpload = async (e) => {
@@ -299,10 +315,10 @@ export default function QuickQualityCheck() {
 
               <Button
                 type="submit"
-                disabled={createRecordMutation.isPending}
+                disabled={submitCheckMutation.isPending}
                 className="w-full h-14 bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white text-lg font-bold shadow-lg hover:shadow-xl transition-all"
               >
-                {createRecordMutation.isPending ? (
+                {submitCheckMutation.isPending ? (
                   'Submitting...'
                 ) : (
                   <>
