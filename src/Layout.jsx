@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -85,11 +84,11 @@ import ErrorBoundary from "./components/ErrorBoundary";
 import { Badge } from "@/components/ui/badge";
 
 // 🧠 AURA Brain Imports
-import HygieneAgent from './components/aurabrain/HygieneAgent';
-import InventoryAgent from './components/aurabrain/InventoryAgent';
-import QualityAgent from './components/aurabrain/QualityAgent';
-import EventBus from './components/aurabrain/EventBus';
-import AgentInitializer from './components/aurabrain/AgentInitializer';
+import HygieneAgent from "./components/aurabrain/HygieneAgent";
+import InventoryAgent from "./components/aurabrain/InventoryAgent";
+import QualityAgent from "./components/aurabrain/QualityAgent";
+import EventBus from "./components/aurabrain/EventBus";
+import AgentInitializer from "./components/aurabrain/AgentInitializer";
 
 const navigationItems = [
   {
