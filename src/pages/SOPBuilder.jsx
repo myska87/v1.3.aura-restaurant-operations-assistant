@@ -1,12 +1,11 @@
-
 import React, { useState, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import {
   Select,
@@ -16,44 +15,35 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import {
-  ArrowLeft,
-  Home,
+  FileText,
   Save,
+  Eye,
   Plus,
   Trash2,
+  ArrowLeft,
+  Home,
   Upload,
-  Eye,
-  Wand2,
-  Sparkles,
-  Loader2,
   X,
-  Clock,
-  Users,
-  Shield,
-  CheckCircle,
+  Sparkles,
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
-import SOPAIGenerator from '../components/SOPAIGenerator';
+import ReactQuill from 'react-quill';
 
 export default function SOPBuilder() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [showAIGenerator, setShowAIGenerator] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [autoSaving, setAutoSaving] = useState(false);
-  const [lastSaved, setLastSaved] = useState(null);
 
-  // Get SOP ID from URL if editing
-  const params = new URLSearchParams(window.location.search);
-  const sopId = params.get('id');
+  const urlParams = new URLSearchParams(window.location.search);
+  const sopId = urlParams.get('id');
 
   const { data: user } = useQuery({
     queryKey: ['currentUser'],
     queryFn: () => base44.auth.me(),
   });
 
-  const { data: existingSOP } = useQuery({
+  const { data: editingSOP } = useQuery({
     queryKey: ['sop', sopId],
     queryFn: async () => {
       const sops = await base44.entities.SOPDocument.list();
@@ -68,91 +58,66 @@ export default function SOPBuilder() {
     category: 'kitchen',
     objective: '',
     scope: '',
-    roles_responsibilities: {},
+    content_html: '',
     procedure_steps: [],
-    quality_standards: '',
+    role_assigned: ['all'],
     frequency: 'daily',
-    status: 'draft',
-    role_assigned: [],
     equipment_required: [],
     safety_notes: '',
     hygiene_notes: '',
-    attachments: [],
+    video_url: '',
+    hero_image_url: '',
+    requires_signature: true,
+    is_mandatory: false,
     review_frequency_months: 6,
   });
 
-  // Load existing SOP data
+  const [newStep, setNewStep] = useState({
+    title: '',
+    description: '',
+    time_estimate_minutes: 5,
+  });
+
+  const [newEquipment, setNewEquipment] = useState('');
+
   useEffect(() => {
-    if (existingSOP) {
+    if (editingSOP) {
       setFormData({
-        title: existingSOP.title || '',
-        description: existingSOP.description || '',
-        category: existingSOP.category || 'kitchen',
-        objective: existingSOP.objective || '',
-        scope: existingSOP.scope || '',
-        roles_responsibilities: existingSOP.roles_responsibilities || {},
-        procedure_steps: existingSOP.procedure_steps || [],
-        quality_standards: existingSOP.quality_standards || '',
-        frequency: existingSOP.frequency || 'daily',
-        status: existingSOP.status || 'draft',
-        role_assigned: existingSOP.role_assigned || [],
-        equipment_required: existingSOP.equipment_required || [],
-        safety_notes: existingSOP.safety_notes || '',
-        hygiene_notes: existingSOP.hygiene_notes || '',
-        attachments: existingSOP.attachments || [],
-        review_frequency_months: existingSOP.review_frequency_months || 6,
+        title: editingSOP.title || '',
+        description: editingSOP.description || '',
+        category: editingSOP.category || 'kitchen',
+        objective: editingSOP.objective || '',
+        scope: editingSOP.scope || '',
+        content_html: editingSOP.content_html || '',
+        procedure_steps: editingSOP.procedure_steps || [],
+        role_assigned: editingSOP.role_assigned || ['all'],
+        frequency: editingSOP.frequency || 'daily',
+        equipment_required: editingSOP.equipment_required || [],
+        safety_notes: editingSOP.safety_notes || '',
+        hygiene_notes: editingSOP.hygiene_notes || '',
+        video_url: editingSOP.video_url || '',
+        hero_image_url: editingSOP.hero_image_url || '',
+        requires_signature: editingSOP.requires_signature ?? true,
+        is_mandatory: editingSOP.is_mandatory || false,
+        review_frequency_months: editingSOP.review_frequency_months || 6,
       });
     }
-  }, [existingSOP]);
+  }, [editingSOP]);
 
-  // Auto-save every 30 seconds
-  useEffect(() => {
-    if (!sopId) return; // Only auto-save when editing
-
-    const interval = setInterval(async () => {
-      setAutoSaving(true);
-      try {
-        await base44.entities.SOPDocument.update(sopId, {
-          draft_data: formData,
-          last_autosave: new Date().toISOString(),
-        });
-        setLastSaved(new Date());
-      } catch (error) {
-        console.error('Auto-save failed:', error);
-      }
-      setAutoSaving(false);
-    }, 30000); // 30 seconds
-
-    return () => clearInterval(interval);
-  }, [formData, sopId]);
-
-  // ✅ ENHANCED: Add auto-refresh trigger after save
+  // ✅ FIXED: Proper save mutation with activity logging
   const saveSopMutation = useMutation({
     mutationFn: async (data) => {
-      if (existingSOP) { // Use existingSOP to determine if editing
-        // Update existing
-        return await base44.entities.SOPDocument.update(existingSOP.id, {
-          ...data,
-          last_updated_by: user?.email,
-          last_updated_by_name: user?.full_name,
-          version: (existingSOP?.version || 1) + 1,
-        });
+      if (editingSOP) {
+        return await base44.entities.SOPDocument.update(editingSOP.id, data);
       } else {
-        // Create new
-        return await base44.entities.SOPDocument.create({
-          ...data,
-          created_by: user?.email,
-          created_by_name: user?.full_name,
-          version: 1,
-        });
+        return await base44.entities.SOPDocument.create(data);
       }
     },
     onSuccess: async (savedSOP) => {
-      // Invalidate queries to trigger refresh
       queryClient.invalidateQueries({ queryKey: ['sops'] });
-
+      
       // ✨ Log activity for new SOPs
-      if (!existingSOP) { // If it was a new SOP
+      if (!editingSOP) {
         await base44.entities.ActivityLog.create({
           activity_type: 'sop_added',
           title: 'New SOP Created',
@@ -166,477 +131,450 @@ export default function SOPBuilder() {
           is_important: true,
         });
       }
-
-      alert(existingSOP ? '✅ SOP Updated Successfully!' : '✅ SOP Created Successfully!');
+      
+      alert(editingSOP ? '✅ SOP Updated Successfully!' : '✅ SOP Created Successfully!');
       navigate(createPageUrl('SOPDashboard'));
+    },
+    onError: (error) => {
+      alert(`❌ Save failed: ${error.message}`);
     },
   });
 
-
-  const handleSave = async (status = 'draft') => {
-    const dataToSave = {
-      ...formData,
-      status,
-      last_reviewed_date: new Date().toISOString(),
-      next_review_date: new Date(Date.now() + (formData.review_frequency_months * 30 * 24 * 60 * 60 * 1000)).toISOString(),
-    };
-
-    await saveSopMutation.mutateAsync(dataToSave);
-  };
-
-  const handleFileUpload = async (e) => {
+  const handleImageUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     setUploading(true);
     try {
       const { file_url } = await base44.integrations.Core.UploadFile({ file });
-      setFormData(prev => ({
-        ...prev,
-        attachments: [
-          ...prev.attachments,
-          {
-            file_name: file.name,
-            file_url: file_url,
-            file_type: file.type,
-            uploaded_by: user?.email,
-            uploaded_at: new Date().toISOString(),
-          }
-        ]
-      }));
+      setFormData(prev => ({ ...prev, hero_image_url: file_url }));
     } catch (error) {
-      console.error('File upload failed:', error);
+      alert('Failed to upload image');
     }
     setUploading(false);
   };
 
-  const addStep = () => {
+  const handleAddStep = () => {
+    if (!newStep.title) {
+      alert('Please enter step title');
+      return;
+    }
+
     setFormData(prev => ({
       ...prev,
       procedure_steps: [
         ...prev.procedure_steps,
         {
+          ...newStep,
           step_number: prev.procedure_steps.length + 1,
-          title: '',
-          description: '',
-          time_estimate_minutes: 0,
-          role_responsible: '',
+          role_responsible: formData.role_assigned[0] || 'chef',
           equipment_needed: [],
-          safety_notes: '',
         }
       ]
     }));
+
+    setNewStep({ title: '', description: '', time_estimate_minutes: 5 });
   };
 
-  const updateStep = (index, field, value) => {
+  const handleRemoveStep = (stepNumber) => {
     setFormData(prev => ({
       ...prev,
-      procedure_steps: prev.procedure_steps.map((step, i) =>
-        i === index ? { ...step, [field]: value } : step
-      )
+      procedure_steps: prev.procedure_steps
+        .filter(s => s.step_number !== stepNumber)
+        .map((s, idx) => ({ ...s, step_number: idx + 1 }))
     }));
   };
 
-  const removeStep = (index) => {
+  const handleAddEquipment = () => {
+    if (!newEquipment.trim()) return;
+
     setFormData(prev => ({
       ...prev,
-      procedure_steps: prev.procedure_steps.filter((_, i) => i !== index)
+      equipment_required: [...prev.equipment_required, newEquipment.trim()]
+    }));
+    setNewEquipment('');
+  };
+
+  const handleRemoveEquipment = (item) => {
+    setFormData(prev => ({
+      ...prev,
+      equipment_required: prev.equipment_required.filter(e => e !== item)
     }));
   };
 
-  const handleAIGenerate = (aiData) => {
-    setFormData(prev => ({
-      ...prev,
-      ...aiData,
-    }));
-    setShowAIGenerator(false);
+  const handleSubmit = async (isDraft = false) => {
+    if (!formData.title || !formData.category) {
+      alert('Please fill in title and category');
+      return;
+    }
+
+    const sopData = {
+      ...formData,
+      status: isDraft ? 'draft' : 'active',
+      created_by: user.email,
+      created_by_name: user.full_name,
+      version: editingSOP?.version || 1,
+      active_status: true,
+      last_updated_by: user.email,
+      last_updated_by_name: user.full_name,
+    };
+
+    await saveSopMutation.mutateAsync(sopData);
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6 md:p-8">
-      <div className="max-w-6xl mx-auto space-y-6">
+      <div className="max-w-5xl mx-auto">
         {/* Navigation */}
-        <div className="flex gap-3">
-          <Link to={createPageUrl("SOPDashboard")}>
+        <div className="flex gap-3 mb-6">
+          <Link to={createPageUrl('SOPDashboard')}>
             <Button variant="outline" size="sm">
               <ArrowLeft className="w-4 h-4 mr-2" />
               Back to SOPs
             </Button>
           </Link>
-          <Link to={createPageUrl("Dashboard")}>
+          <Link to={createPageUrl('Dashboard')}>
             <Button variant="outline" size="sm">
               <Home className="w-4 h-4 mr-2" />
               Dashboard
             </Button>
           </Link>
-
-          {lastSaved && (
-            <Badge variant="outline" className="ml-auto">
-              <Clock className="w-3 h-3 mr-1" />
-              Saved {lastSaved.toLocaleTimeString()}
-            </Badge>
-          )}
-          {autoSaving && (
-            <Badge variant="outline">
-              <Loader2 className="w-3 h-3 mr-1 animate-spin" />
-              Auto-saving...
-            </Badge>
-          )}
         </div>
 
         {/* Header */}
-        <Card className="bg-gradient-to-r from-purple-600 via-pink-600 to-orange-500 text-white border-none shadow-2xl">
-          <CardHeader>
-            <CardTitle className="text-3xl font-bold flex items-center gap-3">
-              {sopId ? '✏️ Edit SOP' : '✨ SOP Builder'}
-            </CardTitle>
-            <p className="text-white/90 text-lg">
-              Create professional Standard Operating Procedures instantly
-            </p>
-          </CardHeader>
-        </Card>
+        <div className="mb-6">
+          <h1 className="text-4xl font-bold text-gray-900 mb-2">
+            {editingSOP ? 'Edit SOP' : 'Create New SOP'}
+          </h1>
+          <p className="text-gray-600">Build a comprehensive standard operating procedure</p>
+        </div>
 
-        {/* AI Generator Button */}
-        <Card className="border-2 border-purple-200 bg-gradient-to-r from-purple-50 to-pink-50">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
+        <div className="space-y-6">
+          {/* Basic Info */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Basic Information</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
               <div>
-                <h3 className="font-semibold text-lg mb-1">✨ Generate with AI</h3>
-                <p className="text-sm text-gray-600">Let AI create your SOP in seconds</p>
+                <Label>SOP Title *</Label>
+                <Input
+                  value={formData.title}
+                  onChange={(e) => setFormData({...formData, title: e.target.value})}
+                  placeholder="e.g., Karak Chai Preparation Procedure"
+                />
               </div>
-              <Button
-                onClick={() => setShowAIGenerator(true)}
-                className="bg-gradient-to-r from-purple-600 to-pink-600"
-              >
-                <Wand2 className="w-4 h-4 mr-2" />
-                AI Generate
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
 
-        {/* AI Generator Modal */}
-        {showAIGenerator && (
-          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-            <Card className="max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle>AI SOP Generator</CardTitle>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => setShowAIGenerator(false)}
+              <div className="grid md:grid-cols-2 gap-4">
+                <div>
+                  <Label>Category *</Label>
+                  <Select
+                    value={formData.category}
+                    onValueChange={(value) => setFormData({...formData, category: value})}
                   >
-                    <X className="w-4 h-4" />
-                  </Button>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="kitchen">Kitchen</SelectItem>
+                      <SelectItem value="service">Service</SelectItem>
+                      <SelectItem value="cleaning">Cleaning</SelectItem>
+                      <SelectItem value="admin">Admin</SelectItem>
+                      <SelectItem value="hygiene">Hygiene</SelectItem>
+                      <SelectItem value="maintenance">Maintenance</SelectItem>
+                      <SelectItem value="customer_service">Customer Service</SelectItem>
+                      <SelectItem value="equipment">Equipment</SelectItem>
+                      <SelectItem value="recipe">Recipe</SelectItem>
+                      <SelectItem value="other">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
-              </CardHeader>
-              <CardContent>
-                <SOPAIGenerator onGenerate={handleAIGenerate} />
-              </CardContent>
-            </Card>
-          </div>
-        )}
 
-        {/* Basic Information */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Basic Information</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <Label htmlFor="title">SOP Title *</Label>
-              <Input
-                id="title"
-                value={formData.title}
-                onChange={(e) => setFormData({...formData, title: e.target.value})}
-                placeholder="e.g., Karak Chai Preparation Procedure"
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="description">Description</Label>
-              <Textarea
-                id="description"
-                value={formData.description}
-                onChange={(e) => setFormData({...formData, description: e.target.value})}
-                placeholder="Brief overview of this SOP..."
-                rows={3}
-              />
-            </div>
-
-            <div className="grid md:grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="category">Category *</Label>
-                <Select
-                  value={formData.category}
-                  onValueChange={(value) => setFormData({...formData, category: value})}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="kitchen">🍳 Kitchen</SelectItem>
-                    <SelectItem value="service">🍽️ Service</SelectItem>
-                    <SelectItem value="cleaning">🧹 Cleaning</SelectItem>
-                    <SelectItem value="hygiene">🧼 Hygiene</SelectItem>
-                    <SelectItem value="recipe">📖 Recipe</SelectItem>
-                    <SelectItem value="equipment">⚙️ Equipment</SelectItem>
-                    <SelectItem value="admin">📋 Admin</SelectItem>
-                  </SelectContent>
-                </Select>
+                <div>
+                  <Label>Frequency</Label>
+                  <Select
+                    value={formData.frequency}
+                    onValueChange={(value) => setFormData({...formData, frequency: value})}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="daily">Daily</SelectItem>
+                      <SelectItem value="weekly">Weekly</SelectItem>
+                      <SelectItem value="monthly">Monthly</SelectItem>
+                      <SelectItem value="quarterly">Quarterly</SelectItem>
+                      <SelectItem value="as_needed">As Needed</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
 
               <div>
-                <Label htmlFor="frequency">Frequency</Label>
-                <Select
-                  value={formData.frequency}
-                  onValueChange={(value) => setFormData({...formData, frequency: value})}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="daily">Daily</SelectItem>
-                    <SelectItem value="weekly">Weekly</SelectItem>
-                    <SelectItem value="monthly">Monthly</SelectItem>
-                    <SelectItem value="quarterly">Quarterly</SelectItem>
-                    <SelectItem value="as_needed">As Needed</SelectItem>
-                  </SelectContent>
-                </Select>
+                <Label>Description</Label>
+                <Textarea
+                  value={formData.description}
+                  onChange={(e) => setFormData({...formData, description: e.target.value})}
+                  placeholder="Brief overview of what this SOP covers..."
+                  rows={3}
+                />
               </div>
-            </div>
-          </CardContent>
-        </Card>
 
-        {/* Objective & Scope */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Objective & Scope</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <Label htmlFor="objective">Objective</Label>
-              <Textarea
-                id="objective"
-                value={formData.objective}
-                onChange={(e) => setFormData({...formData, objective: e.target.value})}
-                placeholder="What is the purpose of this SOP?"
-                rows={3}
-              />
-            </div>
+              <div>
+                <Label>Hero Image (Optional)</Label>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => document.getElementById('hero-image').click()}
+                    disabled={uploading}
+                  >
+                    <Upload className="w-4 h-4 mr-2" />
+                    {uploading ? 'Uploading...' : 'Upload Image'}
+                  </Button>
+                  <input
+                    id="hero-image"
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageUpload}
+                    className="hidden"
+                  />
+                  {formData.hero_image_url && (
+                    <Badge className="bg-green-100 text-green-800">Image uploaded</Badge>
+                  )}
+                </div>
+                {formData.hero_image_url && (
+                  <img
+                    src={formData.hero_image_url}
+                    alt="Hero"
+                    className="mt-2 w-full h-48 object-cover rounded-lg"
+                  />
+                )}
+              </div>
+            </CardContent>
+          </Card>
 
-            <div>
-              <Label htmlFor="scope">Scope</Label>
-              <Textarea
-                id="scope"
-                value={formData.scope}
-                onChange={(e) => setFormData({...formData, scope: e.target.value})}
-                placeholder="What does this SOP cover? What are the boundaries?"
-                rows={3}
-              />
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Procedure Steps */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
+          {/* Procedure Steps */}
+          <Card>
+            <CardHeader>
               <CardTitle>Procedure Steps</CardTitle>
-              <Button onClick={addStep} size="sm">
-                <Plus className="w-4 h-4 mr-2" />
-                Add Step
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {formData.procedure_steps.map((step, index) => (
-              <Card key={index} className="bg-gray-50">
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {formData.procedure_steps.length > 0 && (
+                <div className="space-y-3 mb-4">
+                  {formData.procedure_steps.map((step) => (
+                    <div key={step.step_number} className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg">
+                      <div className="w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold flex-shrink-0">
+                        {step.step_number}
+                      </div>
+                      <div className="flex-1">
+                        <h4 className="font-semibold text-gray-900">{step.title}</h4>
+                        <p className="text-sm text-gray-600">{step.description}</p>
+                        {step.time_estimate_minutes && (
+                          <Badge variant="outline" className="mt-1 text-xs">
+                            ~{step.time_estimate_minutes} min
+                          </Badge>
+                        )}
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => handleRemoveStep(step.step_number)}
+                      >
+                        <Trash2 className="w-4 h-4 text-red-600" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <Card className="bg-blue-50 border-blue-200">
                 <CardContent className="p-4 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <Badge>Step {index + 1}</Badge>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => removeStep(index)}
-                    >
-                      <Trash2 className="w-4 h-4 text-red-600" />
-                    </Button>
-                  </div>
-
-                  <div>
-                    <Label>Step Title</Label>
+                  <h4 className="font-semibold text-sm">Add New Step</h4>
+                  <Input
+                    value={newStep.title}
+                    onChange={(e) => setNewStep({...newStep, title: e.target.value})}
+                    placeholder="Step title..."
+                  />
+                  <Textarea
+                    value={newStep.description}
+                    onChange={(e) => setNewStep({...newStep, description: e.target.value})}
+                    placeholder="Step description..."
+                    rows={2}
+                  />
+                  <div className="flex gap-2">
                     <Input
-                      value={step.title}
-                      onChange={(e) => updateStep(index, 'title', e.target.value)}
-                      placeholder="e.g., Boil water to 95°C"
+                      type="number"
+                      value={newStep.time_estimate_minutes}
+                      onChange={(e) => setNewStep({...newStep, time_estimate_minutes: parseInt(e.target.value) || 5})}
+                      placeholder="Minutes"
+                      className="w-24"
                     />
-                  </div>
-
-                  <div>
-                    <Label>Description</Label>
-                    <Textarea
-                      value={step.description}
-                      onChange={(e) => updateStep(index, 'description', e.target.value)}
-                      placeholder="Detailed instructions for this step..."
-                      rows={3}
-                    />
-                  </div>
-
-                  <div className="grid md:grid-cols-2 gap-3">
-                    <div>
-                      <Label>Time Estimate (minutes)</Label>
-                      <Input
-                        type="number"
-                        value={step.time_estimate_minutes}
-                        onChange={(e) => updateStep(index, 'time_estimate_minutes', parseInt(e.target.value) || 0)}
-                      />
-                    </div>
-
-                    <div>
-                      <Label>Responsible Role</Label>
-                      <Input
-                        value={step.role_responsible}
-                        onChange={(e) => updateStep(index, 'role_responsible', e.target.value)}
-                        placeholder="e.g., Barista"
-                      />
-                    </div>
+                    <Button
+                      type="button"
+                      onClick={handleAddStep}
+                      className="flex-1"
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      Add Step
+                    </Button>
                   </div>
                 </CardContent>
               </Card>
-            ))}
+            </CardContent>
+          </Card>
 
-            {formData.procedure_steps.length === 0 && (
-              <div className="text-center py-12 text-gray-500">
-                <p>No steps added yet</p>
-                <p className="text-sm">Click "Add Step" to begin</p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Quality & Safety */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Quality & Safety Standards</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <Label htmlFor="quality_standards">Quality Standards</Label>
-              <Textarea
-                id="quality_standards"
-                value={formData.quality_standards}
-                onChange={(e) => setFormData({...formData, quality_standards: e.target.value})}
-                placeholder="Quality benchmarks and standards..."
-                rows={3}
+          {/* Content Editor */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Full Content (Optional)</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ReactQuill
+                value={formData.content_html}
+                onChange={(value) => setFormData({...formData, content_html: value})}
+                className="bg-white"
+                theme="snow"
               />
-            </div>
+            </CardContent>
+          </Card>
 
-            <div>
-              <Label htmlFor="safety_notes">Safety Notes</Label>
-              <Textarea
-                id="safety_notes"
-                value={formData.safety_notes}
-                onChange={(e) => setFormData({...formData, safety_notes: e.target.value})}
-                placeholder="Safety warnings and precautions..."
-                rows={3}
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="hygiene_notes">Hygiene Notes</Label>
-              <Textarea
-                id="hygiene_notes"
-                value={formData.hygiene_notes}
-                onChange={(e) => setFormData({...formData, hygiene_notes: e.target.value})}
-                placeholder="Hygiene requirements..."
-                rows={3}
-              />
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Attachments */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Attachments</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <Button
-                variant="outline"
-                onClick={() => document.getElementById('file-upload').click()}
-                disabled={uploading}
-              >
-                <Upload className="w-4 h-4 mr-2" />
-                {uploading ? 'Uploading...' : 'Upload File'}
-              </Button>
-              <input
-                id="file-upload"
-                type="file"
-                onChange={handleFileUpload}
-                className="hidden"
-                accept=".pdf,.docx,.png,.jpg,.jpeg"
-              />
-            </div>
-
-            {formData.attachments.length > 0 && (
-              <div className="space-y-2">
-                {formData.attachments.map((att, index) => (
-                  <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                    <span className="text-sm">{att.file_name}</span>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => setFormData(prev => ({
-                        ...prev,
-                        attachments: prev.attachments.filter((_, i) => i !== index)
-                      }))}
-                    >
-                      <X className="w-4 h-4" />
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Actions */}
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex gap-3">
-              <Button
-                onClick={() => handleSave('draft')}
-                variant="outline"
-                disabled={saveSopMutation.isPending}
-              >
-                <Save className="w-4 h-4 mr-2" />
-                Save as Draft
-              </Button>
-
-              <Button
-                onClick={() => handleSave('active')}
-                className="bg-gradient-to-r from-[#014D40] to-emerald-600"
-                disabled={saveSopMutation.isPending}
-              >
-                <CheckCircle className="w-4 h-4 mr-2" />
-                {saveSopMutation.isPending ? 'Publishing...' : 'Publish SOP'}
-              </Button>
-
-              {sopId && (
-                <Button
-                  onClick={() => navigate(createPageUrl(`SOPViewer?id=${sopId}`))}
-                  variant="outline"
-                >
-                  <Eye className="w-4 h-4 mr-2" />
-                  Preview
-                </Button>
+          {/* Equipment */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Equipment Required</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {formData.equipment_required.length > 0 && (
+                <div className="flex flex-wrap gap-2 mb-3">
+                  {formData.equipment_required.map((item) => (
+                    <Badge key={item} variant="outline" className="gap-1">
+                      {item}
+                      <button onClick={() => handleRemoveEquipment(item)}>
+                        <X className="w-3 h-3" />
+                      </button>
+                    </Badge>
+                  ))}
+                </div>
               )}
-            </div>
-          </CardContent>
-        </Card>
+              <div className="flex gap-2">
+                <Input
+                  value={newEquipment}
+                  onChange={(e) => setNewEquipment(e.target.value)}
+                  placeholder="e.g., Milk frother, Saucepan"
+                  onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddEquipment())}
+                />
+                <Button type="button" onClick={handleAddEquipment}>
+                  <Plus className="w-4 h-4" />
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Settings */}
+          <Card>
+            <CardHeader>
+              <CardTitle>SOP Settings</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <Label>Assigned Roles</Label>
+                <Select
+                  value={formData.role_assigned[0] || 'all'}
+                  onValueChange={(value) => setFormData({...formData, role_assigned: [value]})}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Staff</SelectItem>
+                    <SelectItem value="chef">Chefs</SelectItem>
+                    <SelectItem value="line_cook">Line Cooks</SelectItem>
+                    <SelectItem value="server">Servers</SelectItem>
+                    <SelectItem value="bartender">Bartenders</SelectItem>
+                    <SelectItem value="cleaner">Cleaners</SelectItem>
+                    <SelectItem value="manager">Managers</SelectItem>
+                  </SelectTrigger>
+                </Select>
+              </div>
+
+              <div>
+                <Label>Safety Notes</Label>
+                <Textarea
+                  value={formData.safety_notes}
+                  onChange={(e) => setFormData({...formData, safety_notes: e.target.value})}
+                  placeholder="Important safety warnings..."
+                  rows={2}
+                />
+              </div>
+
+              <div>
+                <Label>Hygiene Notes</Label>
+                <Textarea
+                  value={formData.hygiene_notes}
+                  onChange={(e) => setFormData({...formData, hygiene_notes: e.target.value})}
+                  placeholder="Hygiene requirements..."
+                  rows={2}
+                />
+              </div>
+
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={formData.requires_signature}
+                    onChange={(e) => setFormData({...formData, requires_signature: e.target.checked})}
+                    className="w-4 h-4"
+                  />
+                  <Label>Require signature</Label>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={formData.is_mandatory}
+                    onChange={(e) => setFormData({...formData, is_mandatory: e.target.checked})}
+                    className="w-4 h-4"
+                  />
+                  <Label>Mandatory training</Label>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Action Buttons */}
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex flex-wrap gap-3 justify-end">
+                <Button
+                  variant="outline"
+                  onClick={() => navigate(createPageUrl('SOPDashboard'))}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => handleSubmit(true)}
+                  disabled={saveSopMutation.isPending}
+                >
+                  <Save className="w-4 h-4 mr-2" />
+                  Save as Draft
+                </Button>
+                <Button
+                  onClick={() => handleSubmit(false)}
+                  disabled={saveSopMutation.isPending}
+                  className="bg-gradient-to-r from-[#014D40] to-emerald-600"
+                >
+                  {saveSopMutation.isPending ? 'Publishing...' : (
+                    <>
+                      <Sparkles className="w-4 h-4 mr-2" />
+                      Publish SOP
+                    </>
+                  )}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </div>
   );
