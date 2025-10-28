@@ -5,9 +5,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 /**
  * Unified User Synchronization System
  * Ensures TeamMember entity is always in sync with User entity
- * TeamMember = AURAUserCore (single source of truth for all staff data)
  * 
- * CRITICAL FIX: Ensures new users appear in team list immediately
+ * PERMISSION FIX: Works for both admins and managers
  */
 export function UnifiedUserSync() {
   const queryClient = useQueryClient();
@@ -15,15 +14,15 @@ export function UnifiedUserSync() {
   const { data: users = [] } = useQuery({
     queryKey: ['allUsers'],
     queryFn: () => base44.entities.User.list(),
-    staleTime: 0, // Always fetch fresh
-    refetchInterval: 30000, // Refetch every 30 seconds
+    staleTime: 0,
+    refetchInterval: 60000, // Every minute
   });
 
   const { data: teamMembers = [] } = useQuery({
     queryKey: ['allTeamMembers'],
     queryFn: () => base44.entities.TeamMember.list(),
     staleTime: 0,
-    refetchInterval: 30000,
+    refetchInterval: 60000,
   });
 
   const { data: currentUser } = useQuery({
@@ -31,13 +30,19 @@ export function UnifiedUserSync() {
     queryFn: () => base44.auth.me(),
   });
 
-  const isAdmin = currentUser?.role === 'admin' || currentUser?.position === 'owner' || currentUser?.position === 'manager';
+  // Allow both admins and managers to sync
+  const canSync = currentUser?.role === 'admin' || 
+                  currentUser?.position === 'owner' || 
+                  currentUser?.position === 'manager';
 
   const createTeamMemberMutation = useMutation({
     mutationFn: (data) => base44.entities.TeamMember.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['allTeamMembers'] });
       queryClient.invalidateQueries({ queryKey: ['teamMembers'] });
+    },
+    onError: (error) => {
+      console.error('[UnifiedUserSync] Create error:', error);
     },
   });
 
@@ -47,27 +52,33 @@ export function UnifiedUserSync() {
       queryClient.invalidateQueries({ queryKey: ['allTeamMembers'] });
       queryClient.invalidateQueries({ queryKey: ['teamMembers'] });
     },
+    onError: (error) => {
+      console.error('[UnifiedUserSync] Update error:', error);
+    },
   });
 
-  // Auto-sync on mount and when users change
   useEffect(() => {
-    if (!isAdmin || users.length === 0) return;
+    if (!canSync || users.length === 0) {
+      console.log('[UnifiedUserSync] Skipping sync - insufficient permissions or no users');
+      return;
+    }
 
     const performSync = async () => {
       console.log('[UnifiedUserSync] Starting sync...', {
         users: users.length,
         teamMembers: teamMembers.length,
+        syncedBy: currentUser?.email,
       });
 
       try {
         let syncedCount = 0;
         let createdCount = 0;
         let updatedCount = 0;
+        let errorCount = 0;
 
         for (const user of users) {
-          // Skip users without email or name
           if (!user.email || !user.full_name) {
-            console.warn('[UnifiedUserSync] Skipping user - missing email or name:', user);
+            console.warn('[UnifiedUserSync] Skipping invalid user:', user);
             continue;
           }
 
@@ -87,55 +98,52 @@ export function UnifiedUserSync() {
             hire_date: user.hire_date || new Date().toISOString().split('T')[0],
             hourly_rate: user.hourly_rate || 0,
             emergency_contact: user.emergency_contact || '',
-            manager_email: '',
-            notes: existingMember?.notes || `Synced from User entity`,
+            manager_email: currentUser?.email || '',
+            notes: existingMember?.notes || `Auto-synced from User entity`,
           };
 
-          if (existingMember) {
-            // Update existing - User data takes precedence
-            await updateTeamMemberMutation.mutateAsync({
-              id: existingMember.id,
-              data: userData,
-            });
-            updatedCount++;
-            console.log('[UnifiedUserSync] Updated TeamMember:', user.email);
-          } else {
-            // Create new TeamMember
-            await createTeamMemberMutation.mutateAsync(userData);
-            createdCount++;
-            console.log('[UnifiedUserSync] Created new TeamMember:', user.email);
+          try {
+            if (existingMember) {
+              await updateTeamMemberMutation.mutateAsync({
+                id: existingMember.id,
+                data: userData,
+              });
+              updatedCount++;
+            } else {
+              await createTeamMemberMutation.mutateAsync(userData);
+              createdCount++;
+            }
+            syncedCount++;
+          } catch (error) {
+            console.error('[UnifiedUserSync] Error syncing user:', user.email, error);
+            errorCount++;
           }
-          
-          syncedCount++;
         }
 
         console.log('[UnifiedUserSync] Sync complete:', {
           total: syncedCount,
           created: createdCount,
           updated: updatedCount,
+          errors: errorCount,
         });
-
-        // Invalidate all related queries
-        queryClient.invalidateQueries({ queryKey: ['allUsers'] });
-        queryClient.invalidateQueries({ queryKey: ['allTeamMembers'] });
-        queryClient.invalidateQueries({ queryKey: ['teamMembers'] });
 
       } catch (error) {
         console.error('[UnifiedUserSync] Sync error:', error);
       }
     };
 
-    // Run sync immediately on mount
-    performSync();
-
-    // Also run when users array changes significantly
-    const interval = setInterval(() => {
+    // Run sync on mount only if not already done
+    const hasRun = sessionStorage.getItem('unified_user_sync_done');
+    if (!hasRun) {
       performSync();
-    }, 60000); // Every minute
+      sessionStorage.setItem('unified_user_sync_done', 'true');
+    }
+
+    // Run every minute
+    const interval = setInterval(performSync, 60000);
 
     return () => clearInterval(interval);
-  }, [users, teamMembers, isAdmin]);
+  }, [users, teamMembers, canSync]);
 
-  // Component doesn't render anything
   return null;
 }

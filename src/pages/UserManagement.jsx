@@ -243,7 +243,7 @@ export default function UserManagement() {
   // Manual sync function
   const handleSyncAll = async () => {
     setSyncing(true);
-    console.log('[UserManagement] Manual sync triggered');
+    console.log('[UserManagement] Manual sync triggered by:', currentUser?.email);
     
     toast({
       title: "🔄 Syncing...",
@@ -251,40 +251,111 @@ export default function UserManagement() {
     });
 
     try {
-      // Force refetch all queries
+      // 1. Invalidate and refetch all queries to get the most up-to-date data for sync
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['allUsers'] }),
         queryClient.invalidateQueries({ queryKey: ['allTeamMembers'] }),
-        queryClient.invalidateQueries({ queryKey: ['teamMembers'] }), // Assuming 'teamMembers' is another query key you might have
+        queryClient.invalidateQueries({ queryKey: ['teamMembers'] }), // ensure all teamMembers queries are invalidated
         queryClient.invalidateQueries({ queryKey: ['userInvitations'] }),
         queryClient.invalidateQueries({ queryKey: ['registrationRequests'] }),
       ]);
 
-      await Promise.all([
-        refetchUsers(),
-        refetchTeamMembers(),
-      ]);
+      console.log('[UserManagement] Queries invalidated, re-fetching latest data for sync...');
 
-      // Trigger UnifiedUserSync by reloading
-      sessionStorage.removeItem('unified_user_sync_done');
-      
-      console.log('[UserManagement] Sync complete');
-      
-      toast({
-        title: "✅ Sync Complete",
-        description: `Updated ${unifiedUsers.length} users`,
+      // Capture the latest data after invalidation and refetch
+      const { data: latestAllUsers } = await refetchUsers();
+      const { data: latestTeamMembers } = await refetchTeamMembers();
+
+      console.log('[UserManagement] Latest data fetched for sync:', {
+        users: latestAllUsers?.length,
+        teamMembers: latestTeamMembers?.length,
       });
 
-      // Reload page to trigger all background syncs
-      setTimeout(() => {
-        window.location.reload();
-      }, 1000);
+      let syncedCount = 0;
+      let createdCount = 0;
+      let updatedCount = 0;
+
+      if (!latestAllUsers || !latestTeamMembers) {
+        throw new Error("Failed to fetch latest user or team member data for sync.");
+      }
+
+      for (const user of latestAllUsers) {
+        if (!user.email || !user.full_name) {
+          console.warn('[UserManagement] Skipping user - missing essential data:', user);
+          continue;
+        }
+
+        const existingMember = latestTeamMembers.find(tm => tm.staff_email === user.email);
+
+        const userDataForTeamMember = {
+          staff_id: user.id, // Link to User ID
+          staff_email: user.email,
+          staff_name: user.full_name,
+          position: user.position || 'server',
+          department: user.department || 'front_of_house',
+          phone: user.phone || '',
+          photo_url: user.photo_url || '',
+          status: user.status || 'active',
+          shift_start: user.shift_start || '09:00', // Default if not present in User
+          shift_end: user.shift_end || '17:00',   // Default if not present in User
+          // Ensure hire_date is in 'YYYY-MM-DD' format
+          hire_date: user.hire_date ? format(new Date(user.hire_date), 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd'),
+          hourly_rate: parseFloat(user.hourly_rate) || 0,
+          emergency_contact: user.emergency_contact || '',
+          manager_email: currentUser?.email || '', // Record who performed the sync
+          notes: existingMember?.notes || `Synced by ${currentUser?.full_name || 'System'}`, // Preserve existing notes
+        };
+
+        try {
+          if (existingMember) {
+            // Check for actual changes before updating to avoid unnecessary writes
+            const hasChanges = Object.keys(userDataForTeamMember).some(key => {
+              if (key === 'hourly_rate') {
+                return parseFloat(existingMember[key]) !== userDataForTeamMember[key];
+              }
+              return existingMember[key] !== userDataForTeamMember[key];
+            });
+
+            if (hasChanges) {
+              await base44.entities.TeamMember.update(existingMember.id, userDataForTeamMember);
+              updatedCount++;
+              console.log('[UserManagement] Updated TeamMember for user:', user.email);
+            } else {
+              console.log('[UserManagement] TeamMember data identical for user:', user.email);
+            }
+          } else {
+            await base44.entities.TeamMember.create(userDataForTeamMember);
+            createdCount++;
+            console.log('[UserManagement] Created TeamMember for user:', user.email);
+          }
+          syncedCount++;
+        } catch (error) {
+          console.error('[UserManagement] Error syncing user:', user.email, error);
+        }
+      }
+
+      console.log('[UserManagement] Sync complete. Total processed:', syncedCount, 'Created:', createdCount, 'Updated:', updatedCount);
+      
+      // 2. After the sync operation, invalidate and refetch again to update the UI
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['allUsers'] }),
+        queryClient.invalidateQueries({ queryKey: ['allTeamMembers'] }),
+        queryClient.invalidateQueries({ queryKey: ['teamMembers'] }),
+      ]);
+      // Explicitly refetch so the component state (unifiedUsers) updates immediately
+      await refetchUsers();
+      await refetchTeamMembers();
+
+      toast({
+        title: "✅ Sync Complete",
+        description: `Synced ${syncedCount} users (${createdCount} created, ${updatedCount} updated).`,
+      });
 
     } catch (error) {
       console.error('[UserManagement] Sync error:', error);
       toast({
         title: "❌ Sync Failed",
-        description: error.message,
+        description: error.message || 'An unexpected error occurred during sync. Check console.',
         variant: "destructive",
       });
     } finally {
