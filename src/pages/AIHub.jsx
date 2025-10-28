@@ -1,5 +1,5 @@
 import React from 'react';
-import { Brain, Activity, BarChart3, Settings } from 'lucide-react';
+import { Brain, Activity, BarChart3, Rss } from 'lucide-react';
 import DashboardTabsLayout from '../components/DashboardTabsLayout';
 import AuraBrainDashboard from './AuraBrainDashboard';
 import AuraIntelligence from './AuraIntelligence';
@@ -29,7 +29,7 @@ export default function AIHub() {
     {
       value: 'events',
       label: 'Event Feed',
-      icon: Activity,
+      icon: Rss,
       component: <EventFeed />,
     },
   ];

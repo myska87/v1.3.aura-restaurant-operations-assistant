@@ -96,7 +96,7 @@ export default function DashboardTabsLayout({
 
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="bg-white p-1 rounded-lg shadow-sm">
+          <TabsList className="bg-white p-1 rounded-lg shadow-sm flex-wrap">
             {tabs.map((tab) => (
               <TabsTrigger
                 key={tab.value}
