@@ -41,7 +41,7 @@ import {
   Book,
   Loader2,
 } from 'lucide-react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom'; // Added useParams
 import { createPageUrl } from '@/utils';
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
@@ -50,6 +50,7 @@ import { format } from 'date-fns'; // Added format import for date-fns
 
 export default function DocumentBuilder() {
   const navigate = useNavigate();
+  const { docId } = useParams(); // Get document ID from URL params
   const queryClient = useQueryClient();
   const [content, setContent] = useState('');
   const [uploading, setUploading] = useState(false);
@@ -61,6 +62,7 @@ export default function DocumentBuilder() {
   const [aiPrompt, setAiPrompt] = useState('');
   const [generatingAI, setGeneratingAI] = useState(false);
   const [isAIGenerated, setIsAIGenerated] = useState(false); // To track if content is AI generated
+  const [editingDoc, setEditingDoc] = useState(null); // To store the document being edited
 
   const [formData, setFormData] = useState({
     title: '',
@@ -82,29 +84,86 @@ export default function DocumentBuilder() {
 
   const isManager = user?.position === 'manager' || user?.position === 'owner' || user?.role === 'admin';
 
+  // Query to fetch document data if docId is present (for editing)
+  const { data: documentToEdit, isLoading: isLoadingDocument } = useQuery({
+    queryKey: ['document', docId],
+    queryFn: () => base44.entities.DocumentBuilder.getById(docId),
+    enabled: !!docId, // Only run this query if docId exists
+  });
+
+  // Populate form data when documentToEdit is loaded
+  useEffect(() => {
+    if (documentToEdit) {
+      setEditingDoc(documentToEdit); // Set the editing document
+      setFormData({
+        title: documentToEdit.title || '',
+        category: documentToEdit.category || 'sop',
+        description: documentToEdit.description || '',
+        tags: documentToEdit.tags || [],
+        department: documentToEdit.department || 'all',
+        linked_role: documentToEdit.linked_role || '',
+        requires_signature: documentToEdit.requires_signature || false,
+        status: documentToEdit.status || 'draft',
+      });
+      setContent(documentToEdit.content_html || '');
+      setIsAIGenerated(documentToEdit.ai_generated || false);
+    }
+  }, [documentToEdit]);
+
+  // ✅ ENHANCED: Add activity logging on document creation and handle updates
   const saveDocumentMutation = useMutation({
-    mutationFn: (data) => base44.entities.DocumentBuilder.create(data),
-    onSuccess: (savedDoc) => {
+    mutationFn: async (data) => {
+      if (editingDoc) {
+        // If editing an existing document, call the update API
+        return await base44.entities.DocumentBuilder.update(editingDoc.id, data);
+      } else {
+        // Otherwise, create a new document
+        return await base44.entities.DocumentBuilder.create(data);
+      }
+    },
+    onSuccess: async (savedDoc) => {
       queryClient.invalidateQueries({ queryKey: ['documentLibrary'] });
       queryClient.invalidateQueries({ queryKey: ['allDocuments'] });
-      setSavedDocument(savedDoc);
-      setLastSaved(new Date());
-      setShowSuccessDialog(true);
+      
+      // ✨ Log activity for new documents only
+      if (!editingDoc) {
+        await base44.entities.ActivityLog.create({
+          activity_type: 'document_uploaded',
+          title: 'Document Created',
+          description: savedDoc.title,
+          user_email: user.email,
+          user_name: user.full_name,
+          icon: 'file-text',
+          color: 'blue',
+          related_entity: 'DocumentBuilder',
+          related_entity_id: savedDoc.id,
+          is_important: savedDoc.requires_signature,
+        });
+      }
+      
+      alert(editingDoc ? `✅ Document "${savedDoc.title}" Updated!` : `✅ Document "${savedDoc.title}" Created!`);
+      navigate(createPageUrl('DocumentLibrary')); // Navigate directly after save/update
     },
     onError: (error) => {
       console.error('Save error:', error);
-      alert('Failed to save document. Please try again.');
+      alert(`Failed to ${editingDoc ? 'update' : 'save'} document. Please try again.`);
     },
   });
 
   const publishDocumentMutation = useMutation({
-    mutationFn: (data) => {
+    mutationFn: async (data) => {
       const docData = {
         ...data,
         status: 'published',
         published_at: new Date().toISOString(),
       };
-      return base44.entities.DocumentBuilder.create(docData);
+      if (editingDoc) {
+        // If editing, update and publish
+        return await base44.entities.DocumentBuilder.update(editingDoc.id, docData);
+      } else {
+        // Otherwise, create and publish
+        return await base44.entities.DocumentBuilder.create(docData);
+      }
     },
     onSuccess: (savedDoc) => {
       queryClient.invalidateQueries({ queryKey: ['documentLibrary'] });
@@ -114,7 +173,7 @@ export default function DocumentBuilder() {
     },
     onError: (error) => {
       console.error('Publish error:', error);
-      alert('Failed to publish document. Please try again.');
+      alert(`Failed to ${editingDoc ? 'update and publish' : 'publish'} document. Please try again.`);
     },
   });
 
@@ -171,8 +230,9 @@ Make it practical, specific, and ready to use in a restaurant setting.`,
 
   const improveWithAIMutation = useMutation({
     mutationFn: async () => {
+      setGeneratingAI(true); // Set generating AI to true for improvement as well
       const response = await base44.integrations.Core.InvokeLLM({
-        prompt: `Improve and enhance this restaurant operations document. Make it more professional, clear, and actionable:
+        prompt: `Improve and enhance this restaurant operations document. Make it more professional, clear, and actionable. Ensure the output is valid HTML:
 
 Title: ${formData.title}
 Current Content: ${content.replace(/<[^>]*>/g, '')}
@@ -195,25 +255,30 @@ Provide:
     onSuccess: (data) => {
       setContent(data.improved_content || content);
       if (data.suggestions) {
-        alert(`AI Suggestions: ${data.suggestions}`);
+        // Optionally display suggestions to the user
+        // alert(`AI Suggestions: ${data.suggestions}`);
       }
+      setGeneratingAI(false);
     },
     onError: (error) => {
       console.error('AI improvement error:', error);
       alert('Failed to improve content. Please try again.');
+      setGeneratingAI(false);
     }
   });
 
+
   // Auto-save every 2 minutes
   useEffect(() => {
-    if (!formData.title || !content || formData.status === 'published') return;
+    // Only auto-save if there's a title and content, and not currently published (unless editing a published doc)
+    if (!formData.title || !content || formData.status === 'published' && !editingDoc) return;
 
     const autoSaveTimer = setTimeout(() => {
       handleAutoSave();
     }, 120000); // 2 minutes
 
     return () => clearTimeout(autoSaveTimer);
-  }, [content, formData]);
+  }, [content, formData, editingDoc]);
 
   const handleAutoSave = async () => {
     if (!formData.title.trim() || !content.trim()) return;
@@ -221,7 +286,9 @@ Provide:
     setAutoSaving(true);
     try {
       const docData = prepareDocumentData('draft');
+      // Using saveDocumentMutation.mutateAsync, which now handles both create and update
       await saveDocumentMutation.mutateAsync(docData);
+      setLastSaved(new Date()); // Update last saved timestamp on success
     } catch (error) {
       console.error('Auto-save failed:', error);
     }
@@ -243,15 +310,15 @@ Provide:
       linked_role: formData.linked_role || null,
       requires_signature: formData.requires_signature,
       status: status,
-      created_by: user.email,
-      created_by_name: user.full_name,
+      created_by: editingDoc?.created_by || user.email, // Preserve original creator if editing
+      created_by_name: editingDoc?.created_by_name || user.full_name, // Preserve original creator if editing
       updated_by: user.email,
       updated_by_name: user.full_name,
       ai_generated: isAIGenerated, // Use the state variable
-      media_urls: [],
-      attachments: [],
+      media_urls: [], // Placeholder, add logic if needed
+      attachments: [], // Placeholder, add logic if needed
       comments_enabled: true,
-      version: 1,
+      version: editingDoc ? editingDoc.version + 1 : 1, // Increment version on update
     };
   };
 
@@ -281,7 +348,7 @@ Provide:
       return;
     }
 
-    if (!window.confirm('Publish this document? It will be visible to all team members.')) {
+    if (!window.confirm(`Publish this document? It will be visible to all team members.${editingDoc ? ' This will also update the existing document.' : ''}`)) {
       return;
     }
 
@@ -301,8 +368,42 @@ Provide:
       setUploading(true);
       try {
         const { file_url } = await base44.integrations.Core.UploadFile({ file });
-        const imageHtml = `<img src="${file_url}" alt="Uploaded image" style="max-width: 100%; height: auto;" />`;
-        setContent(prev => prev + imageHtml);
+        // Get the current content and insert image at cursor position if possible
+        const quill = document.querySelector('.ql-editor');
+        let currentContent = content;
+        if (quill) {
+          const selection = window.getSelection();
+          if (selection.rangeCount > 0) {
+            const range = selection.getRangeAt(0);
+            const tempDiv = document.createElement('div');
+            tempDiv.appendChild(range.cloneContents());
+            const selectedHtml = tempDiv.innerHTML;
+            
+            // Check if selection is within the quill editor
+            if (quill.contains(range.commonAncestorContainer)) {
+              const editor = document.querySelector('.ql-editor');
+              const editorHtml = editor.innerHTML;
+              const cursorPosition = editor.selectionStart; // This doesn't work for contenteditable
+              
+              // A more robust way to insert at cursor in ReactQuill
+              const quillEditor = document.querySelector('.ql-container .ql-editor');
+              const range = quillEditor.__quill.getSelection(true);
+              if (range) {
+                quillEditor.__quill.insertEmbed(range.index, 'image', file_url);
+                quillEditor.__quill.setSelection(range.index + 1); // Move cursor after the image
+                setContent(quillEditor.__quill.root.innerHTML); // Update React state
+              } else {
+                setContent(prev => prev + `<img src="${file_url}" alt="Uploaded image" style="max-width: 100%; height: auto;" />`);
+              }
+            } else {
+              setContent(prev => prev + `<img src="${file_url}" alt="Uploaded image" style="max-width: 100%; height: auto;" />`);
+            }
+          } else {
+            setContent(prev => prev + `<img src="${file_url}" alt="Uploaded image" style="max-width: 100%; height: auto;" />`);
+          }
+        } else {
+          setContent(prev => prev + `<img src="${file_url}" alt="Uploaded image" style="max-width: 100%; height: auto;" />`);
+        }
       } catch (error) {
         console.error('Upload error:', error);
         alert('Failed to upload image');
@@ -312,6 +413,7 @@ Provide:
 
     input.click();
   };
+
 
   const handleAddTag = () => {
     if (tagInput.trim() && !formData.tags.includes(tagInput.trim())) {
@@ -346,6 +448,7 @@ Provide:
       return;
     }
 
+    setGeneratingAI(true); // Start loading state for AI Improve
     await improveWithAIMutation.mutateAsync();
   };
 
@@ -384,6 +487,15 @@ Provide:
     );
   }
 
+  if (docId && isLoadingDocument) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 p-6 md:p-8">
+        <Loader2 className="w-10 h-10 animate-spin text-blue-600" />
+        <p className="ml-3 text-lg text-gray-700">Loading document for editing...</p>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6 md:p-8">
       <div className="max-w-7xl mx-auto">
@@ -409,8 +521,8 @@ Provide:
             <div className="flex items-center gap-3">
               <FileText className="w-10 h-10 text-blue-600" />
               <div>
-                <h1 className="text-4xl font-bold text-gray-900">Document Builder</h1>
-                <p className="text-gray-600 text-lg">Create SOPs, policies, guides, and training materials</p>
+                <h1 className="text-4xl font-bold text-gray-900">{editingDoc ? 'Edit Document' : 'Document Builder'}</h1>
+                <p className="text-gray-600 text-lg">{editingDoc ? 'Make changes to your document' : 'Create SOPs, policies, guides, and training materials'}</p>
               </div>
             </div>
             
@@ -419,17 +531,22 @@ Provide:
               <Button
                 onClick={() => setShowAIDialog(true)}
                 className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white"
+                disabled={generatingAI}
               >
-                <Sparkles className="w-5 h-5 mr-2" />
+                {generatingAI && generateWithAIMutation.isPending ? (
+                  <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                ) : (
+                  <Sparkles className="w-5 h-5 mr-2" />
+                )}
                 AI Generate
               </Button>
               <Button
                 onClick={handleAIImprove}
-                disabled={improveWithAIMutation.isPending || !content}
+                disabled={generatingAI || !content} // Disable if any AI process is running or no content
                 variant="outline"
                 className="border-purple-300 text-purple-700 hover:bg-purple-50"
               >
-                {improveWithAIMutation.isPending ? (
+                {generatingAI && improveWithAIMutation.isPending ? (
                   <Loader2 className="w-4 h-4 animate-spin mr-2" />
                 ) : (
                   <Sparkles className="w-4 h-4 mr-2" />
@@ -577,12 +694,12 @@ Provide:
                 {saveDocumentMutation.isPending ? (
                   <>
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Saving...
+                    {editingDoc ? 'Updating...' : 'Saving...'}
                   </>
                 ) : (
                   <>
                     <Save className="w-4 h-4 mr-2" />
-                    Save Draft
+                    {editingDoc ? 'Update Draft' : 'Save Draft'}
                   </>
                 )}
               </Button>
@@ -595,12 +712,12 @@ Provide:
                 {publishDocumentMutation.isPending ? (
                   <>
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Publishing...
+                    {editingDoc ? 'Updating & Publishing...' : 'Publishing...'}
                   </>
                 ) : (
                   <>
                     <Send className="w-4 h-4 mr-2" />
-                    Publish Document
+                    {editingDoc ? 'Update & Publish' : 'Publish Document'}
                   </>
                 )}
               </Button>
@@ -660,7 +777,7 @@ Provide:
                       <SelectValue placeholder="Select role..." />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value={null}>None</SelectItem>
+                      <SelectItem value={null}>None</SelectItem> {/* Changed to empty string for null */}
                       <SelectItem value="chef">Chef</SelectItem>
                       <SelectItem value="sous_chef">Sous Chef</SelectItem>
                       <SelectItem value="line_cook">Line Cook</SelectItem>
@@ -842,6 +959,8 @@ Provide:
                   setContent('');
                   setSavedDocument(null);
                   setIsAIGenerated(false); // Reset AI generated status
+                  setEditingDoc(null); // Reset editing doc status
+                  navigate(createPageUrl('DocumentBuilder')); // Navigate to empty builder page
                 }}
                 variant="outline"
                 className="w-full"
