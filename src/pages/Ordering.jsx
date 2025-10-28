@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { ShoppingCart, Send, Trash2, ArrowLeft, Home, Mail, Truck, Clock } from "lucide-react";
 import { format } from "date-fns";
 import { Link } from "react-router-dom";
