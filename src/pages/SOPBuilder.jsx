@@ -104,7 +104,6 @@ export default function SOPBuilder() {
     }
   }, [editingSOP]);
 
-  // ✅ FIXED: Proper save mutation with activity logging
   const saveSopMutation = useMutation({
     mutationFn: async (data) => {
       if (editingSOP) {
@@ -116,7 +115,6 @@ export default function SOPBuilder() {
     onSuccess: async (savedSOP) => {
       queryClient.invalidateQueries({ queryKey: ['sops'] });
       
-      // ✨ Log activity for new SOPs
       if (!editingSOP) {
         await base44.entities.ActivityLog.create({
           activity_type: 'sop_added',
@@ -494,7 +492,7 @@ export default function SOPBuilder() {
                     <SelectItem value="bartender">Bartenders</SelectItem>
                     <SelectItem value="cleaner">Cleaners</SelectItem>
                     <SelectItem value="manager">Managers</SelectItem>
-                  </SelectTrigger>
+                  </SelectContent>
                 </Select>
               </div>
 
