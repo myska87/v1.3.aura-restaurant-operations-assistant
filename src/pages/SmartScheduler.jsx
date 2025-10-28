@@ -39,6 +39,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 
 import { useUnifiedStaff } from "@/components/UnifiedStaffData";
+import { WeekDuplicator } from "@/components/scheduler/WeekDuplicator"; // Import WeekDuplicator component
 
 // ========================================
 // HELPER FUNCTIONS
@@ -100,6 +101,7 @@ export default function SmartScheduler() {
   const [aiSuggestions, setAiSuggestions] = useState([]);
   const [generatingAI, setGeneratingAI] = useState(false);
   const [showTemplateDialog, setShowTemplateDialog] = useState(false); // Added new state for template dialog
+  const [showWeekDuplicator, setShowWeekDuplicator] = useState(false);
 
   const [shiftForm, setShiftForm] = useState({
     staff_email: "",
@@ -686,6 +688,86 @@ export default function SmartScheduler() {
     setShowTemplateDialog(false);
   };
 
+  // ============ PUBLISH ROTA (Change Status) ============
+  const handlePublishRota = async () => {
+    if (!window.confirm(`Publish this week's rota? This will notify all staff and change status from Draft to Scheduled.`)) {
+      return;
+    }
+
+    let publishedCount = 0;
+    const draftShifts = shifts.filter(s => s.status === 'draft');
+
+    for (const shift of draftShifts) {
+      try {
+        await updateShiftMutation.mutateAsync({
+          id: shift.id,
+          data: {
+            ...shift,
+            status: 'scheduled',
+          }
+        });
+
+        // Auto-link tasks and SOPs
+        const { autoLinkTasksAndSOPs } = await import('@/components/scheduler/ShiftAutoLinker');
+        const linkResult = await autoLinkTasksAndSOPs(shift);
+        
+        console.log(`[Publish] Linked ${linkResult.tasksCreated} tasks and ${linkResult.sopsLinked} SOPs to ${shift.staff_name}'s shift`);
+        
+        publishedCount++;
+      } catch (error) {
+        console.error(`Failed to publish shift ${shift.id}:`, error);
+      }
+    }
+
+    alert(`✅ Published ${publishedCount} shifts!`);
+    refetchShifts();
+  };
+
+  // ============ DUPLICATE ENTIRE WEEK ============
+  const handleWeekDuplication = async ({ days, departments, weekOffset }) => {
+    const targetWeekStart = addWeeks(weekStart, weekOffset);
+    
+    const shiftsToCopy = shifts.filter(shift => {
+      const shiftDate = parseISO(shift.shift_date);
+      const dayName = format(shiftDate, 'EEEE').toLowerCase();
+      
+      // Ensure department is defined before calling toLowerCase()
+      const shiftDepartment = shift.department ? shift.department.toLowerCase() : '';
+      
+      return days.includes(dayName) && departments.includes(shiftDepartment);
+    });
+
+    let copiedCount = 0;
+
+    for (const shift of shiftsToCopy) {
+      const shiftDate = parseISO(shift.shift_date);
+      const dayIndex = shiftDate.getDay(); // Sunday is 0, Monday is 1, ..., Saturday is 6
+      
+      // Adjust dayIndex for weekStartsOn: 1 (Monday)
+      // If dayIndex is 0 (Sunday), treat as 7th day of the week (relative to Monday)
+      const adjustedDayIndex = (dayIndex === 0) ? 6 : dayIndex - 1; 
+
+      const newDate = format(addDays(targetWeekStart, adjustedDayIndex), 'yyyy-MM-dd');
+
+      try {
+        await createShiftMutation.mutateAsync({
+          ...shift,
+          shift_date: newDate,
+          id: undefined,
+          created_at: undefined, // Use created_at as per schema
+          updated_at: undefined, // Use updated_at as per schema
+          status: 'draft',
+        });
+        copiedCount++;
+      } catch (error) {
+        console.error(`Failed to copy shift:`, error);
+      }
+    }
+
+    alert(`✅ Duplicated ${copiedCount} shifts to week of ${format(targetWeekStart, 'MMM d, yyyy')}!`);
+    setShowWeekDuplicator(false);
+    refetchShifts();
+  };
 
   return (
     <div className="p-4 md:p-8 bg-gray-50 min-h-screen">
@@ -716,6 +798,24 @@ export default function SmartScheduler() {
             <p className="text-sm md:text-base text-gray-600">Drag shifts between days • AI-powered insights</p>
           </div>
           <div className="flex flex-wrap gap-2">
+            <Button 
+              onClick={() => setShowWeekDuplicator(true)}
+              variant="outline"
+              size="sm"
+              className="border-purple-200 text-purple-700 hover:bg-purple-50"
+            >
+              <Copy className="w-4 h-4 mr-2" />
+              Duplicate Week
+            </Button>
+            <Button 
+              onClick={handlePublishRota}
+              variant="outline"
+              size="sm"
+              className="border-green-200 text-green-700 hover:bg-green-50"
+            >
+              <CheckCircle className="w-4 h-4 mr-2" />
+              Publish Rota
+            </Button>
             <Button 
               onClick={() => setShowTemplateDialog(true)}
               variant="outline"
@@ -1309,6 +1409,15 @@ export default function SmartScheduler() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {/* Week Duplicator Dialog */}
+        <WeekDuplicator
+          sourceWeekStart={weekStart}
+          shifts={shifts}
+          onDuplicate={handleWeekDuplication}
+          open={showWeekDuplicator}
+          onOpenChange={setShowWeekDuplicator}
+        />
 
       </div>
     </div>

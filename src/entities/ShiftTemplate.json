@@ -4,7 +4,7 @@
   "properties": {
     "template_name": {
       "type": "string",
-      "description": "Name of the shift template (e.g., 'Standard Week', 'Holiday Week')"
+      "description": "Name of the shift template"
     },
     "description": {
       "type": "string",
@@ -19,8 +19,7 @@
         "holiday",
         "custom"
       ],
-      "default": "weekly",
-      "description": "Type of template"
+      "default": "weekly"
     },
     "shifts_config": {
       "type": "array",
@@ -72,70 +71,89 @@
           },
           "staff_count": {
             "type": "number",
-            "default": 1,
-            "description": "Number of staff needed for this shift"
+            "default": 1
           },
           "preferred_staff_emails": {
             "type": "array",
             "items": {
               "type": "string"
+            }
+          },
+          "default_tasks": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "task_name": {
+                  "type": "string"
+                },
+                "description": {
+                  "type": "string"
+                },
+                "priority": {
+                  "type": "string",
+                  "enum": [
+                    "low",
+                    "medium",
+                    "high"
+                  ]
+                },
+                "estimated_minutes": {
+                  "type": "number"
+                }
+              }
             },
-            "description": "Preferred staff members for this shift"
+            "description": "Auto-assigned tasks for this shift"
+          },
+          "linked_sop_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Auto-linked SOP documents"
           },
           "notes": {
-            "type": "string",
-            "description": "Additional notes for this shift"
+            "type": "string"
           }
         }
-      },
-      "description": "Array of shift configurations for the week"
+      }
     },
     "total_shifts": {
-      "type": "number",
-      "description": "Total number of shifts in template"
+      "type": "number"
     },
     "total_hours": {
-      "type": "number",
-      "description": "Total hours across all shifts"
+      "type": "number"
     },
     "estimated_cost": {
-      "type": "number",
-      "description": "Estimated weekly labor cost"
+      "type": "number"
     },
     "created_by": {
-      "type": "string",
-      "description": "Manager who created template"
+      "type": "string"
     },
     "created_by_name": {
-      "type": "string",
-      "description": "Manager name"
+      "type": "string"
     },
     "is_active": {
       "type": "boolean",
-      "default": true,
-      "description": "Whether template is active"
+      "default": true
     },
     "is_default": {
       "type": "boolean",
-      "default": false,
-      "description": "Default template for new weeks"
+      "default": false
     },
     "last_used": {
       "type": "string",
-      "format": "date-time",
-      "description": "Last time template was applied"
+      "format": "date-time"
     },
     "times_used": {
       "type": "number",
-      "default": 0,
-      "description": "How many times template has been used"
+      "default": 0
     },
     "tags": {
       "type": "array",
       "items": {
         "type": "string"
-      },
-      "description": "Tags for organizing templates"
+      }
     }
   },
   "required": [
