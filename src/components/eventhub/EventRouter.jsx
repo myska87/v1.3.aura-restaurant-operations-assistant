@@ -1,12 +1,23 @@
+
 import { useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
+import { useQueryClient } from '@tanstack/react-query';
+import { useSafeMode } from '../SafeModeProvider';
 
 /**
- * 📡 Event Router
- * Routes events to correct recipients based on role, department, and context
+ * 🔀 Event Router
+ * Routes events to appropriate recipients based on roles and rules
  */
 export default function EventRouter() {
+  const queryClient = useQueryClient();
+  const { safeMode } = useSafeMode();
+
   useEffect(() => {
+    if (safeMode) {
+      console.log('[EventRouter] Disabled in Safe Mode');
+      return;
+    }
+
     const routeEvents = async () => {
       try {
         const user = await base44.auth.me().catch(() => null);
@@ -77,7 +88,7 @@ export default function EventRouter() {
     const interval = setInterval(routeEvents, 30 * 1000);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [queryClient, safeMode]);
 
   return null;
 }

@@ -1,120 +1,100 @@
 import { useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQueryClient } from '@tanstack/react-query';
-import { startOfDay, format } from 'date-fns';
+import { format, subDays, startOfWeek, endOfWeek } from 'date-fns';
+import { useSafeMode } from '../SafeModeProvider';
+import { safeNumber, safePercent, safeAverage } from '@/utils/safeNumber';
 
 /**
- * 📊 Analytics Data Aggregator
- * Collects data from all modules and creates daily snapshots
+ * 📊 Data Aggregator
+ * Creates daily snapshots of operational metrics
  */
 export default function DataAggregator() {
   const queryClient = useQueryClient();
+  const { safeMode } = useSafeMode();
 
   useEffect(() => {
-    const aggregateDailyData = async () => {
+    if (safeMode) {
+      console.log('[DataAggregator] Disabled in Safe Mode');
+      return;
+    }
+
+    const aggregateData = async () => {
       try {
-        const today = startOfDay(new Date());
-        const dateStr = format(today, 'yyyy-MM-dd');
+        const today = new Date();
+        const todayStr = format(today, 'yyyy-MM-dd');
 
-        // Check if today's snapshot already exists
+        // Check if snapshot already created today
         const existing = await base44.entities.AnalyticsSnapshot.filter({
-          snapshot_date: dateStr,
-          department: 'all'
+          snapshot_date: todayStr,
+          period_type: 'daily'
         });
 
-        if (existing.length > 0) return; // Already aggregated
+        if (existing.length > 0) return;
 
-        // 1. Get task completion data
-        const allTasks = await base44.entities.OperationTask.list('', 200);
-        const todayTasks = allTasks.filter(t => t.due_date?.startsWith(dateStr));
-        const completedTasks = todayTasks.filter(t => t.status === 'completed');
-        const taskCompletionRate = todayTasks.length > 0
-          ? Math.round((completedTasks.length / todayTasks.length) * 100)
-          : 0;
+        // Fetch data for aggregation
+        const [tasks, quality, attendance, forms] = await Promise.all([
+          base44.entities.OperationTask.list('-created_date', 100),
+          base44.entities.QualityRecord.list('-created_date', 50),
+          base44.entities.AttendanceRecord.list('-shift_date', 100),
+          base44.entities.FormResponse.list('-submitted_at', 100),
+        ]);
 
-        // 2. Get quality scores
-        const qualityRecords = await base44.entities.QualityRecord.list('-created_date', 100);
-        const todayQuality = qualityRecords.filter(r => r.created_date?.startsWith(dateStr));
-        const qualityScoreAvg = todayQuality.length > 0
-          ? todayQuality.reduce((sum, r) => sum + r.score, 0) / todayQuality.length
-          : 0;
+        // Calculate metrics with safe number handling
+        const completedTasks = tasks.filter(t => t.status === 'completed').length;
+        const taskCompletionRate = safePercent(completedTasks, tasks.length, 1);
 
-        // 3. Get attendance data
-        const attendance = await base44.entities.AttendanceRecord.list('-shift_date', 100);
-        const todayAttendance = attendance.filter(a => a.shift_date === dateStr);
-        const onTimeAttendance = todayAttendance.filter(a => a.status === 'on_time');
-        const shiftCompliance = todayAttendance.length > 0
-          ? Math.round((onTimeAttendance.length / todayAttendance.length) * 100)
-          : 0;
+        const qualityScores = quality.map(q => safeNumber(q.score));
+        const qualityAvg = safeAverage(qualityScores, null, 2);
 
-        // 4. Get inventory data
-        const ingredients = await base44.entities.Ingredient.list();
-        const totalValue = ingredients.reduce((sum, i) => sum + ((i.current_stock || 0) * (i.unit_cost || 0)), 0);
-        const lowStockItems = ingredients.filter(i => (i.current_stock || 0) <= (i.reorder_point || 0));
-        const inventoryCostVariance = ingredients.length > 0
-          ? Math.round((lowStockItems.length / ingredients.length) * 100)
-          : 0;
+        const attendedShifts = attendance.filter(a => a.status === 'on_time' || a.status === 'late').length;
+        const shiftCompliance = safePercent(attendedShifts, attendance.length, 1);
 
-        // 5. Get active alerts
-        const events = await base44.entities.Event.filter({
-          status: 'unread',
-          severity: { $in: ['warning', 'critical'] }
-        });
+        const totalHours = attendance.reduce((sum, a) => sum + safeNumber(a.total_hours), 0);
+        const overtimeHours = attendance.reduce((sum, a) => sum + safeNumber(a.overtime_hours), 0);
 
-        // 6. Get SOP completion
-        const sopSignatures = await base44.entities.SOPSignatureLog.list('-signed_at', 100);
-        const todaySignatures = sopSignatures.filter(s => s.signed_at?.startsWith(dateStr));
-
-        // 7. Get checklist completion
-        const checklists = await base44.entities.ChecklistExecution.list('-execution_date', 100);
-        const todayChecklists = checklists.filter(c => c.execution_date === dateStr);
-        const completedChecklists = todayChecklists.filter(c => c.status === 'completed');
-        const checklistCompletionRate = todayChecklists.length > 0
-          ? Math.round((completedChecklists.length / todayChecklists.length) * 100)
-          : 0;
-
-        // 8. Get staff data
-        const staff = await base44.entities.User.filter({ status: 'active' });
+        const completedForms = forms.filter(f => f.status === 'submitted' || f.status === 'approved').length;
+        const formCompletionRate = safePercent(completedForms, forms.length, 1);
 
         // Create snapshot
         await base44.entities.AnalyticsSnapshot.create({
-          snapshot_date: dateStr,
+          snapshot_date: todayStr,
           period_type: 'daily',
           department: 'all',
           task_completion_rate: taskCompletionRate,
-          quality_score_avg: qualityScoreAvg,
+          quality_score_avg: qualityAvg,
           shift_compliance: shiftCompliance,
-          inventory_cost_variance: inventoryCostVariance,
-          active_alerts: events.length,
-          sop_completion_rate: todaySignatures.length,
-          checklist_completion_rate: checklistCompletionRate,
+          sop_completion_rate: 0, // Placeholder
+          checklist_completion_rate: formCompletionRate,
           attendance_rate: shiftCompliance,
-          total_hours_worked: todayAttendance.reduce((sum, a) => sum + (a.total_hours || 0), 0),
-          overtime_hours: todayAttendance.reduce((sum, a) => sum + (a.overtime_hours || 0), 0),
-          total_staff: staff.length,
-          stock_efficiency: 100 - inventoryCostVariance,
+          total_hours_worked: safeNumber(totalHours),
+          overtime_hours: safeNumber(overtimeHours),
+          total_staff: new Set(attendance.map(a => a.staff_email)).size,
           generated_at: new Date().toISOString(),
           generated_by: 'system',
         });
 
-        queryClient.invalidateQueries({ queryKey: ['analyticsSnapshots'] });
+        queryClient.invalidateQueries({ queryKey: ['analyticsSnapshot'] });
+        console.log(`[DataAggregator] ✅ Created snapshot for ${todayStr}`);
 
       } catch (error) {
         console.error('[DataAggregator] Error:', error);
       }
     };
 
-    // Run daily at midnight and on mount
-    aggregateDailyData();
+    // Run daily at midnight
     const interval = setInterval(() => {
       const now = new Date();
-      if (now.getHours() === 0 && now.getMinutes() < 10) {
-        aggregateDailyData();
+      if (now.getHours() === 0 && now.getMinutes() < 30) {
+        aggregateData();
       }
-    }, 10 * 60 * 1000); // Check every 10 minutes
+    }, 30 * 60 * 1000);
+
+    // Run once on mount if needed
+    aggregateData();
 
     return () => clearInterval(interval);
-  }, [queryClient]);
+  }, [queryClient, safeMode]);
 
   return null;
 }

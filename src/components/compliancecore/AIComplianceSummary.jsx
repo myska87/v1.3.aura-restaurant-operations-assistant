@@ -1,7 +1,10 @@
+
 import { useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQueryClient } from '@tanstack/react-query';
 import { differenceInDays, parseISO, startOfWeek, format } from 'date-fns';
+import { createPageUrl } from '@/utils'; // Added based on usage in existing code and outline
+import { useSafeMode } from '../SafeModeProvider'; // New import
 
 /**
  * 🤖 AI Compliance Summary Generator
@@ -9,8 +12,14 @@ import { differenceInDays, parseISO, startOfWeek, format } from 'date-fns';
  */
 export default function AIComplianceSummary() {
   const queryClient = useQueryClient();
+  const { safeMode } = useSafeMode(); // New hook call
 
   useEffect(() => {
+    if (safeMode) { // New conditional check
+      console.log('[AIComplianceSummary] Disabled in Safe Mode');
+      return;
+    }
+
     const generateSummary = async () => {
       try {
         const weekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
@@ -112,7 +121,7 @@ export default function AIComplianceSummary() {
     }, 30 * 60 * 1000);
 
     return () => clearInterval(interval);
-  }, [queryClient]);
+  }, [queryClient, safeMode]); // safeMode added to dependencies
 
   return null;
 }

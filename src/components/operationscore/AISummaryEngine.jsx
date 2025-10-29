@@ -1,7 +1,9 @@
+
 import { useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQueryClient } from '@tanstack/react-query';
 import { startOfWeek, endOfWeek, format, subWeeks } from 'date-fns';
+import { useSafeMode } from '../SafeModeProvider';
 
 /**
  * 🤖 AI Summary Engine for OperationsCore
@@ -9,8 +11,14 @@ import { startOfWeek, endOfWeek, format, subWeeks } from 'date-fns';
  */
 export default function AISummaryEngine() {
   const queryClient = useQueryClient();
+  const { safeMode } = useSafeMode();
 
   useEffect(() => {
+    if (safeMode) {
+      console.log('[AISummary] Disabled in Safe Mode');
+      return;
+    }
+
     const generateWeeklySummary = async () => {
       try {
         const weekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
@@ -137,12 +145,14 @@ Provide a brief, positive summary (2-3 sentences) highlighting what's working we
 
     // Run once on Monday mornings
     const now = new Date();
+    let interval; // Declare interval outside the conditional block
+
     if (now.getDay() === 1 && now.getHours() === 9) { // Monday 9 AM
       generateWeeklySummary();
     }
 
     // Also check every 6 hours
-    const interval = setInterval(() => {
+    interval = setInterval(() => { // Assign to the declared variable
       const checkTime = new Date();
       if (checkTime.getDay() === 1 && checkTime.getHours() === 9) {
         generateWeeklySummary();
@@ -150,7 +160,7 @@ Provide a brief, positive summary (2-3 sentences) highlighting what's working we
     }, 6 * 60 * 60 * 1000);
 
     return () => clearInterval(interval);
-  }, [queryClient]);
+  }, [queryClient, safeMode]); // Add safeMode to dependency array
 
   return null;
 }

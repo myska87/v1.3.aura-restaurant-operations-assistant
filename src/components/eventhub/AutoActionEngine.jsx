@@ -1,16 +1,24 @@
+
 import { useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQueryClient } from '@tanstack/react-query';
+import { useSafeMode } from '../SafeModeProvider';
 
 /**
  * 🤖 Auto Action Engine
- * Triggers automated actions based on events
+ * Executes automated actions based on EventAutomationRule
  */
 export default function AutoActionEngine() {
   const queryClient = useQueryClient();
+  const { safeMode } = useSafeMode();
 
   useEffect(() => {
-    const processAutoActions = async () => {
+    if (safeMode) {
+      console.log('[AutoActionEngine] Disabled in Safe Mode');
+      return;
+    }
+
+    const processAutomationRules = async () => {
       try {
         // Get automation rules
         const rules = await base44.entities.EventAutomationRule.filter({
@@ -104,11 +112,11 @@ export default function AutoActionEngine() {
     };
 
     // Run every minute
-    processAutoActions();
-    const interval = setInterval(processAutoActions, 60 * 1000);
+    processAutomationRules();
+    const interval = setInterval(processAutomationRules, 60 * 1000);
 
     return () => clearInterval(interval);
-  }, [queryClient]);
+  }, [queryClient, safeMode]);
 
   return null;
 }

@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery } from '@tanstack/react-query';
@@ -48,6 +49,10 @@ import {
 import { format, subDays, startOfWeek, endOfWeek } from 'date-fns';
 import { motion } from 'framer-motion';
 
+import { safeNumber, safePercent, safeAverage } from '@/utils/safeNumber';
+import LoadingSpinner from '../components/common/LoadingSpinner';
+import EmptyState from '../components/common/EmptyState';
+
 export default function AnalyticsDashboard() {
   const [timeRange, setTimeRange] = useState('7days');
   const [department, setDepartment] = useState('all');
@@ -84,6 +89,18 @@ export default function AnalyticsDashboard() {
     inventory_cost_variance: 0,
     active_alerts: 0,
   };
+
+  // Prepare stats using latest snapshot data and safe number utilities
+  // Note: The outline provided specific calculations for 'tasks', 'qualityRecords', 'attendance', 'events'.
+  // As these data sources are not defined in the current file, we're mapping to the existing 'latestSnapshot'
+  // properties and applying 'safeNumber' for consistent formatting.
+  const stats = {
+    taskCompletionRate: latestSnapshot.task_completion_rate, // Assuming this is already a percentage
+    qualityAvg: latestSnapshot.quality_score_avg, // Assuming this is already an average score
+    attendanceRate: latestSnapshot.shift_compliance, // Using shift_compliance as a proxy for attendance rate
+    activeAlerts: latestSnapshot.active_alerts,
+  };
+
 
   // Prepare chart data
   const trendData = snapshots.slice(0, 7).reverse().map(s => ({
@@ -185,80 +202,61 @@ export default function AnalyticsDashboard() {
           </div>
         </div>
 
-        {/* KPI Cards */}
-        <div className="grid md:grid-cols-5 gap-4 mb-8">
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <CheckCircle className="w-8 h-8 text-green-600" />
-                  <Badge className="bg-green-100 text-green-800">
-                    +{latestSnapshot.task_completion_rate > 80 ? '↑' : '↓'}
-                  </Badge>
-                </div>
-                <p className="text-3xl font-bold text-gray-900">{latestSnapshot.task_completion_rate || 0}%</p>
-                <p className="text-xs text-gray-600">Task Completion</p>
-              </CardContent>
-            </Card>
-          </motion.div>
+        {/* Stats Grid */}
+        <div className="grid md:grid-cols-4 gap-6 mb-8">
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-sm font-medium text-gray-600">Task Completion</h3>
+                <CheckCircle className="w-5 h-5 text-green-600" />
+              </div>
+              <p className="text-3xl font-bold text-gray-900">
+                {safeNumber(stats.taskCompletionRate, 1).toFixed(1)}%
+              </p>
+              <p className="text-xs text-gray-500 mt-1">Target: 90%+</p>
+            </CardContent>
+          </Card>
 
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}>
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <Star className="w-8 h-8 text-amber-600" />
-                  <Badge className="bg-amber-100 text-amber-800">
-                    {latestSnapshot.quality_score_avg > 4 ? '↑' : '↓'}
-                  </Badge>
-                </div>
-                <p className="text-3xl font-bold text-gray-900">{(latestSnapshot.quality_score_avg || 0).toFixed(1)}</p>
-                <p className="text-xs text-gray-600">Quality Score</p>
-              </CardContent>
-            </Card>
-          </motion.div>
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-sm font-medium text-gray-600">Quality Score</h3>
+                <Star className="w-5 h-5 text-yellow-600" />
+              </div>
+              <p className="text-3xl font-bold text-gray-900">
+                {safeNumber(stats.qualityAvg, 1).toFixed(1)}/5
+              </p>
+              <p className="text-xs text-gray-500 mt-1">Target: 4.0+</p>
+            </CardContent>
+          </Card>
 
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <Clock className="w-8 h-8 text-blue-600" />
-                  <Badge className="bg-blue-100 text-blue-800">
-                    {latestSnapshot.shift_compliance > 85 ? '↑' : '↓'}
-                  </Badge>
-                </div>
-                <p className="text-3xl font-bold text-gray-900">{latestSnapshot.shift_compliance || 0}%</p>
-                <p className="text-xs text-gray-600">Attendance</p>
-              </CardContent>
-            </Card>
-          </motion.div>
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-sm font-medium text-gray-600">Attendance</h3>
+                <Users className="w-5 h-5 text-blue-600" />
+              </div>
+              <p className="text-3xl font-bold text-gray-900">
+                {safeNumber(stats.attendanceRate, 1).toFixed(1)}%
+              </p>
+              <p className="text-xs text-gray-500 mt-1">On-time rate</p>
+            </CardContent>
+          </Card>
 
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <Package className="w-8 h-8 text-purple-600" />
-                  <Badge className="bg-purple-100 text-purple-800">
-                    {latestSnapshot.inventory_cost_variance < 10 ? '↑' : '↓'}
-                  </Badge>
-                </div>
-                <p className="text-3xl font-bold text-gray-900">{latestSnapshot.inventory_cost_variance || 0}%</p>
-                <p className="text-xs text-gray-600">Cost Variance</p>
-              </CardContent>
-            </Card>
-          </motion.div>
-
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <AlertTriangle className="w-8 h-8 text-red-600" />
-                </div>
-                <p className="text-3xl font-bold text-gray-900">{latestSnapshot.active_alerts || 0}</p>
-                <p className="text-xs text-gray-600">Active Alerts</p>
-              </CardContent>
-            </Card>
-          </motion.div>
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-sm font-medium text-gray-600">Active Alerts</h3>
+                <AlertTriangle className="w-5 h-5 text-red-600" />
+              </div>
+              <p className="text-3xl font-bold text-red-900">
+                {stats.activeAlerts}
+              </p>
+              <p className="text-xs text-gray-500 mt-1">Needs attention</p>
+            </CardContent>
+          </Card>
         </div>
+
 
         {/* AI Insights */}
         {insights.length > 0 && (

@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -21,16 +22,14 @@ import {
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
-import CoreDB from '../components/CoreDB';
+import { safeNumber, safeCurrency, safePercent } from "@/utils/safeNumber";
 
-// Safe number helpers
-const safeNumber = (value, decimals = 2) => {
-  const num = parseFloat(value);
-  return isNaN(num) || num === null || num === undefined ? 0 : parseFloat(num.toFixed(decimals));
+// Helper function for safe average, not part of the original safeNumber.js but used in outline
+const safeAverage = (arr, key, decimals = 2) => {
+  if (!arr || arr.length === 0) return 0;
+  const sum = arr.reduce((acc, item) => acc + safeNumber(item[key]), 0);
+  return safeNumber(sum / arr.length, decimals);
 };
-
-const formatPrice = (price) => safeNumber(price, 2).toFixed(2);
-const formatPercent = (percent) => safeNumber(percent, 1).toFixed(1);
 
 export default function MenuIntelligence() {
   const queryClient = useQueryClient();
@@ -102,7 +101,7 @@ export default function MenuIntelligence() {
           total_cost: safeNumber(newTotalCost),
           profit_margin: safeNumber(item.sell_price) - safeNumber(newTotalCost),
           food_cost_percentage: safeNumber(item.sell_price) > 0 
-            ? (safeNumber(newTotalCost) / safeNumber(item.sell_price)) * 100 
+            ? safePercent(newTotalCost, item.sell_price, 2)
             : 0
         });
       }
@@ -196,7 +195,7 @@ export default function MenuIntelligence() {
                 <PieChart className="w-5 h-5 text-blue-600" />
               </div>
               <p className="text-3xl font-bold text-gray-900">
-                {formatPercent(intelligence.avgFoodCostPercentage)}%
+                {safePercent(intelligence.avgFoodCostPercentage, 100, 1).toFixed(1)}%
               </p>
               <p className="text-xs text-gray-500 mt-1">
                 Target: 28-35%
@@ -211,7 +210,7 @@ export default function MenuIntelligence() {
                 <DollarSign className="w-5 h-5 text-green-600" />
               </div>
               <p className="text-3xl font-bold text-green-700">
-                £{formatPrice(intelligence.totalProfit)}
+                {safeCurrency(intelligence.totalProfit)}
               </p>
               <p className="text-xs text-gray-500 mt-1">
                 Per service
@@ -226,7 +225,7 @@ export default function MenuIntelligence() {
                 <Target className="w-5 h-5 text-orange-600" />
               </div>
               <p className="text-3xl font-bold text-orange-700">
-                £{formatPrice(intelligence.predictedWaste)}
+                {safeCurrency(intelligence.predictedWaste)}
               </p>
               <p className="text-xs text-gray-500 mt-1">
                 This week
@@ -307,7 +306,7 @@ export default function MenuIntelligence() {
                       <p className="text-sm text-gray-600">{item.issue}</p>
                     </div>
                     <Badge className="bg-red-100 text-red-800">
-                      {formatPercent(item.food_cost_percentage)}% cost
+                      {safePercent(item.food_cost_percentage, 100, 1).toFixed(1)}% cost
                     </Badge>
                   </div>
                 ))}
@@ -334,8 +333,8 @@ export default function MenuIntelligence() {
                       <p className="text-xs text-gray-600">{item.category_name}</p>
                     </div>
                     <div className="text-right">
-                      <p className="font-bold text-green-700">£{formatPrice(item.profit_margin)}</p>
-                      <p className="text-xs text-gray-600">{formatPercent(item.food_cost_percentage)}% cost</p>
+                      <p className="font-bold text-green-700">{safeCurrency(item.profit_margin)}</p>
+                      <p className="text-xs text-gray-600">{safePercent(item.food_cost_percentage, 100, 1).toFixed(1)}% cost</p>
                     </div>
                   </div>
                 ))}
@@ -356,10 +355,10 @@ export default function MenuIntelligence() {
                   <div key={item.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                     <div>
                       <p className="font-medium text-gray-900">{item.name}</p>
-                      <p className="text-xs text-gray-600">£{formatPrice(item.sell_price)} sell price</p>
+                      <p className="text-xs text-gray-600">{safeCurrency(item.sell_price)} sell price</p>
                     </div>
                     <Badge className="bg-blue-100 text-blue-800">
-                      {formatPercent(item.food_cost_percentage)}%
+                      {safePercent(item.food_cost_percentage, 100, 1).toFixed(1)}%
                     </Badge>
                   </div>
                 ))}
@@ -387,12 +386,9 @@ function calculateMenuIntelligence(menuItems, ingredients, purchaseOrders) {
     };
   }
 
-  // Calculate averages
-  const avgFoodCostPercentage = menuItems.reduce((sum, item) => 
-    sum + safeNumber(item.food_cost_percentage), 0) / menuItems.length;
-  
-  const totalProfit = menuItems.reduce((sum, item) => 
-    sum + safeNumber(item.profit_margin), 0);
+  // Calculate averages using safe number utilities
+  const avgFoodCostPercentage = safeAverage(menuItems, 'food_cost_percentage', 2);
+  const totalProfit = menuItems.reduce((sum, item) => sum + safeNumber(item.profit_margin), 0);
 
   // Predict waste based on inventory and orders
   const predictedWaste = ingredients.reduce((sum, ing) => {
@@ -421,7 +417,7 @@ function calculateMenuIntelligence(menuItems, ingredients, purchaseOrders) {
       recommendations.push({
         type: 'increase_price',
         title: `Consider reducing price for ${item.name}`,
-        description: `Very low food cost (${formatPercent(foodCost)}%) suggests room for competitive pricing to increase sales volume`,
+        description: `Very low food cost (${safePercent(foodCost, 100, 1).toFixed(1)}%) suggests room for competitive pricing to increase sales volume`,
         impact: 'High',
         category: 'Pricing',
         item_id: item.id
@@ -430,18 +426,9 @@ function calculateMenuIntelligence(menuItems, ingredients, purchaseOrders) {
       recommendations.push({
         type: 'decrease_price',
         title: `Optimize cost for ${item.name}`,
-        description: `High food cost (${formatPercent(foodCost)}%) - consider cheaper ingredients or increase price to £${formatPrice(safeNumber(item.total_cost) / 0.35)}`,
+        description: `High food cost (${safePercent(foodCost, 100, 1).toFixed(1)}%) - consider cheaper ingredients or increase price`,
         impact: 'High',
         category: 'Cost Control',
-        item_id: item.id
-      });
-    } else if (foodCost >= 35 && foodCost <= 40) {
-      recommendations.push({
-        type: 'warning',
-        title: `Monitor ${item.name} closely`,
-        description: `Food cost (${formatPercent(foodCost)}%) approaching upper limit. Watch for supplier price increases.`,
-        impact: 'Medium',
-        category: 'Monitoring',
         item_id: item.id
       });
     }
@@ -452,7 +439,7 @@ function calculateMenuIntelligence(menuItems, ingredients, purchaseOrders) {
     recommendations.push({
       type: 'reduce_waste',
       title: 'Reduce predicted waste',
-      description: `Estimated £${formatPrice(predictedWaste)} in potential waste this week. Review par levels and ordering frequency.`,
+      description: `Estimated ${safeCurrency(predictedWaste)} in potential waste this week. Review par levels and ordering frequency.`,
       impact: 'High',
       category: 'Waste Reduction'
     });
@@ -480,8 +467,8 @@ function calculateMenuIntelligence(menuItems, ingredients, purchaseOrders) {
 
   return {
     avgFoodCostPercentage,
-    totalProfit,
-    predictedWaste,
+    totalProfit: safeNumber(totalProfit),
+    predictedWaste: safeNumber(predictedWaste),
     priceOpportunities,
     recommendations: recommendations.slice(0, 10),
     problemItems,

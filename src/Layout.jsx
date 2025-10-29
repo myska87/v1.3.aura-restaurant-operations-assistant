@@ -84,6 +84,8 @@ import AIComplianceSummary from "./components/compliancecore/AIComplianceSummary
 import ErrorBoundary from "./components/ErrorBoundary";
 import { Badge } from "@/components/ui/badge";
 
+import { SafeModeProvider } from './components/SafeModeProvider';
+
 const navigationItems = [
   {
     section: "Daily Essentials",
@@ -415,7 +417,6 @@ export default function Layout({ children, currentPageName }) {
         <AutoBackupScheduler />
         <WelcomeNewHire />
         <WelcomeNewUser />
-        <ChecklistAutomation />
         
         <StaffDataSync />
         <UnifiedUserSync />

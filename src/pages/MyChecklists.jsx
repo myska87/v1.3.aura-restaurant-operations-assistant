@@ -7,15 +7,21 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Clock, CheckCircle, AlertTriangle, Play, Home, CalendarDays } from "lucide-react"; // Added CalendarDays
+import { Clock, CheckCircle, AlertTriangle, Play, Home, CalendarDays, ClipboardList, TrendingUp } from "lucide-react"; // Added CalendarDays, ClipboardList, TrendingUp
 import { format } from "date-fns";
 import { Link, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
+import { safeNumber, safePercent } from '@/utils/safeNumber'; // Added
+import LoadingSpinner from '../components/common/LoadingSpinner'; // Added
+import EmptyState from '../components/common/EmptyState'; // Added
 
 export default function MyChecklists() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [currentShift, setCurrentShift] = useState(null);
+  // Removed: const [currentShift, setCurrentShift] = useState(null);
+
+  const [selectedStatus, setSelectedStatus] = useState('all'); // Added
+  const [selectedShift, setSelectedShift] = useState('all'); // Added
 
   const { data: user } = useQuery({
     queryKey: ['currentUser'],
@@ -31,11 +37,19 @@ export default function MyChecklists() {
     enabled: !!user?.email,
   });
 
+  // Safe shift selection - handle empty array
+  // Replaced useEffect and useState for currentShift with direct derivation
+  const currentShift = shifts.length > 0
+    ? (shifts.find(s => s.status === 'in_progress') || shifts[0])
+    : null;
+
+  // Removed: useEffect to set currentShift
+
   const { data: myChecklists = [], isLoading } = useQuery({
     queryKey: ['myChecklists', user?.email],
     queryFn: async () => {
       if (!user?.email) return [];
-      
+
       try {
         // Get ALL checklists assigned to this user (not just today)
         // Assuming base44.entities.ChecklistExecution.list can accept a sort parameter
@@ -48,13 +62,6 @@ export default function MyChecklists() {
     },
     enabled: !!user?.email,
   });
-
-  useEffect(() => {
-    if (shifts.length > 0) {
-      const activeShift = shifts.find(s => s.status === 'in_progress') || shifts[0];
-      setCurrentShift(activeShift);
-    }
-  }, [shifts]);
 
   const getChecklistProgress = (checklist) => {
     if (!checklist.tasks || checklist.tasks.length === 0) return 0;
@@ -92,28 +99,16 @@ export default function MyChecklists() {
     }
   };
 
-  const todayStr = format(new Date(), 'yyyy-MM-dd');
-  const todayChecklists = myChecklists.filter(c => c.execution_date === todayStr);
+  // Removed: todayStr, overdueChecklists, inProgressChecklists, notStartedChecklists, completedChecklists, upcomingChecklists
 
-  const overdueChecklists = myChecklists.filter(c => {
-    const execDate = new Date(c.execution_date);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0); // Normalize today to start of day
-    execDate.setHours(0, 0, 0, 0); // Normalize execution date to start of day
-    return execDate < today && c.status !== 'completed'; // Overdue if date is past and not completed
+  // Filter checklists with null safety
+  const filteredChecklists = myChecklists.filter(checklist => {
+    if (!checklist) return false;
+
+    const matchesStatus = selectedStatus === 'all' || checklist.status === selectedStatus;
+    const matchesShift = selectedShift === 'all' || checklist.shift_type === selectedShift;
+    return matchesStatus && matchesShift;
   });
-  const inProgressChecklists = todayChecklists.filter(c => c.status === 'in_progress');
-  const notStartedChecklists = todayChecklists.filter(c => c.status === 'not_started');
-  const completedChecklists = todayChecklists.filter(c => c.status === 'completed');
-
-  const upcomingChecklists = myChecklists.filter(c => {
-    const execDate = new Date(c.execution_date);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    execDate.setHours(0, 0, 0, 0);
-    return execDate > today; // Upcoming if execution date is in the future
-  });
-
 
   return (
     <div className="p-6 md:p-8 bg-gray-50 min-h-screen">
@@ -164,137 +159,88 @@ export default function MyChecklists() {
           </Card>
         )}
 
-        {/* Alerts */}
-        {overdueChecklists.length > 0 && (
-          <Alert className="bg-red-50 border-red-200 mb-6">
-            <AlertTriangle className="h-4 w-4 text-red-600" />
-            <AlertDescription className="text-red-800">
-              {overdueChecklists.length} checklist(s) are overdue and need immediate attention
-            </AlertDescription>
-          </Alert>
-        )}
+        {/* Removed Alerts section for overdue checklists */}
 
-        {/* Checklists Sections */}
-        <div className="space-y-6">
-          {/* Overdue */}
-          {overdueChecklists.length > 0 && (
-            <div>
-              <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                <AlertTriangle className="w-5 h-5 text-red-600" />
-                Overdue
-              </h2>
-              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {overdueChecklists.map(checklist => (
-                  <ChecklistCard
-                    key={checklist.id}
-                    checklist={checklist}
-                    progress={getChecklistProgress(checklist)}
-                    getStatusColor={getStatusColor}
-                    getShiftTypeColor={getShiftTypeColor}
-                    onStart={() => navigate(createPageUrl(`ExecuteChecklist?id=${checklist.id}`))}
-                  />
-                ))}
+        {/* Stats Cards */}
+        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-sm font-medium text-gray-600">Total Checklists</h3>
+                <ClipboardList className="w-5 h-5 text-blue-600" />
               </div>
-            </div>
-          )}
+              <p className="text-3xl font-bold text-gray-900">{myChecklists.length}</p>
+            </CardContent>
+          </Card>
 
-          {/* In Progress */}
-          {inProgressChecklists.length > 0 && (
-            <div>
-              <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                <Play className="w-5 h-5 text-blue-600" />
-                In Progress (Today)
-              </h2>
-              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {inProgressChecklists.map(checklist => (
-                  <ChecklistCard
-                    key={checklist.id}
-                    checklist={checklist}
-                    progress={getChecklistProgress(checklist)}
-                    getStatusColor={getStatusColor}
-                    getShiftTypeColor={getShiftTypeColor}
-                    onStart={() => navigate(createPageUrl(`ExecuteChecklist?id=${checklist.id}`))}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Not Started */}
-          {notStartedChecklists.length > 0 && (
-            <div>
-              <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                <Clock className="w-5 h-5 text-gray-600" />
-                Pending (Today)
-              </h2>
-              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {notStartedChecklists.map(checklist => (
-                  <ChecklistCard
-                    key={checklist.id}
-                    checklist={checklist}
-                    progress={0}
-                    getStatusColor={getStatusColor}
-                    getShiftTypeColor={getShiftTypeColor}
-                    onStart={() => navigate(createPageUrl(`ExecuteChecklist?id=${checklist.id}`))}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Upcoming */}
-          {upcomingChecklists.length > 0 && (
-            <div>
-              <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                <CalendarDays className="w-5 h-5 text-purple-600" />
-                Upcoming
-              </h2>
-              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {upcomingChecklists.map(checklist => (
-                  <ChecklistCard
-                    key={checklist.id}
-                    checklist={checklist}
-                    progress={0} // Upcoming checklists are not started
-                    getStatusColor={getStatusColor}
-                    getShiftTypeColor={getShiftTypeColor}
-                    onStart={() => navigate(createPageUrl(`ExecuteChecklist?id=${checklist.id}`))}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Completed */}
-          {completedChecklists.length > 0 && (
-            <div>
-              <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-sm font-medium text-gray-600">Completed</h3>
                 <CheckCircle className="w-5 h-5 text-green-600" />
-                Completed (Today)
-              </h2>
-              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {completedChecklists.map(checklist => (
-                  <ChecklistCard
-                    key={checklist.id}
-                    checklist={checklist}
-                    progress={100}
-                    getStatusColor={getStatusColor}
-                    getShiftTypeColor={getShiftTypeColor}
-                    onStart={() => navigate(createPageUrl(`ExecuteChecklist?id=${checklist.id}`))}
-                  />
-                ))}
               </div>
-            </div>
-          )}
+              <p className="text-3xl font-bold text-green-700">
+                {myChecklists.filter(c => c.status === 'completed').length}
+              </p>
+            </CardContent>
+          </Card>
 
-          {myChecklists.length === 0 && !isLoading && (
-            <Card className="bg-white">
-              <CardContent className="p-12 text-center">
-                <p className="text-gray-500">No checklists assigned to you yet</p>
-                <p className="text-sm text-gray-400 mt-2">Ask your manager to assign checklists</p>
-              </CardContent>
-            </Card>
-          )}
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-sm font-medium text-gray-600">Completion Rate</h3>
+                <TrendingUp className="w-5 h-5 text-purple-600" />
+              </div>
+              <p className="text-3xl font-bold text-purple-700">
+                {safePercent(
+                  myChecklists.filter(c => c.status === 'completed').length,
+                  myChecklists.length,
+                  0
+                ).toFixed(0)}%
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-sm font-medium text-gray-600">Overdue</h3>
+                <AlertTriangle className="w-5 h-5 text-red-600" />
+              </div>
+              <p className="text-3xl font-bold text-red-700">
+                {myChecklists.filter(c => c.status === 'overdue').length}
+              </p>
+            </CardContent>
+          </Card>
         </div>
+
+        {/* Checklists List */}
+        {isLoading ? (
+          <LoadingSpinner message="Loading checklists..." />
+        ) : filteredChecklists.length === 0 ? (
+          <EmptyState
+            icon={ClipboardList}
+            title="No checklists found"
+            description={
+              selectedStatus !== 'all'
+                ? `No ${selectedStatus.replace(/_/g, ' ')} checklists found. Try changing filters.`
+                : "You don't have any assigned checklists yet."
+            }
+          />
+        ) : (
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {filteredChecklists.map(checklist => (
+              <ChecklistCard
+                key={checklist.id}
+                checklist={checklist}
+                progress={getChecklistProgress(checklist)}
+                getStatusColor={getStatusColor}
+                getShiftTypeColor={getShiftTypeColor}
+                onStart={() => navigate(createPageUrl(`ExecuteChecklist?id=${checklist.id}`))}
+              />
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

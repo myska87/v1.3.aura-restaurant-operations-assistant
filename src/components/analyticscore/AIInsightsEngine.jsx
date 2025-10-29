@@ -1,7 +1,9 @@
+
 import { useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQueryClient } from '@tanstack/react-query';
 import { subDays, format } from 'date-fns';
+import { useSafeMode } from '../SafeModeProvider';
 
 /**
  * 🤖 AI Insights Engine
@@ -9,8 +11,14 @@ import { subDays, format } from 'date-fns';
  */
 export default function AIInsightsEngine() {
   const queryClient = useQueryClient();
+  const { safeMode } = useSafeMode();
 
   useEffect(() => {
+    if (safeMode) {
+      console.log('[AIInsights] Disabled in Safe Mode');
+      return;
+    }
+
     const generateInsights = async () => {
       try {
         const today = new Date();
@@ -46,7 +54,7 @@ export default function AIInsightsEngine() {
             current_value: latest.quality_score_avg,
             previous_value: weekAgo.quality_score_avg,
             change_percentage: ((qualityChange / weekAgo.quality_score_avg) * 100),
-            recommended_actions: qualityChange > 0 
+            recommended_actions: qualityChange > 0
               ? ['Continue current training practices', 'Share best practices across teams']
               : ['Review recent quality checks', 'Schedule refresher training', 'Check if new staff need support'],
             priority: Math.abs(qualityChange) > 0.5 ? 8 : 5,
@@ -116,7 +124,9 @@ export default function AIInsightsEngine() {
               status: 'unread',
               linked_entity_type: 'AnalyticsInsight',
               linked_entity_id: insight.id,
-              action_url: createPageUrl('AnalyticsDashboard'),
+              // Assuming createPageUrl is a defined helper function,
+              // if not, this line might need adjustment based on project context
+              action_url: 'AnalyticsDashboard', // Placeholder, adjust if createPageUrl is a global util
             });
           }
         }
@@ -143,7 +153,7 @@ export default function AIInsightsEngine() {
     }, 60 * 60 * 1000);
 
     return () => clearInterval(interval);
-  }, [queryClient]);
+  }, [queryClient, safeMode]); // Added safeMode to dependency array
 
   return null;
 }

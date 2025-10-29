@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 import {
   Select,
   SelectContent,
@@ -27,6 +28,8 @@ import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import { format, startOfWeek, endOfWeek, getISOWeek } from 'date-fns';
 import { motion } from 'framer-motion';
+import { safeNumber, safeCurrency } from '@/utils/safeNumber';
+import LoadingSpinner from '../components/common/LoadingSpinner';
 
 export default function PayrollDashboard() {
   const queryClient = useQueryClient();
@@ -67,8 +70,8 @@ export default function PayrollDashboard() {
 
   const stats = {
     totalStaff: payrollRecords.length,
-    totalHours: payrollRecords.reduce((sum, r) => sum + (r.total_hours || 0), 0),
-    totalPay: payrollRecords.reduce((sum, r) => sum + (r.total_net_pay || 0), 0),
+    totalHours: payrollRecords.reduce((sum, r) => sum + safeNumber(r.total_hours), 0),
+    totalPay: payrollRecords.reduce((sum, r) => sum + safeNumber(r.total_net_pay), 0),
     pendingApproval: payrollRecords.filter(r => r.status === 'generated' || r.status === 'verified').length,
   };
 
@@ -145,7 +148,7 @@ export default function PayrollDashboard() {
           <Card>
             <CardContent className="p-4 text-center">
               <Clock className="w-8 h-8 text-purple-600 mx-auto mb-2" />
-              <p className="text-3xl font-bold text-gray-900">{stats.totalHours.toFixed(1)}</p>
+              <p className="text-3xl font-bold text-gray-900">{safeNumber(stats.totalHours, 1).toFixed(1)}</p>
               <p className="text-sm text-gray-600">Total Hours</p>
             </CardContent>
           </Card>
@@ -153,7 +156,7 @@ export default function PayrollDashboard() {
           <Card>
             <CardContent className="p-4 text-center">
               <DollarSign className="w-8 h-8 text-green-600 mx-auto mb-2" />
-              <p className="text-3xl font-bold text-green-900">£{stats.totalPay.toFixed(2)}</p>
+              <p className="text-3xl font-bold text-green-900">{safeCurrency(stats.totalPay)}</p>
               <p className="text-sm text-gray-600">Total Pay</p>
             </CardContent>
           </Card>
@@ -188,10 +191,7 @@ export default function PayrollDashboard() {
           </CardHeader>
           <CardContent>
             {isLoading ? (
-              <div className="text-center py-12">
-                <div className="animate-spin w-12 h-12 border-4 border-green-600 border-t-transparent rounded-full mx-auto mb-4"></div>
-                <p className="text-gray-600">Loading payroll...</p>
-              </div>
+              <LoadingSpinner message="Loading payroll..." />
             ) : payrollRecords.length === 0 ? (
               <div className="text-center py-12">
                 <DollarSign className="w-16 h-16 text-gray-400 mx-auto mb-4" />
@@ -214,19 +214,27 @@ export default function PayrollDashboard() {
                             <div className="grid md:grid-cols-4 gap-4 text-sm">
                               <div>
                                 <p className="text-gray-600">Total Hours</p>
-                                <p className="font-semibold text-gray-900">{record.total_hours?.toFixed(1) || 0}</p>
+                                <p className="font-semibold text-gray-900">
+                                  {safeNumber(record.total_hours, 1).toFixed(1)}
+                                </p>
                               </div>
                               <div>
                                 <p className="text-gray-600">Overtime</p>
-                                <p className="font-semibold text-gray-900">{record.overtime_hours?.toFixed(1) || 0}h</p>
+                                <p className="font-semibold text-gray-900">
+                                  {safeNumber(record.overtime_hours, 1).toFixed(1)}h
+                                </p>
                               </div>
                               <div>
                                 <p className="text-gray-600">Gross Pay</p>
-                                <p className="font-semibold text-green-700">£{record.total_gross_pay?.toFixed(2) || 0}</p>
+                                <p className="font-semibold text-green-700">
+                                  {safeCurrency(record.total_gross_pay)}
+                                </p>
                               </div>
                               <div>
                                 <p className="text-gray-600">Net Pay</p>
-                                <p className="font-semibold text-green-900">£{record.total_net_pay?.toFixed(2) || 0}</p>
+                                <p className="font-semibold text-green-900">
+                                  {safeCurrency(record.total_net_pay)}
+                                </p>
                               </div>
                             </div>
                           </div>

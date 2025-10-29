@@ -1,7 +1,9 @@
+
 import { useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQueryClient } from '@tanstack/react-query';
 import { addDays, format, subDays } from 'date-fns';
+import { useSafeMode } from './SafeModeProvider';
 
 /**
  * 🔮 AURA Predictive Insights Engine
@@ -9,8 +11,14 @@ import { addDays, format, subDays } from 'date-fns';
  */
 export default function PredictiveInsightsEngine() {
   const queryClient = useQueryClient();
+  const { safeMode } = useSafeMode();
 
   useEffect(() => {
+    if (safeMode) {
+      console.log('[PredictiveInsights] Disabled in Safe Mode');
+      return;
+    }
+
     const generatePredictions = async () => {
       try {
         const today = new Date();
@@ -139,7 +147,7 @@ Provide a brief prediction (2 sentences) and confidence level.`,
     }, 30 * 60 * 1000); // Check every 30 minutes
 
     return () => clearInterval(interval);
-  }, [queryClient]);
+  }, [queryClient, safeMode]);
 
   return null;
 }

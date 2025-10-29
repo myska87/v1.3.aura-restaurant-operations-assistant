@@ -1,15 +1,23 @@
+
 import { useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQueryClient } from '@tanstack/react-query';
+import { useSafeMode } from '../SafeModeProvider';
 
 /**
- * 🔔 EventHub Processor
- * Listens to activities and creates events for notifications
+ * 🔔 Event Processor
+ * Converts ActivityLog into Event notifications
  */
 export default function EventProcessor() {
   const queryClient = useQueryClient();
+  const { safeMode } = useSafeMode();
 
   useEffect(() => {
+    if (safeMode) {
+      console.log('[EventProcessor] Disabled in Safe Mode');
+      return;
+    }
+
     const processActivities = async () => {
       try {
         // Get recent activities not yet processed into events
@@ -89,7 +97,7 @@ export default function EventProcessor() {
     const interval = setInterval(processActivities, 30 * 1000);
 
     return () => clearInterval(interval);
-  }, [queryClient]);
+  }, [queryClient, safeMode]);
 
   return null;
 }
