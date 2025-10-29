@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import {
@@ -283,10 +283,10 @@ const otherToolsItems = [
 
 export default function Layout({ children }) {
   const location = useLocation();
-  const [user, setUser] = React.useState(null);
-  const [otherToolsOpen, setOtherToolsOpen] = React.useState(false);
+  const [user, setUser] = useState(null);
+  const [otherToolsOpen, setOtherToolsOpen] = useState(false);
 
-  React.useEffect(() => {
+  useEffect(() => {
     const loadUser = async () => {
       try {
         const currentUser = await base44.auth.me();
