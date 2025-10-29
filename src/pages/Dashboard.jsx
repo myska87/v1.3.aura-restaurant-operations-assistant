@@ -1,6 +1,7 @@
 import React from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { 
   Target, 
   Package, 
@@ -18,7 +19,6 @@ import { createPageUrl } from '@/utils';
 import { motion } from 'framer-motion';
 import { base44 } from '@/api/base44Client';
 import { useQuery } from '@tanstack/react-query';
-import { safeNumber, safePercent } from '@/utils';
 
 const hubCards = [
   {
@@ -203,12 +203,6 @@ export default function Dashboard() {
                         <p className="text-gray-600 text-sm leading-relaxed">
                           {hub.description}
                         </p>
-                        
-                        {hub.badge && (
-                          <Badge className="mt-3 bg-emerald-100 text-emerald-800">
-                            {hub.badge}
-                          </Badge>
-                        )}
                       </CardContent>
                     </Card>
                   </Link>
