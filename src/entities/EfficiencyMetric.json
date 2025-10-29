@@ -1,0 +1,217 @@
+{
+  "name": "EfficiencyMetric",
+  "type": "object",
+  "properties": {
+    "staff_id": {
+      "type": "string",
+      "description": "Reference to User entity"
+    },
+    "staff_email": {
+      "type": "string",
+      "description": "Staff member email"
+    },
+    "staff_name": {
+      "type": "string",
+      "description": "Staff member name"
+    },
+    "role": {
+      "type": "string",
+      "description": "Staff role during this period"
+    },
+    "department": {
+      "type": "string",
+      "description": "Department"
+    },
+    "week_start": {
+      "type": "string",
+      "format": "date",
+      "description": "Start of measurement week"
+    },
+    "week_end": {
+      "type": "string",
+      "format": "date",
+      "description": "End of measurement week"
+    },
+    "total_shifts": {
+      "type": "number",
+      "default": 0,
+      "description": "Shifts worked this week"
+    },
+    "total_hours": {
+      "type": "number",
+      "default": 0,
+      "description": "Hours worked"
+    },
+    "tasks_completed": {
+      "type": "number",
+      "default": 0,
+      "description": "Tasks completed"
+    },
+    "tasks_assigned": {
+      "type": "number",
+      "default": 0,
+      "description": "Tasks assigned"
+    },
+    "task_completion_rate": {
+      "type": "number",
+      "description": "Percentage of tasks completed"
+    },
+    "average_lateness": {
+      "type": "number",
+      "default": 0,
+      "description": "Average minutes late"
+    },
+    "attendance_rate": {
+      "type": "number",
+      "description": "Percentage of scheduled shifts attended"
+    },
+    "checklists_completed": {
+      "type": "number",
+      "default": 0
+    },
+    "forms_completed": {
+      "type": "number",
+      "default": 0
+    },
+    "quality_average": {
+      "type": "number",
+      "description": "Average quality score (1-5)"
+    },
+    "hygiene_compliance": {
+      "type": "number",
+      "description": "Hygiene compliance percentage"
+    },
+    "productivity_score": {
+      "type": "number",
+      "description": "Tasks per hour worked"
+    },
+    "punctuality_score": {
+      "type": "number",
+      "description": "Punctuality score (0-100)"
+    },
+    "quality_score": {
+      "type": "number",
+      "description": "Quality score (0-100)"
+    },
+    "overall_score": {
+      "type": "number",
+      "description": "Weighted average efficiency score (0-100)"
+    },
+    "efficiency_rank": {
+      "type": "number",
+      "description": "Rank within role/department"
+    },
+    "efficiency_tier": {
+      "type": "string",
+      "enum": [
+        "needs_improvement",
+        "meets_expectations",
+        "exceeds_expectations",
+        "exceptional"
+      ],
+      "description": "Performance tier"
+    },
+    "badges_earned": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Achievement badges"
+    },
+    "areas_of_excellence": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Top performing areas"
+    },
+    "improvement_areas": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Areas needing attention"
+    },
+    "ai_summary": {
+      "type": "string",
+      "description": "AI-generated performance summary"
+    },
+    "calculated_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When metrics were calculated"
+    }
+  },
+  "required": [
+    "staff_email",
+    "week_start",
+    "week_end"
+  ],
+  "rls": {
+    "create": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "manager"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        }
+      ]
+    },
+    "read": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "manager"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        },
+        {
+          "staff_email": "{{user.email}}"
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "manager"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

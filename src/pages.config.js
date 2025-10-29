@@ -121,6 +121,8 @@ import DocumentsDashboard from './pages/DocumentsDashboard';
 import AIHub from './pages/AIHub';
 import SettingsDashboard from './pages/SettingsDashboard';
 import SystemHealthCheck from './pages/SystemHealthCheck';
+import StaffAnalytics from './pages/StaffAnalytics';
+import KPIDashboard from './pages/KPIDashboard';
 import Layout from './Layout.jsx';
 
 
@@ -248,6 +250,8 @@ export const PAGES = {
     "AIHub": AIHub,
     "SettingsDashboard": SettingsDashboard,
     "SystemHealthCheck": SystemHealthCheck,
+    "StaffAnalytics": StaffAnalytics,
+    "KPIDashboard": KPIDashboard,
 }
 
 export const pagesConfig = {

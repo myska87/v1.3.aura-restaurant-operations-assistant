@@ -1,0 +1,192 @@
+{
+  "name": "KPIProfile",
+  "type": "object",
+  "properties": {
+    "department": {
+      "type": "string",
+      "enum": [
+        "all",
+        "kitchen",
+        "front_of_house",
+        "bar",
+        "management",
+        "cleaning",
+        "maintenance"
+      ],
+      "description": "Department this KPI applies to"
+    },
+    "role": {
+      "type": "string",
+      "description": "Specific role (chef, server, etc.) or 'all'"
+    },
+    "metric_name": {
+      "type": "string",
+      "enum": [
+        "attendance",
+        "punctuality",
+        "task_completion",
+        "quality_score",
+        "hygiene_compliance",
+        "customer_feedback",
+        "sales_per_shift",
+        "speed_of_service",
+        "cleanliness",
+        "sop_adherence",
+        "training_completion",
+        "teamwork",
+        "custom"
+      ],
+      "description": "KPI metric name"
+    },
+    "custom_metric_name": {
+      "type": "string",
+      "description": "Custom metric name if metric_name is 'custom'"
+    },
+    "description": {
+      "type": "string",
+      "description": "What this KPI measures"
+    },
+    "measurement_type": {
+      "type": "string",
+      "enum": [
+        "percentage",
+        "score",
+        "count",
+        "average",
+        "rate"
+      ],
+      "default": "percentage",
+      "description": "How to measure"
+    },
+    "weight": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 100,
+      "default": 10,
+      "description": "Weight in overall score calculation (percentage)"
+    },
+    "target_value": {
+      "type": "number",
+      "description": "Target/goal value"
+    },
+    "minimum_acceptable": {
+      "type": "number",
+      "description": "Minimum acceptable value"
+    },
+    "calculation_formula": {
+      "type": "string",
+      "description": "How to calculate this metric"
+    },
+    "data_source": {
+      "type": "string",
+      "enum": [
+        "attendance_records",
+        "task_completion",
+        "quality_records",
+        "hygiene_records",
+        "form_responses",
+        "manual_entry"
+      ],
+      "description": "Where data comes from"
+    },
+    "frequency": {
+      "type": "string",
+      "enum": [
+        "daily",
+        "weekly",
+        "monthly"
+      ],
+      "default": "weekly",
+      "description": "How often to calculate"
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true,
+      "description": "Whether KPI is currently tracked"
+    },
+    "created_by": {
+      "type": "string",
+      "description": "Manager who created this KPI"
+    },
+    "created_by_name": {
+      "type": "string",
+      "description": "Creator name"
+    },
+    "alert_threshold": {
+      "type": "number",
+      "description": "Value below which to alert managers"
+    },
+    "auto_calculate": {
+      "type": "boolean",
+      "default": true,
+      "description": "Auto-calculate from data sources"
+    }
+  },
+  "required": [
+    "department",
+    "metric_name",
+    "weight",
+    "target_value"
+  ],
+  "rls": {
+    "create": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "manager"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        }
+      ]
+    },
+    "read": {
+      "user_condition": {
+        "email": {
+          "$exists": true
+        }
+      }
+    },
+    "update": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "manager"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        }
+      ]
+    }
+  }
+}

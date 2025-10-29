@@ -1,0 +1,202 @@
+{
+  "name": "KPIReport",
+  "type": "object",
+  "properties": {
+    "staff_id": {
+      "type": "string",
+      "description": "Reference to User entity"
+    },
+    "staff_email": {
+      "type": "string",
+      "description": "Staff member email"
+    },
+    "staff_name": {
+      "type": "string",
+      "description": "Staff member name"
+    },
+    "kpi_profile_id": {
+      "type": "string",
+      "description": "Reference to KPIProfile"
+    },
+    "metric_name": {
+      "type": "string",
+      "description": "Cached metric name"
+    },
+    "department": {
+      "type": "string",
+      "description": "Department"
+    },
+    "role": {
+      "type": "string",
+      "description": "Role"
+    },
+    "period_start": {
+      "type": "string",
+      "format": "date",
+      "description": "Measurement period start"
+    },
+    "period_end": {
+      "type": "string",
+      "format": "date",
+      "description": "Measurement period end"
+    },
+    "target_value": {
+      "type": "number",
+      "description": "Target for this KPI"
+    },
+    "achieved_value": {
+      "type": "number",
+      "description": "Actual value achieved"
+    },
+    "variance": {
+      "type": "number",
+      "description": "Difference from target (achieved - target)"
+    },
+    "variance_percentage": {
+      "type": "number",
+      "description": "Variance as percentage"
+    },
+    "kpi_score": {
+      "type": "number",
+      "description": "Score for this KPI (0-100)"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "exceeds",
+        "meets",
+        "below",
+        "critical"
+      ],
+      "description": "Performance status"
+    },
+    "trend": {
+      "type": "string",
+      "enum": [
+        "improving",
+        "stable",
+        "declining"
+      ],
+      "description": "Trend vs previous period"
+    },
+    "previous_value": {
+      "type": "number",
+      "description": "Value from previous period"
+    },
+    "data_points_used": {
+      "type": "number",
+      "description": "Number of records analyzed"
+    },
+    "calculation_notes": {
+      "type": "string",
+      "description": "How value was calculated"
+    },
+    "generated_date": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When report was generated"
+    },
+    "generated_by": {
+      "type": "string",
+      "default": "system",
+      "description": "System or user who generated"
+    },
+    "alert_triggered": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether this triggered an alert"
+    },
+    "manager_reviewed": {
+      "type": "boolean",
+      "default": false
+    },
+    "manager_notes": {
+      "type": "string",
+      "description": "Manager feedback"
+    }
+  },
+  "required": [
+    "staff_email",
+    "metric_name",
+    "period_start",
+    "period_end",
+    "achieved_value",
+    "kpi_score"
+  ],
+  "rls": {
+    "create": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "manager"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        }
+      ]
+    },
+    "read": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "manager"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        },
+        {
+          "staff_email": "{{user.email}}"
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "manager"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        }
+      ]
+    }
+  }
+}
