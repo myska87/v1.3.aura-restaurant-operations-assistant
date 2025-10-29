@@ -1,6 +1,5 @@
 import React from 'react';
 import { Card, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { 
   Target, 
@@ -83,15 +82,21 @@ export default function Dashboard() {
     queryFn: () => base44.auth.me(),
   });
 
-  // Fetch quick stats
+  // Fetch quick stats with error handling
   const { data: tasks = [] } = useQuery({
     queryKey: ['myTasks'],
     queryFn: async () => {
-      if (!user?.email) return [];
-      return await base44.entities.OperationTask.filter({
-        assigned_to: user.email,
-        status: { $in: ['pending', 'in_progress'] }
-      }, '-due_date', 10);
+      try {
+        if (!user?.email) return [];
+        const allTasks = await base44.entities.OperationTask.list('-due_date', 50);
+        return allTasks.filter(t => 
+          t.assigned_to === user.email && 
+          ['pending', 'in_progress'].includes(t.status)
+        ).slice(0, 10);
+      } catch (error) {
+        console.error('Error fetching tasks:', error);
+        return [];
+      }
     },
     enabled: !!user?.email,
   });
@@ -99,11 +104,17 @@ export default function Dashboard() {
   const { data: shifts = [] } = useQuery({
     queryKey: ['myUpcomingShifts'],
     queryFn: async () => {
-      if (!user?.email) return [];
-      return await base44.entities.Shift.filter({
-        staff_email: user.email,
-        status: { $in: ['scheduled', 'in_progress'] }
-      }, 'shift_date', 5);
+      try {
+        if (!user?.email) return [];
+        const allShifts = await base44.entities.Shift.list('-shift_date', 50);
+        return allShifts.filter(s => 
+          s.staff_email === user.email && 
+          ['scheduled', 'in_progress'].includes(s.status)
+        ).slice(0, 5);
+      } catch (error) {
+        console.error('Error fetching shifts:', error);
+        return [];
+      }
     },
     enabled: !!user?.email,
   });
@@ -111,11 +122,19 @@ export default function Dashboard() {
   const { data: events = [] } = useQuery({
     queryKey: ['unreadEvents'],
     queryFn: async () => {
-      if (!user?.email) return [];
-      return await base44.entities.Event.filter({
-        recipient_emails: { $in: [user.email] },
-        status: 'unread'
-      }, '-created_date', 5);
+      try {
+        if (!user?.email) return [];
+        const allEvents = await base44.entities.Event.list('-created_date', 50);
+        return allEvents.filter(e => 
+          (e.recipient_emails?.includes(user.email) || 
+           e.recipient_roles?.includes(user.position) ||
+           e.recipient_roles?.includes('all')) &&
+          e.status === 'unread'
+        ).slice(0, 5);
+      } catch (error) {
+        console.error('Error fetching events:', error);
+        return [];
+      }
     },
     enabled: !!user?.email,
   });
