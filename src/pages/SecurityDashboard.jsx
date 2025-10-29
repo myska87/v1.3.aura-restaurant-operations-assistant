@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { base44 } from '@/api/base44Client';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -8,41 +8,57 @@ import { Input } from '@/components/ui/input';
 import {
   Shield,
   Lock,
+  Key,
   Eye,
-  Edit,
-  Trash2,
-  Plus,
-  Users,
+  EyeOff,
   AlertTriangle,
   CheckCircle,
-  Search,
-  ArrowLeft,
-  Home
+  UserCheck,
+  UserX,
+  Activity,
+  Clock,
+  Home,
+  Settings,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
-import { permissions, getRoleLevel, isManager, isAdmin } from '../components/PermissionsConfig';
-import { SecurityBadge } from '../components/PermissionGuard';
+import { format } from 'date-fns';
 
 export default function SecurityDashboard() {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedEntity, setSelectedEntity] = useState(null);
+  const queryClient = useQueryClient();
+  const [showKeys, setShowKeys] = useState(false);
 
   const { data: user } = useQuery({
     queryKey: ['currentUser'],
     queryFn: () => base44.auth.me(),
   });
 
-  // Only managers can view this page
-  if (!isManager(user)) {
+  const { data: allUsers = [] } = useQuery({
+    queryKey: ['allUsers'],
+    queryFn: () => base44.entities.User.list(),
+  });
+
+  const { data: complianceAudits = [] } = useQuery({
+    queryKey: ['complianceAudits'],
+    queryFn: () => base44.entities.ComplianceAudit.list('-created_date', 50),
+  });
+
+  const { data: securityIncidents = [] } = useQuery({
+    queryKey: ['securityIncidents'],
+    queryFn: () => base44.entities.ComplianceSecurityIncident.filter({ status: { $in: ['open', 'investigating'] } }),
+  });
+
+  const isOwner = user?.role === 'admin' || user?.position === 'owner';
+
+  if (!isOwner) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6 md:p-8 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 p-6 flex items-center justify-center">
         <Card className="max-w-md">
           <CardContent className="p-12 text-center">
             <Lock className="w-16 h-16 text-red-500 mx-auto mb-4" />
             <h2 className="text-2xl font-bold text-gray-900 mb-2">Access Denied</h2>
-            <p className="text-gray-600 mb-4">
-              This page is only available to Managers and Administrators.
+            <p className="text-gray-600 mb-6">
+              Security Dashboard is only accessible to owners and administrators.
             </p>
             <Link to={createPageUrl('Dashboard')}>
               <Button>
@@ -56,184 +72,183 @@ export default function SecurityDashboard() {
     );
   }
 
-  // Get all entities from permissions
-  const entities = Object.keys(permissions);
+  const activeUsers = allUsers.filter(u => u.is_active !== false);
+  const inactiveUsers = allUsers.filter(u => u.is_active === false);
+  const adminUsers = allUsers.filter(u => u.role === 'admin' || u.position === 'owner');
 
-  // Filter entities by search
-  const filteredEntities = entities.filter(entity =>
-    entity.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
-  // Get permission summary for an entity
-  const getPermissionSummary = (entityName) => {
-    const entityPerms = permissions[entityName];
-    const canRead = entityPerms.canRead(user);
-    const canCreate = entityPerms.canCreate(user);
-    const canUpdate = entityPerms.canUpdate(user);
-    const canDelete = entityPerms.canDelete(user);
-
-    return { canRead, canCreate, canUpdate, canDelete };
-  };
+  const suspiciousActivities = complianceAudits.filter(audit => audit.severity === 'critical');
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6 md:p-8">
-      <div className="max-w-7xl mx-auto space-y-6">
-        {/* Navigation */}
-        <div className="flex gap-3">
-          <Link to={createPageUrl('Dashboard')}>
+      <div className="max-w-7xl mx-auto">
+        
+        <div className="flex gap-3 mb-6">
+          <Link to={createPageUrl('SettingsDashboard')}>
             <Button variant="outline" size="sm">
-              <Home className="w-4 h-4 mr-2" />
-              Dashboard
-            </Button>
-          </Link>
-          <Link to={createPageUrl('ComplianceDashboard')}>
-            <Button variant="outline" size="sm">
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Compliance
+              <Settings className="w-4 h-4 mr-2" />
+              Back to Settings
             </Button>
           </Link>
         </div>
 
-        {/* Header */}
-        <Card className="bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 text-white border-none shadow-xl">
-          <CardHeader>
-            <div className="flex items-start justify-between">
-              <div>
-                <CardTitle className="text-3xl font-bold flex items-center gap-3 mb-2">
-                  <Shield className="w-8 h-8" />
-                  Security & Permissions
-                </CardTitle>
-                <p className="text-white/90 text-lg">
-                  Role-Based Access Control (RBAC) System
-                </p>
-              </div>
-              <SecurityBadge user={user} />
-            </div>
-          </CardHeader>
-        </Card>
+        <div className="mb-8">
+          <div className="flex items-center gap-3 mb-2">
+            <Shield className="w-10 h-10 text-blue-600" />
+            <h1 className="text-4xl font-bold text-gray-900">Security Dashboard</h1>
+          </div>
+          <p className="text-gray-600 text-lg">
+            Monitor security, access control, and system integrity
+          </p>
+        </div>
 
-        {/* User Info */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Your Access Level</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid md:grid-cols-3 gap-4">
-              <div className="p-4 bg-blue-50 rounded-lg">
-                <p className="text-sm text-blue-600 font-medium mb-1">Full Name</p>
-                <p className="text-lg font-bold text-blue-900">{user?.full_name}</p>
+        {/* Key Metrics */}
+        <div className="grid md:grid-cols-4 gap-4 mb-8">
+          <Card className="border-l-4 border-l-green-500">
+            <CardContent className="p-4">
+              <div className="flex justify-between items-start">
+                <div>
+                  <p className="text-sm text-gray-600 mb-1">Active Users</p>
+                  <p className="text-3xl font-bold text-green-600">{activeUsers.length}</p>
+                </div>
+                <UserCheck className="w-8 h-8 text-green-500" />
               </div>
-              <div className="p-4 bg-green-50 rounded-lg">
-                <p className="text-sm text-green-600 font-medium mb-1">Position</p>
-                <p className="text-lg font-bold text-green-900 capitalize">{user?.position || 'Staff'}</p>
+            </CardContent>
+          </Card>
+
+          <Card className="border-l-4 border-l-amber-500">
+            <CardContent className="p-4">
+              <div className="flex justify-between items-start">
+                <div>
+                  <p className="text-sm text-gray-600 mb-1">Inactive Users</p>
+                  <p className="text-3xl font-bold text-amber-600">{inactiveUsers.length}</p>
+                </div>
+                <UserX className="w-8 h-8 text-amber-500" />
               </div>
-              <div className="p-4 bg-purple-50 rounded-lg">
-                <p className="text-sm text-purple-600 font-medium mb-1">Role Level</p>
-                <p className="text-lg font-bold text-purple-900">{getRoleLevel(user)} / 100</p>
+            </CardContent>
+          </Card>
+
+          <Card className="border-l-4 border-l-blue-500">
+            <CardContent className="p-4">
+              <div className="flex justify-between items-start">
+                <div>
+                  <p className="text-sm text-gray-600 mb-1">Admins</p>
+                  <p className="text-3xl font-bold text-blue-600">{adminUsers.length}</p>
+                </div>
+                <Shield className="w-8 h-8 text-blue-500" />
               </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
 
-        {/* Search */}
-        <Card>
-          <CardContent className="p-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-              <Input
-                placeholder="Search entities..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-          </CardContent>
-        </Card>
+          <Card className="border-l-4 border-l-red-500">
+            <CardContent className="p-4">
+              <div className="flex justify-between items-start">
+                <div>
+                  <p className="text-sm text-gray-600 mb-1">Security Incidents</p>
+                  <p className="text-3xl font-bold text-red-600">{securityIncidents.length}</p>
+                </div>
+                <AlertTriangle className="w-8 h-8 text-red-500" />
+              </div>
+            </CardContent>
+          </Card>
+        </div>
 
-        {/* Permissions Grid */}
-        <div className="grid gap-4">
-          {filteredEntities.map((entityName) => {
-            const perms = getPermissionSummary(entityName);
-            const permissionCount = [perms.canRead, perms.canCreate, perms.canUpdate, perms.canDelete].filter(Boolean).length;
-
-            return (
-              <Card key={entityName} className="hover:shadow-lg transition-shadow">
-                <CardContent className="p-6">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <h3 className="text-lg font-bold text-gray-900 mb-2">{entityName}</h3>
-                      
-                      <div className="flex flex-wrap gap-2">
-                        {perms.canRead && (
-                          <Badge className="bg-green-100 text-green-800 border-green-200 flex items-center gap-1">
-                            <Eye className="w-3 h-3" />
-                            Read
-                          </Badge>
-                        )}
-                        {perms.canCreate && (
-                          <Badge className="bg-blue-100 text-blue-800 border-blue-200 flex items-center gap-1">
-                            <Plus className="w-3 h-3" />
-                            Create
-                          </Badge>
-                        )}
-                        {perms.canUpdate && (
-                          <Badge className="bg-amber-100 text-amber-800 border-amber-200 flex items-center gap-1">
-                            <Edit className="w-3 h-3" />
-                            Update
-                          </Badge>
-                        )}
-                        {perms.canDelete && (
-                          <Badge className="bg-red-100 text-red-800 border-red-200 flex items-center gap-1">
-                            <Trash2 className="w-3 h-3" />
-                            Delete
-                          </Badge>
-                        )}
-                        {permissionCount === 0 && (
-                          <Badge className="bg-gray-100 text-gray-800 border-gray-200 flex items-center gap-1">
-                            <Lock className="w-3 h-3" />
-                            No Access
-                          </Badge>
-                        )}
+        {/* Security Alerts */}
+        {securityIncidents.length > 0 && (
+          <Card className="bg-red-50 border-red-200 mb-8">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-red-900">
+                <AlertTriangle className="w-5 h-5" />
+                Active Security Incidents
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {securityIncidents.map(incident => (
+                  <div key={incident.id} className="p-4 bg-white rounded-lg border border-red-200">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <h3 className="font-semibold text-gray-900 mb-1">{incident.title}</h3>
+                        <p className="text-sm text-gray-600 mb-2">{incident.description}</p>
+                        <div className="flex gap-2">
+                          <Badge className="bg-red-100 text-red-800">{incident.severity}</Badge>
+                          <Badge variant="outline">{incident.status}</Badge>
+                        </div>
                       </div>
                     </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
-                    <div className="ml-4">
-                      {permissionCount === 4 ? (
-                        <CheckCircle className="w-6 h-6 text-green-600" />
-                      ) : permissionCount > 0 ? (
-                        <AlertTriangle className="w-6 h-6 text-amber-600" />
-                      ) : (
-                        <Lock className="w-6 h-6 text-gray-400" />
-                      )}
+        {/* Recent Audit Activity */}
+        <Card className="mb-8">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Activity className="w-5 h-5" />
+              Recent Audit Activity
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {suspiciousActivities.length === 0 ? (
+              <div className="text-center py-8">
+                <CheckCircle className="w-12 h-12 text-green-500 mx-auto mb-3" />
+                <p className="text-gray-600">No suspicious activities detected</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {suspiciousActivities.slice(0, 10).map(audit => (
+                  <div key={audit.id} className="p-3 bg-gray-50 rounded-lg border">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-gray-900">{audit.action_description}</p>
+                        <p className="text-xs text-gray-600">
+                          {audit.user_name} • {format(new Date(audit.created_date), 'MMM d, h:mm a')}
+                        </p>
+                      </div>
+                      <Badge className="bg-red-100 text-red-800">{audit.severity}</Badge>
                     </div>
                   </div>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
-
-        {/* Footer Info */}
-        <Card className="bg-blue-50 border-blue-200">
-          <CardContent className="p-6">
-            <div className="flex items-start gap-3">
-              <Shield className="w-5 h-5 text-blue-600 mt-0.5" />
-              <div>
-                <h4 className="font-semibold text-blue-900 mb-1">Security Information</h4>
-                <p className="text-sm text-blue-700">
-                  All access attempts are logged in the Compliance Audit Trail. 
-                  Your permissions are based on your role and position. 
-                  Contact an administrator if you need additional access.
-                </p>
-                <Link to={createPageUrl('ComplianceDashboard')}>
-                  <Button variant="link" className="text-blue-700 px-0 mt-2">
-                    View Audit Trail →
-                  </Button>
-                </Link>
+                ))}
               </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* User Access Overview */}
+        <Card>
+          <CardHeader>
+            <CardTitle>User Access Overview</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {allUsers.slice(0, 20).map(u => (
+                <div key={u.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-2 h-2 rounded-full ${u.is_active !== false ? 'bg-green-500' : 'bg-gray-400'}`} />
+                    <div>
+                      <p className="font-medium text-gray-900">{u.full_name}</p>
+                      <p className="text-xs text-gray-600">{u.email}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className="capitalize">
+                      {u.position || 'staff'}
+                    </Badge>
+                    {(u.role === 'admin' || u.position === 'owner') && (
+                      <Badge className="bg-purple-100 text-purple-800">
+                        <Shield className="w-3 h-3 mr-1" />
+                        Admin
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+              ))}
             </div>
           </CardContent>
         </Card>
+
       </div>
     </div>
   );
