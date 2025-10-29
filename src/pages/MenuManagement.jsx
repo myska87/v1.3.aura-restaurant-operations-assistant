@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -24,16 +25,7 @@ import {
 import { Plus, Pencil, Trash2, ChefHat, Camera, Image as ImageIcon, Folder, Calculator, ShoppingCart, ArrowLeft, Home } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Link } from "react-router-dom";
-import { createPageUrl } from "@/utils";
-
-// Safe number formatting helper
-const safeNumber = (value, decimals = -1) => {
-  const num = parseFloat(value);
-  if (isNaN(num) || num === null || num === undefined) {
-    return 0;
-  }
-  return decimals >= 0 ? parseFloat(num.toFixed(decimals)) : num;
-};
+import { createPageUrl, safeNumber } from "@/utils";
 
 const formatPrice = (price) => {
   return safeNumber(price, 2).toFixed(2);
@@ -78,8 +70,8 @@ export default function MenuManagement() {
   const [ingredientQty, setIngredientQty] = useState("");
 
   const { data: menuItems = [], isLoading: loadingMenu } = useQuery({
-    queryKey: ['menuItems'],
-    queryFn: () => base44.entities.MenuItem.list(),
+    queryKey: ['menuRecipes'],
+    queryFn: () => base44.entities.MenuRecipe.list(),
   });
 
   const { data: categories = [], isLoading: loadingCategories } = useQuery({
@@ -88,30 +80,30 @@ export default function MenuManagement() {
   });
 
   const { data: ingredients = [] } = useQuery({
-    queryKey: ['ingredients'],
-    queryFn: () => base44.entities.Ingredient.list(),
+    queryKey: ['inventoryIngredients'],
+    queryFn: () => base44.entities.InventoryIngredient.list(),
   });
 
   const createMenuItemMutation = useMutation({
-    mutationFn: (data) => base44.entities.MenuItem.create(data),
+    mutationFn: (data) => base44.entities.MenuRecipe.create(data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['menuItems'] });
+      queryClient.invalidateQueries({ queryKey: ['menuRecipes'] });
       resetItemForm();
     },
   });
 
   const updateMenuItemMutation = useMutation({
-    mutationFn: ({ id, data }) => base44.entities.MenuItem.update(id, data),
+    mutationFn: ({ id, data }) => base44.entities.MenuRecipe.update(id, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['menuItems'] });
+      queryClient.invalidateQueries({ queryKey: ['menuRecipes'] });
       resetItemForm();
     },
   });
 
   const deleteMenuItemMutation = useMutation({
-    mutationFn: (id) => base44.entities.MenuItem.delete(id),
+    mutationFn: (id) => base44.entities.MenuRecipe.delete(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['menuItems'] });
+      queryClient.invalidateQueries({ queryKey: ['menuRecipes'] });
     },
   });
 
@@ -127,7 +119,7 @@ export default function MenuManagement() {
     mutationFn: ({ id, data }) => base44.entities.MenuCategory.update(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['menuCategories'] });
-      queryClient.invalidateQueries({ queryKey: ['menuItems'] }); // Invalidate menu items as their category_name might change
+      queryClient.invalidateQueries({ queryKey: ['menuRecipes'] }); // Invalidate menu items as their category_name might change
       resetCategoryForm();
     },
   });
@@ -136,7 +128,7 @@ export default function MenuManagement() {
     mutationFn: (id) => base44.entities.MenuCategory.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['menuCategories'] });
-      queryClient.invalidateQueries({ queryKey: ['menuItems'] }); // Invalidate menu items as some might lose categories
+      queryClient.invalidateQueries({ queryKey: ['menuRecipes'] }); // Invalidate menu items as some might lose categories
     },
   });
 
@@ -241,6 +233,10 @@ export default function MenuManagement() {
       quantity: quantity,
       unit: ingredient.unit,
       cost: safeNumber(cost), // This is the total cost for this specific quantity of ingredient for ONE serving
+      
+      // NEW: Auto-linked supplier data
+      supplier_id: ingredient.supplier_id,
+      supplier_name: ingredient.supplier_name,
     };
 
     setItemFormData({

@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-// Removed Tabs, TabsList, TabsTrigger as per new layout structure
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"; // Re-added Tabs components
 import {
   Download,
   Upload,
@@ -37,6 +37,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Checkbox } from "@/components/ui/checkbox";
+import MigrationRunner from '../components/MigrationRunner'; // New import
 
 export default function DataManagement() {
   const queryClient = useQueryClient();
@@ -51,6 +52,7 @@ export default function DataManagement() {
   const [backupNotes, setBackupNotes] = useState('');
   const [selectedEntities, setSelectedEntities] = useState([]);
   const [exportFormat, setExportFormat] = useState('json'); // 'json' or 'csv'
+  const [activeTab, setActiveTab] = useState('backup'); // New state for active tab
 
   const { data: user } = useQuery({
     queryKey: ['currentUser'],
@@ -425,7 +427,7 @@ export default function DataManagement() {
   const importSummary = getImportSummary();
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6 md:p-8"> {/* Changed background color */}
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6 md:p-8"> {/* Changed background color */}
       <div className="max-w-7xl mx-auto">
         <div className="flex gap-3 mb-6">
           <Link to={createPageUrl("ManagerDashboard")}>
@@ -461,355 +463,373 @@ export default function DataManagement() {
           </Alert>
         </div>
 
-        {/* Changed from Tabs to a grid layout as per outline */}
-        <div className="grid md:grid-cols-2 gap-6">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-8">
+          <TabsList className="grid w-full grid-cols-3">
+            <TabsTrigger value="backup">Backup & Restore</TabsTrigger>
+            <TabsTrigger value="export">Export Data</TabsTrigger>
+            <TabsTrigger value="migration">🔄 Entity Migration</TabsTrigger>
+          </TabsList>
 
-          {/* EXPORT CARD - Content extracted from original TabsContent */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Download className="w-5 h-5" />
-                Export Database
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div>
-                <Label htmlFor="backup_name">Backup Name (Optional)</Label>
-                <Input
-                  id="backup_name"
-                  value={backupName}
-                  onChange={(e) => setBackupName(e.target.value)}
-                  placeholder={`Backup ${format(new Date(), 'yyyy-MM-dd HH:mm')}`}
-                  className="mt-2"
-                />
-              </div>
+          <TabsContent value="backup">
+            <div className="grid md:grid-cols-2 gap-6 mt-6">
+              {/* IMPORT CARD - Content extracted from original TabsContent */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Upload className="w-5 h-5" />
+                    Import Database
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <Alert className="bg-red-50 border-red-200">
+                    <AlertTriangle className="w-4 h-4 text-red-600" />
+                    <AlertDescription className="text-red-800">
+                      <strong>Warning:</strong> Importing data can modify or replace existing records.
+                      Make sure you have a recent backup before proceeding.
+                    </AlertDescription>
+                  </Alert>
 
-              <div>
-                <Label htmlFor="backup_notes">Notes (Optional)</Label>
-                <Textarea
-                  id="backup_notes"
-                  value={backupNotes}
-                  onChange={(e) => setBackupNotes(e.target.value)}
-                  placeholder="Add notes about this backup..."
-                  className="mt-2"
-                  rows={3}
-                />
-              </div>
-
-              <div>
-                <div className="flex justify-between items-center mb-3">
-                  <Label>Export Format</Label>
-                </div>
-                <div className="flex gap-3">
-                  <Button
-                    variant={exportFormat === 'json' ? 'default' : 'outline'}
-                    onClick={() => setExportFormat('json')}
-                    className="flex-1"
-                  >
-                    <FileJson className="w-4 h-4 mr-2" />
-                    JSON (Recommended)
-                  </Button>
-                  <Button
-                    variant={exportFormat === 'csv' ? 'default' : 'outline'}
-                    onClick={() => setExportFormat('csv')}
-                    className="flex-1"
-                  >
-                    <FileSpreadsheet className="w-4 h-4 mr-2" />
-                    CSV (Excel)
-                  </Button>
-                </div>
-                <p className="text-xs text-gray-500 mt-2">
-                  {exportFormat === 'json'
-                    ? 'JSON format preserves all data structure and can be re-imported'
-                    : 'CSV format is easy to edit in Excel but may lose some data structure'}
-                </p>
-              </div>
-
-              <div>
-                <div className="flex justify-between items-center mb-3">
-                  <Label>Select Entities to Export ({selectedEntities.length} selected)</Label>
-                  <div className="flex gap-2">
-                    <Button size="sm" variant="outline" onClick={selectAllEntities}>
-                      Select All
-                    </Button>
-                    <Button size="sm" variant="outline" onClick={deselectAllEntities}>
-                      Deselect All
-                    </Button>
-                  </div>
-                </div>
-
-                <ScrollArea className="h-[400px] border rounded-lg p-4">
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                    {availableEntities.map((entity) => (
-                      <Card
-                        key={entity.name}
-                        className={`cursor-pointer transition-all ${
-                          selectedEntities.includes(entity.name)
-                            ? 'border-2 border-blue-500 bg-blue-50'
-                            : 'hover:bg-gray-50'
-                        }`}
-                        onClick={() => toggleEntitySelection(entity.name)}
+                  <div>
+                    <Label>Import Mode</Label>
+                    <div className="grid grid-cols-2 gap-3 mt-3">
+                      <Button
+                        variant={importMode === 'merge' ? 'default' : 'outline'}
+                        onClick={() => setImportMode('merge')}
+                        className="h-auto py-4"
                       >
-                        <CardContent className="p-4">
-                          <div className="flex items-center gap-2">
-                            <Checkbox
-                              checked={selectedEntities.includes(entity.name)}
-                              onCheckedChange={() => toggleEntitySelection(entity.name)}
-                            />
-                            <div>
-                              <div className="flex items-center gap-2">
-                                <span className="text-xl">{entity.icon}</span>
-                                <span className="text-sm font-medium">{entity.label}</span>
-                              </div>
-                            </div>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ))}
+                        <div className="text-center">
+                          <Package className="w-6 h-6 mx-auto mb-2" />
+                          <p className="font-semibold">Merge</p>
+                          <p className="text-xs opacity-75 mt-1">
+                            Add new records, update existing
+                          </p>
+                        </div>
+                      </Button>
+                      <Button
+                        variant={importMode === 'replace' ? 'default' : 'outline'}
+                        onClick={() => setImportMode('replace')}
+                        className={`h-auto py-4 ${importMode === 'replace' ? 'bg-red-600 hover:bg-red-700 text-white' : ''}`}
+                      >
+                        <div className="text-center">
+                          <Trash2 className="w-6 h-6 mx-auto mb-2" />
+                          <p className="font-semibold">Replace</p>
+                          <p className="text-xs opacity-75 mt-1">
+                            Delete all, then import
+                          </p>
+                        </div>
+                      </Button>
+                    </div>
                   </div>
-                </ScrollArea>
-              </div>
 
-              <Button
-                onClick={handleExportData}
-                disabled={isExporting || selectedEntities.length === 0}
-                className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
-                size="lg"
-              >
-                {isExporting ? (
-                  <>
-                    <Clock className="w-5 h-5 mr-2 animate-spin" />
-                    Exporting...
-                  </>
-                ) : (
-                  <>
-                    <Download className="w-5 h-5 mr-2" />
-                    Export {selectedEntities.length} Entities
-                  </>
-                )}
-              </Button>
-            </CardContent>
-          </Card>
+                  <div>
+                    <Label htmlFor="import_file">Upload Backup File (JSON)</Label>
+                    <Input
+                      id="import_file"
+                      type="file"
+                      accept=".json"
+                      onChange={handleFileUpload}
+                      className="mt-2"
+                    />
+                    <p className="text-xs text-gray-500 mt-2">
+                      Select a JSON backup file exported from AURA
+                    </p>
+                  </div>
 
-          {/* IMPORT CARD - Content extracted from original TabsContent */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Upload className="w-5 h-5" />
-                Import Database
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <Alert className="bg-red-50 border-red-200">
-                <AlertTriangle className="w-4 h-4 text-red-600" />
-                <AlertDescription className="text-red-800">
-                  <strong>Warning:</strong> Importing data can modify or replace existing records.
-                  Make sure you have a recent backup before proceeding.
-                </AlertDescription>
-              </Alert>
-
-              <div>
-                <Label>Import Mode</Label>
-                <div className="grid grid-cols-2 gap-3 mt-3">
-                  <Button
-                    variant={importMode === 'merge' ? 'default' : 'outline'}
-                    onClick={() => setImportMode('merge')}
-                    className="h-auto py-4"
-                  >
-                    <div className="text-center">
-                      <Package className="w-6 h-6 mx-auto mb-2" />
-                      <p className="font-semibold">Merge</p>
-                      <p className="text-xs opacity-75 mt-1">
-                        Add new records, update existing
-                      </p>
-                    </div>
-                  </Button>
-                  <Button
-                    variant={importMode === 'replace' ? 'default' : 'outline'}
-                    onClick={() => setImportMode('replace')}
-                    className={`h-auto py-4 ${importMode === 'replace' ? 'bg-red-600 hover:bg-red-700 text-white' : ''}`}
-                  >
-                    <div className="text-center">
-                      <Trash2 className="w-6 h-6 mx-auto mb-2" />
-                      <p className="font-semibold">Replace</p>
-                      <p className="text-xs opacity-75 mt-1">
-                        Delete all, then import
-                      </p>
-                    </div>
-                  </Button>
-                </div>
-              </div>
-
-              <div>
-                <Label htmlFor="import_file">Upload Backup File (JSON)</Label>
-                <Input
-                  id="import_file"
-                  type="file"
-                  accept=".json"
-                  onChange={handleFileUpload}
-                  className="mt-2"
-                />
-                <p className="text-xs text-gray-500 mt-2">
-                  Select a JSON backup file exported from AURA
-                </p>
-              </div>
-
-              {importFile && (
-                <Card className="bg-blue-50 border-blue-200">
-                  <CardContent className="p-4">
-                    <div className="flex items-start gap-3">
-                      <FileJson className="w-6 h-6 text-blue-600 flex-shrink-0 mt-1" />
-                      <div>
-                        <p className="font-semibold text-blue-900">{importFile.name}</p>
-                        <p className="text-sm text-blue-700">
-                          Size: {(importFile.size / 1024).toFixed(2)} KB
-                        </p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Staff Data Sync Card */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Users className="w-5 h-5 text-purple-600" />
-                Staff Data Sync
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-gray-600 mb-4">
-                Synchronize User entity data into TeamMember entity for unified staff management.
-                This operation will update existing TeamMember records if a matching email is found,
-                or create new TeamMember records for Users without one.
-              </p>
-              <Alert className="bg-indigo-50 border-indigo-200 mb-4">
-                <Zap className="w-4 h-4 text-indigo-600" />
-                <AlertDescription className="text-indigo-800">
-                  <strong>Note:</strong> User data like `full_name`, `email`, `position`, `department`,
-                  `phone`, `photo_url`, `status`, `shift_start`, `shift_end`, `hire_date`, `hourly_rate`,
-                  and `emergency_contact` will be copied or updated.
-                </AlertDescription>
-              </Alert>
-              <Button
-                onClick={handleSyncStaffData}
-                disabled={isOperating}
-                className="w-full bg-purple-600 hover:bg-purple-700"
-              >
-                {isOperating ? (
-                  <>
-                    <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                    Syncing...
-                  </>
-                ) : (
-                  <>
-                    <Users className="w-4 h-4 mr-2" />
-                    Sync Staff Data
-                  </>
-                )}
-              </Button>
-            </CardContent>
-          </Card>
-
-          {/* BACKUPS CARD - Content extracted from original TabsContent */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Save className="w-5 h-5" />
-                  Backup History
-                </div>
-                <Badge>{backups.length} Backups</Badge>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {backups.length === 0 ? (
-                <div className="text-center py-12">
-                  <Database className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                  <p className="text-gray-500 mb-2">No backups yet</p>
-                  <p className="text-sm text-gray-400">Create your first backup in the Export section</p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {backups.map((backup) => (
-                    <Card key={backup.id} className="border-l-4 border-l-blue-500">
+                  {importFile && (
+                    <Card className="bg-blue-50 border-blue-200">
                       <CardContent className="p-4">
-                        <div className="flex justify-between items-start">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-2">
-                              <h4 className="font-bold text-gray-900">{backup.backup_name}</h4>
-                              <Badge variant="outline">
-                                {backup.backup_type}
-                              </Badge>
-                              {backup.status === 'completed' && (
-                                <Badge className="bg-green-100 text-green-800">
-                                  <CheckCircle className="w-3 h-3 mr-1" />
-                                  Completed
-                                </Badge>
-                              )}
-                            </div>
-
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-2">
-                              <div>
-                                <p className="text-xs text-gray-500">Date</p>
-                                <p className="text-sm font-medium">
-                                  {format(new Date(backup.backup_date), 'MMM d, yyyy')}
-                                </p>
-                                <p className="text-xs text-gray-500">
-                                  {format(new Date(backup.backup_date), 'h:mm a')}
-                                </p>
-                              </div>
-                              <div>
-                                <p className="text-xs text-gray-500">Records</p>
-                                <p className="text-sm font-medium">{backup.total_records?.toLocaleString()}</p>
-                              </div>
-                              <div>
-                                <p className="text-xs text-gray-500">Entities</p>
-                                <p className="text-sm font-medium">{backup.entities_included?.length}</p>
-                              </div>
-                              <div>
-                                <p className="text-xs text-gray-500">Size</p>
-                                <p className="text-sm font-medium">
-                                  {backup.file_size ? `${(backup.file_size / 1024).toFixed(1)} KB` : 'N/A'}
-                                </p>
-                              </div>
-                            </div>
-
-                            <p className="text-xs text-gray-500">
-                              Created by: {backup.created_by_name}
+                        <div className="flex items-start gap-3">
+                          <FileJson className="w-6 h-6 text-blue-600 flex-shrink-0 mt-1" />
+                          <div>
+                            <p className="font-semibold text-blue-900">{importFile.name}</p>
+                            <p className="text-sm text-blue-700">
+                              Size: {(importFile.size / 1024).toFixed(2)} KB
                             </p>
-
-                            {backup.notes && (
-                              <p className="text-sm text-gray-700 mt-2 p-2 bg-gray-50 rounded">
-                                {backup.notes}
-                              </p>
-                            )}
                           </div>
-
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => {
-                              if (window.confirm('Delete this backup record? (This will not delete the downloaded file)')) {
-                                deleteBackupMutation.mutate(backup.id);
-                              }
-                            }}
-                            className="ml-4"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
                         </div>
                       </CardContent>
                     </Card>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* BACKUPS CARD - Content extracted from original TabsContent */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Save className="w-5 h-5" />
+                      Backup History
+                    </div>
+                    <Badge>{backups.length} Backups</Badge>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {backups.length === 0 ? (
+                    <div className="text-center py-12">
+                      <Database className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                      <p className="text-gray-500 mb-2">No backups yet</p>
+                      <p className="text-sm text-gray-400">Create your first backup in the Export section</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {backups.map((backup) => (
+                        <Card key={backup.id} className="border-l-4 border-l-blue-500">
+                          <CardContent className="p-4">
+                            <div className="flex justify-between items-start">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <h4 className="font-bold text-gray-900">{backup.backup_name}</h4>
+                                  <Badge variant="outline">
+                                    {backup.backup_type}
+                                  </Badge>
+                                  {backup.status === 'completed' && (
+                                    <Badge className="bg-green-100 text-green-800">
+                                      <CheckCircle className="w-3 h-3 mr-1" />
+                                      Completed
+                                    </Badge>
+                                  )}
+                                </div>
+
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-2">
+                                  <div>
+                                    <p className="text-xs text-gray-500">Date</p>
+                                    <p className="text-sm font-medium">
+                                      {format(new Date(backup.backup_date), 'MMM d, yyyy')}
+                                    </p>
+                                    <p className="text-xs text-gray-500">
+                                      {format(new Date(backup.backup_date), 'h:mm a')}
+                                    </p>
+                                  </div>
+                                  <div>
+                                    <p className="text-xs text-gray-500">Records</p>
+                                    <p className="text-sm font-medium">{backup.total_records?.toLocaleString()}</p>
+                                  </div>
+                                  <div>
+                                    <p className="text-xs text-gray-500">Entities</p>
+                                    <p className="text-sm font-medium">{backup.entities_included?.length}</p>
+                                  </div>
+                                  <div>
+                                    <p className="text-xs text-gray-500">Size</p>
+                                    <p className="text-sm font-medium">
+                                      {backup.file_size ? `${(backup.file_size / 1024).toFixed(1)} KB` : 'N/A'}
+                                    </p>
+                                  </div>
+                                </div>
+
+                                <p className="text-xs text-gray-500">
+                                  Created by: {backup.created_by_name}
+                                </p>
+
+                                {backup.notes && (
+                                  <p className="text-sm text-gray-700 mt-2 p-2 bg-gray-50 rounded">
+                                    {backup.notes}
+                                  </p>
+                                )}
+                              </div>
+
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  if (window.confirm('Delete this backup record? (This will not delete the downloaded file)')) {
+                                    deleteBackupMutation.mutate(backup.id);
+                                  }
+                                }}
+                                className="ml-4"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Staff Data Sync Card */}
+              <Card className="md:col-span-2">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Users className="w-5 h-5 text-purple-600" />
+                    Staff Data Sync
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-gray-600 mb-4">
+                    Synchronize User entity data into TeamMember entity for unified staff management.
+                    This operation will update existing TeamMember records if a matching email is found,
+                    or create new TeamMember records for Users without one.
+                  </p>
+                  <Alert className="bg-indigo-50 border-indigo-200 mb-4">
+                    <Zap className="w-4 h-4 text-indigo-600" />
+                    <AlertDescription className="text-indigo-800">
+                      <strong>Note:</strong> User data like `full_name`, `email`, `position`, `department`,
+                      `phone`, `photo_url`, `status`, `shift_start`, `shift_end`, `hire_date`, `hourly_rate`,
+                      and `emergency_contact` will be copied or updated.
+                    </AlertDescription>
+                  </Alert>
+                  <Button
+                    onClick={handleSyncStaffData}
+                    disabled={isOperating}
+                    className="w-full bg-purple-600 hover:bg-purple-700"
+                  >
+                    {isOperating ? (
+                      <>
+                        <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                        Syncing...
+                      </>
+                    ) : (
+                      <>
+                        <Users className="w-4 h-4 mr-2" />
+                        Sync Staff Data
+                      </>
+                    )}
+                  </Button>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="export">
+            <div className="mt-6">
+              {/* EXPORT CARD - Content extracted from original TabsContent */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Download className="w-5 h-5" />
+                    Export Database
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <div>
+                    <Label htmlFor="backup_name">Backup Name (Optional)</Label>
+                    <Input
+                      id="backup_name"
+                      value={backupName}
+                      onChange={(e) => setBackupName(e.target.value)}
+                      placeholder={`Backup ${format(new Date(), 'yyyy-MM-dd HH:mm')}`}
+                      className="mt-2"
+                    />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="backup_notes">Notes (Optional)</Label>
+                    <Textarea
+                      id="backup_notes"
+                      value={backupNotes}
+                      onChange={(e) => setBackupNotes(e.target.value)}
+                      placeholder="Add notes about this backup..."
+                      className="mt-2"
+                      rows={3}
+                    />
+                  </div>
+
+                  <div>
+                    <div className="flex justify-between items-center mb-3">
+                      <Label>Export Format</Label>
+                    </div>
+                    <div className="flex gap-3">
+                      <Button
+                        variant={exportFormat === 'json' ? 'default' : 'outline'}
+                        onClick={() => setExportFormat('json')}
+                        className="flex-1"
+                      >
+                        <FileJson className="w-4 h-4 mr-2" />
+                        JSON (Recommended)
+                      </Button>
+                      <Button
+                        variant={exportFormat === 'csv' ? 'default' : 'outline'}
+                        onClick={() => setExportFormat('csv')}
+                        className="flex-1"
+                      >
+                        <FileSpreadsheet className="w-4 h-4 mr-2" />
+                        CSV (Excel)
+                      </Button>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-2">
+                      {exportFormat === 'json'
+                        ? 'JSON format preserves all data structure and can be re-imported'
+                        : 'CSV format is easy to edit in Excel but may lose some data structure'}
+                    </p>
+                  </div>
+
+                  <div>
+                    <div className="flex justify-between items-center mb-3">
+                      <Label>Select Entities to Export ({selectedEntities.length} selected)</Label>
+                      <div className="flex gap-2">
+                        <Button size="sm" variant="outline" onClick={selectAllEntities}>
+                          Select All
+                        </Button>
+                        <Button size="sm" variant="outline" onClick={deselectAllEntities}>
+                          Deselect All
+                        </Button>
+                      </div>
+                    </div>
+
+                    <ScrollArea className="h-[400px] border rounded-lg p-4">
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                        {availableEntities.map((entity) => (
+                          <Card
+                            key={entity.name}
+                            className={`cursor-pointer transition-all ${
+                              selectedEntities.includes(entity.name)
+                                ? 'border-2 border-blue-500 bg-blue-50'
+                                : 'hover:bg-gray-50'
+                            }`}
+                            onClick={() => toggleEntitySelection(entity.name)}
+                          >
+                            <CardContent className="p-4">
+                              <div className="flex items-center gap-2">
+                                <Checkbox
+                                  checked={selectedEntities.includes(entity.name)}
+                                  onCheckedChange={() => toggleEntitySelection(entity.name)}
+                                />
+                                <div>
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-xl">{entity.icon}</span>
+                                    <span className="text-sm font-medium">{entity.label}</span>
+                                  </div>
+                                </div>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        ))}
+                      </div>
+                    </ScrollArea>
+                  </div>
+
+                  <Button
+                    onClick={handleExportData}
+                    disabled={isExporting || selectedEntities.length === 0}
+                    className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
+                    size="lg"
+                  >
+                    {isExporting ? (
+                      <>
+                        <Clock className="w-5 h-5 mr-2 animate-spin" />
+                        Exporting...
+                      </>
+                    ) : (
+                      <>
+                        <Download className="w-5 h-5 mr-2" />
+                        Export {selectedEntities.length} Entities
+                      </>
+                    )}
+                  </Button>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="migration">
+            <div className="mt-6">
+              <MigrationRunner />
+            </div>
+          </TabsContent>
+        </Tabs>
 
         {/* Import Preview Dialog */}
         <Dialog open={showImportPreview} onOpenChange={setShowImportPreview}>

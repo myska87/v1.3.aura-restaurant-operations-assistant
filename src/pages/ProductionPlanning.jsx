@@ -25,6 +25,7 @@ import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { buildRecipeWithLinks } from '@/utils/foreignKeyHelper'; // Added import
 
 // Safe number helpers
 const safeNumber = (value, decimals = 2) => {
@@ -55,14 +56,16 @@ export default function ProductionPlanning() {
     queryFn: () => base44.entities.ProductionPlan.list("-date"),
   });
 
+  // UPDATE: Use MenuRecipe instead of MenuItem
   const { data: menuItems = [] } = useQuery({
-    queryKey: ['menuItems'],
-    queryFn: () => base44.entities.MenuItem.list(),
+    queryKey: ['menuRecipes'],
+    queryFn: () => base44.entities.MenuRecipe.list(),
   });
 
+  // UPDATE: Use InventoryIngredient instead of Ingredient
   const { data: ingredients = [] } = useQuery({
-    queryKey: ['ingredients'],
-    queryFn: () => base44.entities.Ingredient.list(),
+    queryKey: ['inventoryIngredients'],
+    queryFn: () => base44.entities.InventoryIngredient.list(),
   });
 
   const createPlanMutation = useMutation({
@@ -146,7 +149,7 @@ export default function ProductionPlanning() {
 
       if (!inventoryItem.supplier_id) {
         console.warn(`Ingredient ${ing.ingredient_name} has no supplier`);
-        return;
+        // We still add to cart, but it will be flagged for the user
       }
 
       const existingIndex = updatedCart.findIndex(item => item.ingredient_id === ing.ingredient_id);
@@ -332,6 +335,10 @@ export default function ProductionPlanning() {
             unit: recipeItem.unit,
             current_stock: safeNumber(inventoryItem?.current_stock),
             to_order: Math.max(0, quantityNeeded - safeNumber(inventoryItem?.current_stock)),
+            
+            // NEW: Auto-linked supplier data
+            supplier_id: inventoryItem?.supplier_id,
+            supplier_name: inventoryItem?.supplier_name,
           });
         }
       });
@@ -406,30 +413,41 @@ export default function ProductionPlanning() {
       const ordersBySupplier = {};
       
       ingredientsToOrder.forEach(ing => {
+        // Use the supplier_id and supplier_name directly from the plan's pre-calculated ingredients_needed,
+        // which now include these fields thanks to the calculatePlanTotals update.
+        // Fallback to searching in 'ingredients' (InventoryIngredient) if not present, though it should be.
+        const supplierId = ing.supplier_id;
+        const supplierName = ing.supplier_name;
         const inventoryIngredient = ingredients.find(i => i.id === ing.ingredient_id);
-        if (inventoryIngredient && inventoryIngredient.supplier_id) {
-          if (!ordersBySupplier[inventoryIngredient.supplier_id]) {
-            ordersBySupplier[inventoryIngredient.supplier_id] = {
-              supplier_id: inventoryIngredient.supplier_id,
-              supplier_name: inventoryIngredient.supplier_name,
-              supplier_email: inventoryIngredient.supplier_email,
+        const supplierEmail = inventoryIngredient?.supplier_email; // Get email from current inventory data
+
+        if (supplierId) {
+          if (!ordersBySupplier[supplierId]) {
+            ordersBySupplier[supplierId] = {
+              supplier_id: supplierId,
+              supplier_name: supplierName,
+              supplier_email: supplierEmail,
               items: []
             };
           }
           
-          ordersBySupplier[inventoryIngredient.supplier_id].items.push({
+          ordersBySupplier[supplierId].items.push({
             ingredient_id: ing.ingredient_id,
             ingredient_name: ing.ingredient_name,
             quantity_ordered: safeNumber(ing.to_order),
             unit: ing.unit,
-            unit_cost: safeNumber(inventoryIngredient.unit_cost),
-            line_total: safeNumber(ing.to_order) * safeNumber(inventoryIngredient.unit_cost),
+            unit_cost: safeNumber(inventoryIngredient?.unit_cost || 0), // Ensure unit_cost is taken from current inventory
+            line_total: safeNumber(ing.to_order) * safeNumber(inventoryIngredient?.unit_cost || 0),
           });
+        } else {
+            console.warn(`Ingredient ${ing.ingredient_name} (ID: ${ing.ingredient_id}) in plan ${plan.name} has no supplier assigned. Skipping for order creation.`);
         }
       });
 
       let ordersCreated = 0;
       for (const order of Object.values(ordersBySupplier)) {
+        if (order.items.length === 0) continue; // Skip if no items for this supplier
+
         const subtotal = order.items.reduce((sum, item) => sum + safeNumber(item.line_total), 0);
         const tax = subtotal * 0.2;
         const total = subtotal + tax;
@@ -452,11 +470,13 @@ export default function ProductionPlanning() {
 
         ordersCreated++;
       }
-
-      await updatePlanMutation.mutateAsync({
-        id: plan.id,
-        data: { status: 'approved', orders_created: true }
-      });
+      
+      if (ordersCreated > 0) { // Only update plan status if orders were actually created
+        await updatePlanMutation.mutateAsync({
+          id: plan.id,
+          data: { status: 'approved', orders_created: true }
+        });
+      }
 
       alert(`✅ Created ${ordersCreated} order(s)!`);
       

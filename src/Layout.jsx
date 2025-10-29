@@ -418,8 +418,6 @@ export default function Layout({ children, currentPageName }) {
         <WelcomeNewHire />
         <WelcomeNewUser />
         
-        <StaffDataSync />
-        <UnifiedUserSync />
         <MenuImporter />
         <SystemStatusCheck />
         <ComplianceEventListener />

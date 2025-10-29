@@ -1,0 +1,225 @@
+{
+  "name": "MenuRecipe",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Menu item name"
+    },
+    "category_id": {
+      "type": "string",
+      "description": "Reference to MenuCategory"
+    },
+    "category_name": {
+      "type": "string",
+      "description": "Cached category name"
+    },
+    "sell_price": {
+      "type": "number",
+      "description": "Price charged to customer"
+    },
+    "image_url": {
+      "type": "string",
+      "description": "Photo of the dish"
+    },
+    "description": {
+      "type": "string",
+      "description": "Menu item description"
+    },
+    "recipe": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "ingredient_id": {
+            "type": "string",
+            "description": "Reference to InventoryIngredient"
+          },
+          "ingredient_name": {
+            "type": "string",
+            "description": "Cached ingredient name"
+          },
+          "quantity": {
+            "type": "number",
+            "description": "Amount needed per serving"
+          },
+          "unit": {
+            "type": "string",
+            "description": "Unit of measurement"
+          },
+          "cost": {
+            "type": "number",
+            "description": "Cost for this quantity (auto-calculated)"
+          }
+        }
+      },
+      "description": "List of ingredients and quantities"
+    },
+    "total_cost": {
+      "type": "number",
+      "description": "Sum of ingredient costs (auto-calculated)"
+    },
+    "food_cost_percentage": {
+      "type": "number",
+      "description": "Cost as % of sell price (auto-calculated)"
+    },
+    "profit_margin": {
+      "type": "number",
+      "description": "Profit per portion (auto-calculated)"
+    },
+    "prep_time_minutes": {
+      "type": "number",
+      "description": "Preparation time"
+    },
+    "cooking_instructions": {
+      "type": "string",
+      "description": "Step-by-step cooking instructions"
+    },
+    "allergen_tags": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "milk",
+          "nuts",
+          "gluten",
+          "soy",
+          "egg",
+          "fish",
+          "shellfish",
+          "sesame",
+          "celery",
+          "mustard",
+          "sulphites",
+          "lupin"
+        ]
+      },
+      "description": "Allergens in this dish (auto-populated from ingredients)"
+    },
+    "linked_sop_id": {
+      "type": "string",
+      "description": "Reference to SOPDocument for preparation"
+    },
+    "linked_sop_title": {
+      "type": "string",
+      "description": "Cached SOP title"
+    },
+    "linked_sop_version": {
+      "type": "number",
+      "description": "SOP version when linked"
+    },
+    "auto_update_sop": {
+      "type": "boolean",
+      "default": true,
+      "description": "Auto-update when SOP changes"
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true,
+      "description": "Available on menu"
+    },
+    "popularity_score": {
+      "type": "number",
+      "description": "Track sales volume"
+    },
+    "last_cost_update": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When costs were last recalculated"
+    }
+  },
+  "required": [
+    "name",
+    "category_id",
+    "sell_price"
+  ],
+  "rls": {
+    "create": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "manager"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        }
+      ]
+    },
+    "read": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "manager"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "chef"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "sous_chef"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "line_cook"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "server"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "bartender"
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "manager"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

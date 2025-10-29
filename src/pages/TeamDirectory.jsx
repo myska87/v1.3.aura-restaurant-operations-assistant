@@ -66,10 +66,9 @@ import { motion } from "framer-motion";
 export default function TeamDirectory() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
-  const [searchQuery, setSearchQuery] = useState("");
-  const [filterPosition, setFilterPosition] = useState("all");
-  const [filterDepartment, setFilterDepartment] = useState("all");
-  const [filterStatus, setFilterStatus] = useState("all");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedPosition, setSelectedPosition] = useState("all");
+  const [selectedDepartment, setSelectedDepartment] = useState("all");
   const [viewMode, setViewMode] = useState("grid");
   const [sortBy, setSortBy] = useState("name");
   const [showAddDialog, setShowAddDialog] = useState(false);
@@ -79,8 +78,9 @@ export default function TeamDirectory() {
   const [showFilters, setShowFilters] = useState(false);
 
   const [formData, setFormData] = useState({
-    staff_email: "",
-    staff_name: "",
+    id: "", // Added for editing existing users
+    email: "",
+    full_name: "",
     position: "",
     department: "",
     phone: "",
@@ -105,124 +105,32 @@ export default function TeamDirectory() {
 
   const isManager = user?.position === 'manager' || user?.position === 'owner' || user?.role === 'admin';
 
-  // Fetch all users with NO cache
-  const { data: allUsers = [], isLoading: loadingUsers, refetch: refetchUsers } = useQuery({
-    queryKey: ['allUsers'],
+  // SIMPLIFIED: Use only User entity (no TeamMember or StaffProfile)
+  const { data: allStaff = [], isLoading: loadingStaff, refetch: refetchStaff } = useQuery({
+    queryKey: ['staff'],
     queryFn: () => base44.entities.User.list('-created_date'),
     staleTime: 0, // Always fetch fresh data
     refetchOnMount: 'always',
     refetchOnWindowFocus: true,
   });
 
-  // Fetch all team members with NO cache
-  const { data: teamMembers = [], isLoading: loadingTeamMembers, refetch: refetchTeamMembers } = useQuery({
-    queryKey: ['teamMembers'],
-    queryFn: () => base44.entities.TeamMember.list('-created_date'),
-    staleTime: 0, // Always fetch fresh data
-    refetchOnMount: 'always',
-    refetchOnWindowFocus: true,
-  });
+  const isLoading = loadingStaff;
 
-  // Merge users and team members into unified staff list
-  const enrichedStaff = React.useMemo(() => {
-    const staffMap = new Map();
+  // Filter and search
+  let filteredStaff = allStaff.filter(member => {
+    if (!member) return false;
     
-    console.log('[TeamDirectory] Building enriched staff list', {
-      users: allUsers.length,
-      teamMembers: teamMembers.length,
-    });
+    const matchesSearch = !searchTerm || 
+      member.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      member.email?.toLowerCase().includes(searchTerm.toLowerCase());
     
-    // Add all users first
-    allUsers.forEach(user => {
-      staffMap.set(user.email, {
-        id: user.id,
-        email: user.email,
-        full_name: user.full_name,
-        position: user.position,
-        department: user.department,
-        phone: user.phone,
-        photo_url: user.photo_url,
-        hire_date: user.hire_date,
-        status: user.status || 'active',
-        shift_start: user.shift_start,
-        shift_end: user.shift_end,
-        emergency_contact: user.emergency_contact,
-        hourly_rate: user.hourly_rate,
-        source: 'user',
-        has_team_member: false,
-      });
-    });
+    const matchesDepartment = selectedDepartment === "all" || 
+      member.department === selectedDepartment;
     
-    // Enrich with team member data
-    teamMembers.forEach(member => {
-      if (staffMap.has(member.staff_email)) {
-        // User exists - enrich with team member data
-        const existing = staffMap.get(member.staff_email);
-        staffMap.set(member.staff_email, {
-          ...existing,
-          full_name: member.staff_name || existing.full_name,
-          position: member.position || existing.position,
-          department: member.department || existing.department,
-          phone: member.phone || existing.phone,
-          photo_url: member.photo_url || existing.photo_url,
-          shift_start: member.shift_start || existing.shift_start,
-          shift_end: member.shift_end || existing.shift_end,
-          status: member.status || existing.status,
-          hire_date: member.hire_date || existing.hire_date,
-          hourly_rate: member.hourly_rate || existing.hourly_rate,
-          emergency_contact: member.emergency_contact || existing.emergency_contact,
-          manager_email: member.manager_email,
-          notes: member.notes,
-          source: 'merged',
-          has_team_member: true,
-          team_member_id: member.id,
-        });
-      } else {
-        // Team member without user account - add as pending
-        staffMap.set(member.staff_email, {
-          id: member.id,
-          email: member.staff_email,
-          full_name: member.staff_name,
-          position: member.position,
-          department: member.department,
-          phone: member.phone,
-          photo_url: member.photo_url,
-          hire_date: member.hire_date,
-          status: member.status || 'active',
-          shift_start: member.shift_start,
-          shift_end: member.shift_end,
-          hourly_rate: member.hourly_rate,
-          emergency_contact: member.emergency_contact,
-          manager_email: member.manager_email,
-          notes: member.notes,
-          source: 'team_member_only',
-          has_team_member: true,
-          team_member_id: member.id,
-          isTeamMemberOnly: true,
-        });
-      }
-    });
-    
-    const result = Array.from(staffMap.values());
-    console.log('[TeamDirectory] Enriched staff count:', result.length);
-    
-    return result;
-  }, [allUsers, teamMembers]);
+    const matchesPosition = selectedPosition === "all" || 
+      member.position === selectedPosition;
 
-  const isLoading = loadingUsers || loadingTeamMembers;
-
-  // Filter staff
-  let filteredStaff = enrichedStaff.filter(staff => {
-    const nameMatch = (staff.full_name || '').toLowerCase().includes(searchQuery.toLowerCase());
-    const emailMatch = (staff.email || '').toLowerCase().includes(searchQuery.toLowerCase());
-    const positionMatch = (staff.position || '').toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesSearch = nameMatch || emailMatch || positionMatch;
-    
-    const matchesPosition = filterPosition === 'all' || staff.position === filterPosition;
-    const matchesDepartment = filterDepartment === 'all' || staff.department === filterDepartment;
-    const matchesStatus = filterStatus === 'all' || staff.status === filterStatus;
-    
-    return matchesSearch && matchesPosition && matchesDepartment && matchesStatus;
+    return matchesSearch && matchesDepartment && matchesPosition;
   });
 
   // Sort staff
@@ -241,31 +149,46 @@ export default function TeamDirectory() {
 
   // Calculate stats
   const stats = {
-    total: enrichedStaff.length,
-    active: enrichedStaff.filter(s => s.status === 'active').length,
-    managers: enrichedStaff.filter(s => s.position === 'manager' || s.position === 'owner').length,
-    kitchen: enrichedStaff.filter(s => s.department === 'kitchen').length,
-    frontHouse: enrichedStaff.filter(s => s.department === 'front_of_house').length,
+    totalStaff: allStaff.filter(s => s.status === 'active').length,
+    departments: [...new Set(allStaff.map(s => s.department).filter(Boolean))].length,
+    positions: [...new Set(allStaff.map(s => s.position).filter(Boolean))].length,
+    active: allStaff.filter(s => s.status === 'active').length,
+    managers: allStaff.filter(s => s.position === 'manager' || s.position === 'owner').length,
+    kitchen: allStaff.filter(s => s.department === 'kitchen').length,
+    frontHouse: allStaff.filter(s => s.department === 'front_of_house').length,
   };
 
   // CRUD operations
   const saveMemberMutation = useMutation({
     mutationFn: async (data) => {
-      const existingMember = teamMembers.find(tm => tm.staff_email === data.staff_email);
-      
-      if (existingMember) {
-        return await base44.entities.TeamMember.update(existingMember.id, data);
-      } else {
-        return await base44.entities.TeamMember.create(data);
+      const userPayload = {
+        full_name: data.full_name,
+        email: data.email,
+        position: data.position,
+        department: data.department,
+        phone: data.phone,
+        shift_start: data.shift_start,
+        shift_end: data.shift_end,
+        hire_date: data.hire_date,
+        emergency_contact: data.emergency_contact,
+        hourly_rate: data.hourly_rate,
+        notes: data.notes,
+        status: data.status,
+        manager_email: data.manager_email,
+        photo_url: data.photo_url,
+      };
+
+      if (data.id) { // Existing user
+        return await base44.entities.User.update(data.id, userPayload);
+      } else { // New user/staff profile
+        // Note: base44.entities.User.create typically implies full user registration.
+        // Assuming this creates a user record that can be managed as a staff profile.
+        return await base44.entities.User.create(userPayload);
       }
     },
     onSuccess: () => {
-      // Invalidate and refetch both queries
-      queryClient.invalidateQueries({ queryKey: ['teamMembers'] });
-      queryClient.invalidateQueries({ queryKey: ['allUsers'] });
-      queryClient.invalidateQueries({ queryKey: ['allTeamMembers'] });
-      refetchTeamMembers();
-      refetchUsers();
+      queryClient.invalidateQueries({ queryKey: ['staff'] });
+      refetchStaff();
       closeDialog();
     },
     onError: (error) => {
@@ -275,12 +198,12 @@ export default function TeamDirectory() {
 
   const deleteMemberMutation = useMutation({
     mutationFn: async (id) => {
-      return await base44.entities.TeamMember.update(id, { status: 'inactive' });
+      // Mark user as inactive instead of deleting the record entirely
+      return await base44.entities.User.update(id, { status: 'inactive' });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['teamMembers'] });
-      queryClient.invalidateQueries({ queryKey: ['allTeamMembers'] });
-      refetchTeamMembers();
+      queryClient.invalidateQueries({ queryKey: ['staff'] });
+      refetchStaff();
       setShowDeleteDialog(false);
       setMemberToDelete(null);
     },
@@ -288,19 +211,17 @@ export default function TeamDirectory() {
 
   const handleRefresh = () => {
     console.log('[TeamDirectory] Manual refresh triggered');
-    refetchUsers();
-    refetchTeamMembers();
-    queryClient.invalidateQueries({ queryKey: ['allUsers'] });
-    queryClient.invalidateQueries({ queryKey: ['allTeamMembers'] });
-    queryClient.invalidateQueries({ queryKey: ['teamMembers'] });
+    refetchStaff();
+    queryClient.invalidateQueries({ queryKey: ['staff'] });
   };
 
   const handleOpenAddDialog = () => {
     setEditingMember(null);
     setPhotoPreview(null);
     setFormData({
-      staff_email: "",
-      staff_name: "",
+      id: "",
+      email: "",
+      full_name: "",
       position: "",
       department: "",
       phone: "",
@@ -321,8 +242,9 @@ export default function TeamDirectory() {
     setEditingMember(member);
     setPhotoPreview(member.photo_url || null);
     setFormData({
-      staff_email: member.email || member.staff_email,
-      staff_name: member.full_name || member.staff_name,
+      id: member.id,
+      email: member.email || "",
+      full_name: member.full_name || "",
       position: member.position || "",
       department: member.department || "",
       phone: member.phone || "",
@@ -372,7 +294,7 @@ export default function TeamDirectory() {
   };
 
   const handleSubmit = () => {
-    if (!formData.staff_email || !formData.staff_name || !formData.position) {
+    if (!formData.email || !formData.full_name || !formData.position) {
       alert('Please fill in required fields: Email, Name, and Position');
       return;
     }
@@ -386,8 +308,8 @@ export default function TeamDirectory() {
   };
 
   const confirmDelete = () => {
-    if (memberToDelete && (memberToDelete.team_member_id || memberToDelete.id)) {
-      deleteMemberMutation.mutate(memberToDelete.team_member_id || memberToDelete.id);
+    if (memberToDelete && memberToDelete.id) {
+      deleteMemberMutation.mutate(memberToDelete.id);
     }
   };
 
@@ -517,8 +439,8 @@ export default function TeamDirectory() {
             <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
               <CardContent className="p-4 text-center">
                 <Users className="w-8 h-8 text-blue-600 mx-auto mb-2" />
-                <p className="text-3xl font-bold text-blue-900">{stats.total}</p>
-                <p className="text-xs text-blue-700 font-medium">Total Team</p>
+                <p className="text-3xl font-bold text-blue-900">{stats.totalStaff}</p>
+                <p className="text-xs text-blue-700 font-medium">Total Staff</p>
               </CardContent>
             </Card>
           </motion.div>
@@ -571,8 +493,8 @@ export default function TeamDirectory() {
               <div className="flex-1 min-w-[250px] relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                 <Input
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
                   placeholder="Search by name, email, position..."
                   className="pl-10"
                 />
@@ -625,7 +547,7 @@ export default function TeamDirectory() {
                 exit={{ opacity: 0, height: 0 }}
                 className="mt-4 pt-4 border-t grid md:grid-cols-3 gap-4"
               >
-                <Select value={filterDepartment} onValueChange={setFilterDepartment}>
+                <Select value={selectedDepartment} onValueChange={setSelectedDepartment}>
                   <SelectTrigger>
                     <SelectValue placeholder="All Departments" />
                   </SelectTrigger>
@@ -637,7 +559,7 @@ export default function TeamDirectory() {
                   </SelectContent>
                 </Select>
 
-                <Select value={filterPosition} onValueChange={setFilterPosition}>
+                <Select value={selectedPosition} onValueChange={setSelectedPosition}>
                   <SelectTrigger>
                     <SelectValue placeholder="All Positions" />
                   </SelectTrigger>
@@ -646,19 +568,6 @@ export default function TeamDirectory() {
                     {availablePositions.map(pos => (
                       <SelectItem key={pos.value} value={pos.value}>{pos.label}</SelectItem>
                     ))}
-                  </SelectContent>
-                </Select>
-
-                <Select value={filterStatus} onValueChange={setFilterStatus}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="All Status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Status</SelectItem>
-                    <SelectItem value="active">Active</SelectItem>
-                    <SelectItem value="inactive">Inactive</SelectItem>
-                    <SelectItem value="on_leave">On Leave</SelectItem>
-                    <SelectItem value="probation">Probation</SelectItem>
                   </SelectContent>
                 </Select>
               </motion.div>
@@ -671,7 +580,7 @@ export default function TeamDirectory() {
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredStaff.map((staff, index) => (
               <motion.div
-                key={staff.id || staff.email}
+                key={staff.id}
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.3, delay: index * 0.03 }}
@@ -695,11 +604,6 @@ export default function TeamDirectory() {
                         {staff.status === 'active' && (
                           <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-green-500 rounded-full border-2 border-white" />
                         )}
-                        {staff.isTeamMemberOnly && (
-                          <div className="absolute -top-1 -left-1 w-5 h-5 bg-yellow-500 rounded-full border-2 border-white flex items-center justify-center">
-                            <span className="text-white text-xs font-bold">!</span>
-                          </div>
-                        )}
                       </div>
 
                       {/* Content */}
@@ -716,15 +620,11 @@ export default function TeamDirectory() {
                                 </Button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
-                                {!staff.isTeamMemberOnly && (
-                                  <>
-                                    <DropdownMenuItem onClick={() => navigate(createPageUrl(`StaffProfile?staff_email=${staff.email}`))}>
-                                      <Eye className="w-4 h-4 mr-2" />
-                                      View Profile
-                                    </DropdownMenuItem>
-                                    <DropdownMenuSeparator />
-                                  </>
-                                )}
+                                <DropdownMenuItem onClick={() => navigate(createPageUrl(`StaffProfile?staff_email=${staff.email}`))}>
+                                  <Eye className="w-4 h-4 mr-2" />
+                                  View Profile
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
                                 <DropdownMenuItem onClick={() => handleOpenEditDialog(staff)}>
                                   <Edit className="w-4 h-4 mr-2" />
                                   Edit Member
@@ -741,14 +641,6 @@ export default function TeamDirectory() {
                           )}
                         </div>
                         
-                        {staff.isTeamMemberOnly && (
-                          <div className="mb-2">
-                            <Badge className="bg-yellow-100 text-yellow-800 border-yellow-200 text-xs">
-                              Pending User Account
-                            </Badge>
-                          </div>
-                        )}
-
                         {/* Badges */}
                         <div className="flex flex-wrap gap-1.5 mb-3">
                           {staff.position && (
@@ -806,7 +698,7 @@ export default function TeamDirectory() {
                 </thead>
                 <tbody>
                   {filteredStaff.map((staff) => (
-                    <tr key={staff.id || staff.email} className="border-b hover:bg-gray-50 transition-colors">
+                    <tr key={staff.id} className="border-b hover:bg-gray-50 transition-colors">
                       <td className="p-4">
                         <div className="flex items-center gap-3">
                           {staff.photo_url ? (
@@ -823,11 +715,6 @@ export default function TeamDirectory() {
                           <div>
                             <p className="font-medium text-gray-900">{staff.full_name}</p>
                             <p className="text-sm text-gray-500">{staff.email}</p>
-                            {staff.isTeamMemberOnly && (
-                              <Badge className="bg-yellow-100 text-yellow-800 border-yellow-200 text-xs mt-1">
-                                Pending User Account
-                              </Badge>
-                            )}
                           </div>
                         </div>
                       </td>
@@ -863,13 +750,11 @@ export default function TeamDirectory() {
                       {isManager && (
                         <td className="p-4">
                           <div className="flex items-center justify-end gap-2">
-                            {!staff.isTeamMemberOnly && (
-                              <Link to={createPageUrl(`StaffProfile?staff_email=${staff.email}`)}>
-                                <Button variant="ghost" size="icon" className="h-8 w-8">
-                                  <Eye className="w-4 h-4" />
-                                </Button>
-                              </Link>
-                            )}
+                            <Link to={createPageUrl(`StaffProfile?staff_email=${staff.email}`)}>
+                              <Button variant="ghost" size="icon" className="h-8 w-8">
+                                <Eye className="w-4 h-4" />
+                              </Button>
+                            </Link>
                             <Button
                               variant="ghost"
                               size="icon"
@@ -933,7 +818,7 @@ export default function TeamDirectory() {
                     />
                   ) : (
                     <div className="w-32 h-32 bg-gradient-to-br from-blue-500 to-green-500 rounded-full flex items-center justify-center text-white text-5xl font-bold border-4 border-blue-100 shadow-lg">
-                      {formData.staff_name?.charAt(0)?.toUpperCase() || "?"}
+                      {formData.full_name?.charAt(0)?.toUpperCase() || "?"}
                     </div>
                   )}
                   {uploadingPhoto && (
@@ -985,8 +870,8 @@ export default function TeamDirectory() {
                 <div>
                   <Label className="text-sm font-semibold">Email *</Label>
                   <Input
-                    value={formData.staff_email}
-                    onChange={(e) => setFormData({...formData, staff_email: e.target.value})}
+                    value={formData.email}
+                    onChange={(e) => setFormData({...formData, email: e.target.value})}
                     placeholder="email@example.com"
                     disabled={!!editingMember}
                     className="mt-1"
@@ -995,8 +880,8 @@ export default function TeamDirectory() {
                 <div>
                   <Label className="text-sm font-semibold">Full Name *</Label>
                   <Input
-                    value={formData.staff_name}
-                    onChange={(e) => setFormData({...formData, staff_name: e.target.value})}
+                    value={formData.full_name}
+                    onChange={(e) => setFormData({...formData, full_name: e.target.value})}
                     placeholder="John Doe"
                     className="mt-1"
                   />
@@ -1169,7 +1054,7 @@ export default function TeamDirectory() {
             </DialogHeader>
             <div className="py-4">
               <p className="text-gray-700 mb-3">
-                Are you sure you want to remove <strong>{memberToDelete?.full_name || memberToDelete?.staff_name}</strong> from the team?
+                Are you sure you want to remove <strong>{memberToDelete?.full_name}</strong> from the team?
               </p>
               <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded">
                 <p className="text-sm text-yellow-800">

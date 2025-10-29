@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -25,9 +26,9 @@ import { Badge } from "@/components/ui/badge";
 export default function IngredientStock() {
   const queryClient = useQueryClient();
   const [showForm, setShowForm] = useState(false);
-  const [editingIngredient, setEditingIngredient] = useState(null);
+  const [editingItem, setEditingItem] = useState(null); // Renamed from editingIngredient
   const [searchTerm, setSearchTerm] = useState("");
-  const [filterCategory, setFilterCategory] = useState("all");
+  const [selectedCategory, setSelectedCategory] = useState("all"); // Renamed from filterCategory
   const [formData, setFormData] = useState({
     name: "",
     category: "produce",
@@ -42,8 +43,8 @@ export default function IngredientStock() {
   });
 
   const { data: ingredients = [], isLoading } = useQuery({
-    queryKey: ['ingredients'],
-    queryFn: () => base44.entities.Ingredient.list(),
+    queryKey: ['inventoryIngredients'], // Updated query key
+    queryFn: () => base44.entities.InventoryIngredient.list(), // Updated entity
   });
 
   const { data: suppliers = [] } = useQuery({
@@ -52,24 +53,31 @@ export default function IngredientStock() {
   });
 
   const createIngredientMutation = useMutation({
-    mutationFn: (data) => base44.entities.Ingredient.create(data),
+    mutationFn: (data) => base44.entities.InventoryIngredient.create(data), // Updated entity
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['ingredients'] });
+      queryClient.invalidateQueries({ queryKey: ['inventoryIngredients'] }); // Updated query key
       resetForm();
     },
   });
 
   const updateIngredientMutation = useMutation({
-    mutationFn: ({ id, data }) => base44.entities.Ingredient.update(id, data),
+    mutationFn: ({ id, data }) => base44.entities.InventoryIngredient.update(id, data), // Updated entity
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['ingredients'] });
+      queryClient.invalidateQueries({ queryKey: ['inventoryIngredients'] }); // Updated query key
       resetForm();
+    },
+  });
+
+  const deleteIngredientMutation = useMutation({
+    mutationFn: (id) => base44.entities.InventoryIngredient.delete(id), // New mutation
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['inventoryIngredients'] }); // Updated query key
     },
   });
 
   const resetForm = () => {
     setShowForm(false);
-    setEditingIngredient(null);
+    setEditingItem(null); // Updated state variable
     setFormData({
       name: "",
       category: "produce",
@@ -85,7 +93,7 @@ export default function IngredientStock() {
   };
 
   const handleEdit = (ingredient) => {
-    setEditingIngredient(ingredient);
+    setEditingItem(ingredient); // Updated state variable
     setFormData({
       name: ingredient.name,
       category: ingredient.category,
@@ -127,8 +135,8 @@ export default function IngredientStock() {
       last_cost_update: new Date().toISOString().split('T')[0],
     };
 
-    if (editingIngredient) {
-      await updateIngredientMutation.mutateAsync({ id: editingIngredient.id, data });
+    if (editingItem) { // Updated state variable
+      await updateIngredientMutation.mutateAsync({ id: editingItem.id, data }); // Updated state variable
     } else {
       await createIngredientMutation.mutateAsync(data);
     }
@@ -136,7 +144,7 @@ export default function IngredientStock() {
 
   const filteredIngredients = ingredients.filter(ing => {
     const matchesSearch = ing.name.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCategory = filterCategory === 'all' || ing.category === filterCategory;
+    const matchesCategory = selectedCategory === 'all' || ing.category === selectedCategory; // Updated state variable
     return matchesSearch && matchesCategory;
   });
 
@@ -161,7 +169,7 @@ export default function IngredientStock() {
             </DialogTrigger>
             <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
-                <DialogTitle>{editingIngredient ? 'Edit Ingredient' : 'Add Ingredient'}</DialogTitle>
+                <DialogTitle>{editingItem ? 'Edit Ingredient' : 'Add Ingredient'}</DialogTitle> {/* Updated state variable */}
               </DialogHeader>
               <form onSubmit={handleSubmit} className="space-y-4 mt-4">
                 <div className="grid md:grid-cols-2 gap-4">
@@ -298,7 +306,7 @@ export default function IngredientStock() {
                     Cancel
                   </Button>
                   <Button type="submit" className="bg-green-600 hover:bg-green-700">
-                    {editingIngredient ? 'Update' : 'Add Ingredient'}
+                    {editingItem ? 'Update' : 'Add Ingredient'} {/* Updated state variable */}
                   </Button>
                 </div>
               </form>
@@ -331,7 +339,7 @@ export default function IngredientStock() {
             onChange={(e) => setSearchTerm(e.target.value)}
             className="md:w-64"
           />
-          <Select value={filterCategory} onValueChange={setFilterCategory}>
+          <Select value={selectedCategory} onValueChange={setSelectedCategory}> {/* Updated state variable */}
             <SelectTrigger className="md:w-48">
               <SelectValue />
             </SelectTrigger>
