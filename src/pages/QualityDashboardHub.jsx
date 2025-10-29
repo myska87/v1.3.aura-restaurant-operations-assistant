@@ -1,13 +1,25 @@
 import React, { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Card, CardContent } from '@/components/ui/card';
 import { Star, BarChart3, Settings } from 'lucide-react';
-import QualityDashboard from './QualityDashboard';
-import QualityReports from './QualityReports';
-import QuickQualityCheck from './QuickQualityCheck';
-import QualityTemplates from './QualityTemplates';
-import HygieneDashboard from './HygieneDashboard';
 import { base44 } from '@/api/base44Client';
 import { useQuery } from '@tanstack/react-query';
+
+// Lazy load components
+const QualityDashboard = React.lazy(() => import('./QualityDashboard'));
+const QualityReports = React.lazy(() => import('./QualityReports'));
+const QuickQualityCheck = React.lazy(() => import('./QuickQualityCheck'));
+const QualityTemplates = React.lazy(() => import('./QualityTemplates'));
+const HygieneDashboard = React.lazy(() => import('./HygieneDashboard'));
+
+const LoadingFallback = () => (
+  <Card>
+    <CardContent className="p-12 text-center">
+      <div className="animate-spin w-12 h-12 border-4 border-amber-600 border-t-transparent rounded-full mx-auto mb-4"></div>
+      <p className="text-gray-600">Loading...</p>
+    </CardContent>
+  </Card>
+);
 
 export default function QualityDashboardHub() {
   const [activeTab, setActiveTab] = useState('overview');
@@ -38,29 +50,33 @@ export default function QualityDashboardHub() {
 
           {/* Tabs */}
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-3 mb-6">
-              <TabsTrigger value="overview" className="flex items-center gap-2">
-                <Star className="w-4 h-4" />
+            <TabsList className={`grid w-full ${isManager ? 'grid-cols-3' : 'grid-cols-2'} mb-6`}>
+              <TabsTrigger value="overview">
+                <Star className="w-4 h-4 mr-2" />
                 Overview
               </TabsTrigger>
-              <TabsTrigger value="hygiene" className="flex items-center gap-2">
-                <BarChart3 className="w-4 h-4" />
+              <TabsTrigger value="hygiene">
+                <BarChart3 className="w-4 h-4 mr-2" />
                 Hygiene
               </TabsTrigger>
               {isManager && (
-                <TabsTrigger value="manage" className="flex items-center gap-2">
-                  <Settings className="w-4 h-4" />
+                <TabsTrigger value="manage">
+                  <Settings className="w-4 h-4 mr-2" />
                   Manage
                 </TabsTrigger>
               )}
             </TabsList>
 
-            <TabsContent value="overview" className="space-y-6">
-              <QualityDashboard />
+            <TabsContent value="overview">
+              <React.Suspense fallback={<LoadingFallback />}>
+                <QualityDashboard />
+              </React.Suspense>
             </TabsContent>
 
             <TabsContent value="hygiene">
-              <HygieneDashboard />
+              <React.Suspense fallback={<LoadingFallback />}>
+                <HygieneDashboard />
+              </React.Suspense>
             </TabsContent>
 
             {isManager && (
@@ -73,15 +89,21 @@ export default function QualityDashboardHub() {
                   </TabsList>
 
                   <TabsContent value="check">
-                    <QuickQualityCheck />
+                    <React.Suspense fallback={<LoadingFallback />}>
+                      <QuickQualityCheck />
+                    </React.Suspense>
                   </TabsContent>
 
                   <TabsContent value="templates">
-                    <QualityTemplates />
+                    <React.Suspense fallback={<LoadingFallback />}>
+                      <QualityTemplates />
+                    </React.Suspense>
                   </TabsContent>
 
                   <TabsContent value="reports">
-                    <QualityReports />
+                    <React.Suspense fallback={<LoadingFallback />}>
+                      <QualityReports />
+                    </React.Suspense>
                   </TabsContent>
                 </Tabs>
               </TabsContent>

@@ -1,17 +1,29 @@
 import React, { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Users, BarChart3, Settings, Calendar, Clock, GraduationCap } from 'lucide-react';
-import TeamDirectory from './TeamDirectory';
-import StaffRota from './StaffRota';
-import SmartScheduler from './SmartScheduler';
-import AttendanceReports from './AttendanceReports';
-import PayrollDashboard from './PayrollDashboard';
-import OnboardingTraining from './OnboardingTraining';
-import PerformanceGrowth from './PerformanceGrowth';
-import MyShifts from './MyShifts';
-import ManageAvailability from './ManageAvailability';
+import { Card, CardContent } from '@/components/ui/card';
+import { Users, Calendar, GraduationCap } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import { useQuery } from '@tanstack/react-query';
+
+// Lazy load components
+const TeamDirectory = React.lazy(() => import('./TeamDirectory'));
+const MyShifts = React.lazy(() => import('./MyShifts'));
+const ManageAvailability = React.lazy(() => import('./ManageAvailability'));
+const SmartScheduler = React.lazy(() => import('./SmartScheduler'));
+const StaffRota = React.lazy(() => import('./StaffRota'));
+const AttendanceReports = React.lazy(() => import('./AttendanceReports'));
+const PayrollDashboard = React.lazy(() => import('./PayrollDashboard'));
+const OnboardingTraining = React.lazy(() => import('./OnboardingTraining'));
+const PerformanceGrowth = React.lazy(() => import('./PerformanceGrowth'));
+
+const LoadingFallback = () => (
+  <Card>
+    <CardContent className="p-12 text-center">
+      <div className="animate-spin w-12 h-12 border-4 border-purple-600 border-t-transparent rounded-full mx-auto mb-4"></div>
+      <p className="text-gray-600">Loading...</p>
+    </CardContent>
+  </Card>
+);
 
 export default function StaffDashboard() {
   const [activeTab, setActiveTab] = useState('overview');
@@ -43,22 +55,24 @@ export default function StaffDashboard() {
           {/* Tabs */}
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="grid w-full grid-cols-3 mb-6">
-              <TabsTrigger value="overview" className="flex items-center gap-2">
-                <Users className="w-4 h-4" />
+              <TabsTrigger value="overview">
+                <Users className="w-4 h-4 mr-2" />
                 Team
               </TabsTrigger>
-              <TabsTrigger value="scheduling" className="flex items-center gap-2">
-                <Calendar className="w-4 h-4" />
+              <TabsTrigger value="scheduling">
+                <Calendar className="w-4 h-4 mr-2" />
                 Scheduling
               </TabsTrigger>
-              <TabsTrigger value="development" className="flex items-center gap-2">
-                <GraduationCap className="w-4 h-4" />
+              <TabsTrigger value="development">
+                <GraduationCap className="w-4 h-4 mr-2" />
                 Development
               </TabsTrigger>
             </TabsList>
 
-            <TabsContent value="overview" className="space-y-6">
-              <TeamDirectory />
+            <TabsContent value="overview">
+              <React.Suspense fallback={<LoadingFallback />}>
+                <TeamDirectory />
+              </React.Suspense>
             </TabsContent>
 
             <TabsContent value="scheduling">
@@ -67,38 +81,36 @@ export default function StaffDashboard() {
                   <TabsTrigger value="myshifts">My Shifts</TabsTrigger>
                   {isManager && <TabsTrigger value="scheduler">Scheduler</TabsTrigger>}
                   {isManager && <TabsTrigger value="attendance">Attendance</TabsTrigger>}
-                  {isManager && <TabsTrigger value="payroll">Payroll</TabsTrigger>}
                 </TabsList>
 
                 <TabsContent value="myshifts">
-                  <div className="space-y-6">
-                    <MyShifts />
-                    <ManageAvailability />
-                  </div>
+                  <React.Suspense fallback={<LoadingFallback />}>
+                    <div className="space-y-6">
+                      <MyShifts />
+                      <ManageAvailability />
+                    </div>
+                  </React.Suspense>
                 </TabsContent>
 
                 {isManager && (
                   <>
                     <TabsContent value="scheduler">
-                      <div className="space-y-6">
+                      <React.Suspense fallback={<LoadingFallback />}>
                         <SmartScheduler />
-                        <StaffRota />
-                      </div>
+                      </React.Suspense>
                     </TabsContent>
 
                     <TabsContent value="attendance">
-                      <AttendanceReports />
-                    </TabsContent>
-
-                    <TabsContent value="payroll">
-                      <PayrollDashboard />
+                      <React.Suspense fallback={<LoadingFallback />}>
+                        <AttendanceReports />
+                      </React.Suspense>
                     </TabsContent>
                   </>
                 )}
               </Tabs>
             </TabsContent>
 
-            <TabsContent value="development" className="space-y-6">
+            <TabsContent value="development">
               <Tabs defaultValue="training" className="w-full">
                 <TabsList className="grid w-full grid-cols-2">
                   <TabsTrigger value="training">Training & Onboarding</TabsTrigger>
@@ -106,11 +118,15 @@ export default function StaffDashboard() {
                 </TabsList>
 
                 <TabsContent value="training">
-                  <OnboardingTraining />
+                  <React.Suspense fallback={<LoadingFallback />}>
+                    <OnboardingTraining />
+                  </React.Suspense>
                 </TabsContent>
 
                 <TabsContent value="performance">
-                  <PerformanceGrowth />
+                  <React.Suspense fallback={<LoadingFallback />}>
+                    <PerformanceGrowth />
+                  </React.Suspense>
                 </TabsContent>
               </Tabs>
             </TabsContent>

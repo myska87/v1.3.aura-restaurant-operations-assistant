@@ -1,11 +1,23 @@
 import React, { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Card, CardContent } from '@/components/ui/card';
 import { BookOpen, BarChart3, Settings } from 'lucide-react';
-import SOPDashboard from './SOPDashboard';
-import SOPCertifications from './SOPCertifications';
-import SOPBuilder from './SOPBuilder';
 import { base44 } from '@/api/base44Client';
 import { useQuery } from '@tanstack/react-query';
+
+// Lazy load components
+const SOPDashboard = React.lazy(() => import('./SOPDashboard'));
+const SOPCertifications = React.lazy(() => import('./SOPCertifications'));
+const SOPBuilder = React.lazy(() => import('./SOPBuilder'));
+
+const LoadingFallback = () => (
+  <Card>
+    <CardContent className="p-12 text-center">
+      <div className="animate-spin w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full mx-auto mb-4"></div>
+      <p className="text-gray-600">Loading...</p>
+    </CardContent>
+  </Card>
+);
 
 export default function SOPsDashboard() {
   const [activeTab, setActiveTab] = useState('overview');
@@ -36,34 +48,40 @@ export default function SOPsDashboard() {
 
           {/* Tabs */}
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-3 mb-6">
-              <TabsTrigger value="overview" className="flex items-center gap-2">
-                <BookOpen className="w-4 h-4" />
+            <TabsList className={`grid w-full ${isManager ? 'grid-cols-3' : 'grid-cols-2'} mb-6`}>
+              <TabsTrigger value="overview">
+                <BookOpen className="w-4 h-4 mr-2" />
                 Browse SOPs
               </TabsTrigger>
-              <TabsTrigger value="certifications" className="flex items-center gap-2">
-                <BarChart3 className="w-4 h-4" />
+              <TabsTrigger value="certifications">
+                <BarChart3 className="w-4 h-4 mr-2" />
                 My Certifications
               </TabsTrigger>
               {isManager && (
-                <TabsTrigger value="manage" className="flex items-center gap-2">
-                  <Settings className="w-4 h-4" />
+                <TabsTrigger value="manage">
+                  <Settings className="w-4 h-4 mr-2" />
                   Manage
                 </TabsTrigger>
               )}
             </TabsList>
 
             <TabsContent value="overview">
-              <SOPDashboard />
+              <React.Suspense fallback={<LoadingFallback />}>
+                <SOPDashboard />
+              </React.Suspense>
             </TabsContent>
 
             <TabsContent value="certifications">
-              <SOPCertifications />
+              <React.Suspense fallback={<LoadingFallback />}>
+                <SOPCertifications />
+              </React.Suspense>
             </TabsContent>
 
             {isManager && (
               <TabsContent value="manage">
-                <SOPBuilder />
+                <React.Suspense fallback={<LoadingFallback />}>
+                  <SOPBuilder />
+                </React.Suspense>
               </TabsContent>
             )}
           </Tabs>
