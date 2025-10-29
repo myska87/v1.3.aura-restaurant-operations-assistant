@@ -8,6 +8,7 @@ import { BarChart3, Download, ArrowLeft, Home, Star, TrendingUp } from "lucide-r
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { format } from "date-fns";
+import { safeNumber, toSafeNumber } from "@/utils/safeNumber";
 
 export default function QualityReports() {
   const { data: qualityRecords = [] } = useQuery({
@@ -23,7 +24,7 @@ export default function QualityReports() {
         r.check_title,
         r.category,
         r.area,
-        r.score,
+        toSafeNumber(r.score, 0),
         r.checked_by_name,
         r.comments || '',
         r.status
@@ -84,12 +85,12 @@ export default function QualityReports() {
                         <div className="flex items-center gap-2 mb-1">
                           <h4 className="font-semibold text-gray-900">{record.check_title}</h4>
                           <Badge className={
-                            record.score >= 4.5 ? 'bg-green-100 text-green-800' :
-                            record.score >= 4 ? 'bg-blue-100 text-blue-800' :
-                            record.score >= 3 ? 'bg-yellow-100 text-yellow-800' :
+                            toSafeNumber(record.score) >= 4.5 ? 'bg-green-100 text-green-800' :
+                            toSafeNumber(record.score) >= 4 ? 'bg-blue-100 text-blue-800' :
+                            toSafeNumber(record.score) >= 3 ? 'bg-yellow-100 text-yellow-800' :
                             'bg-red-100 text-red-800'
                           }>
-                            {record.score} ⭐
+                            {safeNumber(record.score, 1)} ⭐
                           </Badge>
                         </div>
                         <p className="text-sm text-gray-600 capitalize">
