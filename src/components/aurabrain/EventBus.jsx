@@ -3,95 +3,45 @@
  * Allows agents to communicate and coordinate actions safely
  */
 
-class EventBusClass {
-  constructor() {
-    this.listeners = {};
-    this.eventHistory = [];
-    this.maxHistorySize = 100;
-  }
+const subscribers = {};
 
-  /**
-   * Subscribe to an event type
-   */
-  on(eventType, callback) {
-    if (!this.listeners[eventType]) {
-      this.listeners[eventType] = [];
-    }
-    this.listeners[eventType].push(callback);
-
+export const EventBus = {
+  subscribe(event, fn) {
+    (subscribers[event] ||= []).push(fn);
+    
     // Return unsubscribe function
     return () => {
-      this.listeners[eventType] = this.listeners[eventType].filter(cb => cb !== callback);
+      const index = subscribers[event]?.indexOf(fn);
+      if (index > -1) {
+        subscribers[event].splice(index, 1);
+      }
     };
-  }
-
-  /**
-   * Emit an event to all subscribers
-   */
-  async emit(eventType, data) {
-    try {
-      const event = {
-        type: eventType,
-        data,
-        timestamp: new Date().toISOString(),
-        id: `evt_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-      };
-
-      // Add to history
-      this.eventHistory.push(event);
-      if (this.eventHistory.length > this.maxHistorySize) {
-        this.eventHistory.shift();
+  },
+  
+  publish(event, data) {
+    (subscribers[event] || []).forEach(fn => {
+      try {
+        fn(data);
+      } catch (error) {
+        console.error(`EventBus: Error in subscriber for ${event}:`, error);
       }
+    });
+  },
 
-      // Notify all listeners
-      const listeners = this.listeners[eventType] || [];
-      for (const callback of listeners) {
-        try {
-          await callback(data, event);
-        } catch (error) {
-          console.error(`EventBus: Error in listener for ${eventType}:`, error);
-        }
-      }
+  emit(event, data) {
+    // Alias for publish (for backward compatibility)
+    this.publish(event, data);
+  },
 
-      return event;
-    } catch (error) {
-      console.error('EventBus: Failed to emit event:', error);
-      return null;
-    }
-  }
+  on(event, fn) {
+    // Alias for subscribe (for backward compatibility)
+    return this.subscribe(event, fn);
+  },
 
-  /**
-   * Get recent events
-   */
-  getHistory(eventType = null, limit = 20) {
-    let events = this.eventHistory;
-    
-    if (eventType) {
-      events = events.filter(e => e.type === eventType);
-    }
-
-    return events.slice(-limit);
-  }
-
-  /**
-   * Clear all listeners (useful for cleanup)
-   */
   clear() {
-    this.listeners = {};
+    Object.keys(subscribers).forEach(key => delete subscribers[key]);
   }
-
-  /**
-   * Get all active event types
-   */
-  getEventTypes() {
-    return Object.keys(this.listeners);
-  }
-}
-
-// Create singleton instance
-const EventBus = new EventBusClass();
-
-export default EventBus;
+};
 
 // Event Types Constants
 export const EVENT_TYPES = {
@@ -121,3 +71,5 @@ export const EVENT_TYPES = {
   TASK_ASSIGNED: 'task_assigned',
   TASK_OVERDUE: 'task_overdue'
 };
+
+export default EventBus;
