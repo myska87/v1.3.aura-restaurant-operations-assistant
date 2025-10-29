@@ -112,6 +112,12 @@ import AnalyticsDashboard from './pages/AnalyticsDashboard';
 import AuraIntelligence from './pages/AuraIntelligence';
 import ComplianceCore from './pages/ComplianceCore';
 import PayrollDashboard from './pages/PayrollDashboard';
+import OperationsDashboard from './pages/OperationsDashboard';
+import InventoryDashboard from './pages/InventoryDashboard';
+import StaffDashboard from './pages/StaffDashboard';
+import SOPsDashboard from './pages/SOPsDashboard';
+import QualityDashboardHub from './pages/QualityDashboardHub';
+import DocumentsDashboard from './pages/DocumentsDashboard';
 import Layout from './Layout.jsx';
 
 
@@ -230,6 +236,12 @@ export const PAGES = {
     "AuraIntelligence": AuraIntelligence,
     "ComplianceCore": ComplianceCore,
     "PayrollDashboard": PayrollDashboard,
+    "OperationsDashboard": OperationsDashboard,
+    "InventoryDashboard": InventoryDashboard,
+    "StaffDashboard": StaffDashboard,
+    "SOPsDashboard": SOPsDashboard,
+    "QualityDashboardHub": QualityDashboardHub,
+    "DocumentsDashboard": DocumentsDashboard,
 }
 
 export const pagesConfig = {

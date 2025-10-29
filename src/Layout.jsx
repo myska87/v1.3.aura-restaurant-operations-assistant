@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -6,56 +5,27 @@ import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
 import {
   LayoutDashboard,
-  ClipboardCheck,
   Package,
-  Wrench,
   Users,
-  BarChart3,
+  BookOpen,
+  Star,
+  FileText,
   Menu,
   X,
   LogOut,
-  Calculator,
-  ClipboardList,
-  GraduationCap,
   MessageCircle,
-  CheckCircle,
-  Calendar,
-  TrendingUp,
-  Clock,
-  Shield,
-  FileText,
-  Database,
-  Activity,
-  Settings,
-  Sparkles,
-  Mic,
-  Edit,
-  Star,
-  AlertTriangle,
-  Lightbulb,
-  DollarSign,
-  CreditCard,
-  Camera,
-  Upload,
-  Briefcase,
-  Target,
-  Award,
-  BookOpen,
-  Heart,
-  Zap,
-  TrendingDown,
-  ShoppingCart,
-  FilePlus,
   Bell,
+  Target,
   Brain,
+  Shield,
+  BarChart3,
+  Settings,
 } from "lucide-react";
 import WelcomeNewHire from "./components/WelcomeNewHire";
 import WelcomeNewUser from "./components/WelcomeNewUser";
-import ChecklistAutomation from "./components/ChecklistAutomation";
 import NotificationBell from "./components/NotificationBell";
 import AuraLogo from "./components/AuraLogo";
 import AutoBackupScheduler from "./components/AutoBackupScheduler";
-import { StaffDataSync } from "./components/StaffDataSync";
 import MenuImporter from "./components/MenuImporter";
 import SystemStatusCheck from "./components/SystemStatusCheck";
 import ComplianceEventListener from "./components/ComplianceEventListener";
@@ -65,7 +35,6 @@ import FormIntelligenceEngine from "./components/FormIntelligenceEngine";
 import FormScheduler from "./components/FormScheduler";
 import { ComplianceStyles } from "./components/ComplianceStyles";
 import MenuAutoUpdateTrigger from "./components/MenuAutoUpdateTrigger";
-import { SecurityBadge } from "./components/PermissionGuard";
 import QualityAutomation from "./components/QualityAutomation";
 import { UnifiedUserSync } from "./components/UnifiedUserSync";
 import SmartRoleSync from "./components/SmartRoleSync";
@@ -84,314 +53,100 @@ import AIComplianceSummary from "./components/compliancecore/AIComplianceSummary
 import ErrorBoundary from "./components/ErrorBoundary";
 import { Badge } from "@/components/ui/badge";
 
-import { SafeModeProvider } from './components/SafeModeProvider';
-
 const navigationItems = [
   {
-    section: "Daily Essentials",
-    items: [
-      {
-        title: "Dashboard",
-        url: createPageUrl("Dashboard"),
-        icon: LayoutDashboard,
-        badge: null,
-      },
-      {
-        title: "🎯 Operations Central",
-        url: createPageUrl("OperationsCore"),
-        icon: Target,
-        badge: "NEW",
-      },
-      {
-        title: "My Tasks",
-        url: createPageUrl("MyTasks"),
-        icon: CheckCircle,
-        badge: null,
-      },
-      {
-        title: "My Shifts",
-        url: createPageUrl("MyShifts"),
-        icon: Calendar,
-        badge: null,
-      },
-      {
-        title: "Clock In/Out",
-        url: createPageUrl("ClockInOut"),
-        icon: Clock,
-        badge: null,
-      },
-      {
-        title: "📊 My Attendance",
-        url: createPageUrl("MyAttendance"),
-        icon: ClipboardCheck,
-        badge: null,
-      },
-      {
-        title: "My Checklists",
-        url: createPageUrl("MyChecklists"),
-        icon: ClipboardList,
-        badge: null,
-      },
-      {
-        title: "Hygiene Central",
-        url: createPageUrl("HygieneDashboard"),
-        icon: Activity,
-        badge: null,
-      },
-    ]
+    title: "Dashboard",
+    url: createPageUrl("Dashboard"),
+    icon: LayoutDashboard,
+    color: "from-blue-500 to-blue-600",
   },
   {
-    section: "Operations",
-    items: [
-      {
-        title: "📚 SOPs & Procedures",
-        url: createPageUrl("SOPDashboard"),
-        icon: FileText,
-        badge: null,
-      },
-      {
-        title: "📝 Document Library",
-        url: createPageUrl("DocumentLibrary"),
-        icon: FileText,
-        badge: null,
-      },
-      {
-        title: "✍️ Document Builder",
-        url: createPageUrl("DocumentBuilder"),
-        icon: FilePlus,
-        badge: null,
-      },
-      {
-        title: "Daily Checklists",
-        url: createPageUrl("DailyChecklists"),
-        icon: ClipboardList,
-        badge: null,
-      },
-      {
-        title: "Form Intelligence",
-        url: createPageUrl("FormIntelligence"),
-        icon: Settings,
-        badge: "AI",
-      },
-      {
-        title: "⭐ Quality Control",
-        url: createPageUrl("QualityDashboard"),
-        icon: Star,
-        badge: null,
-      },
-      {
-        title: "🛡️ Compliance Centre",
-        url: createPageUrl("ComplianceCore"),
-        icon: Shield,
-        badge: "NEW",
-      },
-      {
-        title: "Compliance",
-        url: createPageUrl("Compliance"),
-        icon: Shield,
-        badge: null,
-      },
-      {
-        title: "Maintenance",
-        url: createPageUrl("Maintenance"),
-        icon: Wrench,
-        badge: null,
-      },
-    ]
+    title: "Operations",
+    url: createPageUrl("OperationsDashboard"),
+    icon: Target,
+    color: "from-emerald-500 to-teal-600",
+    badge: "Hub",
   },
   {
-    section: "Inventory & Stock",
-    items: [
-      {
-        title: "Inventory",
-        url: createPageUrl("InventoryManagement"),
-        icon: Package,
-        badge: null,
-      },
-      {
-        title: "Ingredient Stock",
-        url: createPageUrl("IngredientStock"),
-        icon: Package,
-        badge: null,
-      },
-      {
-        title: "Suppliers",
-        url: createPageUrl("SupplierManagement"),
-        icon: ShoppingCart,
-        badge: null,
-      },
-      {
-        title: "Production Planning",
-        url: createPageUrl("ProductionPlanning"),
-        icon: Calculator,
-        badge: null,
-      },
-      {
-        title: "Order History",
-        url: createPageUrl("OrderHistory"),
-        icon: ClipboardCheck,
-        badge: null,
-      },
-    ]
+    title: "Inventory",
+    url: createPageUrl("InventoryDashboard"),
+    icon: Package,
+    color: "from-blue-500 to-indigo-600",
+    badge: "Hub",
   },
   {
-    section: "Menu & Kitchen",
-    items: [
-      {
-        title: "Menu Management",
-        url: createPageUrl("MenuManagement"),
-        icon: FileText,
-        badge: null,
-      },
-      {
-        title: "Allergen Table",
-        url: createPageUrl("AllergyTable"),
-        icon: AlertTriangle,
-        badge: null,
-      },
-      {
-        title: "Menu Analysis",
-        url: createPageUrl("MenuAnalysis"),
-        icon: TrendingUp,
-        badge: null,
-      },
-    ]
+    title: "Staff",
+    url: createPageUrl("StaffDashboard"),
+    icon: Users,
+    color: "from-purple-500 to-pink-600",
+    badge: "Hub",
   },
   {
-    section: "Staff & Training",
-    items: [
-      {
-        title: "Team Directory",
-        url: createPageUrl("TeamDirectory"),
-        icon: Users,
-        badge: null,
-      },
-      {
-        title: "Staff Management",
-        url: createPageUrl("Staff"),
-        icon: Users,
-        badge: null,
-      },
-      {
-        title: "My Coaching",
-        url: createPageUrl("MyCoaching"),
-        icon: GraduationCap,
-        badge: null,
-      },
-      {
-        title: "Training & Culture",
-        url: createPageUrl("OnboardingTraining"),
-        icon: GraduationCap,
-        badge: null,
-      },
-      {
-        title: "Performance & Growth",
-        url: createPageUrl("PerformanceGrowth"),
-        icon: TrendingUp,
-        badge: null,
-      },
-    ]
+    title: "SOPs & Training",
+    url: createPageUrl("SOPsDashboard"),
+    icon: BookOpen,
+    color: "from-indigo-500 to-purple-600",
+    badge: "Hub",
   },
   {
-    section: "Communication",
-    items: [
-      {
-        title: "Team Chat",
-        url: createPageUrl("TeamChat"),
-        icon: MessageCircle,
-        badge: null,
-      },
-      {
-        title: "Announcements",
-        url: createPageUrl("Announcements"),
-        icon: Bell,
-        badge: null,
-      },
-      {
-        title: "Suggestion Box",
-        url: createPageUrl("SuggestionBox"),
-        icon: Lightbulb,
-        badge: null,
-      },
-      {
-        title: "🔔 Event Feed",
-        url: createPageUrl("EventFeed"),
-        icon: Bell,
-        badge: null,
-      },
-    ]
+    title: "Quality & Hygiene",
+    url: createPageUrl("QualityDashboardHub"),
+    icon: Star,
+    color: "from-amber-500 to-orange-600",
+    badge: "Hub",
   },
   {
-    section: "Analytics & AI",
-    items: [
-      {
-        title: "Reports",
-        url: createPageUrl("Reports"),
-        icon: BarChart3,
-        badge: null,
-      },
-      {
-        title: "📊 Analytics Dashboard",
-        url: createPageUrl("AnalyticsDashboard"),
-        icon: BarChart3,
-        badge: "AI",
-      },
-      {
-        title: "🧠 AURA Intelligence",
-        url: createPageUrl("AuraIntelligence"),
-        icon: Brain,
-        badge: "AI",
-      },
-      {
-        title: "Performance Dashboard",
-        url: createPageUrl("PerformanceDashboard"),
-        icon: TrendingUp,
-        badge: null,
-      },
-    ]
+    title: "Documents",
+    url: createPageUrl("DocumentsDashboard"),
+    icon: FileText,
+    color: "from-gray-500 to-slate-600",
+    badge: "Hub",
   },
 ];
 
-const managementItems = [
+const quickAccessItems = [
   {
-    title: "💼 Manager Dashboard",
-    url: createPageUrl("ManagerDashboard"),
-    icon: Briefcase,
+    title: "My Tasks",
+    url: createPageUrl("MyTasks"),
+    icon: Target,
   },
   {
-    title: "📅 Smart Scheduler",
-    url: createPageUrl("SmartScheduler"),
-    icon: Calendar,
+    title: "My Shifts",
+    url: createPageUrl("MyShifts"),
+    icon: LayoutDashboard,
   },
   {
-    title: "💰 Payroll Dashboard",
-    url: createPageUrl("PayrollDashboard"),
-    icon: DollarSign,
+    title: "Team Chat",
+    url: createPageUrl("TeamChat"),
+    icon: MessageCircle,
   },
   {
-    title: "Attendance Approval",
-    url: createPageUrl("AttendanceApproval"),
-    icon: CheckCircle,
+    title: "Announcements",
+    url: createPageUrl("Announcements"),
+    icon: Bell,
+  },
+];
+
+const adminItems = [
+  {
+    title: "Analytics",
+    url: createPageUrl("AnalyticsDashboard"),
+    icon: BarChart3,
   },
   {
-    title: "Task Reports",
-    url: createPageUrl("TaskReports"),
-    icon: ClipboardCheck,
+    title: "AI Intelligence",
+    url: createPageUrl("AuraIntelligence"),
+    icon: Brain,
   },
   {
-    title: "User Management",
-    url: createPageUrl("UserManagement"),
-    icon: Users,
-  },
-  {
-    title: "🔐 Security Dashboard",
+    title: "Security",
     url: createPageUrl("SecurityDashboard"),
     icon: Shield,
   },
   {
-    title: "Data Management",
+    title: "Settings",
     url: createPageUrl("DataManagement"),
-    icon: Database,
+    icon: Settings,
   },
 ];
 
@@ -404,7 +159,7 @@ export default function Layout({ children, currentPageName }) {
     queryFn: () => base44.auth.me(),
   });
 
-  const isManager = user?.position === "manager" || user?.position === "owner" || user?.role === "admin";
+  const isAdmin = user?.role === "admin" || user?.position === "owner";
 
   const handleLogout = async () => {
     await base44.auth.logout();
@@ -478,49 +233,79 @@ export default function Layout({ children, currentPageName }) {
           </div>
 
           <nav className="p-4 space-y-6">
-            {navigationItems.map((section, index) => (
-              <div key={index}>
-                <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 px-3">
-                  {section.section}
-                </h3>
-                <div className="space-y-1">
-                  {section.items.map((item, itemIndex) => {
-                    const Icon = item.icon;
-                    const isActive = location.pathname === item.url;
-                    return (
-                      <Link
-                        key={itemIndex}
-                        to={item.url}
-                        onClick={() => setSidebarOpen(false)}
-                        className={`flex items-center justify-between px-3 py-2 rounded-lg transition-colors ${
-                          isActive
-                            ? "bg-emerald-50 text-emerald-700 font-medium"
-                            : "text-slate-700 hover:bg-slate-100"
-                        }`}
-                      >
-                        <div className="flex items-center gap-3">
-                          <Icon className="w-5 h-5" />
-                          <span className="text-sm">{item.title}</span>
-                        </div>
-                        {item.badge && (
-                          <Badge className="bg-emerald-600 text-white text-xs">
-                            {item.badge}
-                          </Badge>
-                        )}
-                      </Link>
-                    );
-                  })}
-                </div>
+            {/* Main Hubs */}
+            <div>
+              <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 px-3">
+                Main Hubs
+              </h3>
+              <div className="space-y-1">
+                {navigationItems.map((item, index) => {
+                  const Icon = item.icon;
+                  const isActive = location.pathname === item.url;
+                  return (
+                    <Link
+                      key={index}
+                      to={item.url}
+                      onClick={() => setSidebarOpen(false)}
+                      className={`flex items-center justify-between px-3 py-3 rounded-lg transition-all group ${
+                        isActive
+                          ? "bg-gradient-to-r " + item.color + " text-white font-medium shadow-lg"
+                          : "text-slate-700 hover:bg-slate-100"
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <Icon className="w-5 h-5" />
+                        <span className="text-sm">{item.title}</span>
+                      </div>
+                      {item.badge && (
+                        <Badge className={`text-xs ${
+                          isActive ? 'bg-white/20 text-white' : 'bg-emerald-600 text-white'
+                        }`}>
+                          {item.badge}
+                        </Badge>
+                      )}
+                    </Link>
+                  );
+                })}
               </div>
-            ))}
+            </div>
 
-            {isManager && (
+            {/* Quick Access */}
+            <div>
+              <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 px-3">
+                Quick Access
+              </h3>
+              <div className="space-y-1">
+                {quickAccessItems.map((item, index) => {
+                  const Icon = item.icon;
+                  const isActive = location.pathname === item.url;
+                  return (
+                    <Link
+                      key={index}
+                      to={item.url}
+                      onClick={() => setSidebarOpen(false)}
+                      className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${
+                        isActive
+                          ? "bg-emerald-50 text-emerald-700 font-medium"
+                          : "text-slate-700 hover:bg-slate-100"
+                      }`}
+                    >
+                      <Icon className="w-4 h-4" />
+                      <span className="text-sm">{item.title}</span>
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Admin Section */}
+            {isAdmin && (
               <div>
                 <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 px-3">
-                  Management
+                  Administration
                 </h3>
                 <div className="space-y-1">
-                  {managementItems.map((item, index) => {
+                  {adminItems.map((item, index) => {
                     const Icon = item.icon;
                     const isActive = location.pathname === item.url;
                     return (
@@ -530,11 +315,11 @@ export default function Layout({ children, currentPageName }) {
                         onClick={() => setSidebarOpen(false)}
                         className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${
                           isActive
-                            ? "bg-emerald-50 text-emerald-700 font-medium"
+                            ? "bg-purple-50 text-purple-700 font-medium"
                             : "text-slate-700 hover:bg-slate-100"
                         }`}
                       >
-                        <Icon className="w-5 h-5" />
+                        <Icon className="w-4 h-4" />
                         <span className="text-sm">{item.title}</span>
                       </Link>
                     );

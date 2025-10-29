@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,14 +9,12 @@ import {
   FileText,
   Search,
   Plus,
-  Home,
   CheckCircle,
   Edit,
   TrendingUp,
   Award,
   BookOpen,
   Target,
-  Zap,
   Utensils,
   ShieldCheck,
   Sparkles,
@@ -28,7 +26,6 @@ import { motion } from "framer-motion";
 
 export default function SOPDashboard() {
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
 
@@ -42,7 +39,7 @@ export default function SOPDashboard() {
   const { data: sops = [], isLoading } = useQuery({
     queryKey: ['sops'],
     queryFn: () => base44.entities.SOPDocument.list('-created_date', 100),
-    refetchInterval: 5000, // Auto-refresh every 5 seconds
+    refetchInterval: 5000,
   });
 
   const { data: signatures = [] } = useQuery({
@@ -56,7 +53,6 @@ export default function SOPDashboard() {
     enabled: !!user?.email,
   });
 
-  // Filter SOPs
   const filteredSOPs = sops.filter(sop => {
     const matchesSearch = !searchQuery || 
       sop.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -73,7 +69,6 @@ export default function SOPDashboard() {
     return matchesSearch && matchesCategory && matchesRole;
   });
 
-  // Calculate stats
   const stats = {
     totalSOPs: sops.length,
     activeSOPs: sops.filter(s => s.status === 'active').length,
@@ -84,7 +79,6 @@ export default function SOPDashboard() {
       : 0,
   };
 
-  // Category counts
   const categoryCounts = sops.reduce((acc, sop) => {
     acc[sop.category] = (acc[sop.category] || 0) + 1;
     return acc;
@@ -96,7 +90,6 @@ export default function SOPDashboard() {
     { value: 'service', label: 'Service', icon: Target, color: 'bg-blue-500' },
     { value: 'cleaning', label: 'Cleaning', icon: Sparkles, color: 'bg-purple-500' },
     { value: 'hygiene', label: 'Hygiene', icon: ShieldCheck, color: 'bg-green-500' },
-    { value: 'equipment', label: 'Equipment', icon: Zap, color: 'bg-amber-500' },
     { value: 'recipe', label: 'Recipes', icon: BookOpen, color: 'bg-pink-500' },
   ];
 
@@ -126,271 +119,188 @@ export default function SOPDashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6 md:p-8">
-      <div className="max-w-7xl mx-auto">
-        {/* Navigation */}
-        <div className="flex gap-3 mb-6">
-          <Link to={createPageUrl("Dashboard")}>
-            <Button variant="outline" size="sm">
-              <Home className="w-4 h-4 mr-2" />
-              Dashboard
-            </Button>
-          </Link>
-        </div>
-
-        {/* Header */}
-        <div className="flex justify-between items-start mb-8">
-          <div>
-            <h1 className="text-4xl font-bold text-gray-900 flex items-center gap-3 mb-2">
-              <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#014D40] to-emerald-600 flex items-center justify-center shadow-lg">
-                <FileText className="w-8 h-8 text-white" />
-              </div>
-              Standard Operating Procedures
-            </h1>
-            <p className="text-gray-600">Your complete guide to Chai Patta operations</p>
-          </div>
-          
-          {isManager && (
-            <Link to={createPageUrl("SOPBuilder")}>
-              <Button className="bg-gradient-to-r from-[#014D40] to-emerald-600 hover:from-[#013830] hover:to-emerald-700">
-                <Plus className="w-4 h-4 mr-2" />
-                Create SOP
-              </Button>
-            </Link>
-          )}
-        </div>
-
-        {/* Stats Cards */}
-        <div className="grid md:grid-cols-5 gap-6 mb-8">
-          <Card className="border-none shadow-lg bg-white/80 backdrop-blur">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-sm text-gray-600">Total SOPs</p>
-                <FileText className="w-5 h-5 text-blue-600" />
-              </div>
-              <p className="text-3xl font-bold text-gray-900">{stats.totalSOPs}</p>
-              <p className="text-xs text-gray-500 mt-1">All procedures</p>
-            </CardContent>
-          </Card>
-
-          <Card className="border-none shadow-lg bg-white/80 backdrop-blur">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-sm text-gray-600">Active</p>
-                <CheckCircle className="w-5 h-5 text-green-600" />
-              </div>
-              <p className="text-3xl font-bold text-gray-900">{stats.activeSOPs}</p>
-              <p className="text-xs text-gray-500 mt-1">Published SOPs</p>
-            </CardContent>
-          </Card>
-
-          <Card className="border-none shadow-lg bg-white/80 backdrop-blur">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-sm text-gray-600">Drafts</p>
-                <Edit className="w-5 h-5 text-amber-600" />
-              </div>
-              <p className="text-3xl font-bold text-gray-900">{stats.draftSOPs}</p>
-              <p className="text-xs text-gray-500 mt-1">In progress</p>
-            </CardContent>
-          </Card>
-
-          <Card className="border-none shadow-lg bg-white/80 backdrop-blur">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-sm text-gray-600">My Progress</p>
-                <TrendingUp className="w-5 h-5 text-purple-600" />
-              </div>
-              <p className="text-3xl font-bold text-gray-900">{stats.completionRate}%</p>
-              <p className="text-xs text-gray-500 mt-1">{stats.mySignatures} signed</p>
-            </CardContent>
-          </Card>
-
-          <Card className="border-none shadow-lg bg-white/80 backdrop-blur">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-sm text-gray-600">Certifications</p>
-                <Award className="w-5 h-5 text-emerald-600" />
-              </div>
-              <p className="text-3xl font-bold text-gray-900">{stats.mySignatures}</p>
-              <p className="text-xs text-gray-500 mt-1">Earned</p>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Category Tabs */}
-        <Card className="mb-6 overflow-hidden">
-          <CardContent className="p-0">
-            <div className="flex overflow-x-auto scrollbar-hide">
-              {categories.map((cat) => {
-                const Icon = cat.icon;
-                const count = cat.value === 'all' ? stats.totalSOPs : (categoryCounts[cat.value] || 0);
-                const isActive = selectedCategory === cat.value;
-                
-                return (
-                  <button
-                    key={cat.value}
-                    onClick={() => setSelectedCategory(cat.value)}
-                    className={`flex items-center gap-2 px-6 py-4 border-b-2 transition-all whitespace-nowrap ${
-                      isActive 
-                        ? 'border-[#014D40] bg-emerald-50 text-[#014D40] font-semibold' 
-                        : 'border-transparent hover:bg-gray-50 text-gray-600 hover:text-gray-900'
-                    }`}
-                  >
-                    <Icon className={`w-5 h-5 ${isActive ? cat.color.replace('bg-', 'text-') : 'text-gray-400'}`} />
-                    <span>{cat.label}</span>
-                    <Badge variant="outline" className={isActive ? 'bg-emerald-100 border-emerald-300' : ''}>
-                      {count}
-                    </Badge>
-                  </button>
-                );
-              })}
-            </div>
+    <div className="space-y-6">
+      {/* Stats Cards */}
+      <div className="grid md:grid-cols-5 gap-4">
+        <Card>
+          <CardContent className="p-4 text-center">
+            <FileText className="w-6 h-6 text-blue-600 mx-auto mb-2" />
+            <p className="text-2xl font-bold text-gray-900">{stats.totalSOPs}</p>
+            <p className="text-xs text-gray-600">Total SOPs</p>
           </CardContent>
         </Card>
 
-        {/* Search */}
-        <Card className="mb-6 border-none shadow-lg">
-          <CardContent className="p-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-              <Input
-                placeholder="Search SOPs..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10"
-              />
-            </div>
+        <Card>
+          <CardContent className="p-4 text-center">
+            <CheckCircle className="w-6 h-6 text-green-600 mx-auto mb-2" />
+            <p className="text-2xl font-bold text-gray-900">{stats.activeSOPs}</p>
+            <p className="text-xs text-gray-600">Active</p>
           </CardContent>
         </Card>
 
-        {/* SOPs Grid */}
-        {isLoading ? (
-          <Card className="mb-6">
-            <CardContent className="p-12 text-center">
-              <div className="animate-spin w-12 h-12 border-4 border-[#014D40] border-t-transparent rounded-full mx-auto mb-4" />
-              <p className="text-gray-600">Loading SOPs...</p>
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredSOPs.map((sop, index) => {
-              const signature = getSignatureStatus(sop.id);
+        <Card>
+          <CardContent className="p-4 text-center">
+            <Edit className="w-6 h-6 text-amber-600 mx-auto mb-2" />
+            <p className="text-2xl font-bold text-gray-900">{stats.draftSOPs}</p>
+            <p className="text-xs text-gray-600">Drafts</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4 text-center">
+            <TrendingUp className="w-6 h-6 text-purple-600 mx-auto mb-2" />
+            <p className="text-2xl font-bold text-gray-900">{stats.completionRate}%</p>
+            <p className="text-xs text-gray-600">My Progress</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4 text-center">
+            <Award className="w-6 h-6 text-emerald-600 mx-auto mb-2" />
+            <p className="text-2xl font-bold text-gray-900">{stats.mySignatures}</p>
+            <p className="text-xs text-gray-600">Signed</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Category Tabs */}
+      <Card>
+        <CardContent className="p-0">
+          <div className="flex overflow-x-auto scrollbar-hide">
+            {categories.map((cat) => {
+              const Icon = cat.icon;
+              const count = cat.value === 'all' ? stats.totalSOPs : (categoryCounts[cat.value] || 0);
+              const isActive = selectedCategory === cat.value;
               
               return (
-                <motion.div
-                  key={sop.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.3, delay: index * 0.05 }}
+                <button
+                  key={cat.value}
+                  onClick={() => setSelectedCategory(cat.value)}
+                  className={`flex items-center gap-2 px-6 py-4 border-b-2 transition-all whitespace-nowrap ${
+                    isActive 
+                      ? 'border-[#014D40] bg-emerald-50 text-[#014D40] font-semibold' 
+                      : 'border-transparent hover:bg-gray-50 text-gray-600 hover:text-gray-900'
+                  }`}
                 >
-                  <Card 
-                    className="border-none shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer group h-full"
-                    onClick={() => navigate(createPageUrl(`SOPViewer?id=${sop.id}`))}
-                  >
-                    <CardContent className="p-6">
-                      <div className="flex items-start justify-between mb-4">
-                        <div className="flex-1">
-                          <h3 className="font-bold text-lg text-gray-900 group-hover:text-[#014D40] transition-colors mb-2">
-                            {sop.title}
-                          </h3>
-                          <p className="text-sm text-gray-600 line-clamp-2 mb-3">
-                            {sop.description}
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="flex flex-wrap gap-2 mb-4">
-                        <Badge className={`${getCategoryColor(sop.category)} border capitalize`}>
-                          {sop.category}
-                        </Badge>
-                        <Badge className={getStatusColor(sop.status)}>
-                          {sop.status}
-                        </Badge>
-                        {sop.frequency && (
-                          <Badge variant="outline" className="text-xs capitalize">
-                            {sop.frequency}
-                          </Badge>
-                        )}
-                        {signature && (
-                          <Badge className="bg-green-100 text-green-800 border-green-300">
-                            <CheckCircle className="w-3 h-3 mr-1" />
-                            Signed
-                          </Badge>
-                        )}
-                      </div>
-
-                      <div className="flex items-center justify-between text-sm text-gray-600 mb-4">
-                        <span>v{sop.version || 1}</span>
-                        {sop.last_reviewed_date && (
-                          <span className="flex items-center gap-1 text-xs">
-                            {format(new Date(sop.last_reviewed_date), 'MMM d, yyyy')}
-                          </span>
-                        )}
-                        {sop.view_count > 0 && (
-                          <span className="flex items-center gap-1">
-                            👁 {sop.view_count}
-                          </span>
-                        )}
-                      </div>
-
-                      <div className="flex gap-2">
-                        <Button 
-                          className="flex-1 bg-gradient-to-r from-[#014D40] to-emerald-600"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            navigate(createPageUrl(`SOPViewer?id=${sop.id}`));
-                          }}
-                        >
-                          <BookOpen className="w-4 h-4 mr-2" />
-                          View SOP
-                        </Button>
-                        {isManager && (
-                          <Button 
-                            variant="outline"
-                            size="icon"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              navigate(createPageUrl(`SOPBuilder?id=${sop.id}`));
-                            }}
-                          >
-                            <Edit className="w-4 h-4" />
-                          </Button>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
-                </motion.div>
+                  <Icon className={`w-5 h-5 ${isActive ? cat.color.replace('bg-', 'text-') : 'text-gray-400'}`} />
+                  <span>{cat.label}</span>
+                  <Badge variant="outline" className={isActive ? 'bg-emerald-100 border-emerald-300' : ''}>
+                    {count}
+                  </Badge>
+                </button>
               );
             })}
           </div>
-        )}
+        </CardContent>
+      </Card>
 
-        {/* Empty State */}
-        {!isLoading && filteredSOPs.length === 0 && (
-          <Card className="border-none shadow-lg">
-            <CardContent className="p-12 text-center">
-              <FileText className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-              <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                No SOPs Found
-              </h3>
-              <p className="text-gray-600 mb-6">
-                {searchQuery || selectedCategory !== 'all'
-                  ? 'Try adjusting your search or filters'
-                  : 'No procedures have been created yet'}
-              </p>
-              {isManager && (
-                <Link to={createPageUrl("SOPBuilder")}>
-                  <Button className="bg-gradient-to-r from-[#014D40] to-emerald-600">
-                    <Plus className="w-4 h-4 mr-2" />
-                    Create First SOP
-                  </Button>
-                </Link>
-              )}
-            </CardContent>
-          </Card>
-        )}
-      </div>
+      {/* Search */}
+      <Card>
+        <CardContent className="p-4">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <Input
+              placeholder="Search SOPs..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* SOPs Grid */}
+      {isLoading ? (
+        <Card>
+          <CardContent className="p-12 text-center">
+            <div className="animate-spin w-12 h-12 border-4 border-[#014D40] border-t-transparent rounded-full mx-auto mb-4" />
+            <p className="text-gray-600">Loading SOPs...</p>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {filteredSOPs.map((sop, index) => {
+            const signature = getSignatureStatus(sop.id);
+            
+            return (
+              <motion.div
+                key={sop.id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3, delay: index * 0.05 }}
+              >
+                <Card 
+                  className="border-none shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer group h-full"
+                  onClick={() => navigate(createPageUrl(`SOPViewer?id=${sop.id}`))}
+                >
+                  <CardContent className="p-6">
+                    <div className="flex items-start justify-between mb-4">
+                      <div className="flex-1">
+                        <h3 className="font-bold text-lg text-gray-900 group-hover:text-[#014D40] transition-colors mb-2">
+                          {sop.title}
+                        </h3>
+                        <p className="text-sm text-gray-600 line-clamp-2 mb-3">
+                          {sop.description}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap gap-2 mb-4">
+                      <Badge className={`${getCategoryColor(sop.category)} border capitalize`}>
+                        {sop.category}
+                      </Badge>
+                      <Badge className={getStatusColor(sop.status)}>
+                        {sop.status}
+                      </Badge>
+                      {signature && (
+                        <Badge className="bg-green-100 text-green-800 border-green-300">
+                          <CheckCircle className="w-3 h-3 mr-1" />
+                          Signed
+                        </Badge>
+                      )}
+                    </div>
+
+                    <Button 
+                      className="w-full bg-gradient-to-r from-[#014D40] to-emerald-600"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate(createPageUrl(`SOPViewer?id=${sop.id}`));
+                      }}
+                    >
+                      <BookOpen className="w-4 h-4 mr-2" />
+                      View SOP
+                    </Button>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            );
+          })}
+        </div>
+      )}
+
+      {!isLoading && filteredSOPs.length === 0 && (
+        <Card>
+          <CardContent className="p-12 text-center">
+            <FileText className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+            <h3 className="text-xl font-semibold text-gray-900 mb-2">
+              No SOPs Found
+            </h3>
+            <p className="text-gray-600 mb-6">
+              {searchQuery || selectedCategory !== 'all'
+                ? 'Try adjusting your search or filters'
+                : 'No procedures have been created yet'}
+            </p>
+            {isManager && (
+              <Link to={createPageUrl("SOPBuilder")}>
+                <Button className="bg-gradient-to-r from-[#014D40] to-emerald-600">
+                  <Plus className="w-4 h-4 mr-2" />
+                  Create First SOP
+                </Button>
+              </Link>
+            )}
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
