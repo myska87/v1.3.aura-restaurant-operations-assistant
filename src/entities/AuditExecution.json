@@ -1,0 +1,187 @@
+{
+  "name": "AuditExecution",
+  "type": "object",
+  "properties": {
+    "audit_title": {
+      "type": "string",
+      "description": "Audit title"
+    },
+    "audit_type": {
+      "type": "string",
+      "enum": [
+        "internal",
+        "external",
+        "fsa",
+        "mock_inspection",
+        "spot_check"
+      ],
+      "description": "Type of audit"
+    },
+    "audit_date": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When audit was performed"
+    },
+    "auditor_name": {
+      "type": "string",
+      "description": "Who performed audit"
+    },
+    "auditor_organization": {
+      "type": "string",
+      "description": "Organization (FSA, internal, etc.)"
+    },
+    "checkpoints": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "checkpoint_id": {
+            "type": "string"
+          },
+          "checkpoint_name": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pass",
+              "fail",
+              "na",
+              "requires_improvement"
+            ]
+          },
+          "score": {
+            "type": "number"
+          },
+          "evidence_urls": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "notes": {
+            "type": "string"
+          },
+          "corrective_action_required": {
+            "type": "boolean"
+          }
+        }
+      },
+      "description": "Checkpoint results"
+    },
+    "overall_score": {
+      "type": "number",
+      "description": "Total audit score (0-100)"
+    },
+    "overall_rating": {
+      "type": "string",
+      "enum": [
+        "excellent",
+        "good",
+        "satisfactory",
+        "needs_improvement",
+        "poor"
+      ],
+      "description": "Overall rating"
+    },
+    "fsa_rating": {
+      "type": "number",
+      "description": "FSA hygiene rating (0-5)"
+    },
+    "critical_failures": {
+      "type": "number",
+      "default": 0,
+      "description": "Number of critical failures"
+    },
+    "corrective_actions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string"
+          },
+          "priority": {
+            "type": "string",
+            "enum": [
+              "low",
+              "medium",
+              "high",
+              "critical"
+            ]
+          },
+          "deadline": {
+            "type": "string",
+            "format": "date"
+          },
+          "assigned_to": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "in_progress",
+              "completed"
+            ],
+            "default": "pending"
+          }
+        }
+      },
+      "description": "Required corrective actions"
+    },
+    "strengths": {
+      "type": "string",
+      "description": "Areas of excellence"
+    },
+    "weaknesses": {
+      "type": "string",
+      "description": "Areas for improvement"
+    },
+    "recommendations": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Auditor recommendations"
+    },
+    "attachments": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Audit report PDFs, photos"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "completed",
+        "passed",
+        "failed",
+        "follow_up_required"
+      ],
+      "default": "draft"
+    },
+    "follow_up_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Next audit/follow-up date"
+    },
+    "conducted_by_email": {
+      "type": "string",
+      "description": "Who logged this audit"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Additional notes"
+    }
+  },
+  "required": [
+    "audit_title",
+    "audit_type",
+    "audit_date",
+    "auditor_name",
+    "status"
+  ]
+}

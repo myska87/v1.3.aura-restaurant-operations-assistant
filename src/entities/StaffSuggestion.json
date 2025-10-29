@@ -1,0 +1,142 @@
+{
+  "name": "StaffSuggestion",
+  "type": "object",
+  "properties": {
+    "staff_email": {
+      "type": "string",
+      "description": "Who submitted (can be anonymous)"
+    },
+    "staff_name": {
+      "type": "string"
+    },
+    "is_anonymous": {
+      "type": "boolean",
+      "default": false
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "operations",
+        "menu",
+        "customer_service",
+        "workplace",
+        "culture",
+        "other"
+      ],
+      "description": "Suggestion category"
+    },
+    "title": {
+      "type": "string",
+      "description": "Brief summary"
+    },
+    "suggestion": {
+      "type": "string",
+      "description": "Detailed suggestion"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "submitted",
+        "under_review",
+        "implemented",
+        "not_feasible"
+      ],
+      "default": "submitted"
+    },
+    "reviewed_by": {
+      "type": "string",
+      "description": "Manager who reviewed"
+    },
+    "management_response": {
+      "type": "string",
+      "description": "Feedback from management"
+    },
+    "likes_count": {
+      "type": "number",
+      "default": 0,
+      "description": "How many staff liked this"
+    },
+    "submitted_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "reviewed_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "category",
+    "title",
+    "suggestion"
+  ],
+  "rls": {
+    "create": {
+      "user_condition": {
+        "email": {
+          "$exists": true
+        }
+      }
+    },
+    "read": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "manager"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        },
+        {
+          "staff_email": "{{user.email}}"
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "manager"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "manager"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        }
+      ]
+    }
+  }
+}

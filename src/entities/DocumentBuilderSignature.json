@@ -1,0 +1,52 @@
+{
+  "name": "DocumentBuilderSignature",
+  "type": "object",
+  "properties": {
+    "document_id": {
+      "type": "string",
+      "description": "Reference to DocumentBuilder"
+    },
+    "document_title": {
+      "type": "string",
+      "description": "Cached document title"
+    },
+    "document_version": {
+      "type": "number",
+      "description": "Version signed"
+    },
+    "staff_email": {
+      "type": "string",
+      "description": "Who signed"
+    },
+    "staff_name": {
+      "type": "string",
+      "description": "Staff member name"
+    },
+    "signature_url": {
+      "type": "string",
+      "description": "Digital signature image"
+    },
+    "signed_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When signed"
+    },
+    "ip_address": {
+      "type": "string",
+      "description": "IP for audit"
+    },
+    "acknowledgment_text": {
+      "type": "string",
+      "description": "What user acknowledged"
+    },
+    "time_spent_minutes": {
+      "type": "number",
+      "description": "Time spent reading"
+    }
+  },
+  "required": [
+    "document_id",
+    "staff_email",
+    "signed_at"
+  ]
+}

@@ -1,0 +1,145 @@
+{
+  "name": "LeafeAuditRecord",
+  "type": "object",
+  "properties": {
+    "venue_id": {
+      "type": "string",
+      "description": "Venue being audited"
+    },
+    "venue_name": {
+      "type": "string",
+      "description": "Cached venue name"
+    },
+    "audit_type": {
+      "type": "string",
+      "enum": [
+        "internal",
+        "external",
+        "fsa",
+        "self_assessment",
+        "surprise"
+      ],
+      "description": "Type of audit"
+    },
+    "audit_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Date of audit"
+    },
+    "inspector_name": {
+      "type": "string",
+      "description": "Who conducted the audit"
+    },
+    "inspector_organization": {
+      "type": "string",
+      "description": "Organization (FSA, internal, third-party)"
+    },
+    "overall_score": {
+      "type": "number",
+      "description": "Overall audit score (0-100)"
+    },
+    "fsa_rating": {
+      "type": "number",
+      "description": "Official FSA rating if applicable (0-5)"
+    },
+    "areas_assessed": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "area_name": {
+            "type": "string"
+          },
+          "score": {
+            "type": "number"
+          },
+          "notes": {
+            "type": "string"
+          },
+          "passed": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "corrective_actions_required": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string"
+          },
+          "priority": {
+            "type": "string",
+            "enum": [
+              "low",
+              "medium",
+              "high",
+              "critical"
+            ]
+          },
+          "deadline": {
+            "type": "string",
+            "format": "date"
+          },
+          "assigned_to": {
+            "type": "string"
+          },
+          "completed": {
+            "type": "boolean",
+            "default": false
+          },
+          "completed_date": {
+            "type": "string",
+            "format": "date"
+          }
+        }
+      }
+    },
+    "strengths": {
+      "type": "string",
+      "description": "Areas of excellence"
+    },
+    "weaknesses": {
+      "type": "string",
+      "description": "Areas needing improvement"
+    },
+    "attachments": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Audit report PDFs, photos, etc."
+    },
+    "follow_up_required": {
+      "type": "boolean",
+      "default": false
+    },
+    "follow_up_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "passed",
+        "passed_with_conditions",
+        "failed",
+        "pending_corrections"
+      ],
+      "default": "pending_corrections"
+    },
+    "conducted_by_email": {
+      "type": "string",
+      "description": "Internal user who logged this"
+    }
+  },
+  "required": [
+    "venue_id",
+    "audit_type",
+    "audit_date",
+    "inspector_name",
+    "overall_score"
+  ]
+}

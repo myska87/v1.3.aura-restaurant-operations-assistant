@@ -1,0 +1,203 @@
+{
+  "name": "MeetingAction",
+  "type": "object",
+  "properties": {
+    "meeting_id": {
+      "type": "string",
+      "description": "Reference to MeetingRecording"
+    },
+    "meeting_title": {
+      "type": "string",
+      "description": "Cached meeting title"
+    },
+    "action_description": {
+      "type": "string",
+      "description": "What needs to be done"
+    },
+    "action_type": {
+      "type": "string",
+      "enum": [
+        "task",
+        "follow_up",
+        "decision",
+        "reminder",
+        "training",
+        "procurement",
+        "maintenance",
+        "other"
+      ],
+      "description": "Type of action"
+    },
+    "assigned_to_email": {
+      "type": "string",
+      "description": "Staff member responsible"
+    },
+    "assigned_to_name": {
+      "type": "string",
+      "description": "Staff member name"
+    },
+    "due_date": {
+      "type": "string",
+      "format": "date",
+      "description": "When action is due"
+    },
+    "priority": {
+      "type": "string",
+      "enum": [
+        "low",
+        "medium",
+        "high",
+        "urgent"
+      ],
+      "default": "medium"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "in_progress",
+        "completed",
+        "cancelled"
+      ],
+      "default": "pending"
+    },
+    "linked_module": {
+      "type": "string",
+      "enum": [
+        "tasks",
+        "hygiene",
+        "forms",
+        "inventory",
+        "maintenance",
+        "training",
+        "compliance",
+        "none"
+      ],
+      "default": "none",
+      "description": "Which module this action links to"
+    },
+    "linked_record_id": {
+      "type": "string",
+      "description": "ID of created task/form/etc in linked module"
+    },
+    "auto_created": {
+      "type": "boolean",
+      "default": true,
+      "description": "Was this auto-created by AI"
+    },
+    "confidence_score": {
+      "type": "number",
+      "description": "AI confidence in action extraction (0-100)"
+    },
+    "completed_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "completed_by": {
+      "type": "string",
+      "description": "Who marked it complete"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Additional notes or context"
+    },
+    "reminder_sent": {
+      "type": "boolean",
+      "default": false
+    },
+    "reminder_sent_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "meeting_id",
+    "action_description",
+    "assigned_to_email",
+    "status"
+  ],
+  "rls": {
+    "create": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "manager"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        }
+      ]
+    },
+    "read": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "manager"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        },
+        {
+          "assigned_to_email": "{{user.email}}"
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "manager"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        },
+        {
+          "assigned_to_email": "{{user.email}}"
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "manager"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        }
+      ]
+    }
+  }
+}

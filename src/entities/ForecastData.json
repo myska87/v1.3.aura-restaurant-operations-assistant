@@ -1,0 +1,242 @@
+{
+  "name": "ForecastData",
+  "type": "object",
+  "properties": {
+    "forecast_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Date this forecast is for"
+    },
+    "day_of_week": {
+      "type": "string",
+      "enum": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "sunday"
+      ]
+    },
+    "is_holiday": {
+      "type": "boolean",
+      "default": false
+    },
+    "is_special_event": {
+      "type": "boolean",
+      "default": false
+    },
+    "event_description": {
+      "type": "string",
+      "description": "Description of special event"
+    },
+    "expected_customers": {
+      "type": "number",
+      "description": "Predicted customer count"
+    },
+    "expected_revenue": {
+      "type": "number",
+      "description": "Predicted sales revenue"
+    },
+    "hourly_demand": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "hour": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 23
+          },
+          "demand_level": {
+            "type": "string",
+            "enum": [
+              "very_low",
+              "low",
+              "medium",
+              "high",
+              "very_high"
+            ]
+          },
+          "predicted_customers": {
+            "type": "number"
+          },
+          "required_staff_count": {
+            "type": "number"
+          }
+        }
+      },
+      "description": "Hour-by-hour demand forecast"
+    },
+    "required_roles": {
+      "type": "object",
+      "properties": {
+        "chef": {
+          "type": "number"
+        },
+        "line_cook": {
+          "type": "number"
+        },
+        "server": {
+          "type": "number"
+        },
+        "bartender": {
+          "type": "number"
+        },
+        "host": {
+          "type": "number"
+        },
+        "cleaner": {
+          "type": "number"
+        }
+      },
+      "description": "Required staff by role for this day"
+    },
+    "historical_data": {
+      "type": "object",
+      "properties": {
+        "same_day_last_week_customers": {
+          "type": "number"
+        },
+        "same_day_last_month_customers": {
+          "type": "number"
+        },
+        "same_day_last_year_customers": {
+          "type": "number"
+        },
+        "average_customers_this_day": {
+          "type": "number"
+        }
+      },
+      "description": "Historical comparison data"
+    },
+    "weather_forecast": {
+      "type": "object",
+      "properties": {
+        "condition": {
+          "type": "string"
+        },
+        "temperature": {
+          "type": "number"
+        },
+        "impact_on_demand": {
+          "type": "string",
+          "enum": [
+            "negative",
+            "neutral",
+            "positive"
+          ]
+        }
+      },
+      "description": "Weather impact on demand"
+    },
+    "confidence_level": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 100,
+      "description": "Confidence in this forecast (0-100)"
+    },
+    "forecast_method": {
+      "type": "string",
+      "enum": [
+        "manual",
+        "historical_average",
+        "ai_predicted",
+        "pos_integration"
+      ],
+      "default": "historical_average"
+    },
+    "created_by": {
+      "type": "string"
+    },
+    "created_by_name": {
+      "type": "string"
+    },
+    "last_updated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "notes": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "forecast_date",
+    "day_of_week",
+    "expected_customers"
+  ],
+  "rls": {
+    "create": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "manager"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        }
+      ]
+    },
+    "read": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "manager"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "manager"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        }
+      ]
+    }
+  }
+}

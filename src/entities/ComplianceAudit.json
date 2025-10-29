@@ -1,0 +1,156 @@
+{
+  "name": "ComplianceAudit",
+  "type": "object",
+  "properties": {
+    "module_name": {
+      "type": "string",
+      "enum": [
+        "staff",
+        "inventory",
+        "orders",
+        "payroll",
+        "documents",
+        "menu",
+        "compliance",
+        "attendance",
+        "other"
+      ],
+      "description": "Which module was accessed"
+    },
+    "action": {
+      "type": "string",
+      "enum": [
+        "view",
+        "create",
+        "update",
+        "delete",
+        "export",
+        "download",
+        "login",
+        "logout",
+        "failed_login",
+        "permission_denied"
+      ],
+      "description": "Action performed"
+    },
+    "action_description": {
+      "type": "string",
+      "description": "Detailed description of action"
+    },
+    "user_id": {
+      "type": "string",
+      "description": "User who performed action"
+    },
+    "user_email": {
+      "type": "string",
+      "description": "User email"
+    },
+    "user_name": {
+      "type": "string",
+      "description": "User full name"
+    },
+    "ip_address": {
+      "type": "string",
+      "description": "IP address of request"
+    },
+    "device_id": {
+      "type": "string",
+      "description": "Device identifier"
+    },
+    "user_agent": {
+      "type": "string",
+      "description": "Browser/device user agent"
+    },
+    "target_entity": {
+      "type": "string",
+      "description": "Entity that was accessed (e.g., 'User', 'MenuItem')"
+    },
+    "target_record_id": {
+      "type": "string",
+      "description": "ID of record accessed"
+    },
+    "changes_made": {
+      "type": "object",
+      "description": "JSON of changes (before/after)"
+    },
+    "metadata": {
+      "type": "object",
+      "description": "Additional context data"
+    },
+    "severity": {
+      "type": "string",
+      "enum": [
+        "info",
+        "warning",
+        "critical"
+      ],
+      "default": "info"
+    },
+    "is_sensitive": {
+      "type": "boolean",
+      "default": false,
+      "description": "Access to sensitive/personal data"
+    },
+    "flagged_for_review": {
+      "type": "boolean",
+      "default": false,
+      "description": "Suspicious activity flagged"
+    },
+    "reviewed_by": {
+      "type": "string",
+      "description": "Compliance officer who reviewed"
+    },
+    "reviewed_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "module_name",
+    "action",
+    "user_id",
+    "user_email"
+  ],
+  "rls": {
+    "create": {
+      "user_condition": {
+        "email": {
+          "$exists": true
+        }
+      }
+    },
+    "read": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

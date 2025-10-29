@@ -1,0 +1,126 @@
+{
+  "name": "DataBackup",
+  "type": "object",
+  "properties": {
+    "backup_name": {
+      "type": "string",
+      "description": "Name of this backup"
+    },
+    "backup_type": {
+      "type": "string",
+      "enum": [
+        "manual",
+        "automatic",
+        "scheduled"
+      ],
+      "default": "manual",
+      "description": "How backup was created"
+    },
+    "backup_date": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When backup was created"
+    },
+    "created_by": {
+      "type": "string",
+      "description": "Manager who created backup"
+    },
+    "created_by_name": {
+      "type": "string",
+      "description": "Manager name"
+    },
+    "entities_included": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Which entities were backed up"
+    },
+    "total_records": {
+      "type": "number",
+      "description": "Total number of records in backup"
+    },
+    "file_size": {
+      "type": "number",
+      "description": "Backup file size in bytes"
+    },
+    "backup_url": {
+      "type": "string",
+      "description": "URL to download backup file"
+    },
+    "is_encrypted": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether backup is encrypted"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "completed",
+        "failed",
+        "in_progress"
+      ],
+      "default": "in_progress"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Additional notes about this backup"
+    },
+    "can_restore": {
+      "type": "boolean",
+      "default": true,
+      "description": "Whether this backup can be restored"
+    }
+  },
+  "required": [
+    "backup_name",
+    "backup_date",
+    "created_by"
+  ],
+  "rls": {
+    "create": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "manager"
+          }
+        }
+      ]
+    },
+    "read": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "manager"
+          }
+        }
+      ]
+    },
+    "update": false,
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

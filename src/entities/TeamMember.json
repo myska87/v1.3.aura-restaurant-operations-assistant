@@ -1,0 +1,111 @@
+{
+  "name": "TeamMember",
+  "type": "object",
+  "properties": {
+    "staff_id": {
+      "type": "string",
+      "description": "Reference to User entity"
+    },
+    "staff_email": {
+      "type": "string",
+      "description": "Staff member email"
+    },
+    "staff_name": {
+      "type": "string",
+      "description": "Full name"
+    },
+    "position": {
+      "type": "string",
+      "enum": [
+        "owner",
+        "manager",
+        "chef",
+        "sous_chef",
+        "line_cook",
+        "server",
+        "bartender",
+        "host",
+        "cleaner",
+        "maintenance",
+        "dishwasher"
+      ],
+      "description": "Current position"
+    },
+    "department": {
+      "type": "string",
+      "enum": [
+        "kitchen",
+        "front_of_house",
+        "bar",
+        "management",
+        "cleaning",
+        "maintenance"
+      ],
+      "description": "Department"
+    },
+    "photo_url": {
+      "type": "string",
+      "description": "Profile photo URL"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "active",
+        "inactive",
+        "on_leave",
+        "probation"
+      ],
+      "default": "active",
+      "description": "Employment status"
+    },
+    "shift_start": {
+      "type": "string",
+      "description": "Typical shift start time (HH:mm)"
+    },
+    "shift_end": {
+      "type": "string",
+      "description": "Typical shift end time (HH:mm)"
+    },
+    "manager_id": {
+      "type": "string",
+      "description": "Assigned manager ID"
+    },
+    "manager_email": {
+      "type": "string",
+      "description": "Assigned manager email"
+    },
+    "phone": {
+      "type": "string",
+      "description": "Contact phone"
+    },
+    "emergency_contact": {
+      "type": "string",
+      "description": "Emergency contact details"
+    },
+    "hire_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Date hired"
+    },
+    "probation_end_date": {
+      "type": "string",
+      "format": "date",
+      "description": "End of probation period"
+    },
+    "hourly_rate": {
+      "type": "number",
+      "description": "Hourly pay rate"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Additional notes"
+    }
+  },
+  "required": [
+    "staff_email",
+    "staff_name",
+    "position",
+    "department",
+    "status"
+  ]
+}

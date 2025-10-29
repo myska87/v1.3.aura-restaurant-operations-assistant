@@ -1,0 +1,253 @@
+{
+  "name": "ComplianceDocument",
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string",
+      "description": "Document title"
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "fire_safety",
+        "gas_certificate",
+        "food_hygiene",
+        "insurance",
+        "licenses",
+        "health_safety",
+        "data_protection",
+        "employment_policy",
+        "haccp",
+        "pest_control",
+        "waste_management",
+        "allergen_policy",
+        "other"
+      ],
+      "description": "Certificate/policy category"
+    },
+    "description": {
+      "type": "string",
+      "description": "Document description"
+    },
+    "issue_date": {
+      "type": "string",
+      "format": "date",
+      "description": "When certificate was issued"
+    },
+    "expiry_date": {
+      "type": "string",
+      "format": "date",
+      "description": "When certificate expires"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "active",
+        "expiring_soon",
+        "expired",
+        "pending_renewal"
+      ],
+      "default": "active",
+      "description": "Current compliance status"
+    },
+    "department": {
+      "type": "string",
+      "enum": [
+        "all",
+        "kitchen",
+        "front_of_house",
+        "bar",
+        "management",
+        "cleaning",
+        "maintenance"
+      ],
+      "default": "all",
+      "description": "Target department"
+    },
+    "document_url": {
+      "type": "string",
+      "description": "Secure document file URL"
+    },
+    "uploaded_by": {
+      "type": "string",
+      "description": "Manager who uploaded"
+    },
+    "uploaded_by_name": {
+      "type": "string",
+      "description": "Manager name"
+    },
+    "requires_acknowledgment": {
+      "type": "boolean",
+      "default": false,
+      "description": "Staff must read and sign"
+    },
+    "acknowledged_by": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "staff_email": {
+            "type": "string"
+          },
+          "staff_name": {
+            "type": "string"
+          },
+          "acknowledged_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "signature_url": {
+            "type": "string"
+          }
+        }
+      },
+      "description": "List of staff who acknowledged"
+    },
+    "linked_sop_id": {
+      "type": "string",
+      "description": "Reference to SOPDocument"
+    },
+    "linked_sop_title": {
+      "type": "string",
+      "description": "Cached SOP title"
+    },
+    "linked_audit_id": {
+      "type": "string",
+      "description": "Reference to quality audit"
+    },
+    "renewal_alert_enabled": {
+      "type": "boolean",
+      "default": true,
+      "description": "Send renewal alerts"
+    },
+    "renewal_alert_days": {
+      "type": "number",
+      "default": 30,
+      "description": "Days before expiry to alert"
+    },
+    "last_renewal_alert_sent": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When last reminder was sent"
+    },
+    "renewal_task_id": {
+      "type": "string",
+      "description": "Auto-generated renewal task ID"
+    },
+    "issuing_authority": {
+      "type": "string",
+      "description": "Who issued the certificate (FSA, local authority, etc.)"
+    },
+    "certificate_number": {
+      "type": "string",
+      "description": "Official certificate reference number"
+    },
+    "cost": {
+      "type": "number",
+      "description": "Cost of certificate/renewal"
+    },
+    "auto_renew": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether to auto-renew annually"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Additional notes"
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Searchable tags"
+    }
+  },
+  "required": [
+    "title",
+    "category",
+    "issue_date",
+    "document_url",
+    "uploaded_by",
+    "status"
+  ],
+  "rls": {
+    "create": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "manager"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        }
+      ]
+    },
+    "read": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "manager"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        },
+        {
+          "department": "all"
+        },
+        {
+          "department": "{{user.department}}"
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "manager"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        }
+      ]
+    }
+  }
+}

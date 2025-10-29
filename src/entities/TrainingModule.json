@@ -1,0 +1,172 @@
+{
+  "name": "TrainingModule",
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string",
+      "description": "Training module title"
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "hygiene",
+        "customer_service",
+        "product_knowledge",
+        "safety",
+        "equipment_use",
+        "onboarding",
+        "compliance"
+      ],
+      "description": "Training category"
+    },
+    "description": {
+      "type": "string",
+      "description": "What this training covers"
+    },
+    "content_type": {
+      "type": "string",
+      "enum": [
+        "video",
+        "text",
+        "quiz",
+        "mixed"
+      ],
+      "description": "Type of content"
+    },
+    "video_url": {
+      "type": "string",
+      "description": "Video link if applicable"
+    },
+    "content_text": {
+      "type": "string",
+      "description": "Text content or instructions"
+    },
+    "duration_minutes": {
+      "type": "number",
+      "description": "Expected completion time"
+    },
+    "quiz_questions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "question": {
+            "type": "string"
+          },
+          "options": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "correct_answer": {
+            "type": "number"
+          }
+        }
+      },
+      "description": "Quiz questions with multiple choice"
+    },
+    "passing_score": {
+      "type": "number",
+      "default": 80,
+      "description": "Minimum score to pass (%)"
+    },
+    "certificate_template": {
+      "type": "string",
+      "description": "Certificate design template name"
+    },
+    "is_mandatory": {
+      "type": "boolean",
+      "default": true,
+      "description": "Required for all staff"
+    },
+    "requires_supervisor_approval": {
+      "type": "boolean",
+      "default": false
+    },
+    "order_sequence": {
+      "type": "number",
+      "description": "Order in training path"
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true
+    }
+  },
+  "required": [
+    "title",
+    "category",
+    "content_type"
+  ],
+  "rls": {
+    "create": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "manager"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        }
+      ]
+    },
+    "read": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "manager"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        },
+        {
+          "user_condition": {
+            "email": {
+              "$exists": true
+            }
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "manager"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

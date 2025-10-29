@@ -1,0 +1,174 @@
+{
+  "name": "BugReport",
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string",
+      "description": "Brief bug title"
+    },
+    "description": {
+      "type": "string",
+      "description": "Detailed bug description"
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "forms",
+        "shifts",
+        "tasks",
+        "menu",
+        "inventory",
+        "compliance",
+        "reports",
+        "ui",
+        "performance",
+        "other"
+      ],
+      "description": "Bug category"
+    },
+    "severity": {
+      "type": "string",
+      "enum": [
+        "low",
+        "medium",
+        "high",
+        "critical"
+      ],
+      "default": "medium",
+      "description": "Bug severity level"
+    },
+    "steps_to_reproduce": {
+      "type": "string",
+      "description": "How to reproduce the bug"
+    },
+    "expected_behavior": {
+      "type": "string",
+      "description": "What should happen"
+    },
+    "actual_behavior": {
+      "type": "string",
+      "description": "What actually happened"
+    },
+    "screenshot_urls": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Screenshots of the bug"
+    },
+    "reporter_email": {
+      "type": "string",
+      "description": "Who reported the bug"
+    },
+    "reporter_name": {
+      "type": "string",
+      "description": "Reporter's name"
+    },
+    "browser": {
+      "type": "string",
+      "description": "Browser used"
+    },
+    "device": {
+      "type": "string",
+      "description": "Device type (mobile, tablet, desktop)"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "submitted",
+        "investigating",
+        "in_progress",
+        "fixed",
+        "wont_fix",
+        "duplicate"
+      ],
+      "default": "submitted",
+      "description": "Bug status"
+    },
+    "priority": {
+      "type": "string",
+      "enum": [
+        "low",
+        "medium",
+        "high",
+        "urgent"
+      ],
+      "default": "medium",
+      "description": "Fix priority"
+    },
+    "assigned_to": {
+      "type": "string",
+      "description": "Developer assigned to fix"
+    },
+    "fixed_in_version": {
+      "type": "string",
+      "description": "Version where bug was fixed"
+    },
+    "admin_notes": {
+      "type": "string",
+      "description": "Admin/developer notes"
+    },
+    "resolved_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When bug was resolved"
+    }
+  },
+  "required": [
+    "title",
+    "description",
+    "category",
+    "reporter_email",
+    "status"
+  ],
+  "rls": {
+    "create": {
+      "user_condition": {
+        "email": {
+          "$exists": true
+        }
+      }
+    },
+    "read": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "manager"
+          }
+        },
+        {
+          "reporter_email": "{{user.email}}"
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

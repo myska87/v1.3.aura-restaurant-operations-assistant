@@ -1,0 +1,164 @@
+{
+  "name": "ComplianceEmailLog",
+  "type": "object",
+  "properties": {
+    "email_type": {
+      "type": "string",
+      "enum": [
+        "order",
+        "notification",
+        "marketing",
+        "compliance",
+        "password_reset",
+        "alert",
+        "report",
+        "other"
+      ],
+      "description": "Type of email sent"
+    },
+    "related_entity": {
+      "type": "string",
+      "description": "Entity type (e.g., 'PurchaseOrder', 'User')"
+    },
+    "related_record_id": {
+      "type": "string",
+      "description": "ID of related record"
+    },
+    "recipient_email": {
+      "type": "string",
+      "format": "email",
+      "description": "Email recipient"
+    },
+    "recipient_name": {
+      "type": "string",
+      "description": "Recipient full name"
+    },
+    "cc_emails": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "CC recipients"
+    },
+    "bcc_emails": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "BCC recipients"
+    },
+    "subject": {
+      "type": "string",
+      "description": "Email subject line"
+    },
+    "body_preview": {
+      "type": "string",
+      "description": "First 200 characters of email body"
+    },
+    "contains_personal_data": {
+      "type": "boolean",
+      "default": false,
+      "description": "Email contains PII"
+    },
+    "sent_by_user_id": {
+      "type": "string",
+      "description": "User who sent email"
+    },
+    "sent_by_email": {
+      "type": "string",
+      "description": "Sender email address"
+    },
+    "sent_by_name": {
+      "type": "string",
+      "description": "Sender name"
+    },
+    "sent_via": {
+      "type": "string",
+      "enum": [
+        "gmail",
+        "system",
+        "manual",
+        "other"
+      ],
+      "default": "system"
+    },
+    "sent_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When email was sent"
+    },
+    "delivery_status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "sent",
+        "delivered",
+        "bounced",
+        "failed",
+        "spam"
+      ],
+      "default": "pending"
+    },
+    "delivered_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "opened_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When recipient opened email (if tracking enabled)"
+    },
+    "clicked_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When recipient clicked link"
+    },
+    "bounce_reason": {
+      "type": "string",
+      "description": "Why email bounced"
+    },
+    "gmail_message_id": {
+      "type": "string",
+      "description": "Gmail API message ID"
+    },
+    "gmail_thread_id": {
+      "type": "string",
+      "description": "Gmail API thread ID"
+    },
+    "attachments": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "filename": {
+            "type": "string"
+          },
+          "size_bytes": {
+            "type": "number"
+          },
+          "content_type": {
+            "type": "string"
+          }
+        }
+      },
+      "description": "Email attachments"
+    },
+    "user_consented": {
+      "type": "boolean",
+      "default": true,
+      "description": "User consented to receive this email type"
+    },
+    "metadata": {
+      "type": "object",
+      "description": "Additional email metadata"
+    }
+  },
+  "required": [
+    "email_type",
+    "recipient_email",
+    "subject",
+    "sent_by_user_id",
+    "sent_at",
+    "delivery_status"
+  ]
+}

@@ -1,0 +1,68 @@
+{
+  "name": "AIAuditLog",
+  "type": "object",
+  "properties": {
+    "ai_function": {
+      "type": "string",
+      "enum": [
+        "chat",
+        "forecast",
+        "insight",
+        "recommendation",
+        "voice_command"
+      ],
+      "description": "Type of AI function used"
+    },
+    "input_prompt": {
+      "type": "string",
+      "description": "User query or system prompt"
+    },
+    "output_summary": {
+      "type": "string",
+      "description": "AI response summary"
+    },
+    "full_response": {
+      "type": "object",
+      "description": "Complete AI response data"
+    },
+    "confidence_score": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1,
+      "description": "AI confidence level (0-1)"
+    },
+    "module_origin": {
+      "type": "string",
+      "description": "Which module triggered this AI call"
+    },
+    "user_email": {
+      "type": "string",
+      "description": "User who triggered AI"
+    },
+    "user_name": {
+      "type": "string"
+    },
+    "processing_time_ms": {
+      "type": "number",
+      "description": "Time taken to process"
+    },
+    "tokens_used": {
+      "type": "number",
+      "description": "API tokens consumed"
+    },
+    "was_helpful": {
+      "type": "boolean",
+      "description": "User feedback - was this helpful?"
+    },
+    "user_feedback": {
+      "type": "string",
+      "description": "User comments on AI response"
+    }
+  },
+  "required": [
+    "ai_function",
+    "input_prompt",
+    "output_summary",
+    "user_email"
+  ]
+}

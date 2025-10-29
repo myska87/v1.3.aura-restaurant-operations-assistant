@@ -1,0 +1,209 @@
+{
+  "name": "ChecklistExecution",
+  "type": "object",
+  "properties": {
+    "template_id": {
+      "type": "string",
+      "description": "Reference to ChecklistTemplate"
+    },
+    "template_name": {
+      "type": "string",
+      "description": "Cached template name"
+    },
+    "shift_id": {
+      "type": "string",
+      "description": "Reference to Shift"
+    },
+    "shift_type": {
+      "type": "string",
+      "enum": [
+        "opening",
+        "mid_shift",
+        "closing",
+        "any"
+      ]
+    },
+    "execution_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Date this checklist is for"
+    },
+    "assigned_to_email": {
+      "type": "string",
+      "description": "Staff member assigned"
+    },
+    "assigned_to_name": {
+      "type": "string",
+      "description": "Staff member name"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "not_started",
+        "in_progress",
+        "completed",
+        "overdue"
+      ],
+      "default": "not_started"
+    },
+    "started_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "completed_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "completed_by_email": {
+      "type": "string",
+      "description": "Who actually completed it"
+    },
+    "completed_by_name": {
+      "type": "string"
+    },
+    "tasks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "task_id": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "pass",
+              "fail",
+              "na"
+            ]
+          },
+          "completed_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "notes": {
+            "type": "string"
+          },
+          "photo_url": {
+            "type": "string"
+          },
+          "temperature_value": {
+            "type": "number"
+          },
+          "signature_url": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "overall_pass_rate": {
+      "type": "number",
+      "description": "Percentage of tasks passed"
+    },
+    "reminder_sent": {
+      "type": "boolean",
+      "default": false
+    },
+    "overdue_alert_sent": {
+      "type": "boolean",
+      "default": false
+    }
+  },
+  "required": [
+    "template_id",
+    "shift_type",
+    "execution_date",
+    "assigned_to_email"
+  ],
+  "rls": {
+    "create": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "manager"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        },
+        {
+          "assigned_to_email": "{{user.email}}"
+        }
+      ]
+    },
+    "read": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "manager"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        },
+        {
+          "assigned_to_email": "{{user.email}}"
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "manager"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        },
+        {
+          "assigned_to_email": "{{user.email}}"
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "manager"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        }
+      ]
+    }
+  }
+}

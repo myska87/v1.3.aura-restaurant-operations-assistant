@@ -1,0 +1,132 @@
+{
+  "name": "LeafeFoodComplaint",
+  "type": "object",
+  "properties": {
+    "venue_id": {
+      "type": "string",
+      "description": "Venue where complaint originated"
+    },
+    "venue_name": {
+      "type": "string",
+      "description": "Cached venue name"
+    },
+    "complaint_type": {
+      "type": "string",
+      "enum": [
+        "food_poisoning",
+        "foreign_object",
+        "quality",
+        "allergen",
+        "temperature",
+        "packaging",
+        "other"
+      ],
+      "description": "Type of complaint"
+    },
+    "reporter_name": {
+      "type": "string",
+      "description": "Customer name"
+    },
+    "reporter_contact": {
+      "type": "string",
+      "description": "Customer email or phone"
+    },
+    "date_reported": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When complaint was logged"
+    },
+    "date_of_incident": {
+      "type": "string",
+      "format": "date",
+      "description": "When issue occurred"
+    },
+    "description": {
+      "type": "string",
+      "description": "Detailed complaint description"
+    },
+    "menu_item_involved": {
+      "type": "string",
+      "description": "Dish/product involved"
+    },
+    "severity": {
+      "type": "string",
+      "enum": [
+        "low",
+        "medium",
+        "high",
+        "critical"
+      ],
+      "description": "Severity level"
+    },
+    "evidence_urls": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Photos of issue"
+    },
+    "assigned_to": {
+      "type": "string",
+      "description": "Manager handling this"
+    },
+    "investigation_notes": {
+      "type": "string",
+      "description": "Internal investigation details"
+    },
+    "root_cause": {
+      "type": "string",
+      "description": "Identified cause of issue"
+    },
+    "corrective_actions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Actions taken"
+    },
+    "resolution": {
+      "type": "string",
+      "description": "How complaint was resolved"
+    },
+    "resolved_date": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "resolved_status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "investigating",
+        "resolved",
+        "escalated",
+        "closed"
+      ],
+      "default": "pending"
+    },
+    "compensation_offered": {
+      "type": "string",
+      "description": "Refund/voucher/apology"
+    },
+    "eho_notified": {
+      "type": "boolean",
+      "default": false,
+      "description": "Environmental Health Officer notified"
+    },
+    "eho_notification_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "logged_by": {
+      "type": "string",
+      "description": "Staff who logged complaint"
+    }
+  },
+  "required": [
+    "venue_id",
+    "complaint_type",
+    "reporter_name",
+    "date_reported",
+    "description"
+  ]
+}

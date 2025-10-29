@@ -1,0 +1,66 @@
+{
+  "name": "BridgeStatusMonitor",
+  "type": "object",
+  "properties": {
+    "module_name": {
+      "type": "string",
+      "description": "Module being monitored"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "healthy",
+        "warning",
+        "error",
+        "offline"
+      ],
+      "default": "healthy"
+    },
+    "last_sync_time": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Last successful sync"
+    },
+    "total_events_processed": {
+      "type": "number",
+      "default": 0,
+      "description": "Total events processed by this module"
+    },
+    "events_last_hour": {
+      "type": "number",
+      "default": 0
+    },
+    "events_last_24h": {
+      "type": "number",
+      "default": 0
+    },
+    "errors_detected": {
+      "type": "number",
+      "default": 0
+    },
+    "last_error": {
+      "type": "string",
+      "description": "Last error message"
+    },
+    "last_error_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "avg_processing_time_ms": {
+      "type": "number",
+      "description": "Average event processing time"
+    },
+    "health_check_passed": {
+      "type": "boolean",
+      "default": true
+    },
+    "health_check_details": {
+      "type": "object",
+      "description": "Detailed health metrics"
+    }
+  },
+  "required": [
+    "module_name",
+    "status"
+  ]
+}

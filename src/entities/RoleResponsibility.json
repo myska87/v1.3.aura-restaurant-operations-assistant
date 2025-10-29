@@ -1,0 +1,262 @@
+{
+  "name": "RoleResponsibility",
+  "type": "object",
+  "properties": {
+    "position": {
+      "type": "string",
+      "enum": [
+        "manager",
+        "assistant_manager",
+        "chef",
+        "sous_chef",
+        "line_cook",
+        "dishwasher",
+        "server",
+        "waiter",
+        "bartender",
+        "host",
+        "cleaner",
+        "maintenance_worker",
+        "owner",
+        "admin",
+        "hr",
+        "security",
+        "cashier"
+      ],
+      "description": "Position title"
+    },
+    "department": {
+      "type": "string",
+      "enum": [
+        "kitchen",
+        "front_of_house",
+        "bar",
+        "management",
+        "cleaning",
+        "maintenance"
+      ],
+      "description": "Department"
+    },
+    "daily_tasks": {
+      "type": "array",
+      "items": {
+        "oneOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "task_name": {
+                "type": "string"
+              },
+              "description": {
+                "type": "string"
+              },
+              "estimated_minutes": {
+                "type": "number"
+              },
+              "priority": {
+                "type": "string",
+                "enum": [
+                  "low",
+                  "medium",
+                  "high"
+                ],
+                "default": "medium"
+              },
+              "requires_photo": {
+                "type": "boolean",
+                "default": false
+              },
+              "linked_form_id": {
+                "type": "string"
+              }
+            }
+          }
+        ]
+      },
+      "description": "List of daily responsibilities (can be strings or objects)"
+    },
+    "weekly_tasks": {
+      "type": "array",
+      "items": {
+        "oneOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "task_name": {
+                "type": "string"
+              },
+              "description": {
+                "type": "string"
+              },
+              "day_of_week": {
+                "type": "string",
+                "enum": [
+                  "monday",
+                  "tuesday",
+                  "wednesday",
+                  "thursday",
+                  "friday",
+                  "saturday",
+                  "sunday"
+                ]
+              },
+              "estimated_minutes": {
+                "type": "number"
+              },
+              "priority": {
+                "type": "string",
+                "enum": [
+                  "low",
+                  "medium",
+                  "high"
+                ],
+                "default": "medium"
+              },
+              "requires_photo": {
+                "type": "boolean",
+                "default": false
+              },
+              "linked_form_id": {
+                "type": "string"
+              }
+            }
+          }
+        ]
+      },
+      "description": "List of weekly responsibilities (can be strings or objects)"
+    },
+    "monthly_tasks": {
+      "type": "array",
+      "items": {
+        "oneOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "task_name": {
+                "type": "string"
+              },
+              "description": {
+                "type": "string"
+              },
+              "day_of_month": {
+                "type": "number"
+              },
+              "estimated_minutes": {
+                "type": "number"
+              },
+              "priority": {
+                "type": "string",
+                "enum": [
+                  "low",
+                  "medium",
+                  "high"
+                ],
+                "default": "medium"
+              },
+              "requires_photo": {
+                "type": "boolean",
+                "default": false
+              },
+              "linked_form_id": {
+                "type": "string"
+              }
+            }
+          }
+        ]
+      },
+      "description": "List of monthly responsibilities (can be strings or objects)"
+    },
+    "key_skills_required": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Skills needed for this role"
+    },
+    "assigned_manager": {
+      "type": "string",
+      "description": "Manager responsible for this role"
+    },
+    "auto_assign_enabled": {
+      "type": "boolean",
+      "default": true,
+      "description": "Enable automatic task assignment for this role"
+    },
+    "last_updated": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "updated_by": {
+      "type": "string"
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true
+    }
+  },
+  "required": [
+    "position",
+    "department"
+  ],
+  "rls": {
+    "create": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "manager"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        }
+      ]
+    },
+    "read": {
+      "user_condition": {
+        "email": {
+          "$exists": true
+        }
+      }
+    },
+    "update": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "manager"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

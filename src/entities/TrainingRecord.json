@@ -1,0 +1,168 @@
+{
+  "name": "TrainingRecord",
+  "type": "object",
+  "properties": {
+    "staff_email": {
+      "type": "string",
+      "description": "Staff member email"
+    },
+    "staff_name": {
+      "type": "string",
+      "description": "Staff member name"
+    },
+    "module_id": {
+      "type": "string",
+      "description": "Training module reference"
+    },
+    "module_title": {
+      "type": "string",
+      "description": "Cached module title"
+    },
+    "module_category": {
+      "type": "string",
+      "description": "Cached category"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "not_started",
+        "in_progress",
+        "completed",
+        "failed"
+      ],
+      "default": "not_started"
+    },
+    "started_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "completed_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "quiz_score": {
+      "type": "number",
+      "description": "Score percentage if quiz taken"
+    },
+    "quiz_attempts": {
+      "type": "number",
+      "default": 0
+    },
+    "time_spent_minutes": {
+      "type": "number",
+      "description": "Actual time spent"
+    },
+    "certificate_issued": {
+      "type": "boolean",
+      "default": false
+    },
+    "certificate_url": {
+      "type": "string",
+      "description": "Generated certificate URL"
+    },
+    "supervisor_approved": {
+      "type": "boolean",
+      "default": false
+    },
+    "supervisor_email": {
+      "type": "string",
+      "description": "Who approved"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Additional notes or feedback"
+    }
+  },
+  "required": [
+    "staff_email",
+    "module_id",
+    "status"
+  ],
+  "rls": {
+    "create": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "manager"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        },
+        {
+          "staff_email": "{{user.email}}"
+        }
+      ]
+    },
+    "read": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "manager"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        },
+        {
+          "staff_email": "{{user.email}}"
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "manager"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        },
+        {
+          "staff_email": "{{user.email}}"
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "manager"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        }
+      ]
+    }
+  }
+}

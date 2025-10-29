@@ -1,0 +1,102 @@
+{
+  "name": "AIPrediction",
+  "type": "object",
+  "properties": {
+    "prediction_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Date prediction was made"
+    },
+    "prediction_type": {
+      "type": "string",
+      "enum": [
+        "stock_shortage",
+        "quality_decline",
+        "staff_burnout",
+        "high_demand",
+        "cost_overrun",
+        "compliance_risk"
+      ],
+      "description": "Type of prediction"
+    },
+    "target_date": {
+      "type": "string",
+      "format": "date",
+      "description": "When predicted event will occur"
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "inventory",
+        "quality",
+        "staff",
+        "operations",
+        "compliance"
+      ],
+      "description": "Category of prediction"
+    },
+    "prediction_summary": {
+      "type": "string",
+      "description": "What AI predicts will happen"
+    },
+    "confidence_level": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1,
+      "description": "Confidence score (0-1)"
+    },
+    "severity": {
+      "type": "string",
+      "enum": [
+        "low",
+        "medium",
+        "high",
+        "critical"
+      ],
+      "default": "medium"
+    },
+    "recommended_actions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "AI-suggested preventive actions"
+    },
+    "data_points_used": {
+      "type": "number",
+      "description": "How many historical records analyzed"
+    },
+    "pattern_detected": {
+      "type": "string",
+      "description": "Pattern that triggered prediction"
+    },
+    "actual_outcome": {
+      "type": "string",
+      "description": "What actually happened (for accuracy tracking)"
+    },
+    "was_accurate": {
+      "type": "boolean",
+      "description": "Whether prediction came true"
+    },
+    "verified_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "action_taken": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether preventive action was taken"
+    },
+    "created_task_id": {
+      "type": "string",
+      "description": "Task created to address this prediction"
+    }
+  },
+  "required": [
+    "prediction_date",
+    "prediction_type",
+    "target_date",
+    "prediction_summary",
+    "confidence_level"
+  ]
+}
