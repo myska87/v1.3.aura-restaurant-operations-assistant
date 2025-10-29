@@ -212,6 +212,7 @@ const getRoleNavigation = (user, impersonatedRole = null) => {
       { title: "Operations", url: createPageUrl("OperationsDashboard"), icon: ClipboardCheck },
       { title: "Staff", url: createPageUrl("StaffDashboard"), icon: Users },
       { title: "Inventory", url: createPageUrl("InventoryDashboard"), icon: Package },
+      { title: "Menu", url: createPageUrl("Menu"), icon: Utensils },
       { title: "Reports", url: createPageUrl("Reports"), icon: BarChart3 },
       { title: "Settings", url: createPageUrl("SettingsDashboard"), icon: Settings },
     ];
@@ -231,6 +232,7 @@ const getRoleNavigation = (user, impersonatedRole = null) => {
   if (effectivePosition === 'server' || effectivePosition === 'bartender' || effectivePosition === 'host') {
     return [
       { title: "Dashboard", url: createPageUrl("Dashboard"), icon: LayoutDashboard },
+      { title: "Menu", url: createPageUrl("Menu"), icon: Utensils },
       { title: "My Shifts", url: createPageUrl("MyShifts"), icon: Calendar },
       { title: "My Tasks", url: createPageUrl("MyTasks"), icon: ClipboardCheck },
       { title: "Team Chat", url: createPageUrl("TeamChat"), icon: MessageCircle },
@@ -252,6 +254,7 @@ const getRoleNavigation = (user, impersonatedRole = null) => {
 
   return [
     { title: "Dashboard", url: createPageUrl("Dashboard"), icon: LayoutDashboard },
+    { title: "Menu", url: createPageUrl("Menu"), icon: Utensils },
     { title: "My Shifts", url: createPageUrl("MyShifts"), icon: Calendar },
     { title: "My Tasks", url: createPageUrl("MyTasks"), icon: ClipboardCheck },
     { title: "Team Chat", url: createPageUrl("TeamChat"), icon: MessageCircle },
