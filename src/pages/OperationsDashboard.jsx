@@ -3,11 +3,20 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent } from '@/components/ui/card';
 import { Target, BarChart3, Settings } from 'lucide-react';
 
-// Import page components
-const OperationsCore = React.lazy(() => import('./OperationsCore'));
-const MyTasks = React.lazy(() => import('./MyTasks'));
-const TaskReports = React.lazy(() => import('./TaskReports'));
-const EventFeed = React.lazy(() => import('./EventFeed'));
+// Lazy load page components
+const OperationsCore = React.lazy(() => import('./OperationsCore').catch(() => ({ default: () => <div>Error loading Operations Core</div> })));
+const MyTasks = React.lazy(() => import('./MyTasks').catch(() => ({ default: () => <div>Error loading Tasks</div> })));
+const TaskReports = React.lazy(() => import('./TaskReports').catch(() => ({ default: () => <div>Error loading Reports</div> })));
+const EventFeed = React.lazy(() => import('./EventFeed').catch(() => ({ default: () => <div>Error loading Events</div> })));
+
+const LoadingFallback = () => (
+  <Card>
+    <CardContent className="p-12 text-center">
+      <div className="animate-spin w-12 h-12 border-4 border-emerald-600 border-t-transparent rounded-full mx-auto mb-4"></div>
+      <p className="text-gray-600">Loading...</p>
+    </CardContent>
+  </Card>
+);
 
 export default function OperationsDashboard() {
   const [activeTab, setActiveTab] = useState('overview');
@@ -47,40 +56,19 @@ export default function OperationsDashboard() {
             </TabsList>
 
             <TabsContent value="overview">
-              <React.Suspense fallback={
-                <Card>
-                  <CardContent className="p-12 text-center">
-                    <div className="animate-spin w-12 h-12 border-4 border-emerald-600 border-t-transparent rounded-full mx-auto mb-4"></div>
-                    <p className="text-gray-600">Loading...</p>
-                  </CardContent>
-                </Card>
-              }>
+              <React.Suspense fallback={<LoadingFallback />}>
                 <OperationsCore />
               </React.Suspense>
             </TabsContent>
 
             <TabsContent value="analytics">
-              <React.Suspense fallback={
-                <Card>
-                  <CardContent className="p-12 text-center">
-                    <div className="animate-spin w-12 h-12 border-4 border-emerald-600 border-t-transparent rounded-full mx-auto mb-4"></div>
-                    <p className="text-gray-600">Loading...</p>
-                  </CardContent>
-                </Card>
-              }>
+              <React.Suspense fallback={<LoadingFallback />}>
                 <TaskReports />
               </React.Suspense>
             </TabsContent>
 
             <TabsContent value="mywork">
-              <React.Suspense fallback={
-                <Card>
-                  <CardContent className="p-12 text-center">
-                    <div className="animate-spin w-12 h-12 border-4 border-emerald-600 border-t-transparent rounded-full mx-auto mb-4"></div>
-                    <p className="text-gray-600">Loading...</p>
-                  </CardContent>
-                </Card>
-              }>
+              <React.Suspense fallback={<LoadingFallback />}>
                 <div className="space-y-6">
                   <MyTasks />
                   <EventFeed />
