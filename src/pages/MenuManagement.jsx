@@ -25,7 +25,7 @@ import { Plus, Pencil, Trash2, ChefHat, Camera, Image as ImageIcon, Folder, Calc
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
-import { safeNumber, toSafeNumber, safeCurrency } from "@/utils/safeNumber"; // Updated import
+import { safeNumber, toSafeNumber, safeCurrency } from "@/utils"; // Updated import
 
 export default function MenuManagement() {
   const queryClient = useQueryClient();

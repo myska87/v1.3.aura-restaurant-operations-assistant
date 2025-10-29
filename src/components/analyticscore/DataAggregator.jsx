@@ -1,8 +1,9 @@
+
 import React, { useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQueryClient } from '@tanstack/react-query';
 import { startOfDay, format } from 'date-fns';
-import { toSafeNumber } from '@/utils/safeNumber';
+import { toSafeNumber } from '@/utils';
 
 /**
  * 📊 Analytics Data Aggregator

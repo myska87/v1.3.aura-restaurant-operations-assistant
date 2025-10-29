@@ -48,7 +48,7 @@ import {
 } from 'recharts';
 import { format, subDays, startOfWeek, endOfWeek } from 'date-fns';
 import { motion } from 'framer-motion';
-import { safeNumber, toSafeNumber } from '@/utils/safeNumber';
+import { safeNumber, toSafeNumber } from '@/utils';
 
 export default function AnalyticsDashboard() {
   const [timeRange, setTimeRange] = useState('7days');

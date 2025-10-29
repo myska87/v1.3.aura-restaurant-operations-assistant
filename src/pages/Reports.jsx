@@ -14,7 +14,7 @@ import {
 import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { Download, TrendingUp, Calendar } from "lucide-react";
 import { format, subDays } from "date-fns";
-import { safeNumber, toSafeNumber } from "@/utils/safeNumber";
+import { safeNumber, toSafeNumber } from "@/utils";
 
 export default function Reports() {
   const [timeRange, setTimeRange] = useState("7days");

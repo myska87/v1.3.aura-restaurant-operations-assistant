@@ -13,7 +13,7 @@ import { format } from "date-fns";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { logEmailSent } from "../components/ComplianceEmailLogger";
-import { safeNumber, toSafeNumber } from "@/utils/safeNumber"; // Added import
+import { safeNumber, toSafeNumber } from "@/utils"; // Updated import
 
 export default function Ordering() {
   const queryClient = useQueryClient();

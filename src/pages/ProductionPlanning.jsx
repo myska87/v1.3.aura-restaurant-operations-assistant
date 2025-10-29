@@ -25,7 +25,7 @@ import { Plus, Calculator, ShoppingCart, ArrowLeft, Home, Send, MoreVertical, Ed
 import { format } from "date-fns";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
-import { safeNumber, toSafeNumber } from "@/utils/safeNumber";
+import { safeNumber, toSafeNumber } from "@/utils";
 
 export default function ProductionPlanning() {
   const queryClient = useQueryClient();

@@ -25,7 +25,7 @@ import { format, subDays, startOfWeek, endOfWeek } from "date-fns";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
-import { safeNumber, toSafeNumber, safeCurrency } from "@/utils/safeNumber";
+import { safeNumber, toSafeNumber, safeCurrency } from "@/utils";
 
 export default function CostAnalyticsDashboard() {
   const [timeRange, setTimeRange] = useState("7days");

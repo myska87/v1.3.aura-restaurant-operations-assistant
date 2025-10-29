@@ -44,7 +44,7 @@ import { format } from "date-fns";
 import { Link, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { motion } from "framer-motion";
-import { safeNumber, toSafeNumber, safePercent } from "@/utils/safeNumber";
+import { safeNumber, toSafeNumber, safePercent } from "@/utils";
 
 export default function HygieneDashboard() {
   const navigate = useNavigate();

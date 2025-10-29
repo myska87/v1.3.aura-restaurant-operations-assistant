@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery } from '@tanstack/react-query';
@@ -16,7 +17,7 @@ import { DollarSign, Users, TrendingUp, Download, ArrowLeft, Home, Clock } from 
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import { format, startOfWeek, endOfWeek, getISOWeek } from 'date-fns';
-import { safeNumber, toSafeNumber, safeCurrency } from '@/utils/safeNumber';
+import { safeNumber, toSafeNumber, safeCurrency } from '@/utils';
 
 export default function PayrollDashboard() {
   const [selectedWeek, setSelectedWeek] = useState(() => {

@@ -9,7 +9,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { TrendingUp, TrendingDown, Star, DollarSign, ChefHat, ArrowLeft, Home } from "lucide-react";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
-import { safeNumber, toSafeNumber } from "@/utils/safeNumber"; // Assuming safeCurrency is not directly used for display in this new outline
+import { safeNumber, toSafeNumber, safeCurrency } from "@/utils"; // Updated import statement
 
 export default function MenuAnalysis() {
   const { data: menuItems = [] } = useQuery({
