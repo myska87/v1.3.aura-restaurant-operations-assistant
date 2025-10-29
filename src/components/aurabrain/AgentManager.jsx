@@ -15,7 +15,7 @@ export class AgentManager {
   }
 
   /**
-   * Initialize all agents - runs core checks
+   * Initialize all agents - runs core checks with safety fallbacks
    */
   async initialize() {
     try {
@@ -26,10 +26,11 @@ export class AgentManager {
         timestamp: new Date().toISOString()
       });
 
-      await Promise.all([
-        this.hygiene.runChecklists(),
-        this.inventory.checkLowStock(),
-        this.quality.auditSOPCompletion()
+      // Run agents with individual error handling
+      const results = await Promise.allSettled([
+        this.safeRun(() => this.hygiene.runChecklists(), 'hygiene'),
+        this.safeRun(() => this.inventory.checkLowStock(), 'inventory'),
+        this.safeRun(() => this.quality.auditSOPCompletion(), 'quality')
       ]);
 
       this.initialized = true;
@@ -45,6 +46,18 @@ export class AgentManager {
   }
 
   /**
+   * Safety wrapper for agent calls
+   */
+  async safeRun(agentFn, agentName) {
+    try {
+      return await agentFn();
+    } catch (e) {
+      console.error("Agent failed:", agentName, e);
+      return { error: e.message, status: 'failed' };
+    }
+  }
+
+  /**
    * Run all agents with full suite of tasks
    */
   async runAll() {
@@ -54,19 +67,19 @@ export class AgentManager {
 
       const results = await Promise.allSettled([
         // Hygiene tasks
-        this.hygiene.runChecklists(),
-        this.hygiene.scoreCompliance(),
-        this.hygiene.detectIssues(),
+        this.safeRun(() => this.hygiene.runChecklists(), 'hygiene.runChecklists'),
+        this.safeRun(() => this.hygiene.scoreCompliance(), 'hygiene.scoreCompliance'),
+        this.safeRun(() => this.hygiene.detectIssues(), 'hygiene.detectIssues'),
         
         // Inventory tasks
-        this.inventory.checkLowStock(),
-        this.inventory.autoGenerateOrders(),
-        this.inventory.predictShortages(),
+        this.safeRun(() => this.inventory.checkLowStock(), 'inventory.checkLowStock'),
+        this.safeRun(() => this.inventory.autoGenerateOrders(), 'inventory.autoGenerateOrders'),
+        this.safeRun(() => this.inventory.predictShortages(), 'inventory.predictShortages'),
         
         // Quality tasks
-        this.quality.auditSOPCompletion(),
-        this.quality.pushQualityReports(),
-        this.quality.detectQualityIssues()
+        this.safeRun(() => this.quality.auditSOPCompletion(), 'quality.auditSOPCompletion'),
+        this.safeRun(() => this.quality.pushQualityReports(), 'quality.pushQualityReports'),
+        this.safeRun(() => this.quality.detectQualityIssues(), 'quality.detectQualityIssues')
       ]);
 
       const duration = Date.now() - startTime;
@@ -128,9 +141,9 @@ export class AgentManager {
 
       if (agentName === 'hygiene') {
         const [checklists, scores, issues] = await Promise.allSettled([
-          agent.runChecklists(),
-          agent.scoreCompliance(),
-          agent.detectIssues()
+          this.safeRun(() => agent.runChecklists(), 'hygiene.runChecklists'),
+          this.safeRun(() => agent.scoreCompliance(), 'hygiene.scoreCompliance'),
+          this.safeRun(() => agent.detectIssues(), 'hygiene.detectIssues')
         ]);
         
         results = {
@@ -140,9 +153,9 @@ export class AgentManager {
         };
       } else if (agentName === 'inventory') {
         const [stock, orders, predictions] = await Promise.allSettled([
-          agent.checkLowStock(),
-          agent.autoGenerateOrders(),
-          agent.predictShortages()
+          this.safeRun(() => agent.checkLowStock(), 'inventory.checkLowStock'),
+          this.safeRun(() => agent.autoGenerateOrders(), 'inventory.autoGenerateOrders'),
+          this.safeRun(() => agent.predictShortages(), 'inventory.predictShortages')
         ]);
         
         results = {
@@ -152,9 +165,9 @@ export class AgentManager {
         };
       } else if (agentName === 'quality') {
         const [sopAudit, reports, issues] = await Promise.allSettled([
-          agent.auditSOPCompletion(),
-          agent.pushQualityReports(),
-          agent.detectQualityIssues()
+          this.safeRun(() => agent.auditSOPCompletion(), 'quality.auditSOPCompletion'),
+          this.safeRun(() => agent.pushQualityReports(), 'quality.pushQualityReports'),
+          this.safeRun(() => agent.detectQualityIssues(), 'quality.detectQualityIssues')
         ]);
         
         results = {
