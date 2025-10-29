@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
@@ -8,7 +7,6 @@ import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { motion } from "framer-motion";
 
-// New imports for the dialog and form components
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -42,27 +40,22 @@ export default function StaffRota() {
     queryFn: () => base44.entities.TeamMember.list(),
   });
 
-  // Combine users and team members
   const allStaff = useMemo(() => {
     const staffMap = new Map();
     
-    // Process users first
     allUsers.forEach(user => {
-      // Ensure user.full_name is not null/undefined, fallback to first/last name
       const fullName = user.full_name || `${user.first_name || ''} ${user.last_name || ''}`.trim();
       staffMap.set(user.email, {
         email: user.email,
         full_name: fullName,
         position: user.position,
         phone: user.phone,
-        photo_url: user.photo_url, // Add photo_url from user if available
+        photo_url: user.photo_url,
       });
     });
     
-    // Then process team members, potentially enriching or adding new entries
     teamMembers.forEach(member => {
       if (staffMap.has(member.staff_email)) {
-        // If user already exists, enrich with team member data, preferring team member data
         const existingStaff = staffMap.get(member.staff_email);
         staffMap.set(member.staff_email, {
           ...existingStaff,
@@ -72,7 +65,6 @@ export default function StaffRota() {
           photo_url: member.photo_url || existingStaff.photo_url,
         });
       } else {
-        // If team member doesn't have a corresponding user entry, create one
         staffMap.set(member.staff_email, {
           email: member.staff_email,
           full_name: member.staff_name,
@@ -92,19 +84,17 @@ export default function StaffRota() {
   const isManager = user?.position === 'manager' || user?.position === 'owner';
   const hasManagementAccess = isAdmin || isManager;
 
-  // State for the shift creation dialog
   const [isShiftDialogOpen, setIsShiftDialogOpen] = useState(false);
   const [shiftForm, setShiftForm] = useState({
     staff_email: "",
     staff_name: "",
-    role: "", // Position/Role of the staff member assigned to the shift
-    date: format(new Date(), 'yyyy-MM-dd'), // Default to today's date
+    role: "",
+    date: format(new Date(), 'yyyy-MM-dd'),
     start_time: "09:00",
     end_time: "17:00",
     notes: "",
   });
   const [createdShiftId, setCreatedShiftId] = useState(null);
-
 
   const handleShiftFormChange = (e) => {
     const { id, value } = e.target;
@@ -118,12 +108,12 @@ export default function StaffRota() {
         staff_email: shiftForm.staff_email,
         staff_name: shiftForm.staff_name,
         role: shiftForm.role,
-        shift_date: shiftForm.date, // Changed 'date' to 'shift_date' to match backend
+        shift_date: shiftForm.date,
         start_time: shiftForm.start_time,
         end_time: shiftForm.end_time,
         notes: shiftForm.notes,
-        status: 'scheduled', // Default status for a newly created shift
-        shift_type: 'mid_shift', // Default shift type, can be expanded later
+        status: 'scheduled',
+        shift_type: 'mid_shift',
       });
 
       setCreatedShiftId(newShift.id);
@@ -139,8 +129,8 @@ export default function StaffRota() {
           end_time: "17:00",
           notes: "",
         });
-        setCreatedShiftId(null); // Reset createdShiftId after dialog closes
-      }, 2000); // Give time for the auto-linker to potentially do its work or just show confirmation
+        setCreatedShiftId(null);
+      }, 2000);
       
     } catch (error) {
       console.error('Error creating shift:', error);
@@ -157,7 +147,7 @@ export default function StaffRota() {
       color: "from-blue-500 to-blue-600",
       bgColor: "bg-blue-50",
       iconColor: "text-blue-600",
-      accessLevel: "all", // Everyone can access
+      accessLevel: "all",
     },
     {
       title: "Clock In/Out",
@@ -177,7 +167,7 @@ export default function StaffRota() {
       color: "from-indigo-500 to-indigo-600",
       bgColor: "bg-indigo-50",
       iconColor: "text-indigo-600",
-      accessLevel: "management", // Admin/Manager only
+      accessLevel: "management",
     },
     {
       title: "Weekly Rota Schedule",
@@ -187,7 +177,7 @@ export default function StaffRota() {
       color: "from-orange-500 to-orange-600",
       bgColor: "bg-orange-50",
       iconColor: "text-orange-600",
-      accessLevel: "management", // Admin/Manager only
+      accessLevel: "management",
     },
     {
       title: "Attendance Reports",
@@ -201,14 +191,12 @@ export default function StaffRota() {
     },
   ];
 
-  // Filter modules based on access level
   const accessibleModules = rotaModules.filter(module => 
     module.accessLevel === "all" || (module.accessLevel === "management" && hasManagementAccess)
   );
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6 md:p-8">
-      {/* Auto-link forms/SOPs when shift is created */}
       {createdShiftId && (
         <ShiftFormAutoLinker
           shiftId={createdShiftId}
@@ -239,7 +227,6 @@ export default function StaffRota() {
           )}
         </div>
 
-        {/* Access Level Indicator */}
         {!hasManagementAccess && (
           <Card className="bg-blue-50 border-blue-200 mb-6">
             <CardContent className="p-4">
@@ -287,7 +274,6 @@ export default function StaffRota() {
         </div>
       </div>
 
-      {/* SHIFT CREATION DIALOG */}
       {hasManagementAccess && (
         <Dialog open={isShiftDialogOpen} onOpenChange={setIsShiftDialogOpen}>
           <DialogContent className="sm:max-w-[425px]">
@@ -308,7 +294,7 @@ export default function StaffRota() {
                       ...shiftForm,
                       staff_email: value,
                       staff_name: staff?.full_name || "",
-                      role: staff?.position || "", // Set role from staff's position
+                      role: staff?.position || "",
                     });
                   }}
                 >
