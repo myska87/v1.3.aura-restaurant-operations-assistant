@@ -124,6 +124,7 @@ import SystemHealthCheck from './pages/SystemHealthCheck';
 import StaffAnalytics from './pages/StaffAnalytics';
 import KPIDashboard from './pages/KPIDashboard';
 import Home from './pages/Home';
+import DocumentsFormsHub from './pages/DocumentsFormsHub';
 import Layout from './Layout.jsx';
 
 
@@ -254,6 +255,7 @@ export const PAGES = {
     "StaffAnalytics": StaffAnalytics,
     "KPIDashboard": KPIDashboard,
     "Home": Home,
+    "DocumentsFormsHub": DocumentsFormsHub,
 }
 
 export const pagesConfig = {

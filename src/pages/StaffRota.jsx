@@ -24,6 +24,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { format } from "date-fns";
 
+import ShiftFormAutoLinker from '../components/ShiftFormAutoLinker';
+
 export default function StaffRota() {
   const { data: user } = useQuery({
     queryKey: ['currentUser'],
@@ -101,29 +103,49 @@ export default function StaffRota() {
     end_time: "17:00",
     notes: "",
   });
+  const [createdShiftId, setCreatedShiftId] = useState(null);
+
 
   const handleShiftFormChange = (e) => {
     const { id, value } = e.target;
     setShiftForm(prev => ({ ...prev, [id]: value }));
   };
 
-  const handleShiftSubmit = (e) => {
+  const handleShiftSubmit = async (e) => {
     e.preventDefault();
-    console.log("Submitting shift:", shiftForm);
-    // Here, you would typically call an API to create the shift
-    // e.g., await base44.entities.Shift.create(shiftForm);
-    setIsShiftDialogOpen(false);
-    // Optionally, reset form after submission
-    setShiftForm({
-      staff_email: "",
-      staff_name: "",
-      role: "",
-      date: format(new Date(), 'yyyy-MM-dd'),
-      start_time: "09:00",
-      end_time: "17:00",
-      notes: "",
-    });
-    // Add success/error handling (e.g., toast notification)
+    try {
+      const newShift = await base44.entities.Shift.create({
+        staff_email: shiftForm.staff_email,
+        staff_name: shiftForm.staff_name,
+        role: shiftForm.role,
+        shift_date: shiftForm.date, // Changed 'date' to 'shift_date' to match backend
+        start_time: shiftForm.start_time,
+        end_time: shiftForm.end_time,
+        notes: shiftForm.notes,
+        status: 'scheduled', // Default status for a newly created shift
+        shift_type: 'mid_shift', // Default shift type, can be expanded later
+      });
+
+      setCreatedShiftId(newShift.id);
+      
+      setTimeout(() => {
+        setIsShiftDialogOpen(false);
+        setShiftForm({
+          staff_email: "",
+          staff_name: "",
+          role: "",
+          date: format(new Date(), 'yyyy-MM-dd'),
+          start_time: "09:00",
+          end_time: "17:00",
+          notes: "",
+        });
+        setCreatedShiftId(null); // Reset createdShiftId after dialog closes
+      }, 2000); // Give time for the auto-linker to potentially do its work or just show confirmation
+      
+    } catch (error) {
+      console.error('Error creating shift:', error);
+      alert('Failed to create shift. Please try again.');
+    }
   };
 
   const rotaModules = [
@@ -186,6 +208,16 @@ export default function StaffRota() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6 md:p-8">
+      {/* Auto-link forms/SOPs when shift is created */}
+      {createdShiftId && (
+        <ShiftFormAutoLinker
+          shiftId={createdShiftId}
+          staffEmail={shiftForm.staff_email}
+          role={shiftForm.role}
+          shiftDate={shiftForm.date}
+        />
+      )}
+
       <div className="max-w-7xl mx-auto">
         <div className="mb-8 flex justify-between items-center">
           <div>
