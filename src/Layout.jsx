@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -194,8 +195,7 @@ function VoiceSearch({ onClose, navigate }) {
           <p className="text-xs text-purple-700 font-medium">"Show inventory"</p>
         </div>
       </div>
-    </div>
-  );
+    );
 }
 
 // Role-based navigation
@@ -208,6 +208,7 @@ const getRoleNavigation = (user) => {
   if (isManager) {
     return [
       { title: "Dashboard", url: createPageUrl("Dashboard"), icon: LayoutDashboard },
+      { title: "Documents & Forms", url: createPageUrl("DocumentsFormsHub"), icon: FileText },
       { title: "Operations", url: createPageUrl("OperationsDashboard"), icon: ClipboardCheck },
       { title: "Staff", url: createPageUrl("StaffDashboard"), icon: Users },
       { title: "Inventory", url: createPageUrl("InventoryDashboard"), icon: Package },
@@ -233,7 +234,7 @@ const getRoleNavigation = (user) => {
       { title: "My Shifts", url: createPageUrl("MyShifts"), icon: Calendar },
       { title: "My Tasks", url: createPageUrl("MyTasks"), icon: ClipboardCheck },
       { title: "Team Chat", url: createPageUrl("TeamChat"), icon: MessageCircle },
-      { title: "Documents", url: createPageUrl("DocumentsFormsHub"), icon: FileText },
+      { title: "Documents & Forms", url: createPageUrl("DocumentsFormsHub"), icon: FileText },
       { title: "Training", url: createPageUrl("OnboardingTraining"), icon: BookOpen },
     ];
   }
