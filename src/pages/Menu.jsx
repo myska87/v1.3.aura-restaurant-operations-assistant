@@ -1,6 +1,6 @@
 import React from "react";
 import { Card, CardContent } from "@/components/ui/card";
-import { ChefHat, BarChart3, Utensils, ArrowRight, Calculator, ShieldAlert, Sparkles, Edit } from "lucide-react";
+import { ChefHat, BarChart3, ShieldAlert, Sparkles, ArrowRight } from "lucide-react";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { motion } from "framer-motion";
@@ -34,7 +34,7 @@ const menuModules = [
     iconColor: "text-red-600",
   },
   {
-    title: "🤖 Menu Intelligence",
+    title: "Menu Intelligence",
     description: "AI-powered menu optimization and recommendations",
     icon: Sparkles,
     url: createPageUrl("MenuIntelligence"),
@@ -49,19 +49,12 @@ export default function Menu() {
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6 md:p-8">
       <div className="max-w-7xl mx-auto">
         <div className="mb-8">
-          <div className="flex items-center gap-4 mb-4">
-            <div className="p-4 bg-gradient-to-br from-purple-500 to-pink-500 rounded-2xl shadow-lg">
-              <Utensils className="w-10 h-10 text-white" />
-            </div>
-            <div>
-              <h1 className="text-4xl font-bold text-gray-900">
-                🍽️ Menu Management
-              </h1>
-              <p className="text-lg text-gray-600 mt-1">
-                Comprehensive menu tools - from creation to analysis
-              </p>
-            </div>
-          </div>
+          <h1 className="text-4xl font-bold text-gray-900 mb-2">
+            🍽️ Menu Hub
+          </h1>
+          <p className="text-lg text-gray-600">
+            Comprehensive menu tools - from creation to analysis
+          </p>
         </div>
 
         <div className="grid md:grid-cols-2 gap-6">
@@ -98,24 +91,6 @@ export default function Menu() {
               </motion.div>
             );
           })}
-        </div>
-
-        {/* Quick Stats */}
-        <div className="mt-8 p-6 bg-gradient-to-r from-blue-50 to-purple-50 rounded-2xl border-2 border-blue-200">
-          <div className="flex items-start gap-4">
-            <div className="p-3 bg-blue-100 rounded-lg">
-              <Calculator className="w-6 h-6 text-blue-600" />
-            </div>
-            <div>
-              <h3 className="font-semibold text-gray-900 mb-2">💡 Menu Pro Tips</h3>
-              <ul className="text-sm text-gray-700 space-y-1">
-                <li>• Keep food cost below 35% for optimal profitability</li>
-                <li>• Update allergen information after any recipe changes</li>
-                <li>• Use Menu Intelligence for AI-powered optimization</li>
-                <li>• Link SOPs to menu items for consistent preparation</li>
-              </ul>
-            </div>
-          </div>
         </div>
       </div>
     </div>
