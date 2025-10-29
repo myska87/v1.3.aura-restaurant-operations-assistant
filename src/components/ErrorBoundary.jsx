@@ -17,7 +17,8 @@ class ErrorBoundary extends React.Component {
   }
 
   componentDidCatch(error, errorInfo) {
-    console.error('ErrorBoundary caught an error:', error, errorInfo);
+    console.error('🚨 ErrorBoundary caught an error:', error);
+    console.error('🚨 Component stack:', errorInfo?.componentStack);
     this.setState({ error, errorInfo });
   }
 
@@ -29,23 +30,23 @@ class ErrorBoundary extends React.Component {
             <CardHeader className="bg-red-50">
               <CardTitle className="flex items-center gap-3 text-red-800">
                 <AlertTriangle className="w-6 h-6" />
-                Something went wrong
+                AURA One Pro encountered a startup issue
               </CardTitle>
             </CardHeader>
             <CardContent className="p-6">
               <Alert className="bg-red-50 border-red-200 mb-6">
                 <AlertTriangle className="w-4 h-4 text-red-600" />
                 <AlertDescription className="text-red-800">
-                  {this.state.error?.toString() || 'An unexpected error occurred'}
+                  {this.state.error?.toString() || 'An unexpected error occurred during initialization'}
                 </AlertDescription>
               </Alert>
 
               {this.state.errorInfo && (
                 <details className="mb-6 p-4 bg-gray-50 rounded-lg text-xs">
                   <summary className="font-semibold text-gray-700 cursor-pointer mb-2">
-                    Technical Details
+                    Technical Details (for debugging)
                   </summary>
-                  <pre className="text-gray-600 overflow-auto max-h-48">
+                  <pre className="text-gray-600 overflow-auto max-h-48 whitespace-pre-wrap">
                     {this.state.errorInfo.componentStack}
                   </pre>
                 </details>
@@ -57,18 +58,22 @@ class ErrorBoundary extends React.Component {
                   className="flex-1 bg-red-600 hover:bg-red-700"
                 >
                   <RefreshCw className="w-4 h-4 mr-2" />
-                  Reload Page
+                  Reload App
                 </Button>
-                <Link to={createPageUrl('Dashboard')} className="flex-1">
-                  <Button variant="outline" className="w-full">
-                    <Home className="w-4 h-4 mr-2" />
-                    Go to Dashboard
-                  </Button>
-                </Link>
+                <Button
+                  onClick={() => {
+                    this.setState({ hasError: false, error: null, errorInfo: null });
+                  }}
+                  variant="outline"
+                  className="flex-1"
+                >
+                  <Home className="w-4 h-4 mr-2" />
+                  Try Again
+                </Button>
               </div>
 
               <p className="text-xs text-gray-500 text-center mt-4">
-                If this error persists, please contact support.
+                If this error persists, try clearing your browser cache or contact support.
               </p>
             </CardContent>
           </Card>

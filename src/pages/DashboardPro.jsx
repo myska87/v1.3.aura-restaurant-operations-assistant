@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery } from '@tanstack/react-query';
@@ -19,62 +18,83 @@ import {
   ClipboardCheck,
   User,
   Zap,
-  Target, // ✨ NEW: Added Target icon for Operations
-  Lightbulb, // ✨ NEW: Added Lightbulb icon for AI Insights
-  BarChart3, // ✨ NEW: Added BarChart3 icon for Analytics
+  Target,
+  Lightbulb,
+  BarChart3,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { createPageUrl } from '@/utils';
-import { format, formatDistanceToNow, startOfWeek } from 'date-fns'; // ✨ NEW: Added startOfWeek for weekly summary
+import { createPageUrl, toSafeNumber } from '@/utils';
+import { format, formatDistanceToNow, startOfWeek } from 'date-fns';
 
 export default function DashboardPro() {
-  // Get current user
-  const { data: user } = useQuery({
+  // Get current user with safe loading state
+  const { data: user, isLoading: userLoading } = useQuery({
     queryKey: ['currentUser'],
     queryFn: () => base44.auth.me(),
   });
 
+  // 🛡️ Safe Loading State
+  if (userLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-emerald-50 p-6 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading your AURA dashboard...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // 🛡️ Safe User Check
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-emerald-50 p-6 flex items-center justify-center">
+        <Card className="max-w-md">
+          <CardContent className="p-8 text-center">
+            <AlertTriangle className="w-12 h-12 text-amber-500 mx-auto mb-4" />
+            <h2 className="text-xl font-bold mb-2">Authentication Required</h2>
+            <p className="text-gray-600 mb-4">Please log in to access your dashboard.</p>
+            <Button onClick={() => window.location.reload()}>Reload</Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   // Determine role
   const isAdmin = user?.role === 'admin';
   const isManager = user?.position === 'manager' || user?.position === 'owner';
-  const isStaff = !isAdmin && !isManager;
 
   // Get today's date
   const todayStr = format(new Date(), 'yyyy-MM-dd');
 
-  // Fetch shifts
+  // Fetch data with safe defaults
   const { data: shifts = [] } = useQuery({
     queryKey: ['todayShifts', todayStr],
     queryFn: () => base44.entities.Shift.filter({ shift_date: todayStr }),
+    initialData: [],
   });
 
-  // Fetch tasks
   const { data: tasks = [] } = useQuery({
     queryKey: ['myTasks', user?.email],
-    queryFn: () => base44.entities.StaffTask.filter({
-      assigned_to: user?.email
-    }),
+    queryFn: () => base44.entities.StaffTask.filter({ assigned_to: user?.email }),
     enabled: !!user?.email,
+    initialData: [],
   });
 
-  // Fetch forms
   const { data: forms = [] } = useQuery({
     queryKey: ['myForms', user?.email],
-    queryFn: () => base44.entities.FormAssignmentMetadata.filter({
-      assigned_to_email: user?.email
-    }),
+    queryFn: () => base44.entities.FormAssignmentMetadata.filter({ assigned_to_email: user?.email }),
     enabled: !!user?.email,
+    initialData: [],
   });
 
-  // ✨ NEW: Fetch recent activities with auto-refresh
   const { data: recentActivities = [] } = useQuery({
     queryKey: ['recentActivities'],
     queryFn: async () => {
       if (isManager || isAdmin) {
-        // Managers see all activities
         return await base44.entities.ActivityLog.list('-created_date', 20);
       } else {
-        // Staff see only their activities
         return await base44.entities.ActivityLog.filter(
           { user_email: user?.email },
           '-created_date',
@@ -83,41 +103,11 @@ export default function DashboardPro() {
       }
     },
     enabled: !!user?.email,
-    refetchInterval: 10000, // Auto-refresh every 10 seconds
+    refetchInterval: 10000,
+    initialData: [],
   });
 
-  // 🎯 Operations Core Metrics
-  const { data: operationTasks = [] } = useQuery({
-    queryKey: ['operationTasksStats'],
-    queryFn: () => base44.entities.OperationTask.list('-due_date', 100),
-  });
-
-  const { data: weeklySummary } = useQuery({
-    queryKey: ['currentWeeklySummary'],
-    queryFn: async () => {
-      const weekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
-      const summaries = await base44.entities.OperationWeeklySummary.filter({
-        week_start_date: format(weekStart, 'yyyy-MM-dd')
-      });
-      return summaries[0] || null;
-    },
-  });
-
-  // 📊 Analytics Data
-  const { data: latestAnalytics } = useQuery({
-    queryKey: ['latestAnalyticsSnapshot'],
-    queryFn: async () => {
-      const snapshots = await base44.entities.AnalyticsSnapshot.list('-snapshot_date', 1);
-      return snapshots[0] || null;
-    },
-  });
-
-  const { data: latestInsights = [] } = useQuery({
-    queryKey: ['latestInsights'],
-    queryFn: () => base44.entities.AnalyticsInsight.list('-insight_date', 3),
-  });
-
-  // Calculate metrics
+  // Calculate safe metrics
   const myActiveShift = shifts.find(s =>
     s.staff_email === user?.email && s.status === 'in_progress'
   );
@@ -131,16 +121,6 @@ export default function DashboardPro() {
   ).length;
 
   const staffOnDuty = shifts.filter(s => s.status === 'in_progress').length;
-
-  const operationsStats = {
-    totalTasks: operationTasks.length,
-    completedTasks: operationTasks.filter(t => t.status === 'completed').length,
-    overdueTasks: operationTasks.filter(t => t.status === 'overdue').length,
-    completionRate: operationTasks.length > 0
-      ? Math.round((operationTasks.filter(t => t.status === 'completed').length / operationTasks.length) * 100)
-      : 0,
-    auditPerformance: weeklySummary?.avg_score || 0,
-  };
 
   // Activity icon mapper
   const getActivityIcon = (activityType) => {
@@ -220,142 +200,6 @@ export default function DashboardPro() {
             </CardContent>
           </Card>
         )}
-
-        {/* 📊 AI Analytics Summary Card */}
-        {latestAnalytics && (
-          <Link to={createPageUrl('AnalyticsDashboard')}>
-            <Card className="mb-6 bg-gradient-to-r from-blue-600 to-purple-600 text-white border-none hover:shadow-2xl transition-all cursor-pointer">
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    <div className="w-14 h-14 bg-white/20 backdrop-blur rounded-2xl flex items-center justify-center">
-                      <BarChart3 className="w-8 h-8" />
-                    </div>
-                    <div>
-                      <h3 className="text-2xl font-bold mb-1">This Week: Intelligence Summary</h3>
-                      <p className="text-blue-100">
-                        {latestAnalytics.task_completion_rate}% compliance,
-                        {latestAnalytics.quality_score_avg > 0 && ` ${latestAnalytics.quality_score_avg.toFixed(1)}★ quality`}
-                        {latestAnalytics.inventory_cost_variance > 0 && `, ${latestAnalytics.inventory_cost_variance.toFixed(1)}% cost variance`}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-sm opacity-90">View Full Analytics →</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </Link>
-        )}
-
-        {/* 🎯 Operations Core Banner */}
-        <Link to={createPageUrl('OperationsCore')}>
-          <Card className="mb-6 bg-gradient-to-r from-emerald-600 to-teal-600 text-white border-none hover:shadow-2xl transition-all cursor-pointer">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div className="w-14 h-14 bg-white/20 backdrop-blur rounded-2xl flex items-center justify-center">
-                    <Target className="w-8 h-8" />
-                  </div>
-                  <div>
-                    <h3 className="text-2xl font-bold mb-1">Operations Central</h3>
-                    <p className="text-emerald-100">Unified view of all SOPs, Audits & Checklists</p>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <p className="text-4xl font-bold mb-1">{operationsStats.completionRate}%</p>
-                  <p className="text-sm opacity-90">Completion Rate</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </Link>
-
-        {/* Latest AI Insights */}
-        {latestInsights.length > 0 && (
-          <Card className="mb-6 bg-gradient-to-r from-purple-50 to-pink-50 border-purple-200">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Lightbulb className="w-5 h-5 text-purple-600" />
-                Latest AI Insights
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                {latestInsights.map((insight) => (
-                  <div key={insight.id} className="p-3 bg-white rounded-lg border border-purple-200">
-                    <div className="flex items-start gap-2">
-                      <Badge className={
-                        insight.severity === 'positive' ? 'bg-green-100 text-green-800' :
-                        insight.severity === 'warning' ? 'bg-amber-100 text-amber-800' :
-                        'bg-blue-100 text-blue-800'
-                      }>
-                        {insight.category}
-                      </Badge>
-                      <div className="flex-1">
-                        <p className="text-sm font-semibold text-gray-900">{insight.title}</p>
-                        <p className="text-xs text-gray-700">{insight.message}</p>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* 🎯 Operations Core Quick Stats */}
-        <div className="grid md:grid-cols-4 gap-4 mb-6">
-          <Card className="border-l-4 border-l-emerald-500">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <CheckCircle className="w-8 h-8 text-emerald-600" />
-                <div>
-                  <p className="text-2xl font-bold text-gray-900">{operationsStats.completedTasks}</p>
-                  <p className="text-sm text-gray-600">Tasks Completed</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="border-l-4 border-l-red-500">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <AlertTriangle className="w-8 h-8 text-red-600" />
-                <div>
-                  <p className="text-2xl font-bold text-gray-900">{operationsStats.overdueTasks}</p>
-                  <p className="text-sm text-gray-600">Overdue Tasks</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="border-l-4 border-l-amber-500">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <Star className="w-8 h-8 text-amber-600" />
-                <div>
-                  <p className="text-2xl font-bold text-gray-900">{operationsStats.auditPerformance.toFixed(1)}</p>
-                  <p className="text-sm text-gray-600">Audit Score</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="border-l-4 border-l-purple-500">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <TrendingUp className="w-8 h-8 text-purple-600" />
-                <div>
-                  <p className="text-2xl font-bold text-gray-900">{operationsStats.completionRate}%</p>
-                  <p className="text-sm text-gray-600">Completion Rate</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
 
         {/* KPI Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
@@ -500,7 +344,7 @@ export default function DashboardPro() {
           </CardContent>
         </Card>
 
-        {/* ✨ NEW: Recent Activity Feed */}
+        {/* Recent Activity Feed */}
         <Card className="bg-white border-none shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="flex items-center gap-2">
@@ -522,7 +366,7 @@ export default function DashboardPro() {
               </div>
             ) : (
               <div className="space-y-3 max-h-[500px] overflow-y-auto">
-                {recentActivities.map((activity, index) => (
+                {recentActivities.map((activity) => (
                   <div
                     key={activity.id}
                     className={`flex items-start gap-3 p-3 rounded-lg border ${getActivityColor(activity.activity_type)} transition-all hover:shadow-md`}

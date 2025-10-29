@@ -4,11 +4,19 @@ import { base44 } from '@/api/base44Client';
 /**
  * 🤖 AGENT INITIALIZER
  * Ensures all AURA Brain agents are configured and ready
+ * SAFE MODE: Only initializes after user is authenticated
  */
 export default function AgentInitializer() {
   useEffect(() => {
     const initializeAgents = async () => {
       try {
+        // 🛡️ Safety Check: Only run if user is logged in
+        const isAuth = await base44.auth.isAuthenticated();
+        if (!isAuth) {
+          console.log('[AgentInitializer] User not authenticated - skipping agent initialization');
+          return;
+        }
+
         const existingConfigs = await base44.entities.AgentConfig.list();
         
         const requiredAgents = [
@@ -89,10 +97,16 @@ export default function AgentInitializer() {
         console.log('[AgentInitializer] All agents initialized ✅');
       } catch (error) {
         console.error('[AgentInitializer] Error:', error);
+        // Don't throw - allow app to continue even if agent init fails
       }
     };
 
-    initializeAgents();
+    // Delay initialization by 2 seconds to ensure app is fully loaded
+    const timer = setTimeout(() => {
+      initializeAgents();
+    }, 2000);
+
+    return () => clearTimeout(timer);
   }, []);
 
   return null;
