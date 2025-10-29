@@ -3,7 +3,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Package, Truck, ChefHat, BarChart3, ArrowRight, Warehouse, ShoppingCart, FileText } from "lucide-react";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
-import { motion } from "framer-motion";
 
 const inventoryModules = [
   {
@@ -88,11 +87,10 @@ export default function Inventory() {
           {inventoryModules.map((module, index) => {
             const Icon = module.icon;
             return (
-              <motion.div
+              <div
                 key={module.title}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.3, delay: index * 0.1 }}
+                className="opacity-0 animate-fade-in"
+                style={{ animationDelay: `${index * 100}ms`, animationFillMode: 'forwards' }}
               >
                 <Link to={module.url}>
                   <Card className="bg-white border-none shadow-lg hover:shadow-xl transition-all duration-300 group overflow-hidden relative h-full">
@@ -117,7 +115,7 @@ export default function Inventory() {
                     </CardContent>
                   </Card>
                 </Link>
-              </motion.div>
+              </div>
             );
           })}
         </div>
