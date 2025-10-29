@@ -1,6 +1,5 @@
 import React from 'react';
 import { Card } from "@/components/ui/card";
-import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import { ArrowRight } from "lucide-react";
 
@@ -39,24 +38,16 @@ export default function StatCard({ title, value, subtitle, icon: Icon, color, tr
   if (link) {
     return (
       <Link to={link} className="block group">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3 }}
-        >
+        <div className="animate-fade-in">
           {cardContent}
-        </motion.div>
+        </div>
       </Link>
     );
   }
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3 }}
-    >
+    <div className="animate-fade-in">
       {cardContent}
-    </motion.div>
+    </div>
   );
 }
