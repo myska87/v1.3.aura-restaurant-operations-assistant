@@ -1,59 +1,123 @@
-import React, { useEffect } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
-
 /**
- * AURA Brain - Event Bus
- * Central event dispatcher for agent coordination
- * Listens to React Query cache changes and triggers agent processing
+ * EventBus - Inter-Agent Communication System
+ * Allows agents to communicate and coordinate actions safely
  */
-export default function EventBus() {
-  const queryClient = useQueryClient();
 
-  useEffect(() => {
-    console.log('[EventBus] Initializing AURA Brain Event Bus...');
+class EventBusClass {
+  constructor() {
+    this.listeners = {};
+    this.eventHistory = [];
+    this.maxHistorySize = 100;
+  }
 
-    const unsubscribe = queryClient.getQueryCache().subscribe((event) => {
-      if (event?.type === 'updated') {
-        const queryKey = event.query?.queryKey;
-        if (!queryKey || queryKey.length === 0) return;
+  /**
+   * Subscribe to an event type
+   */
+  on(eventType, callback) {
+    if (!this.listeners[eventType]) {
+      this.listeners[eventType] = [];
+    }
+    this.listeners[eventType].push(callback);
 
-        const entityName = queryKey[0];
+    // Return unsubscribe function
+    return () => {
+      this.listeners[eventType] = this.listeners[eventType].filter(cb => cb !== callback);
+    };
+  }
 
-        // Dispatch to relevant agents based on entity changes
-        switch (entityName) {
-          case 'checklistExecutions':
-          case 'formAssignments':
-          case 'hygieneRecords':
-            console.log('[EventBus] Hygiene-related data updated → HygieneAgent notified');
-            break;
+  /**
+   * Emit an event to all subscribers
+   */
+  async emit(eventType, data) {
+    try {
+      const event = {
+        type: eventType,
+        data,
+        timestamp: new Date().toISOString(),
+        id: `evt_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+      };
 
-          case 'ingredients':
-          case 'inventoryItems':
-            console.log('[EventBus] Inventory data updated → InventoryAgent notified');
-            break;
+      // Add to history
+      this.eventHistory.push(event);
+      if (this.eventHistory.length > this.maxHistorySize) {
+        this.eventHistory.shift();
+      }
 
-          case 'qualityRecords':
-          case 'qualityScores':
-            console.log('[EventBus] Quality data updated → QualityAgent notified');
-            break;
-
-          case 'shifts':
-          case 'attendanceRecords':
-            console.log('[EventBus] Operations data updated → OperationsAgent notified');
-            break;
-
-          default:
-            // No action needed for other entities
-            break;
+      // Notify all listeners
+      const listeners = this.listeners[eventType] || [];
+      for (const callback of listeners) {
+        try {
+          await callback(data, event);
+        } catch (error) {
+          console.error(`EventBus: Error in listener for ${eventType}:`, error);
         }
       }
-    });
 
-    return () => {
-      console.log('[EventBus] Shutting down Event Bus');
-      unsubscribe();
-    };
-  }, [queryClient]);
+      return event;
+    } catch (error) {
+      console.error('EventBus: Failed to emit event:', error);
+      return null;
+    }
+  }
 
-  return null;
+  /**
+   * Get recent events
+   */
+  getHistory(eventType = null, limit = 20) {
+    let events = this.eventHistory;
+    
+    if (eventType) {
+      events = events.filter(e => e.type === eventType);
+    }
+
+    return events.slice(-limit);
+  }
+
+  /**
+   * Clear all listeners (useful for cleanup)
+   */
+  clear() {
+    this.listeners = {};
+  }
+
+  /**
+   * Get all active event types
+   */
+  getEventTypes() {
+    return Object.keys(this.listeners);
+  }
 }
+
+// Create singleton instance
+const EventBus = new EventBusClass();
+
+export default EventBus;
+
+// Event Types Constants
+export const EVENT_TYPES = {
+  // Hygiene Events
+  HYGIENE_CHECK_COMPLETED: 'hygiene_check_completed',
+  HYGIENE_ALERT: 'hygiene_alert',
+  HYGIENE_SCORE_UPDATED: 'hygiene_score_updated',
+  
+  // Inventory Events
+  STOCK_LOW: 'stock_low',
+  STOCK_CRITICAL: 'stock_critical',
+  ORDER_GENERATED: 'order_generated',
+  ORDER_APPROVED: 'order_approved',
+  
+  // Quality Events
+  QUALITY_CHECK_FAILED: 'quality_check_failed',
+  SOP_MISSED: 'sop_missed',
+  QUALITY_SCORE_UPDATED: 'quality_score_updated',
+  
+  // System Events
+  AGENT_STARTED: 'agent_started',
+  AGENT_COMPLETED: 'agent_completed',
+  AGENT_FAILED: 'agent_failed',
+  
+  // Task Events
+  TASK_CREATED: 'task_created',
+  TASK_ASSIGNED: 'task_assigned',
+  TASK_OVERDUE: 'task_overdue'
+};
