@@ -24,8 +24,7 @@ import {
 import { Plus, Pencil, Trash2, ChefHat, Camera, Image as ImageIcon, Folder, Calculator, ShoppingCart, ArrowLeft, Home } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Link } from "react-router-dom";
-import { createPageUrl } from "@/utils";
-import { safeNumber, toSafeNumber, safeCurrency } from "@/utils"; // Updated import
+import { createPageUrl, safeNumber, toSafeNumber, safeCurrency } from "@/utils";
 
 export default function MenuManagement() {
   const queryClient = useQueryClient();
@@ -854,7 +853,9 @@ export default function MenuManagement() {
                         </div>
                       ) : (
                         categories.map(cat => (
-                          <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
+                          <SelectItem key={cat.id} value={cat.id}>
+                            {cat.name}
+                          </SelectItem>
                         ))
                       )}
                     </SelectContent>

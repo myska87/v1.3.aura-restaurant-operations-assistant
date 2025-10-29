@@ -15,9 +15,8 @@ import {
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { DollarSign, Users, TrendingUp, Download, ArrowLeft, Home, Clock } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { createPageUrl } from '@/utils';
+import { createPageUrl, safeNumber, toSafeNumber, safeCurrency } from '@/utils';
 import { format, startOfWeek, endOfWeek, getISOWeek } from 'date-fns';
-import { safeNumber, toSafeNumber, safeCurrency } from '@/utils';
 
 export default function PayrollDashboard() {
   const [selectedWeek, setSelectedWeek] = useState(() => {

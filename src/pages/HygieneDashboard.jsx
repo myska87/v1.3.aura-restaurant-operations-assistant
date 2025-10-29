@@ -9,6 +9,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Dialog,
   DialogContent,
   DialogHeader,
@@ -39,8 +46,10 @@ import {
   ArrowLeft,
   ClipboardList,
   Loader2,
+  Camera, // Added
+  Flame, // Added
 } from "lucide-react";
-import { format } from "date-fns";
+import { format, startOfWeek, endOfWeek } from "date-fns"; // Added startOfWeek, endOfWeek
 import { Link, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { motion } from "framer-motion";

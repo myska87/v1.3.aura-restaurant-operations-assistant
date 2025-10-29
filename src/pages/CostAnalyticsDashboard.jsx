@@ -12,20 +12,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  TrendingUp,
-  TrendingDown,
-  DollarSign,
-  Package,
-  ShoppingCart,
-  Home,
-  ArrowLeft,
-} from "lucide-react";
-import { format, subDays, startOfWeek, endOfWeek } from "date-fns";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import { TrendingUp, TrendingDown, DollarSign, Package, ShoppingCart, ArrowLeft, Home } from "lucide-react";
 import { Link } from "react-router-dom";
-import { createPageUrl } from "@/utils";
-import { safeNumber, toSafeNumber, safeCurrency } from "@/utils";
+import { createPageUrl, safeNumber, toSafeNumber, safeCurrency } from "@/utils";
+import { format, subDays, startOfWeek, endOfWeek } from "date-fns";
 
 export default function CostAnalyticsDashboard() {
   const [timeRange, setTimeRange] = useState("7days");

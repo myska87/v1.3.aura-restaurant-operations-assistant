@@ -14,31 +14,29 @@ import {
 } from '@/components/ui/select';
 import {
   TrendingUp,
-  Target,
-  CheckCircle,
-  Star,
-  Clock,
-  Package,
-  AlertTriangle,
-  Download,
-  Calendar,
-  Home,
   Users,
-  BarChart3,
-  Activity,
-  Lightbulb,
-  Shield,
+  CheckCircle,
+  AlertTriangle,
+  Clock,
+  Star,
+  ArrowLeft, // Added from outline
+  Home,
+  Download,
+  Shield, // Kept for functionality
+  BarChart3, // Kept for functionality
+  Lightbulb, // Kept for functionality
+  Activity, // Kept for functionality
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { createPageUrl } from '@/utils';
+import { createPageUrl, safeNumber, toSafeNumber } from '@/utils'; // Combined utils imports
 import {
   LineChart,
   Line,
   BarChart,
   Bar,
-  PieChart,
-  Pie,
-  Cell,
+  PieChart, // Kept for functionality
+  Pie, // Kept for functionality
+  Cell, // Kept for functionality
   XAxis,
   YAxis,
   CartesianGrid,
@@ -48,7 +46,6 @@ import {
 } from 'recharts';
 import { format, subDays, startOfWeek, endOfWeek } from 'date-fns';
 import { motion } from 'framer-motion';
-import { safeNumber, toSafeNumber } from '@/utils';
 
 export default function AnalyticsDashboard() {
   const [timeRange, setTimeRange] = useState('7days');

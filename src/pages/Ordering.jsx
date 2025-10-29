@@ -7,13 +7,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { ShoppingCart, Send, Trash2, ArrowLeft, Home, Mail, Truck, Clock } from "lucide-react";
+import { ShoppingCart, Send, Trash2, ArrowLeft, Home } from "lucide-react";
 import { format } from "date-fns";
 import { Link } from "react-router-dom";
-import { createPageUrl } from "@/utils";
+import { createPageUrl, safeNumber, toSafeNumber } from "@/utils";
 import { logEmailSent } from "../components/ComplianceEmailLogger";
-import { safeNumber, toSafeNumber } from "@/utils"; // Updated import
 
 export default function Ordering() {
   const queryClient = useQueryClient();

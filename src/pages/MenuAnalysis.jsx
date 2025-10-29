@@ -1,5 +1,5 @@
 
-import React from "react";
+import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,8 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
 import { TrendingUp, TrendingDown, Star, DollarSign, ChefHat, ArrowLeft, Home } from "lucide-react";
 import { Link } from "react-router-dom";
-import { createPageUrl } from "@/utils";
-import { safeNumber, toSafeNumber, safeCurrency } from "@/utils"; // Updated import statement
+import { createPageUrl, safeNumber, toSafeNumber, safeCurrency } from "@/utils";
 
 export default function MenuAnalysis() {
   const { data: menuItems = [] } = useQuery({

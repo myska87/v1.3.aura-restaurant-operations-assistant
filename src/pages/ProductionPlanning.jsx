@@ -3,14 +3,22 @@ import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogTrigger,
 } from "@/components/ui/dialog";
 import {
   DropdownMenu,
@@ -21,7 +29,7 @@ import {
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Calculator, ShoppingCart, ArrowLeft, Home, Send, MoreVertical, Edit, Trash2, AlertTriangle, DollarSign, Clock } from "lucide-react";
+import { Plus, Calculator, ShoppingCart, ArrowLeft, Home, Send, MoreVertical, Edit, Trash2, AlertTriangle, DollarSign, Clock, TrendingUp } from "lucide-react";
 import { format } from "date-fns";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -667,18 +675,21 @@ export default function ProductionPlanning() {
               <div>
                 <Label>Add Menu Items</Label>
                 <div className="grid grid-cols-3 gap-3 mt-2">
-                  <select
+                  <Select
                     value={selectedMenuItem}
-                    onChange={(e) => setSelectedMenuItem(e.target.value)}
-                    className="col-span-2 p-2 border rounded"
+                    onValueChange={setSelectedMenuItem}
                   >
-                    <option value="">Select menu item...</option>
-                    {menuItems.map(item => (
-                      <option key={item.id} value={item.id}>
-                        {item.name} - £{safeNumber(item.sell_price, 2)}
-                      </option>
-                    ))}
-                  </select>
+                    <SelectTrigger className="col-span-2">
+                      <SelectValue placeholder="Select menu item..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {menuItems.map(item => (
+                        <SelectItem key={item.id} value={item.id}>
+                          {item.name} - £{safeNumber(item.sell_price, 2)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   <Input
                     type="number"
                     placeholder="Portions"
