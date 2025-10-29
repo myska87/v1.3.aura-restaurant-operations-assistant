@@ -123,6 +123,7 @@ import SettingsDashboard from './pages/SettingsDashboard';
 import SystemHealthCheck from './pages/SystemHealthCheck';
 import StaffAnalytics from './pages/StaffAnalytics';
 import KPIDashboard from './pages/KPIDashboard';
+import Home from './pages/Home';
 import Layout from './Layout.jsx';
 
 
@@ -252,6 +253,7 @@ export const PAGES = {
     "SystemHealthCheck": SystemHealthCheck,
     "StaffAnalytics": StaffAnalytics,
     "KPIDashboard": KPIDashboard,
+    "Home": Home,
 }
 
 export const pagesConfig = {
