@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -100,32 +101,57 @@ const getRoleNavigation = (user) => {
   ];
 };
 
-// All pages for search (comprehensive list)
+// Comprehensive page list for global search
 const ALL_PAGES = [
-  { name: "Dashboard", url: createPageUrl("Dashboard"), keywords: "home main overview" },
-  { name: "Operations", url: createPageUrl("OperationsDashboard"), keywords: "tasks checklists daily" },
-  { name: "Staff", url: createPageUrl("StaffDashboard"), keywords: "team employees scheduling" },
-  { name: "Inventory", url: createPageUrl("InventoryDashboard"), keywords: "stock supplies ordering" },
-  { name: "Quality", url: createPageUrl("QualityDashboard"), keywords: "audits checks standards" },
-  { name: "SOPs", url: createPageUrl("SOPDashboardHub"), keywords: "procedures training guides" },
-  { name: "Documents", url: createPageUrl("DocumentsDashboard"), keywords: "files policies contracts" },
-  { name: "Reports", url: createPageUrl("Reports"), keywords: "analytics statistics data" },
-  { name: "Menu Management", url: createPageUrl("Menu"), keywords: "food dishes recipes pricing" },
-  { name: "My Shifts", url: createPageUrl("MyShifts"), keywords: "schedule rota roster" },
-  { name: "My Tasks", url: createPageUrl("MyTasks"), keywords: "todo assignments work" },
-  { name: "Clock In/Out", url: createPageUrl("ClockInOut"), keywords: "attendance time tracking" },
-  { name: "Team Chat", url: createPageUrl("TeamChat"), keywords: "messages communication" },
-  { name: "Announcements", url: createPageUrl("Announcements"), keywords: "news updates notices" },
-  { name: "Team Directory", url: createPageUrl("TeamDirectory"), keywords: "contacts staff list" },
-  { name: "Training", url: createPageUrl("OnboardingTraining"), keywords: "learning courses onboarding" },
-  { name: "Performance", url: createPageUrl("PerformanceGrowth"), keywords: "reviews feedback growth" },
-  { name: "Payroll", url: createPageUrl("PayrollDashboard"), keywords: "wages salary pay" },
-  { name: "Compliance", url: createPageUrl("ComplianceCore"), keywords: "regulations safety health" },
-  { name: "Hygiene", url: createPageUrl("HygieneDashboard"), keywords: "cleanliness temperature" },
-  { name: "Maintenance", url: createPageUrl("Maintenance"), keywords: "repairs equipment issues" },
-  { name: "Settings", url: createPageUrl("SettingsDashboard"), keywords: "configuration admin" },
-  { name: "Analytics", url: createPageUrl("AnalyticsDashboard"), keywords: "insights metrics kpi" },
-  { name: "AI Hub", url: createPageUrl("AIHub"), keywords: "artificial intelligence brain" },
+  // Core Pages
+  { name: "Dashboard", url: createPageUrl("Dashboard"), keywords: "home main overview control center", category: "Core" },
+  { name: "AURA Control Center", url: createPageUrl("DashboardPro"), keywords: "unified widgets ai brain", category: "Core" },
+  
+  // Operations
+  { name: "Operations Hub", url: createPageUrl("OperationsDashboard"), keywords: "tasks checklists daily sops quality", category: "Operations" },
+  { name: "My Tasks", url: createPageUrl("MyTasks"), keywords: "todo assignments work checklist", category: "Operations" },
+  
+  // Staff & Scheduling
+  { name: "Staff Hub", url: createPageUrl("StaffDashboard"), keywords: "team employees hr payroll", category: "Staff" },
+  { name: "Team Directory", url: createPageUrl("TeamDirectory"), keywords: "contacts staff list phone", category: "Staff" },
+  { name: "My Shifts", url: createPageUrl("MyShifts"), keywords: "schedule rota roster calendar", category: "Staff" },
+  { name: "Staff Rota", url: createPageUrl("StaffRota"), keywords: "schedule weekly roster planning", category: "Staff" },
+  { name: "Clock In/Out", url: createPageUrl("ClockInOut"), keywords: "attendance time tracking", category: "Staff" },
+  { name: "Staff Analytics", url: createPageUrl("StaffAnalytics"), keywords: "performance metrics efficiency", category: "Staff" },
+  { name: "KPI Dashboard", url: createPageUrl("KPIDashboard"), keywords: "targets goals performance metrics", category: "Staff" },
+  
+  // Inventory & Menu
+  { name: "Inventory Hub", url: createPageUrl("InventoryDashboard"), keywords: "stock supplies ordering purchasing", category: "Inventory" },
+  { name: "Menu Hub", url: createPageUrl("Menu"), keywords: "food dishes recipes pricing allergens", category: "Menu" },
+  { name: "Menu Management", url: createPageUrl("MenuManagement"), keywords: "create edit dishes pricing", category: "Menu" },
+  { name: "Ordering", url: createPageUrl("Ordering"), keywords: "purchase orders suppliers", category: "Inventory" },
+  
+  // Quality & SOPs
+  { name: "SOP Hub", url: createPageUrl("SOPDashboardHub"), keywords: "procedures training guides standards", category: "SOPs" },
+  { name: "Quality Dashboard", url: createPageUrl("QualityDashboard"), keywords: "audits checks standards inspections", category: "Quality" },
+  { name: "Quick Quality Check", url: createPageUrl("QuickQualityCheck"), keywords: "audit inspection score", category: "Quality" },
+  
+  // Hygiene & Compliance
+  { name: "Hygiene Central", url: createPageUrl("HygieneDashboard"), keywords: "cleanliness temperature safety records", category: "Hygiene" },
+  { name: "Form Intelligence", url: createPageUrl("FormIntelligence"), keywords: "checklists forms compliance eho", category: "Hygiene" },
+  { name: "Compliance Core", url: createPageUrl("ComplianceCore"), keywords: "regulations safety health certificates", category: "Compliance" },
+  
+  // Communication
+  { name: "Team Chat", url: createPageUrl("TeamChat"), keywords: "messages communication talk", category: "Communication" },
+  { name: "Announcements", url: createPageUrl("Announcements"), keywords: "news updates notices broadcast", category: "Communication" },
+  
+  // Documents & Training
+  { name: "Documents Hub", url: createPageUrl("DocumentsDashboard"), keywords: "files policies contracts pdfs", category: "Documents" },
+  { name: "Training", url: createPageUrl("OnboardingTraining"), keywords: "learning courses onboarding education", category: "Training" },
+  
+  // Reports & Analytics
+  { name: "Reports", url: createPageUrl("Reports"), keywords: "analytics statistics data insights", category: "Reports" },
+  { name: "Analytics Dashboard", url: createPageUrl("AnalyticsDashboard"), keywords: "insights metrics trends kpi", category: "Reports" },
+  
+  // Admin & Settings
+  { name: "Settings", url: createPageUrl("SettingsDashboard"), keywords: "configuration admin preferences", category: "Settings" },
+  { name: "Manager Dashboard", url: createPageUrl("ManagerDashboard"), keywords: "management overview alerts", category: "Management" },
+  { name: "AI Hub", url: createPageUrl("AIHub"), keywords: "artificial intelligence brain automation", category: "AI" },
 ];
 
 export default function Layout({ children }) {
@@ -152,6 +178,13 @@ export default function Layout({ children }) {
         page.keywords.toLowerCase().includes(searchQuery.toLowerCase())
       )
     : [];
+
+  // Group filtered pages by category
+  const pagesByCategory = filteredPages.reduce((acc, page) => {
+    if (!acc[page.category]) acc[page.category] = [];
+    acc[page.category].push(page);
+    return acc;
+  }, {});
 
   // Keyboard shortcut for search (Ctrl+K or Cmd+K)
   React.useEffect(() => {
@@ -332,25 +365,27 @@ export default function Layout({ children }) {
           <div className="flex-1 overflow-auto">{children}</div>
         </main>
 
-        {/* Global Search Dialog */}
+        {/* Global Search Dialog - Enhanced with Categories */}
         <CommandDialog open={searchOpen} onOpenChange={setSearchOpen}>
           <CommandInput placeholder="Search pages, features, or modules..." />
           <CommandList>
-            <CommandEmpty>No results found.</CommandEmpty>
-            <CommandGroup heading="Pages">
-              {filteredPages.slice(0, 10).map((page) => (
-                <CommandItem
-                  key={page.url}
-                  onSelect={() => {
-                    window.location.href = page.url;
-                    setSearchOpen(false);
-                  }}
-                >
-                  <Search className="mr-2 h-4 w-4" />
-                  <span>{page.name}</span>
-                </CommandItem>
-              ))}
-            </CommandGroup>
+            <CommandEmpty>No results found. Try different keywords.</CommandEmpty>
+            {Object.entries(pagesByCategory).map(([category, pages]) => (
+              <CommandGroup key={category} heading={category}>
+                {pages.map((page) => (
+                  <CommandItem
+                    key={page.url}
+                    onSelect={() => {
+                      window.location.href = page.url;
+                      setSearchOpen(false);
+                    }}
+                  >
+                    <Search className="mr-2 h-4 w-4" />
+                    <span>{page.name}</span>
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            ))}
           </CommandList>
         </CommandDialog>
       </div>
