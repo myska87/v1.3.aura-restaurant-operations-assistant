@@ -27,6 +27,7 @@ import {
   DollarSign,
   Database,
   TrendingUp,
+  BookOpen,
 } from "lucide-react";
 
 const mainNavigation = [
@@ -36,24 +37,39 @@ const mainNavigation = [
     icon: LayoutDashboard,
   },
   {
-    title: "Compliance",
-    url: createPageUrl("Compliance"),
+    title: "Operations",
+    url: createPageUrl("OperationsDashboard"),
     icon: ClipboardCheck,
   },
   {
     title: "Inventory",
-    url: createPageUrl("Inventory"),
+    url: createPageUrl("InventoryDashboard"),
     icon: Package,
   },
   {
-    title: "Maintenance",
-    url: createPageUrl("Maintenance"),
-    icon: Wrench,
+    title: "Smart Scheduler",
+    url: createPageUrl("SmartScheduler"),
+    icon: Calendar,
   },
   {
     title: "Staff",
-    url: createPageUrl("Staff"),
+    url: createPageUrl("StaffDashboard"),
     icon: Users,
+  },
+  {
+    title: "SOPs",
+    url: createPageUrl("SOPDashboardHub"),
+    icon: BookOpen,
+  },
+  {
+    title: "Quality",
+    url: createPageUrl("QualityDashboard"),
+    icon: Star,
+  },
+  {
+    title: "Documents",
+    url: createPageUrl("DocumentsDashboard"),
+    icon: FileText,
   },
   {
     title: "Reports",
@@ -69,7 +85,6 @@ const otherTools = [
       { title: "Form Builder", url: createPageUrl("FormBuilder") },
       { title: "Form Library", url: createPageUrl("FormLibrary") },
       { title: "Form Intelligence", url: createPageUrl("FormIntelligence") },
-      { title: "Advanced Checklists", url: createPageUrl("AdvancedChecklists") },
       { title: "Checklist Templates", url: createPageUrl("ChecklistTemplates") },
       { title: "My Checklists", url: createPageUrl("MyChecklists") },
       { title: "Daily Checklists", url: createPageUrl("DailyChecklists") },
@@ -90,16 +105,17 @@ const otherTools = [
     ]
   },
   {
-    category: "👥 Staff Management",
+    category: "👥 Staff & Scheduling",
     items: [
       { title: "Staff Rota", url: createPageUrl("StaffRota") },
       { title: "My Shifts", url: createPageUrl("MyShifts") },
       { title: "Clock In/Out", url: createPageUrl("ClockInOut") },
       { title: "My Tasks", url: createPageUrl("MyTasks") },
-      { title: "Smart Scheduler", url: createPageUrl("SmartScheduler") },
       { title: "Shift Templates", url: createPageUrl("ShiftTemplates") },
+      { title: "AI Rota Generator", url: createPageUrl("AIRotaGenerator") },
       { title: "Manage Availability", url: createPageUrl("ManageAvailability") },
       { title: "Attendance Reports", url: createPageUrl("AttendanceReports") },
+      { title: "Attendance Approval", url: createPageUrl("AttendanceApproval") },
       { title: "My Attendance", url: createPageUrl("MyAttendance") },
       { title: "Team Directory", url: createPageUrl("TeamDirectory") },
     ]
@@ -127,24 +143,10 @@ const otherTools = [
     ]
   },
   {
-    category: "⭐ Quality & SOPs",
+    category: "🛠️ Maintenance & Equipment",
     items: [
-      { title: "Quality Dashboard", url: createPageUrl("QualityDashboard") },
-      { title: "Quick Quality Check", url: createPageUrl("QuickQualityCheck") },
-      { title: "Quality Templates", url: createPageUrl("QualityTemplates") },
-      { title: "Quality Reports", url: createPageUrl("QualityReports") },
-      { title: "SOP Dashboard", url: createPageUrl("SOPDashboardHub") },
-      { title: "SOP Builder", url: createPageUrl("SOPBuilder") },
-      { title: "SOP Certifications", url: createPageUrl("SOPCertifications") },
-      { title: "Operations Core", url: createPageUrl("OperationsCore") },
-    ]
-  },
-  {
-    category: "📄 Documents",
-    items: [
-      { title: "Document Management", url: createPageUrl("DocumentManagement") },
-      { title: "Document Builder", url: createPageUrl("DocumentBuilder") },
-      { title: "Document Library", url: createPageUrl("DocumentLibrary") },
+      { title: "Maintenance Tickets", url: createPageUrl("Maintenance") },
+      { title: "Equipment Tracking", url: createPageUrl("InventoryManagement") },
     ]
   },
   {
@@ -153,6 +155,7 @@ const otherTools = [
       { title: "AI Hub", url: createPageUrl("AIHub") },
       { title: "AURA Brain", url: createPageUrl("AuraBrainDashboard") },
       { title: "AI Console", url: createPageUrl("AIConsole") },
+      { title: "AURA Intelligence", url: createPageUrl("AuraIntelligence") },
       { title: "Analytics Dashboard", url: createPageUrl("AnalyticsDashboard") },
       { title: "Event Hub", url: createPageUrl("EventHub") },
     ]
@@ -162,6 +165,7 @@ const otherTools = [
     items: [
       { title: "Compliance Dashboard", url: createPageUrl("ComplianceDashboard") },
       { title: "Compliance Core", url: createPageUrl("ComplianceCore") },
+      { title: "Compliance Checks", url: createPageUrl("Compliance") },
       { title: "Hygiene Dashboard", url: createPageUrl("HygieneDashboard") },
       { title: "EHO Control Center", url: createPageUrl("EHOControlCenter") },
       { title: "Privacy Center", url: createPageUrl("PrivacyCenter") },
@@ -191,7 +195,7 @@ const otherTools = [
     ]
   },
   {
-    category: "🐛 Support",
+    category: "🐛 Support & Feedback",
     items: [
       { title: "Bug Report", url: createPageUrl("BugReport") },
       { title: "Feature Ideas", url: createPageUrl("FeatureIdeas") },
