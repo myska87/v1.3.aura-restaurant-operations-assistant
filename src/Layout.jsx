@@ -21,10 +21,10 @@ import {
   Search,
   Settings,
   Mic,
+  Moon,
+  Sun,
 } from "lucide-react";
-import { Input } from "@/components/ui/input";
 import {
-  Command,
   CommandDialog,
   CommandEmpty,
   CommandGroup,
@@ -38,10 +38,208 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 
 import AgentInitializer from './components/aurabrain/AgentInitializer';
-import VoiceSearch from './components/VoiceSearch';
-import DarkModeToggle from './components/DarkModeToggle';
+
+// Dark Mode Toggle Component (inline)
+function DarkModeToggle() {
+  const [isDark, setIsDark] = React.useState(false);
+
+  React.useEffect(() => {
+    const savedTheme = localStorage.getItem('aura-theme');
+    if (savedTheme === 'dark') {
+      setIsDark(true);
+      document.documentElement.classList.add('dark');
+    }
+  }, []);
+
+  const toggleDarkMode = () => {
+    const newMode = !isDark;
+    setIsDark(newMode);
+
+    if (newMode) {
+      document.documentElement.classList.add('dark');
+      localStorage.setItem('aura-theme', 'dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+      localStorage.setItem('aura-theme', 'light');
+    }
+  };
+
+  return (
+    <Button
+      variant="ghost"
+      size="icon"
+      onClick={toggleDarkMode}
+      className="rounded-full"
+      title={isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+    >
+      {isDark ? (
+        <Sun className="w-5 h-5 text-yellow-500" />
+      ) : (
+        <Moon className="w-5 h-5 text-gray-600" />
+      )}
+    </Button>
+  );
+}
+
+// Voice Search Component (inline)
+function VoiceSearch({ onClose, navigate }) {
+  const [isListening, setIsListening] = useState(false);
+  const [transcript, setTranscript] = useState('');
+  const [recognition, setRecognition] = useState(null);
+
+  React.useEffect(() => {
+    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+      return;
+    }
+
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const recognitionInstance = new SpeechRecognition();
+    
+    recognitionInstance.continuous = false;
+    recognitionInstance.interimResults = true;
+    recognitionInstance.lang = 'en-US';
+
+    recognitionInstance.onresult = (event) => {
+      const current = event.resultIndex;
+      const transcriptText = event.results[current][0].transcript;
+      setTranscript(transcriptText);
+
+      if (event.results[current].isFinal) {
+        handleVoiceCommand(transcriptText);
+      }
+    };
+
+    recognitionInstance.onerror = (event) => {
+      console.error('Speech recognition error:', event.error);
+      setIsListening(false);
+    };
+
+    recognitionInstance.onend = () => {
+      setIsListening(false);
+    };
+
+    setRecognition(recognitionInstance);
+
+    return () => {
+      if (recognitionInstance) {
+        recognitionInstance.stop();
+      }
+    };
+  }, []);
+
+  const startListening = () => {
+    if (recognition) {
+      setTranscript('');
+      recognition.start();
+      setIsListening(true);
+    }
+  };
+
+  const stopListening = () => {
+    if (recognition) {
+      recognition.stop();
+      setIsListening(false);
+    }
+  };
+
+  const handleVoiceCommand = (command) => {
+    const lowerCommand = command.toLowerCase();
+
+    const navMap = {
+      'dashboard': 'Dashboard',
+      'home': 'Dashboard',
+      'tasks': 'MyTasks',
+      'my tasks': 'MyTasks',
+      'shifts': 'MyShifts',
+      'my shifts': 'MyShifts',
+      'clock in': 'ClockInOut',
+      'clock out': 'ClockInOut',
+      'team chat': 'TeamChat',
+      'chat': 'TeamChat',
+      'inventory': 'InventoryDashboard',
+      'stock': 'InventoryDashboard',
+      'menu': 'Menu',
+      'quality': 'QualityDashboard',
+      'sop': 'SOPDashboardHub',
+      'procedures': 'SOPDashboardHub',
+      'documents': 'DocumentsFormsHub',
+      'forms': 'DocumentsFormsHub',
+      'reports': 'Reports',
+      'staff': 'StaffDashboard',
+      'hygiene': 'HygieneDashboard',
+      'settings': 'SettingsDashboard',
+    };
+
+    for (const [keyword, page] of Object.entries(navMap)) {
+      if (lowerCommand.includes(keyword)) {
+        navigate(createPageUrl(page));
+        if (onClose) onClose();
+        if ('speechSynthesis' in window) {
+          const utterance = new SpeechSynthesisUtterance(`Opening ${keyword}`);
+          window.speechSynthesis.speak(utterance);
+        }
+        return;
+      }
+    }
+
+    if ('speechSynthesis' in window) {
+      const utterance = new SpeechSynthesisUtterance("I didn't understand that command. Try saying 'go to dashboard' or 'open tasks'");
+      window.speechSynthesis.speak(utterance);
+    }
+  };
+
+  const isSupported = 'webkitSpeechRecognition' in window || 'SpeechRecognition' in window;
+
+  if (!isSupported) {
+    return (
+      <div className="p-4 text-center">
+        <p className="text-sm text-amber-800">
+          Voice search is not supported in your browser. Try Chrome or Safari.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-6">
+      <div className="text-center">
+        <div className="mb-4">
+          <Button
+            onClick={isListening ? stopListening : startListening}
+            className={`w-20 h-20 rounded-full ${
+              isListening 
+                ? 'bg-red-500 hover:bg-red-600 animate-pulse' 
+                : 'bg-blue-600 hover:bg-blue-700'
+            }`}
+          >
+            <Mic className="w-10 h-10 text-white" />
+          </Button>
+        </div>
+
+        <p className="text-sm font-semibold text-gray-900 mb-2">
+          {isListening ? 'Listening...' : 'Tap to speak'}
+        </p>
+
+        {transcript && (
+          <div className="mt-4 p-3 bg-white rounded-lg border border-purple-200">
+            <p className="text-sm text-gray-900">"{transcript}"</p>
+          </div>
+        )}
+
+        <div className="mt-4 space-y-1">
+          <p className="text-xs text-gray-600">Try saying:</p>
+          <p className="text-xs text-purple-700 font-medium">"Go to dashboard"</p>
+          <p className="text-xs text-purple-700 font-medium">"Open my tasks"</p>
+          <p className="text-xs text-purple-700 font-medium">"Show inventory"</p>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // Role-based navigation configuration
 const getRoleNavigation = (user) => {
@@ -50,7 +248,6 @@ const getRoleNavigation = (user) => {
   const position = user.position?.toLowerCase();
   const isManager = user.role === 'admin' || position === 'manager' || position === 'owner';
 
-  // Manager Navigation
   if (isManager) {
     return [
       { title: "Dashboard", url: createPageUrl("Dashboard"), icon: LayoutDashboard },
@@ -62,7 +259,6 @@ const getRoleNavigation = (user) => {
     ];
   }
 
-  // Chef / Kitchen Navigation
   if (position === 'chef' || position === 'sous_chef' || position === 'line_cook') {
     return [
       { title: "Dashboard", url: createPageUrl("Dashboard"), icon: LayoutDashboard },
@@ -74,7 +270,6 @@ const getRoleNavigation = (user) => {
     ];
   }
 
-  // Front of House Navigation
   if (position === 'server' || position === 'bartender' || position === 'host') {
     return [
       { title: "Dashboard", url: createPageUrl("Dashboard"), icon: LayoutDashboard },
@@ -86,7 +281,6 @@ const getRoleNavigation = (user) => {
     ];
   }
 
-  // Cleaning / Maintenance Navigation
   if (position === 'cleaner' || position === 'maintenance') {
     return [
       { title: "Dashboard", url: createPageUrl("Dashboard"), icon: LayoutDashboard },
@@ -98,7 +292,6 @@ const getRoleNavigation = (user) => {
     ];
   }
 
-  // Default Navigation (fallback)
   return [
     { title: "Dashboard", url: createPageUrl("Dashboard"), icon: LayoutDashboard },
     { title: "My Shifts", url: createPageUrl("MyShifts"), icon: Calendar },
@@ -124,13 +317,12 @@ const ALL_PAGES = [
   
   { name: "Inventory Hub", url: createPageUrl("InventoryDashboard"), keywords: "stock supplies ordering", category: "Inventory" },
   { name: "Menu Hub", url: createPageUrl("Menu"), keywords: "food dishes recipes", category: "Menu" },
-  { name: "Ordering", url: createPageUrl("Ordering"), keywords: "purchase orders suppliers", category: "Inventory" },
   
   { name: "SOP Hub", url: createPageUrl("SOPDashboardHub"), keywords: "procedures training guides", category: "SOPs" },
   { name: "Quality Dashboard", url: createPageUrl("QualityDashboard"), keywords: "audits checks standards", category: "Quality" },
   
   { name: "Hygiene Central", url: createPageUrl("HygieneDashboard"), keywords: "cleanliness temperature safety", category: "Hygiene" },
-  { name: "Form Intelligence", url: createPageUrl("FormIntelligence"), keywords: "checklists forms compliance", category: "Hygiene" },
+  { name: "Form Intelligence", url: createPageUrl("FormIntelligence"), keywords: "checklists forms compliance", category: "Forms" },
   
   { name: "Team Chat", url: createPageUrl("TeamChat"), keywords: "messages communication", category: "Communication" },
   { name: "Announcements", url: createPageUrl("Announcements"), keywords: "news updates notices", category: "Communication" },
@@ -145,12 +337,20 @@ export default function Layout({ children }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [voiceSearchOpen, setVoiceSearchOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
+  const [isDarkMode, setIsDarkMode] = useState(false);
 
   const { data: user } = useQuery({
     queryKey: ["currentUser"],
     queryFn: () => base44.auth.me(),
   });
+
+  React.useEffect(() => {
+    const savedTheme = localStorage.getItem('aura-theme');
+    if (savedTheme === 'dark') {
+      setIsDarkMode(true);
+      document.documentElement.classList.add('dark');
+    }
+  }, []);
 
   const navigation = getRoleNavigation(user);
 
@@ -158,12 +358,20 @@ export default function Layout({ children }) {
     await base44.auth.logout();
   };
 
-  const filteredPages = searchQuery
-    ? ALL_PAGES.filter(page =>
-        page.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        page.keywords.toLowerCase().includes(searchQuery.toLowerCase())
-      )
-    : [];
+  const toggleDarkMode = () => {
+    const newMode = !isDarkMode;
+    setIsDarkMode(newMode);
+
+    if (newMode) {
+      document.documentElement.classList.add('dark');
+      localStorage.setItem('aura-theme', 'dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+      localStorage.setItem('aura-theme', 'light');
+    }
+  };
+
+  const filteredPages = ALL_PAGES;
 
   const pagesByCategory = filteredPages.reduce((acc, page) => {
     if (!acc[page.category]) acc[page.category] = [];
@@ -197,6 +405,7 @@ export default function Layout({ children }) {
             sidebarOpen ? "translate-x-0" : "-translate-x-full"
           } lg:translate-x-0`}
         >
+          {/* Logo Header */}
           <div className="border-b border-gray-100 dark:border-gray-700 p-6">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -217,6 +426,7 @@ export default function Layout({ children }) {
             </div>
           </div>
 
+          {/* Search & Voice Controls */}
           <div className="p-4 border-b border-gray-100 dark:border-gray-700 space-y-2">
             <button
               onClick={() => setSearchOpen(true)}
@@ -238,6 +448,7 @@ export default function Layout({ children }) {
             </button>
           </div>
 
+          {/* User Role Badge */}
           {user && (
             <div className="px-4 py-3">
               <div className="px-3 py-2 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
@@ -249,6 +460,7 @@ export default function Layout({ children }) {
             </div>
           )}
 
+          {/* Navigation Links */}
           <div className="p-3">
             <div className="space-y-1">
               {navigation.map((item) => {
@@ -272,6 +484,7 @@ export default function Layout({ children }) {
             </div>
           </div>
 
+          {/* Quick Actions */}
           <div className="px-4 py-3 border-t border-gray-100 dark:border-gray-700 mt-auto">
             <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-2 px-3">QUICK ACTIONS</p>
             <div className="space-y-1">
@@ -294,6 +507,7 @@ export default function Layout({ children }) {
             </div>
           </div>
 
+          {/* User Profile Section */}
           <div className="border-t border-gray-100 dark:border-gray-700 p-4">
             {user && (
               <div className="space-y-3">
@@ -313,7 +527,20 @@ export default function Layout({ children }) {
                       </p>
                     </div>
                   </div>
-                  <DarkModeToggle />
+                  {/* Dark Mode Toggle Button */}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={toggleDarkMode}
+                    className="rounded-full flex-shrink-0"
+                    title={isDarkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+                  >
+                    {isDarkMode ? (
+                      <Sun className="w-5 h-5 text-yellow-500" />
+                    ) : (
+                      <Moon className="w-5 h-5 text-gray-600" />
+                    )}
+                  </Button>
                 </div>
                 <button
                   onClick={handleLogout}
@@ -327,7 +554,9 @@ export default function Layout({ children }) {
           </div>
         </aside>
 
+        {/* Main Content Area */}
         <main className="flex-1 flex flex-col overflow-hidden lg:ml-72">
+          {/* Mobile Header */}
           <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4 lg:hidden">
             <div className="flex items-center gap-4">
               <button
@@ -349,12 +578,23 @@ export default function Layout({ children }) {
               >
                 <Mic className="w-5 h-5 text-purple-600 dark:text-purple-400" />
               </button>
+              <button
+                onClick={toggleDarkMode}
+                className="hover:bg-gray-100 dark:hover:bg-gray-700 p-2 rounded-lg transition-colors"
+              >
+                {isDarkMode ? (
+                  <Sun className="w-5 h-5 text-yellow-500" />
+                ) : (
+                  <Moon className="w-5 h-5 text-gray-600" />
+                )}
+              </button>
             </div>
           </header>
 
           <div className="flex-1 overflow-auto bg-gray-50 dark:bg-gray-900">{children}</div>
         </main>
 
+        {/* Global Search Dialog */}
         <CommandDialog open={searchOpen} onOpenChange={setSearchOpen}>
           <CommandInput placeholder="Search pages, features, or modules..." />
           <CommandList>
@@ -378,6 +618,7 @@ export default function Layout({ children }) {
           </CommandList>
         </CommandDialog>
 
+        {/* Voice Search Dialog */}
         <Dialog open={voiceSearchOpen} onOpenChange={setVoiceSearchOpen}>
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
@@ -386,7 +627,13 @@ export default function Layout({ children }) {
                 Voice Navigation
               </DialogTitle>
             </DialogHeader>
-            <VoiceSearch onClose={() => setVoiceSearchOpen(false)} />
+            <VoiceSearch 
+              onClose={() => setVoiceSearchOpen(false)} 
+              navigate={(url) => {
+                window.location.href = url;
+                setVoiceSearchOpen(false);
+              }}
+            />
           </DialogContent>
         </Dialog>
       </div>
