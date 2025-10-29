@@ -38,54 +38,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 
 import AgentInitializer from './components/aurabrain/AgentInitializer';
 
-// Dark Mode Toggle Component (inline)
-function DarkModeToggle() {
-  const [isDark, setIsDark] = React.useState(false);
-
-  React.useEffect(() => {
-    const savedTheme = localStorage.getItem('aura-theme');
-    if (savedTheme === 'dark') {
-      setIsDark(true);
-      document.documentElement.classList.add('dark');
-    }
-  }, []);
-
-  const toggleDarkMode = () => {
-    const newMode = !isDark;
-    setIsDark(newMode);
-
-    if (newMode) {
-      document.documentElement.classList.add('dark');
-      localStorage.setItem('aura-theme', 'dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-      localStorage.setItem('aura-theme', 'light');
-    }
-  };
-
-  return (
-    <Button
-      variant="ghost"
-      size="icon"
-      onClick={toggleDarkMode}
-      className="rounded-full"
-      title={isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
-    >
-      {isDark ? (
-        <Sun className="w-5 h-5 text-yellow-500" />
-      ) : (
-        <Moon className="w-5 h-5 text-gray-600" />
-      )}
-    </Button>
-  );
-}
-
-// Voice Search Component (inline)
+// Voice Search Component
 function VoiceSearch({ onClose, navigate }) {
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState('');
@@ -241,7 +198,7 @@ function VoiceSearch({ onClose, navigate }) {
   );
 }
 
-// Role-based navigation configuration
+// Role-based navigation
 const getRoleNavigation = (user) => {
   if (!user) return [];
 
@@ -300,33 +257,25 @@ const getRoleNavigation = (user) => {
   ];
 };
 
-// Comprehensive page list for global search
 const ALL_PAGES = [
   { name: "Dashboard", url: createPageUrl("Dashboard"), keywords: "home main overview", category: "Core" },
   { name: "AURA Control Center", url: createPageUrl("DashboardPro"), keywords: "unified widgets ai brain", category: "Core" },
   { name: "Documents & Forms Hub", url: createPageUrl("DocumentsFormsHub"), keywords: "documents forms sops unified", category: "Core" },
-  
   { name: "Operations Hub", url: createPageUrl("OperationsDashboard"), keywords: "tasks checklists daily", category: "Operations" },
   { name: "My Tasks", url: createPageUrl("MyTasks"), keywords: "todo assignments work", category: "Operations" },
-  
   { name: "Staff Hub", url: createPageUrl("StaffDashboard"), keywords: "team employees hr", category: "Staff" },
   { name: "Team Directory", url: createPageUrl("TeamDirectory"), keywords: "contacts staff list", category: "Staff" },
   { name: "My Shifts", url: createPageUrl("MyShifts"), keywords: "schedule rota roster", category: "Staff" },
   { name: "Staff Rota", url: createPageUrl("StaffRota"), keywords: "schedule weekly planning", category: "Staff" },
   { name: "Clock In/Out", url: createPageUrl("ClockInOut"), keywords: "attendance time tracking", category: "Staff" },
-  
   { name: "Inventory Hub", url: createPageUrl("InventoryDashboard"), keywords: "stock supplies ordering", category: "Inventory" },
   { name: "Menu Hub", url: createPageUrl("Menu"), keywords: "food dishes recipes", category: "Menu" },
-  
   { name: "SOP Hub", url: createPageUrl("SOPDashboardHub"), keywords: "procedures training guides", category: "SOPs" },
   { name: "Quality Dashboard", url: createPageUrl("QualityDashboard"), keywords: "audits checks standards", category: "Quality" },
-  
   { name: "Hygiene Central", url: createPageUrl("HygieneDashboard"), keywords: "cleanliness temperature safety", category: "Hygiene" },
   { name: "Form Intelligence", url: createPageUrl("FormIntelligence"), keywords: "checklists forms compliance", category: "Forms" },
-  
   { name: "Team Chat", url: createPageUrl("TeamChat"), keywords: "messages communication", category: "Communication" },
   { name: "Announcements", url: createPageUrl("Announcements"), keywords: "news updates notices", category: "Communication" },
-  
   { name: "Training", url: createPageUrl("OnboardingTraining"), keywords: "learning courses onboarding", category: "Training" },
   { name: "Reports", url: createPageUrl("Reports"), keywords: "analytics statistics data", category: "Reports" },
   { name: "Settings", url: createPageUrl("SettingsDashboard"), keywords: "configuration admin", category: "Settings" },
@@ -371,9 +320,7 @@ export default function Layout({ children }) {
     }
   };
 
-  const filteredPages = ALL_PAGES;
-
-  const pagesByCategory = filteredPages.reduce((acc, page) => {
+  const pagesByCategory = ALL_PAGES.reduce((acc, page) => {
     if (!acc[page.category]) acc[page.category] = [];
     acc[page.category].push(page);
     return acc;
@@ -401,12 +348,12 @@ export default function Layout({ children }) {
         )}
 
         <aside
-          className={`fixed top-0 left-0 h-full bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 z-50 transition-transform duration-300 w-72 overflow-y-auto ${
+          className={`fixed top-0 left-0 h-full bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 z-50 transition-transform duration-300 w-72 flex flex-col ${
             sidebarOpen ? "translate-x-0" : "-translate-x-full"
           } lg:translate-x-0`}
         >
           {/* Logo Header */}
-          <div className="border-b border-gray-100 dark:border-gray-700 p-6">
+          <div className="border-b border-gray-100 dark:border-gray-700 p-6 flex-shrink-0">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-blue-800 rounded-xl flex items-center justify-center shadow-lg">
@@ -427,7 +374,7 @@ export default function Layout({ children }) {
           </div>
 
           {/* Search & Voice Controls */}
-          <div className="p-4 border-b border-gray-100 dark:border-gray-700 space-y-2">
+          <div className="p-4 border-b border-gray-100 dark:border-gray-700 space-y-2 flex-shrink-0">
             <button
               onClick={() => setSearchOpen(true)}
               className="w-full flex items-center gap-2 px-3 py-2 bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 rounded-lg transition-colors"
@@ -450,7 +397,7 @@ export default function Layout({ children }) {
 
           {/* User Role Badge */}
           {user && (
-            <div className="px-4 py-3">
+            <div className="px-4 py-3 flex-shrink-0">
               <div className="px-3 py-2 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
                 <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Your Role</p>
                 <p className="font-semibold text-gray-900 dark:text-white capitalize">
@@ -460,8 +407,8 @@ export default function Layout({ children }) {
             </div>
           )}
 
-          {/* Navigation Links */}
-          <div className="p-3">
+          {/* Navigation Links - Scrollable */}
+          <div className="flex-1 overflow-y-auto p-3">
             <div className="space-y-1">
               {navigation.map((item) => {
                 const isActive = location.pathname === item.url;
@@ -482,38 +429,38 @@ export default function Layout({ children }) {
                 );
               })}
             </div>
-          </div>
 
-          {/* Quick Actions */}
-          <div className="px-4 py-3 border-t border-gray-100 dark:border-gray-700 mt-auto">
-            <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-2 px-3">QUICK ACTIONS</p>
-            <div className="space-y-1">
-              <Link to={createPageUrl("ClockInOut")} onClick={() => setSidebarOpen(false)}>
-                <button className="w-full text-left px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors">
-                  ⏰ Clock In/Out
+            {/* Quick Actions */}
+            <div className="pt-4 mt-4 border-t border-gray-100 dark:border-gray-700">
+              <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-2 px-3">QUICK ACTIONS</p>
+              <div className="space-y-1">
+                <Link to={createPageUrl("ClockInOut")} onClick={() => setSidebarOpen(false)}>
+                  <button className="w-full text-left px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors">
+                    ⏰ Clock In/Out
+                  </button>
+                </Link>
+                <Link to={createPageUrl("TeamChat")} onClick={() => setSidebarOpen(false)}>
+                  <button className="w-full text-left px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors">
+                    💬 Team Chat
+                  </button>
+                </Link>
+                <button
+                  onClick={() => setSearchOpen(true)}
+                  className="w-full text-left px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                >
+                  🔍 Find Anything...
                 </button>
-              </Link>
-              <Link to={createPageUrl("TeamChat")} onClick={() => setSidebarOpen(false)}>
-                <button className="w-full text-left px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors">
-                  💬 Team Chat
-                </button>
-              </Link>
-              <button
-                onClick={() => setSearchOpen(true)}
-                className="w-full text-left px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors"
-              >
-                🔍 Find Anything...
-              </button>
+              </div>
             </div>
           </div>
 
-          {/* User Profile Section */}
-          <div className="border-t border-gray-100 dark:border-gray-700 p-4">
+          {/* User Profile Section - FIXED AT BOTTOM */}
+          <div className="border-t border-gray-100 dark:border-gray-700 p-4 flex-shrink-0 bg-white dark:bg-gray-800">
             {user && (
               <div className="space-y-3">
                 <div className="flex items-center justify-between px-2">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-gradient-to-br from-gray-700 to-gray-900 rounded-full flex items-center justify-center">
+                  <div className="flex items-center gap-3 flex-1 min-w-0">
+                    <div className="w-10 h-10 bg-gradient-to-br from-gray-700 to-gray-900 rounded-full flex items-center justify-center flex-shrink-0">
                       <span className="text-white font-semibold text-sm">
                         {user.full_name?.charAt(0)?.toUpperCase() || "U"}
                       </span>
@@ -527,7 +474,7 @@ export default function Layout({ children }) {
                       </p>
                     </div>
                   </div>
-                  {/* Dark Mode Toggle Button */}
+                  {/* Dark Mode Toggle */}
                   <Button
                     variant="ghost"
                     size="icon"
@@ -538,7 +485,7 @@ export default function Layout({ children }) {
                     {isDarkMode ? (
                       <Sun className="w-5 h-5 text-yellow-500" />
                     ) : (
-                      <Moon className="w-5 h-5 text-gray-600" />
+                      <Moon className="w-5 h-5 text-gray-600 dark:text-gray-400" />
                     )}
                   </Button>
                 </div>
