@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -414,6 +415,7 @@ export default function Layout({ children, currentPageName }) {
         <AutoBackupScheduler />
         <WelcomeNewHire />
         <WelcomeNewUser />
+        <ChecklistAutomation />
         
         <StaffDataSync />
         <UnifiedUserSync />
