@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -29,6 +30,8 @@ import {
   TrendingUp,
   BookOpen,
 } from "lucide-react";
+
+import AgentInitializer from './components/aurabrain/AgentInitializer';
 
 const mainNavigation = [
   {
@@ -227,175 +230,177 @@ export default function Layout({ children }) {
   };
 
   return (
-    <div className="min-h-screen flex w-full bg-gray-50">
-      {/* Mobile Overlay */}
-      {sidebarOpen && (
-        <div
-          className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
-          onClick={() => setSidebarOpen(false)}
-        />
-      )}
+    <AgentInitializer>
+      <div className="min-h-screen flex w-full bg-gray-50">
+        {/* Mobile Overlay */}
+        {sidebarOpen && (
+          <div
+            className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
+            onClick={() => setSidebarOpen(false)}
+          />
+        )}
 
-      {/* Sidebar */}
-      <aside
-        className={`fixed top-0 left-0 h-full bg-white border-r border-gray-200 z-50 transition-transform duration-300 w-72 overflow-y-auto ${
-          sidebarOpen ? "translate-x-0" : "-translate-x-full"
-        } lg:translate-x-0`}
-      >
-        {/* Header */}
-        <div className="border-b border-gray-100 p-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-blue-800 rounded-xl flex items-center justify-center shadow-lg">
-                <span className="text-white font-bold text-xl">A</span>
-              </div>
-              <div>
-                <h2 className="font-bold text-xl text-gray-900">AURA</h2>
-                <p className="text-xs text-gray-500">Restaurant Assistant</p>
-              </div>
-            </div>
-            <button
-              className="lg:hidden p-1 hover:bg-gray-100 rounded"
-              onClick={() => setSidebarOpen(false)}
-            >
-              <X className="w-5 h-5 text-gray-600" />
-            </button>
-          </div>
-        </div>
-
-        {/* Main Navigation */}
-        <div className="p-3">
-          <div className="space-y-1">
-            {mainNavigation.map((item) => {
-              const isActive = location.pathname === item.url;
-              return (
-                <Link
-                  key={item.title}
-                  to={item.url}
-                  onClick={() => setSidebarOpen(false)}
-                  className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${
-                    isActive
-                      ? "bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-lg"
-                      : "hover:bg-gray-50 text-gray-700"
-                  }`}
-                >
-                  <item.icon className={`w-5 h-5 ${isActive ? "text-white" : "text-gray-500"}`} />
-                  <span className="font-medium">{item.title}</span>
-                </Link>
-              );
-            })}
-          </div>
-
-          {/* Other Tools Dropdown */}
-          <div className="mt-4">
-            <button
-              onClick={() => setToolsExpanded(!toolsExpanded)}
-              className="w-full flex items-center justify-between px-4 py-3 rounded-xl hover:bg-gray-50 text-gray-700 transition-all duration-200"
-            >
+        {/* Sidebar */}
+        <aside
+          className={`fixed top-0 left-0 h-full bg-white border-r border-gray-200 z-50 transition-transform duration-300 w-72 overflow-y-auto ${
+            sidebarOpen ? "translate-x-0" : "-translate-x-full"
+          } lg:translate-x-0`}
+        >
+          {/* Header */}
+          <div className="border-b border-gray-100 p-6">
+            <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <Settings className="w-5 h-5 text-gray-500" />
-                <span className="font-medium">Other Tools</span>
-              </div>
-              {toolsExpanded ? (
-                <ChevronDown className="w-4 h-4 text-gray-500" />
-              ) : (
-                <ChevronRight className="w-4 h-4 text-gray-500" />
-              )}
-            </button>
-
-            {toolsExpanded && (
-              <div className="mt-2 ml-4 space-y-2">
-                {otherTools.map((section) => (
-                  <div key={section.category}>
-                    <button
-                      onClick={() => toggleCategory(section.category)}
-                      className="w-full flex items-center justify-between px-3 py-2 text-sm text-gray-600 hover:text-gray-900 transition-colors"
-                    >
-                      <span className="font-medium">{section.category}</span>
-                      {expandedCategories[section.category] ? (
-                        <ChevronDown className="w-3 h-3" />
-                      ) : (
-                        <ChevronRight className="w-3 h-3" />
-                      )}
-                    </button>
-
-                    {expandedCategories[section.category] && (
-                      <div className="ml-4 space-y-1">
-                        {section.items.map((item) => {
-                          const isActive = location.pathname === item.url;
-                          return (
-                            <Link
-                              key={item.title}
-                              to={item.url}
-                              onClick={() => setSidebarOpen(false)}
-                              className={`block px-3 py-2 text-sm rounded-lg transition-colors ${
-                                isActive
-                                  ? "bg-blue-50 text-blue-700 font-medium"
-                                  : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
-                              }`}
-                            >
-                              {item.title}
-                            </Link>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Footer */}
-        <div className="border-t border-gray-100 p-4 mt-auto">
-          {user && (
-            <div className="space-y-3">
-              <div className="flex items-center gap-3 px-2">
-                <div className="w-10 h-10 bg-gradient-to-br from-gray-700 to-gray-900 rounded-full flex items-center justify-center">
-                  <span className="text-white font-semibold text-sm">
-                    {user.full_name?.charAt(0)?.toUpperCase() || "U"}
-                  </span>
+                <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-blue-800 rounded-xl flex items-center justify-center shadow-lg">
+                  <span className="text-white font-bold text-xl">A</span>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-sm text-gray-900 truncate">
-                    {user.full_name}
-                  </p>
-                  <p className="text-xs text-gray-500 truncate">
-                    {user.position || "Staff"}
-                  </p>
+                <div>
+                  <h2 className="font-bold text-xl text-gray-900">AURA</h2>
+                  <p className="text-xs text-gray-500">Restaurant Assistant</p>
                 </div>
               </div>
               <button
-                onClick={handleLogout}
-                className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors duration-200"
+                className="lg:hidden p-1 hover:bg-gray-100 rounded"
+                onClick={() => setSidebarOpen(false)}
               >
-                <LogOut className="w-4 h-4" />
-                Logout
+                <X className="w-5 h-5 text-gray-600" />
               </button>
             </div>
-          )}
-        </div>
-      </aside>
-
-      {/* Main Content */}
-      <main className="flex-1 flex flex-col overflow-hidden lg:ml-72">
-        {/* Mobile Header */}
-        <header className="bg-white border-b border-gray-200 px-6 py-4 lg:hidden">
-          <div className="flex items-center gap-4">
-            <button
-              onClick={() => setSidebarOpen(true)}
-              className="hover:bg-gray-100 p-2 rounded-lg transition-colors duration-200"
-            >
-              <MenuIcon className="w-5 h-5 text-gray-600" />
-            </button>
-            <h1 className="text-xl font-bold text-gray-900">AURA</h1>
           </div>
-        </header>
 
-        {/* Page Content */}
-        <div className="flex-1 overflow-auto">{children}</div>
-      </main>
-    </div>
+          {/* Main Navigation */}
+          <div className="p-3">
+            <div className="space-y-1">
+              {mainNavigation.map((item) => {
+                const isActive = location.pathname === item.url;
+                return (
+                  <Link
+                    key={item.title}
+                    to={item.url}
+                    onClick={() => setSidebarOpen(false)}
+                    className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${
+                      isActive
+                        ? "bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-lg"
+                        : "hover:bg-gray-50 text-gray-700"
+                    }`}
+                  >
+                    <item.icon className={`w-5 h-5 ${isActive ? "text-white" : "text-gray-500"}`} />
+                    <span className="font-medium">{item.title}</span>
+                  </Link>
+                );
+              })}
+            </div>
+
+            {/* Other Tools Dropdown */}
+            <div className="mt-4">
+              <button
+                onClick={() => setToolsExpanded(!toolsExpanded)}
+                className="w-full flex items-center justify-between px-4 py-3 rounded-xl hover:bg-gray-50 text-gray-700 transition-all duration-200"
+              >
+                <div className="flex items-center gap-3">
+                  <Settings className="w-5 h-5 text-gray-500" />
+                  <span className="font-medium">Other Tools</span>
+                </div>
+                {toolsExpanded ? (
+                  <ChevronDown className="w-4 h-4 text-gray-500" />
+                ) : (
+                  <ChevronRight className="w-4 h-4 text-gray-500" />
+                )}
+              </button>
+
+              {toolsExpanded && (
+                <div className="mt-2 ml-4 space-y-2">
+                  {otherTools.map((section) => (
+                    <div key={section.category}>
+                      <button
+                        onClick={() => toggleCategory(section.category)}
+                        className="w-full flex items-center justify-between px-3 py-2 text-sm text-gray-600 hover:text-gray-900 transition-colors"
+                      >
+                        <span className="font-medium">{section.category}</span>
+                        {expandedCategories[section.category] ? (
+                          <ChevronDown className="w-3 h-3" />
+                        ) : (
+                          <ChevronRight className="w-3 h-3" />
+                        )}
+                      </button>
+
+                      {expandedCategories[section.category] && (
+                        <div className="ml-4 space-y-1">
+                          {section.items.map((item) => {
+                            const isActive = location.pathname === item.url;
+                            return (
+                              <Link
+                                key={item.title}
+                                to={item.url}
+                                onClick={() => setSidebarOpen(false)}
+                                className={`block px-3 py-2 text-sm rounded-lg transition-colors ${
+                                  isActive
+                                    ? "bg-blue-50 text-blue-700 font-medium"
+                                    : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                                }`}
+                              >
+                                {item.title}
+                              </Link>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Footer */}
+          <div className="border-t border-gray-100 p-4 mt-auto">
+            {user && (
+              <div className="space-y-3">
+                <div className="flex items-center gap-3 px-2">
+                  <div className="w-10 h-10 bg-gradient-to-br from-gray-700 to-gray-900 rounded-full flex items-center justify-center">
+                    <span className="text-white font-semibold text-sm">
+                      {user.full_name?.charAt(0)?.toUpperCase() || "U"}
+                    </span>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-sm text-gray-900 truncate">
+                      {user.full_name}
+                    </p>
+                    <p className="text-xs text-gray-500 truncate">
+                      {user.position || "Staff"}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={handleLogout}
+                  className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors duration-200"
+                >
+                  <LogOut className="w-4 h-4" />
+                  Logout
+                </button>
+              </div>
+            )}
+          </div>
+        </aside>
+
+        {/* Main Content */}
+        <main className="flex-1 flex flex-col overflow-hidden lg:ml-72">
+          {/* Mobile Header */}
+          <header className="bg-white border-b border-gray-200 px-6 py-4 lg:hidden">
+            <div className="flex items-center gap-4">
+              <button
+                onClick={() => setSidebarOpen(true)}
+                className="hover:bg-gray-100 p-2 rounded-lg transition-colors duration-200"
+              >
+                <MenuIcon className="w-5 h-5 text-gray-600" />
+              </button>
+              <h1 className="text-xl font-bold text-gray-900">AURA</h1>
+            </div>
+          </header>
+
+          {/* Page Content */}
+          <div className="flex-1 overflow-auto">{children}</div>
+        </main>
+      </div>
+    </AgentInitializer>
   );
 }
