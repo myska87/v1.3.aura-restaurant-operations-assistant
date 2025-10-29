@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery } from '@tanstack/react-query';
@@ -222,7 +223,7 @@ export default function Dashboard() {
             </Card>
           </Link>
 
-          {/* Manager: Staff on Duty */}
+          {/* Manager: Staff on Duty - ONLY FOR MANAGERS */}
           {isManager && (
             <Link to={createPageUrl('StaffRota')}>
               <Card className="bg-white border-none shadow-sm hover:shadow-lg transition-all cursor-pointer">
@@ -300,7 +301,7 @@ export default function Dashboard() {
                 </Button>
               </Link>
 
-              {/* Managers */}
+              {/* Managers ONLY */}
               {isManager && (
                 <>
                   <Link to={createPageUrl('StaffRota')}>

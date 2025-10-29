@@ -57,6 +57,7 @@ import {
   FileText,
   DollarSign,
   RefreshCw,
+  Lock, // Added Lock icon
 } from "lucide-react";
 import { format, differenceInMonths } from "date-fns";
 import { Link, useNavigate } from "react-router-dom";
@@ -104,6 +105,29 @@ export default function TeamDirectory() {
   });
 
   const isManager = user?.position === 'manager' || user?.position === 'owner' || user?.role === 'admin';
+
+  // Security Check - Only managers can access
+  if (!isManager) {
+    return (
+      <div className="min-h-screen bg-gray-50 p-6 flex items-center justify-center">
+        <Card className="max-w-md">
+          <CardContent className="p-12 text-center">
+            <Lock className="w-16 h-16 text-red-500 mx-auto mb-4" />
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">Access Restricted</h2>
+            <p className="text-gray-600 mb-6">
+              Team Directory is confidential and only accessible to managers and administrators.
+            </p>
+            <Link to={createPageUrl('Dashboard')}>
+              <Button>
+                <Home className="w-4 h-4 mr-2" />
+                Return to Dashboard
+              </Button>
+            </Link>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   // Fetch all users with NO cache
   const { data: allUsers = [], isLoading: loadingUsers, refetch: refetchUsers } = useQuery({
@@ -768,7 +792,7 @@ export default function TeamDirectory() {
                           )}
                         </div>
                         
-                        {/* Contact Info */}
+                        /* Contact Info */
                         <div className="space-y-1.5 text-sm">
                           <div className="flex items-center gap-2 text-gray-600">
                             <Mail className="w-3.5 h-3.5 flex-shrink-0" />

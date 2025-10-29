@@ -1,8 +1,9 @@
+
 import React, { useState, useMemo } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
-import { Calendar, Users, Clock, TrendingUp, AlertTriangle, Plus } from "lucide-react";
+import { Calendar, Users, Clock, TrendingUp, AlertTriangle, Plus, Lock, Home } from "lucide-react";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { motion } from "framer-motion";
@@ -83,6 +84,39 @@ export default function StaffRota() {
   const isAdmin = user?.role === 'admin';
   const isManager = user?.position === 'manager' || user?.position === 'owner';
   const hasManagementAccess = isAdmin || isManager;
+
+  // Security Check - Only managers/admins can access full rota
+  if (!hasManagementAccess) {
+    return (
+      <div className="min-h-screen bg-gray-50 p-6 flex items-center justify-center">
+        <Card className="max-w-md">
+          <CardContent className="p-12 text-center">
+            <Lock className="w-16 h-16 text-red-500 mx-auto mb-4" />
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">Access Restricted</h2>
+            <p className="text-gray-600 mb-6">
+              Staff Rota management is confidential and only accessible to managers.
+              <br /><br />
+              You can view your own shifts on the "My Shifts" page.
+            </p>
+            <div className="flex gap-2 justify-center">
+              <Link to={createPageUrl('MyShifts')}>
+                <Button>
+                  <Calendar className="w-4 h-4 mr-2" />
+                  My Shifts
+                </Button>
+              </Link>
+              <Link to={createPageUrl('Dashboard')}>
+                <Button variant="outline">
+                  <Home className="w-4 h-4 mr-2" />
+                  Dashboard
+                </Button>
+              </Link>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   const [isShiftDialogOpen, setIsShiftDialogOpen] = useState(false);
   const [shiftForm, setShiftForm] = useState({
