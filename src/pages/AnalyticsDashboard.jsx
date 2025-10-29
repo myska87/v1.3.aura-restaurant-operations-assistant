@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery } from '@tanstack/react-query';
@@ -14,29 +13,31 @@ import {
 } from '@/components/ui/select';
 import {
   TrendingUp,
-  Users,
+  Target,
   CheckCircle,
-  AlertTriangle,
-  Clock,
   Star,
-  ArrowLeft, // Added from outline
-  Home,
+  Clock,
+  Package,
+  AlertTriangle,
   Download,
-  Shield, // Kept for functionality
-  BarChart3, // Kept for functionality
-  Lightbulb, // Kept for functionality
-  Activity, // Kept for functionality
+  Calendar,
+  Home,
+  Users,
+  BarChart3,
+  Activity,
+  Lightbulb,
+  Shield,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { createPageUrl, safeNumber, toSafeNumber } from '@/utils'; // Combined utils imports
+import { createPageUrl } from '@/utils';
 import {
   LineChart,
   Line,
   BarChart,
   Bar,
-  PieChart, // Kept for functionality
-  Pie, // Kept for functionality
-  Cell, // Kept for functionality
+  PieChart,
+  Pie,
+  Cell,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -75,7 +76,7 @@ export default function AnalyticsDashboard() {
     enabled: isManager,
   });
 
-  // Get latest snapshot - WITH NULL SAFETY
+  // Get latest snapshot
   const latestSnapshot = snapshots[0] || {
     task_completion_rate: 0,
     quality_score_avg: 0,
@@ -84,12 +85,12 @@ export default function AnalyticsDashboard() {
     active_alerts: 0,
   };
 
-  // Prepare chart data - WITH SAFE NUMBERS
+  // Prepare chart data
   const trendData = snapshots.slice(0, 7).reverse().map(s => ({
     date: format(new Date(s.snapshot_date), 'MMM d'),
-    quality: toSafeNumber(s.quality_score_avg, 0),
-    tasks: toSafeNumber(s.task_completion_rate, 0),
-    compliance: toSafeNumber(s.shift_compliance, 0),
+    quality: s.quality_score_avg || 0,
+    tasks: s.task_completion_rate || 0,
+    compliance: s.shift_compliance || 0,
   }));
 
   const departmentData = [
@@ -129,7 +130,7 @@ export default function AnalyticsDashboard() {
   }
 
   return (
-    <div className="p-6 md:p-8 bg-gray-50 min-h-screen">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6 md:p-8">
       <div className="max-w-7xl mx-auto">
         {/* Navigation */}
         <div className="flex gap-3 mb-6">
@@ -184,45 +185,80 @@ export default function AnalyticsDashboard() {
           </div>
         </div>
 
-        {/* Key Metrics */}
-        <div className="grid md:grid-cols-4 gap-6 mb-6">
-          <Card className="bg-white border-l-4 border-l-blue-500">
-            <CardContent className="p-6">
-              <p className="text-sm text-gray-600 mb-2">Task Completion</p>
-              <p className="text-4xl font-bold text-blue-600">
-                {toSafeNumber(latestSnapshot.task_completion_rate, 0)}%
-              </p>
-            </CardContent>
-          </Card>
+        {/* KPI Cards */}
+        <div className="grid md:grid-cols-5 gap-4 mb-8">
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <CheckCircle className="w-8 h-8 text-green-600" />
+                  <Badge className="bg-green-100 text-green-800">
+                    +{latestSnapshot.task_completion_rate > 80 ? '↑' : '↓'}
+                  </Badge>
+                </div>
+                <p className="text-3xl font-bold text-gray-900">{latestSnapshot.task_completion_rate || 0}%</p>
+                <p className="text-xs text-gray-600">Task Completion</p>
+              </CardContent>
+            </Card>
+          </motion.div>
 
-          <Card className="bg-white border-l-4 border-l-green-500">
-            <CardContent className="p-6">
-              <p className="text-sm text-gray-600 mb-2">Quality Score</p>
-              <p className="text-4xl font-bold text-green-600">
-                {safeNumber(latestSnapshot.quality_score_avg, 1)}/5
-              </p>
-            </CardContent>
-          </Card>
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}>
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <Star className="w-8 h-8 text-amber-600" />
+                  <Badge className="bg-amber-100 text-amber-800">
+                    {latestSnapshot.quality_score_avg > 4 ? '↑' : '↓'}
+                  </Badge>
+                </div>
+                <p className="text-3xl font-bold text-gray-900">{(latestSnapshot.quality_score_avg || 0).toFixed(1)}</p>
+                <p className="text-xs text-gray-600">Quality Score</p>
+              </CardContent>
+            </Card>
+          </motion.div>
 
-          <Card className="bg-white border-l-4 border-l-purple-500">
-            <CardContent className="p-6">
-              <p className="text-sm text-gray-600 mb-2">Attendance</p>
-              <p className="text-4xl font-bold text-purple-600">
-                {toSafeNumber(latestSnapshot.shift_compliance, 0)}%
-              </p>
-            </CardContent>
-          </Card>
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <Clock className="w-8 h-8 text-blue-600" />
+                  <Badge className="bg-blue-100 text-blue-800">
+                    {latestSnapshot.shift_compliance > 85 ? '↑' : '↓'}
+                  </Badge>
+                </div>
+                <p className="text-3xl font-bold text-gray-900">{latestSnapshot.shift_compliance || 0}%</p>
+                <p className="text-xs text-gray-600">Attendance</p>
+              </CardContent>
+            </Card>
+          </motion.div>
 
-          <Card className="bg-white border-l-4 border-l-amber-500">
-            <CardContent className="p-6">
-              <p className="text-sm text-gray-600 mb-2">Active Alerts</p>
-              <p className="text-4xl font-bold text-amber-600">
-                {toSafeNumber(latestSnapshot.active_alerts, 0)}
-              </p>
-            </CardContent>
-          </Card>
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <Package className="w-8 h-8 text-purple-600" />
+                  <Badge className="bg-purple-100 text-purple-800">
+                    {latestSnapshot.inventory_cost_variance < 10 ? '↑' : '↓'}
+                  </Badge>
+                </div>
+                <p className="text-3xl font-bold text-gray-900">{latestSnapshot.inventory_cost_variance || 0}%</p>
+                <p className="text-xs text-gray-600">Cost Variance</p>
+              </CardContent>
+            </Card>
+          </motion.div>
+
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <AlertTriangle className="w-8 h-8 text-red-600" />
+                </div>
+                <p className="text-3xl font-bold text-gray-900">{latestSnapshot.active_alerts || 0}</p>
+                <p className="text-xs text-gray-600">Active Alerts</p>
+              </CardContent>
+            </Card>
+          </motion.div>
         </div>
-
 
         {/* AI Insights */}
         {insights.length > 0 && (

@@ -7,11 +7,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { ShoppingCart, Send, Trash2, ArrowLeft, Home } from "lucide-react";
+import { ShoppingCart, Send, Trash2, ArrowLeft, Home, Mail, Truck, Clock } from "lucide-react";
 import { format } from "date-fns";
 import { Link } from "react-router-dom";
-import { createPageUrl, safeNumber, toSafeNumber } from "@/utils";
-import { logEmailSent } from "../components/ComplianceEmailLogger";
+import { createPageUrl } from "@/utils";
+import { logEmailSent } from "../components/ComplianceEmailLogger"; // Added import
 
 export default function Ordering() {
   const queryClient = useQueryClient();
@@ -43,7 +43,7 @@ export default function Ordering() {
     },
   });
 
-  const clearDraftOrdersMutation = new useMutation({
+  const clearDraftOrdersMutation = useMutation({
     mutationFn: async () => {
       const drafts = allOrders.filter(o => o.status === 'draft');
       await Promise.all(drafts.map(draft => 
@@ -77,17 +77,17 @@ Please find our purchase order details below:
 ITEMS ORDERED:
 ${order.items.map((item, index) => 
   `${index + 1}. ${item.ingredient_name}
-   Quantity: ${safeNumber(item.quantity_ordered, 2)} ${item.unit}
-   Unit Price: £${safeNumber(item.unit_cost, 2)}
-   Line Total: £${safeNumber(item.line_total, 2)}`
+   Quantity: ${item.quantity_ordered} ${item.unit}
+   Unit Price: £${item.unit_cost.toFixed(2)}
+   Line Total: £${item.line_total.toFixed(2)}`
 ).join('\n\n')}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 TOTALS:
-Subtotal: £${safeNumber(order.subtotal, 2)}
-VAT (20%): £${safeNumber(order.tax, 2)}
+Subtotal: £${order.subtotal.toFixed(2)}
+VAT (20%): £${order.tax.toFixed(2)}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-GRAND TOTAL: £${safeNumber(order.total, 2)}
+GRAND TOTAL: £${order.total.toFixed(2)}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 ${deliveryDate ? `📦 Expected Delivery Date: ${format(new Date(deliveryDate), 'PPP')}` : '📦 Expected Delivery Date: Please confirm'}
@@ -202,11 +202,10 @@ AURA Restaurant Management Team`;
     if (!order) return;
 
     const updatedItems = [...order.items];
-    const qty = toSafeNumber(newQuantity);
-    updatedItems[itemIndex].quantity_ordered = qty;
-    updatedItems[itemIndex].line_total = qty * toSafeNumber(updatedItems[itemIndex].unit_cost);
+    updatedItems[itemIndex].quantity_ordered = parseFloat(newQuantity);
+    updatedItems[itemIndex].line_total = updatedItems[itemIndex].quantity_ordered * updatedItems[itemIndex].unit_cost;
 
-    const subtotal = updatedItems.reduce((sum, item) => sum + toSafeNumber(item.line_total), 0);
+    const subtotal = updatedItems.reduce((sum, item) => sum + item.line_total, 0);
     const tax = subtotal * 0.2;
     const total = subtotal + tax;
 
@@ -214,9 +213,9 @@ AURA Restaurant Management Team`;
       id: orderId,
       data: {
         items: updatedItems,
-        subtotal: toSafeNumber(subtotal),
-        tax: toSafeNumber(tax),
-        total: toSafeNumber(total),
+        subtotal,
+        tax,
+        total,
       }
     });
   };
@@ -232,7 +231,7 @@ AURA Restaurant Management Team`;
       return;
     }
 
-    const subtotal = updatedItems.reduce((sum, item) => sum + toSafeNumber(item.line_total), 0);
+    const subtotal = updatedItems.reduce((sum, item) => sum + item.line_total, 0);
     const tax = subtotal * 0.2;
     const total = subtotal + tax;
 
@@ -240,9 +239,9 @@ AURA Restaurant Management Team`;
       id: orderId,
       data: {
         items: updatedItems,
-        subtotal: toSafeNumber(subtotal),
-        tax: toSafeNumber(tax),
-        total: toSafeNumber(total),
+        subtotal,
+        tax,
+        total,
       }
     });
   };
@@ -295,7 +294,7 @@ AURA Restaurant Management Team`;
               <div className="flex-1">
                 <p className="font-medium text-gray-900">{item.ingredient_name}</p>
                 <p className="text-sm text-gray-600">
-                  £{safeNumber(item.unit_cost, 2)} per {item.unit}
+                  £{item.unit_cost.toFixed(2)} per {item.unit}
                 </p>
               </div>
               {order.status === 'draft' ? (
@@ -303,13 +302,13 @@ AURA Restaurant Management Team`;
                   <Input
                     type="number"
                     step="0.01"
-                    value={toSafeNumber(item.quantity_ordered, 2)}
+                    value={item.quantity_ordered}
                     onChange={(e) => handleUpdateQuantity(order.id, index, e.target.value)}
                     className="w-24"
                   />
                   <span className="text-sm text-gray-600 w-16">{item.unit}</span>
                   <span className="font-semibold text-gray-900 w-24 text-right">
-                    £{safeNumber(item.line_total, 2)}
+                    £{item.line_total.toFixed(2)}
                   </span>
                   <Button
                     variant="ghost"
@@ -321,9 +320,9 @@ AURA Restaurant Management Team`;
                 </>
               ) : (
                 <>
-                  <span className="font-semibold text-gray-900">{safeNumber(item.quantity_ordered, 2)} {item.unit}</span>
+                  <span className="font-semibold text-gray-900">{item.quantity_ordered} {item.unit}</span>
                   <span className="font-semibold text-gray-900 w-24 text-right">
-                    £{safeNumber(item.line_total, 2)}
+                    £{item.line_total.toFixed(2)}
                   </span>
                 </>
               )}
@@ -334,15 +333,15 @@ AURA Restaurant Management Team`;
         <div className="border-t border-gray-200 pt-4 space-y-2">
           <div className="flex justify-between text-sm">
             <span className="text-gray-600">Subtotal:</span>
-            <span className="font-medium text-gray-900">£{safeNumber(order.subtotal, 2)}</span>
+            <span className="font-medium text-gray-900">£{order.subtotal.toFixed(2)}</span>
           </div>
           <div className="flex justify-between text-sm">
             <span className="text-gray-600">VAT (20%):</span>
-            <span className="font-medium text-gray-900">£{safeNumber(order.tax, 2)}</span>
+            <span className="font-medium text-gray-900">£{order.tax.toFixed(2)}</span>
           </div>
           <div className="flex justify-between text-lg font-bold border-t border-gray-200 pt-2">
             <span className="text-gray-900">Total:</span>
-            <span className="text-green-700">£{safeNumber(order.total, 2)}</span>
+            <span className="text-green-700">£{order.total.toFixed(2)}</span>
           </div>
         </div>
 

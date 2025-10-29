@@ -201,24 +201,6 @@ body {
   .grid-responsive {
     @apply grid-cols-1;
   }
-
-  /* Mobile table cards */
-  .mobile-card-view {
-    @apply block;
-  }
-
-  .mobile-card-view thead {
-    @apply hidden;
-  }
-
-  .mobile-card-view tr {
-    @apply block mb-4 border rounded-lg p-4;
-  }
-
-  .mobile-card-view td {
-    @apply block text-left;
-    @apply before:content-[attr(data-label)] before:font-bold before:mr-2;
-  }
 }
 
 /* Print Styles */
@@ -302,18 +284,4 @@ body {
 
 .heading-responsive {
   font-size: clamp(1.5rem, 4vw, 2.5rem);
-}
-
-/* Floating Action Button (Mobile) */
-.fab {
-  @apply fixed bottom-6 right-6 z-50;
-  @apply w-14 h-14 rounded-full shadow-lg;
-  @apply bg-emerald-600 text-white;
-  @apply flex items-center justify-center;
-  @apply hover:bg-emerald-700 transition-all;
-  @apply md:hidden;
-}
-
-.fab:active {
-  @apply scale-95;
 }

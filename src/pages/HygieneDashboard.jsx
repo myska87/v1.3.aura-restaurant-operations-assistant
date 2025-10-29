@@ -9,20 +9,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Progress } from "@/components/ui/progress";
 import {
   Thermometer,
   Droplets,
@@ -45,21 +37,15 @@ import {
   Activity,
   ArrowLeft,
   ClipboardList,
-  Loader2,
-  Camera, // Added
-  Flame, // Added
 } from "lucide-react";
-import { format, startOfWeek, endOfWeek } from "date-fns"; // Added startOfWeek, endOfWeek
+import { format } from "date-fns";
 import { Link, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { motion } from "framer-motion";
-import { safeNumber, toSafeNumber, safePercent } from "@/utils";
 
 export default function HygieneDashboard() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [showRecordForm, setShowRecordForm] = useState(false);
-  const [showLeaderboard, setShowLeaderboard] = useState(true);
 
   const { data: user } = useQuery({
     queryKey: ['currentUser'],
@@ -68,16 +54,16 @@ export default function HygieneDashboard() {
 
   const isManager = user?.position === 'manager' || user?.position === 'owner' || user?.role === 'admin';
 
-  const today = new Date().toISOString().split('T')[0];
+  const today = new Date().toISOString().split('T')[0]; // Format 'YYYY-MM-DD' for query keys
 
   // Fetch hygiene records
   const { data: records = [], isLoading: loadingRecords } = useQuery({
-    queryKey: ['hygieneRecords', today],
-    queryFn: () => base44.entities.HygieneRecord.list('-created_date', 100),
+    queryKey: ['hygieneRecords', today], // Query key now includes `today`
+    queryFn: () => base44.entities.HygieneRecord.list('-created_date', 100), // Fetch all, will filter for `todayRecords` later
   });
 
   // Fetch user's hygiene score
-  const { data: myScore, isLoading: loadingMyScore } = useQuery({
+  const { data: myScore } = useQuery({
     queryKey: ['myHygieneScore', user?.email],
     queryFn: async () => {
       if (!user?.email) return null;
@@ -90,7 +76,7 @@ export default function HygieneDashboard() {
   });
 
   // Fetch alerts
-  const { data: alerts = [], isLoading: loadingAlerts } = useQuery({
+  const { data: alerts = [] } = useQuery({
     queryKey: ['hygieneAlerts'],
     queryFn: async () => {
       const allAlerts = await base44.entities.HygieneAlertLog.list('-created_date', 50);
@@ -108,38 +94,41 @@ export default function HygieneDashboard() {
   });
 
   // Fetch form assignments for today
-  const { data: formAssignments = [], isLoading: loadingForms } = useQuery({
+  const { data: formAssignments = [] } = useQuery({
     queryKey: ['formAssignments', user?.email, today],
     queryFn: async () => {
       if (!user?.email) return [];
       
       const todayDate = new Date();
-      todayDate.setHours(0, 0, 0, 0);
+      todayDate.setHours(0, 0, 0, 0); // Normalize to start of today
       const sevenDaysFromNow = new Date(todayDate);
       sevenDaysFromNow.setDate(todayDate.getDate() + 7);
 
       let assignments;
       if (isManager) {
+        // Managers see all assignments
         assignments = await base44.entities.FormAssignmentMetadata.list('-assigned_at', 100);
       } else {
+        // Staff see only their assignments
         assignments = await base44.entities.FormAssignmentMetadata.filter({
           assigned_to_email: user.email
         }, '-assigned_at', 100);
       }
       
+      // Filter for assignments due within next 7 days or active and not completed/archived
       return assignments.filter(a => {
         const dueDate = new Date(a.due_date);
-        dueDate.setHours(0, 0, 0, 0);
+        dueDate.setHours(0, 0, 0, 0); // Normalize due date
         return (
-          (dueDate >= todayDate && dueDate <= sevenDaysFromNow) &&
-          (a.completion_status !== 'completed' && a.completion_status !== 'archived')
+          (dueDate >= todayDate && dueDate <= sevenDaysFromNow) && // Due within next 7 days
+          (a.completion_status !== 'completed' && a.completion_status !== 'archived') // Or not completed/archived
         );
       });
     },
     enabled: !!user?.email,
   });
 
-  // Fetch form responses
+  // Fetch form responses (completed forms)
   const { data: responses = [] } = useQuery({
     queryKey: ['formResponses', user?.email],
     queryFn: async () => {
@@ -155,7 +144,7 @@ export default function HygieneDashboard() {
     enabled: !!user?.email,
   });
 
-  // Fetch hygiene-related form templates
+  // Fetch hygiene-related form templates (not directly used for display, but good to have)
   const { data: hygieneForms = [] } = useQuery({
     queryKey: ['hygieneForms'],
     queryFn: async () => {
@@ -164,7 +153,7 @@ export default function HygieneDashboard() {
         f.category === 'haccp' || 
         f.category === 'sops' || 
         f.category === 'equipment' ||
-        f.is_active
+        f.is_active // Also include any active forms not explicitly categorized
       );
     },
   });
@@ -183,17 +172,6 @@ export default function HygieneDashboard() {
     },
   });
 
-  // Calculate leaderboard
-  const { data: userScores = [], isLoading: loadingScores } = useQuery({
-    queryKey: ['hygieneUserScores'],
-    queryFn: () => base44.entities.HygieneUserScore.list('-total_points'),
-  });
-
-  const { data: allUsers = [] } = useQuery({
-    queryKey: ['allUsers'],
-    queryFn: () => base44.entities.User.list(),
-  });
-
   const handleQuickAction = (actionType) => {
     let formId = null;
     
@@ -207,7 +185,7 @@ export default function HygieneDashboard() {
       case 'cleaning':
         formId = quickActionForms.cleaning?.id;
         break;
-      case 'delivery_check':
+      case 'delivery_check': // Using 'delivery_check' for the quick action card, as 'delivery' is ambiguous with the record type
         formId = quickActionForms.delivery?.id;
         break;
       case 'equipment_check':
@@ -219,19 +197,22 @@ export default function HygieneDashboard() {
     }
 
     if (formId) {
+      // Navigate to Form Intelligence with the specific form
       navigate(createPageUrl('FormIntelligence') + `?openForm=${formId}`);
     } else {
+      // Fallback: open Form Intelligence main page
       navigate(createPageUrl('FormIntelligence'));
     }
   };
 
-  // Calculate stats from records - WITH SAFE NUMBER UTILITIES
+  // Calculate stats from records
   const todayRecords = records.filter(r => {
     const recordDate = new Date(r.created_date);
     const now = new Date();
     return recordDate.toDateString() === now.toDateString();
   });
 
+  // Filter records specific to the current user for gamification
   const myTodayRecords = todayRecords.filter(r => r.recorded_by_email === user?.email);
 
   const recordsInRange = records.filter(r => r.is_in_range !== false).length;
@@ -264,8 +245,9 @@ export default function HygieneDashboard() {
     : 100;
 
   // Calculate today's expected tasks vs completed
-  const expectedDailyTasks = 10;
+  const expectedDailyTasks = 10; // Expected records per day
   const todayTaskCompletion = Math.min(100, Math.round((myTodayRecords.length / expectedDailyTasks) * 100));
+
 
   // Star rating calculation
   const calculateStarRating = () => {
@@ -284,12 +266,17 @@ export default function HygieneDashboard() {
   const auditReadiness = () => {
     let score = 100;
 
+    // Deduct for open alerts
     score -= openAlerts * 5;
+    // Deduct for overdue forms
     score -= overdueForms * 10;
     
+    // Deduct for low compliance (records)
     if (complianceRate < 95) score -= (95 - complianceRate);
+    // Deduct for low completion (forms)
     if (formCompletionRate < 95) score -= (95 - formCompletionRate);
     
+    // Deduct for missing records (expected vs actual) for current user
     if (myTodayRecords.length < expectedDailyTasks) {
       score -= (expectedDailyTasks - myTodayRecords.length) * 3;
     }
@@ -319,8 +306,8 @@ export default function HygieneDashboard() {
       title: "Zero Alerts",
       description: "7 days without variance",
       icon: "✅",
-      progress: Math.min(100, (toSafeNumber(myScore?.current_streak) / 7) * 100),
-      unlocked: toSafeNumber(myScore?.current_streak) >= 7
+      progress: Math.min(100, ((myScore?.current_streak || 0) / 7) * 100),
+      unlocked: (myScore?.current_streak || 0) >= 7
     },
     {
       title: "Form Master",
@@ -331,25 +318,11 @@ export default function HygieneDashboard() {
     },
   ];
 
-  // Loading state
-  if (loadingRecords || loadingForms || loadingScores) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-emerald-50 p-6 flex items-center justify-center">
-        <Card className="p-12">
-          <div className="text-center">
-            <Loader2 className="w-12 h-12 animate-spin text-emerald-600 mx-auto mb-4" />
-            <p className="text-gray-600">Loading hygiene data...</p>
-          </div>
-        </Card>
-      </div>
-    );
-  }
-
   return (
     <div
       className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-emerald-50 p-6 md:p-8"
     >
-      <div className="max-w-7xl mx-auto space-y-6">
+      <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="flex gap-3 mb-6">
           <Link to={createPageUrl("Dashboard")}>
@@ -372,8 +345,8 @@ export default function HygieneDashboard() {
           </div>
         </div>
 
-        {/* Top Stats Row */}
-        <div className="grid md:grid-cols-4 gap-4">
+        {/* Top Stats Row - Connected to Forms */}
+        <div className="grid md:grid-cols-4 gap-4 mb-8">
           <Card 
             className="border-none shadow-lg bg-white/80 backdrop-blur cursor-pointer hover:shadow-xl transition-all"
             onClick={() => navigate(createPageUrl('FormIntelligence'))}
@@ -486,94 +459,9 @@ export default function HygieneDashboard() {
           </Card>
         </div>
 
-        {/* Leaderboard Card */}
-        {showLeaderboard && userScores.length > 0 ? (
-          <Card className="bg-gradient-to-br from-emerald-50 to-green-50 border-2 border-emerald-200">
-            <CardHeader>
-              <CardTitle className="flex items-center justify-between">
-                <span className="flex items-center gap-2">
-                  <Trophy className="w-5 h-5 text-emerald-600" />
-                  🏆 Hygiene Champions
-                </span>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setShowLeaderboard(false)}
-                >
-                  Hide
-                </Button>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                {userScores.slice(0, 5).map((score, index) => {
-                  const user = allUsers.find(u => u.email === score.staff_email);
-                  const medals = ['🥇', '🥈', '🥉'];
-                  
-                  // USE SAFE NUMBER UTILITIES
-                  const complianceRateValue = toSafeNumber(score.compliance_rate, 0);
-                  const totalPoints = toSafeNumber(score.total_points, 0);
-                  const currentStreak = toSafeNumber(score.current_streak, 0);
-                  
-                  return (
-                    <div
-                      key={score.id}
-                      className={`p-4 rounded-lg border-2 ${
-                        index === 0 ? 'border-yellow-300 bg-yellow-50' :
-                        index === 1 ? 'border-gray-300 bg-gray-50' :
-                        index === 2 ? 'border-orange-300 bg-orange-50' :
-                        'border-gray-200 bg-white'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <span className="text-2xl">{medals[index] || `#${index + 1}`}</span>
-                          <div>
-                            <p className="font-bold text-gray-900">{score.staff_name}</p>
-                            <p className="text-sm text-gray-600">{user?.position || 'Staff'}</p>
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-2xl font-bold text-emerald-600">
-                            {totalPoints}
-                          </p>
-                          <p className="text-xs text-gray-500">points</p>
-                          {currentStreak > 0 && (
-                            <Badge className="mt-1 bg-orange-500 text-white text-xs">
-                              🔥 {currentStreak} day streak
-                            </Badge>
-                          )}
-                        </div>
-                      </div>
-
-                      {complianceRateValue > 0 && (
-                        <div className="mt-2">
-                          <div className="flex justify-between text-xs text-gray-600 mb-1">
-                            <span>Compliance Rate</span>
-                            <span>{safeNumber(complianceRateValue, 0)}%</span>
-                          </div>
-                          <Progress value={complianceRateValue} className="h-2" />
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </CardContent>
-          </Card>
-        ) : showLeaderboard && userScores.length === 0 ? (
-          <Card className="bg-gradient-to-br from-emerald-50 to-green-50 border-2 border-emerald-200">
-            <CardContent className="p-12 text-center">
-              <Trophy className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-              <p className="text-gray-500 italic">No hygiene scores available yet.</p>
-              <p className="text-sm text-gray-400 mt-2">Complete hygiene records to join the leaderboard!</p>
-            </CardContent>
-          </Card>
-        ) : null}
-
         {/* Active Alerts */}
         {alerts.length > 0 && (
-          <Card className="border-none shadow-lg bg-gradient-to-r from-red-50 to-orange-50">
+          <Card className="mb-8 border-none shadow-lg bg-gradient-to-r from-red-50 to-orange-50">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-red-900">
                 <AlertTriangle className="w-5 h-5" />
@@ -614,7 +502,7 @@ export default function HygieneDashboard() {
 
         {/* Pending Forms Section */}
         {pendingForms > 0 && (
-          <Card className="border-none shadow-lg bg-gradient-to-r from-blue-50 to-indigo-50">
+          <Card className="mb-8 border-none shadow-lg bg-gradient-to-r from-blue-50 to-indigo-50">
             <CardHeader>
               <CardTitle className="flex items-center justify-between">
                 <span className="flex items-center gap-2 text-blue-900">
@@ -665,8 +553,8 @@ export default function HygieneDashboard() {
           </Card>
         )}
 
-        {/* Quick Actions */}
-        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Quick Actions - Now Linked to Forms */}
+        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -772,9 +660,9 @@ export default function HygieneDashboard() {
           </motion.div>
         </div>
 
-        {/* Gamification Section */}
-        {myScore ? (
-          <div className="grid md:grid-cols-2 gap-6">
+        {/* Gamification Section - Now Live */}
+        {myScore && (
+          <div className="grid md:grid-cols-2 gap-6 mb-8">
             <Card className="border-none shadow-lg bg-gradient-to-br from-purple-50 to-indigo-50">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -785,11 +673,11 @@ export default function HygieneDashboard() {
               <CardContent>
                 <div className="flex items-center justify-between mb-6">
                   <div>
-                    <p className="text-4xl font-bold text-purple-900">{toSafeNumber(myScore.points_this_week)}</p>
+                    <p className="text-4xl font-bold text-purple-900">{myScore.points_this_week || 0}</p>
                     <p className="text-sm text-gray-600">Points this week</p>
                   </div>
                   <div className="text-right">
-                    <p className="text-2xl font-bold text-gray-900">{toSafeNumber(myScore.total_points)}</p>
+                    <p className="text-2xl font-bold text-gray-900">{myScore.total_points || 0}</p>
                     <p className="text-xs text-gray-600">Total points</p>
                   </div>
                 </div>
@@ -798,7 +686,7 @@ export default function HygieneDashboard() {
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-gray-600">Current Streak</span>
                     <Badge className="bg-orange-100 text-orange-800">
-                      🔥 {toSafeNumber(myScore.current_streak)} days
+                      🔥 {myScore.current_streak || 0} days
                     </Badge>
                   </div>
                   <div className="flex items-center justify-between text-sm">
@@ -816,7 +704,7 @@ export default function HygieneDashboard() {
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-gray-600">Venue Rank</span>
                     <Badge variant="outline">
-                      #{toSafeNumber(myScore.rank_in_venue) || '-'}
+                      #{myScore.rank_in_venue || '-'}
                     </Badge>
                   </div>
                 </div>
@@ -877,24 +765,9 @@ export default function HygieneDashboard() {
               </CardContent>
             </Card>
           </div>
-        ) : (
-          <Card className="border-none shadow-lg bg-gradient-to-br from-purple-50 to-indigo-50">
-            <CardContent className="p-12 text-center">
-              <Trophy className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-              <p className="text-gray-500 italic">No personal hygiene data available yet.</p>
-              <p className="text-sm text-gray-400 mt-2">Start completing hygiene records to track your progress!</p>
-              <Button 
-                onClick={() => handleQuickAction('storage_fridge')}
-                className="mt-4 bg-emerald-600 hover:bg-emerald-700"
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                Create First Record
-              </Button>
-            </CardContent>
-          </Card>
         )}
 
-        {/* Recent Records - USE SAFE NUMBERS FOR TEMPERATURE DISPLAY */}
+        {/* Recent Records */}
         <Card className="border-none shadow-lg bg-white/90 backdrop-blur">
           <CardHeader>
             <CardTitle className="flex items-center justify-between">
@@ -939,15 +812,15 @@ export default function HygieneDashboard() {
                         <p className="font-medium text-gray-900">{record.item_name}</p>
                         <p className="text-sm text-gray-600">
                           {record.record_type.replace('_', ' ')} •
-                          {record.recorded_value !== null && !isNaN(toSafeNumber(record.recorded_value)) && ` ${safeNumber(record.recorded_value, 1)}°C`}
-                          {(record.recorded_value === null || isNaN(toSafeNumber(record.recorded_value))) && record.recorded_value && ` ${record.recorded_value}`} •
+                          {record.recorded_value !== null && !isNaN(record.recorded_value) && ` ${record.recorded_value}°C`}
+                          {record.recorded_value !== null && isNaN(record.recorded_value) && ` ${record.recorded_value}`} •
                           {format(new Date(record.created_date), 'h:mm a')}
                         </p>
                       </div>
                     </div>
                     <div className="text-right">
                       <p className="text-sm font-medium text-gray-900">{record.recorded_by_name}</p>
-                      {toSafeNumber(record.points_awarded) > 0 && (
+                      {record.points_awarded > 0 && (
                         <Badge className="bg-purple-100 text-purple-800 text-xs">
                           +{record.points_awarded} pts
                         </Badge>

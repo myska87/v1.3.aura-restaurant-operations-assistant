@@ -1,28 +1,19 @@
-
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label"; // Added for missing import
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import {
   CheckCircle,
   Clock,
-  AlertCircle, // Changed from AlertTriangle
+  AlertTriangle,
+  Calendar,
   Home,
-  Filter, // Added
-  Star, // Added
-  TrendingUp, // Added
+  Camera,
+  Upload,
+  X,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -65,7 +56,7 @@ export default function MyTasks() {
     },
     onSuccess: async (updatedTask) => {
       queryClient.invalidateQueries({ queryKey: ['myTasks'] });
-
+      
       // ✨ Log activity
       await base44.entities.ActivityLog.create({
         activity_type: 'task_completed',
@@ -78,7 +69,7 @@ export default function MyTasks() {
         related_entity: 'StaffTask',
         related_entity_id: updatedTask.id,
       });
-
+      
       setExpandedTask(null);
       setCompletionNotes('');
       setPhotoUrl('');
@@ -118,7 +109,7 @@ export default function MyTasks() {
 
   const getTaskPriority = (task) => {
     if (!task.due_date) return 'normal';
-
+    
     const dueDate = new Date(task.due_date);
     if (isPast(dueDate) && task.status !== 'completed') return 'overdue';
     if (isToday(dueDate)) return 'today';
@@ -176,7 +167,7 @@ export default function MyTasks() {
 
           <Card>
             <CardContent className="p-4 text-center">
-              <AlertCircle className="w-8 h-8 text-red-600 mx-auto mb-2" /> {/* Changed icon */}
+              <AlertTriangle className="w-8 h-8 text-red-600 mx-auto mb-2" />
               <p className="text-3xl font-bold text-gray-900">
                 {pendingTasks.filter(t => getTaskPriority(t) === 'overdue').length}
               </p>
@@ -216,7 +207,7 @@ export default function MyTasks() {
                             </Badge>
                             {task.due_date && (
                               <Badge variant="outline">
-                                {/* Calendar icon removed */}
+                                <Calendar className="w-3 h-3 mr-1" />
                                 Due {format(new Date(task.due_date), 'MMM d, HH:mm')}
                               </Badge>
                             )}
@@ -264,7 +255,7 @@ export default function MyTasks() {
                                 onClick={() => document.getElementById('task-photo').click()}
                                 disabled={uploading}
                               >
-                                {/* Camera icon removed */}
+                                <Camera className="w-4 h-4 mr-2" />
                                 {uploading ? 'Uploading...' : photoUrl ? 'Change Photo' : 'Add Photo'}
                               </Button>
                               <input
@@ -281,8 +272,7 @@ export default function MyTasks() {
                                   variant="ghost"
                                   onClick={() => setPhotoUrl('')}
                                 >
-                                  {/* X icon removed */}
-                                  Remove Photo
+                                  <X className="w-4 h-4" />
                                 </Button>
                               )}
                             </div>

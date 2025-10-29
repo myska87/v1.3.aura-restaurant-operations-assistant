@@ -1,17 +1,11 @@
-
-import React, { useEffect } from 'react';
+import { useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
-import { useQueryClient } from '@tanstack/react-query';
 
 /**
  * 📡 Event Router
  * Routes events to correct recipients based on role, department, and context
  */
 export default function EventRouter() {
-  // Although useQueryClient is imported, it's not currently used in this component's logic.
-  // It's kept as per the instruction to include the import.
-  // const queryClient = useQueryClient(); 
-
   useEffect(() => {
     const routeEvents = async () => {
       try {

@@ -1,13 +1,12 @@
-
 import React from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { BarChart3, Download, ArrowLeft, Home, Star } from "lucide-react";
+import { BarChart3, Download, ArrowLeft, Home, Star, TrendingUp } from "lucide-react";
 import { Link } from "react-router-dom";
-import { createPageUrl, safeNumber, toSafeNumber } from "@/utils";
+import { createPageUrl } from "@/utils";
 import { format } from "date-fns";
 
 export default function QualityReports() {
@@ -24,7 +23,7 @@ export default function QualityReports() {
         r.check_title,
         r.category,
         r.area,
-        toSafeNumber(r.score, 0),
+        r.score,
         r.checked_by_name,
         r.comments || '',
         r.status
@@ -85,12 +84,12 @@ export default function QualityReports() {
                         <div className="flex items-center gap-2 mb-1">
                           <h4 className="font-semibold text-gray-900">{record.check_title}</h4>
                           <Badge className={
-                            toSafeNumber(record.score) >= 4.5 ? 'bg-green-100 text-green-800' :
-                            toSafeNumber(record.score) >= 4 ? 'bg-blue-100 text-blue-800' :
-                            toSafeNumber(record.score) >= 3 ? 'bg-yellow-100 text-yellow-800' :
+                            record.score >= 4.5 ? 'bg-green-100 text-green-800' :
+                            record.score >= 4 ? 'bg-blue-100 text-blue-800' :
+                            record.score >= 3 ? 'bg-yellow-100 text-yellow-800' :
                             'bg-red-100 text-red-800'
                           }>
-                            {safeNumber(record.score, 1)} ⭐
+                            {record.score} ⭐
                           </Badge>
                         </div>
                         <p className="text-sm text-gray-600 capitalize">

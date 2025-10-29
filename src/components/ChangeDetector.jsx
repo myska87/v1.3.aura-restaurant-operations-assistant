@@ -1,11 +1,10 @@
-
 /**
  * 🔍 CHANGE DETECTOR
  * Monitors for unauthorized modifications to protected files
  * Real-time protection during development
  */
 
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Card, CardContent } from "@/components/ui/card";
 import { Shield, AlertTriangle, CheckCircle } from "lucide-react";
 import { BuildValidator } from './BuildValidator';

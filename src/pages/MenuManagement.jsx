@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -20,11 +19,29 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogTrigger,
 } from "@/components/ui/dialog";
 import { Plus, Pencil, Trash2, ChefHat, Camera, Image as ImageIcon, Folder, Calculator, ShoppingCart, ArrowLeft, Home } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Link } from "react-router-dom";
-import { createPageUrl, safeNumber, toSafeNumber, safeCurrency } from "@/utils";
+import { createPageUrl } from "@/utils";
+
+// Safe number formatting helper
+const safeNumber = (value, decimals = -1) => {
+  const num = parseFloat(value);
+  if (isNaN(num) || num === null || num === undefined) {
+    return 0;
+  }
+  return decimals >= 0 ? parseFloat(num.toFixed(decimals)) : num;
+};
+
+const formatPrice = (price) => {
+  return safeNumber(price, 2).toFixed(2);
+};
+
+const formatPercent = (percent) => {
+  return safeNumber(percent, 1).toFixed(1);
+};
 
 export default function MenuManagement() {
   const queryClient = useQueryClient();
@@ -162,10 +179,10 @@ export default function MenuManagement() {
       name: item.name,
       category_id: item.category_id,
       description: item.description || "",
-      sell_price: toSafeNumber(item.sell_price).toString() || "", // Ensure it's a string for input
+      sell_price: safeNumber(item.sell_price).toString() || "", // Ensure it's a string for input
       image_url: item.image_url || "",
       recipe: item.recipe || [],
-      prep_time_minutes: toSafeNumber(item.prep_time_minutes).toString() || "",
+      prep_time_minutes: safeNumber(item.prep_time_minutes).toString() || "",
       cooking_instructions: item.cooking_instructions || "",
       allergen_tags: item.allergen_tags || [],
     });
@@ -177,7 +194,7 @@ export default function MenuManagement() {
     setCategoryFormData({
       name: category.name,
       description: category.description || "",
-      display_order: toSafeNumber(category.display_order).toString() || "", // Ensure it's a string for input
+      display_order: safeNumber(category.display_order).toString() || "", // Ensure it's a string for input
     });
     setShowCategoryForm(true);
   };
@@ -198,7 +215,7 @@ export default function MenuManagement() {
   };
 
   const handleAddIngredient = () => {
-    const quantity = toSafeNumber(ingredientQty);
+    const quantity = safeNumber(ingredientQty);
     if (!selectedIngredient || quantity <= 0) {
       alert("Please select an ingredient and enter a valid quantity greater than 0.");
       return;
@@ -216,14 +233,14 @@ export default function MenuManagement() {
       return;
     }
 
-    const cost = toSafeNumber(ingredient.unit_cost) * quantity;
+    const cost = safeNumber(ingredient.unit_cost) * quantity;
 
     const recipeItem = {
       ingredient_id: ingredient.id,
       ingredient_name: ingredient.name,
       quantity: quantity,
       unit: ingredient.unit,
-      cost: toSafeNumber(cost), // This is the total cost for this specific quantity of ingredient for ONE serving
+      cost: safeNumber(cost), // This is the total cost for this specific quantity of ingredient for ONE serving
     };
 
     setItemFormData({
@@ -270,15 +287,15 @@ export default function MenuManagement() {
   };
 
   const calculateTotals = () => {
-    const totalCost = itemFormData.recipe.reduce((sum, r) => sum + toSafeNumber(r.cost), 0);
-    const sellPrice = toSafeNumber(itemFormData.sell_price);
+    const totalCost = itemFormData.recipe.reduce((sum, r) => sum + safeNumber(r.cost), 0);
+    const sellPrice = safeNumber(itemFormData.sell_price);
     const profitMargin = sellPrice - totalCost;
     const foodCostPercentage = sellPrice > 0 ? (totalCost / sellPrice) * 100 : 0;
 
     return { 
-      totalCost: toSafeNumber(totalCost), 
-      profitMargin: toSafeNumber(profitMargin), 
-      foodCostPercentage: toSafeNumber(foodCostPercentage) 
+      totalCost: safeNumber(totalCost), 
+      profitMargin: safeNumber(profitMargin), 
+      foodCostPercentage: safeNumber(foodCostPercentage) 
     };
   };
 
@@ -288,7 +305,7 @@ export default function MenuManagement() {
     const category = categories.find(c => c.id === itemFormData.category_id);
 
     // Validate essential fields
-    if (!itemFormData.name || !itemFormData.category_id || toSafeNumber(itemFormData.sell_price) <= 0) {
+    if (!itemFormData.name || !itemFormData.category_id || safeNumber(itemFormData.sell_price) <= 0) {
         alert("Please fill in item name, category, and a valid sell price.");
         return;
     }
@@ -302,13 +319,13 @@ export default function MenuManagement() {
       category_id: itemFormData.category_id,
       category_name: category?.name || "Uncategorized", // Default if category not found for some reason
       description: itemFormData.description,
-      sell_price: toSafeNumber(itemFormData.sell_price),
+      sell_price: safeNumber(itemFormData.sell_price),
       image_url: itemFormData.image_url,
       recipe: itemFormData.recipe,
       total_cost: totalCost,
       profit_margin: profitMargin,
       food_cost_percentage: foodCostPercentage,
-      prep_time_minutes: toSafeNumber(itemFormData.prep_time_minutes) > 0 ? toSafeNumber(itemFormData.prep_time_minutes) : null,
+      prep_time_minutes: safeNumber(itemFormData.prep_time_minutes) > 0 ? safeNumber(itemFormData.prep_time_minutes) : null,
       cooking_instructions: itemFormData.cooking_instructions,
       allergen_tags: itemFormData.allergen_tags,
       is_active: true, // Assuming new items are active by default
@@ -337,7 +354,7 @@ export default function MenuManagement() {
     const data = {
       name: categoryFormData.name,
       description: categoryFormData.description,
-      display_order: toSafeNumber(categoryFormData.display_order) > 0 ? toSafeNumber(categoryFormData.display_order) : (categories.length > 0 ? Math.max(...categories.map(c => toSafeNumber(c.display_order))) + 1 : 1),
+      display_order: safeNumber(categoryFormData.display_order) > 0 ? safeNumber(categoryFormData.display_order) : (categories.length > 0 ? Math.max(...categories.map(c => safeNumber(c.display_order))) + 1 : 1),
       is_active: true, // Assuming new categories are active by default
     };
 
@@ -365,7 +382,7 @@ export default function MenuManagement() {
     if (!calculatorItem) return null;
 
     const recipe = calculatorItem.recipe || [];
-    const sellPricePerServing = toSafeNumber(calculatorItem.sell_price);
+    const sellPricePerServing = safeNumber(calculatorItem.sell_price);
     
     let costPerServingBeforeWaste = 0;
     const ingredientsNeededDetails = recipe.map(recipeItem => {
@@ -383,52 +400,52 @@ export default function MenuManagement() {
       let isMissingFromInventory = false;
 
       if (ingredientDetail) {
-        effectiveUnitCost = toSafeNumber(ingredientDetail.unit_cost) > 0 
-          ? toSafeNumber(ingredientDetail.unit_cost) 
-          : (toSafeNumber(recipeItem.quantity) > 0 ? toSafeNumber(recipeItem.cost) / toSafeNumber(recipeItem.quantity) : 0); // Fallback to recipe cost if inventory unit_cost is zero/invalid
-        individualServingCost = effectiveUnitCost * toSafeNumber(recipeItem.quantity); // Cost for this ingredient for ONE serving
+        effectiveUnitCost = safeNumber(ingredientDetail.unit_cost) > 0 
+          ? safeNumber(ingredientDetail.unit_cost) 
+          : (safeNumber(recipeItem.quantity) > 0 ? safeNumber(recipeItem.cost) / safeNumber(recipeItem.quantity) : 0); // Fallback to recipe cost if inventory unit_cost is zero/invalid
+        individualServingCost = effectiveUnitCost * safeNumber(recipeItem.quantity); // Cost for this ingredient for ONE serving
         costPerServingBeforeWaste += individualServingCost;
       } else {
         isMissingFromInventory = true;
         // If ingredient is not found in inventory at all, use the cost stored in the recipe.
         // This is a fallback to ensure some cost is calculated, even if not fully up-to-date.
-        individualServingCost = toSafeNumber(recipeItem.cost); 
+        individualServingCost = safeNumber(recipeItem.cost); 
         costPerServingBeforeWaste += individualServingCost;
-        console.error(`Ingredient "${recipeItem.ingredient_name}" (ID: ${recipeItem.ingredient_id}) not found in inventory! Using stored recipe cost: £${safeNumber(individualServingCost, 2)}`);
+        console.error(`Ingredient "${recipeItem.ingredient_name}" (ID: ${recipeItem.ingredient_id}) not found in inventory! Using stored recipe cost: £${formatPrice(individualServingCost)}`);
       }
 
       return {
         ...recipeItem, // Keep original recipe item data
         ingredientDetail: ingredientDetail, // Attach the found inventory detail
         effectiveUnitCost: effectiveUnitCost,
-        individualServingCost: toSafeNumber(individualServingCost), // Cost for this ingredient for ONE serving
+        individualServingCost: safeNumber(individualServingCost), // Cost for this ingredient for ONE serving
         missingFromInventory: isMissingFromInventory,
       };
     });
 
-    const costPerServingWithWaste = toSafeNumber(costPerServingBeforeWaste * (1 + toSafeNumber(wastePercentage) / 100));
+    const costPerServingWithWaste = safeNumber(costPerServingBeforeWaste * (1 + safeNumber(wastePercentage) / 100));
 
-    const totalCost = toSafeNumber(costPerServingWithWaste * servings);
-    const totalRevenue = toSafeNumber(sellPricePerServing * servings);
-    const profitPerServing = toSafeNumber(sellPricePerServing - costPerServingWithWaste);
-    const totalProfit = toSafeNumber(totalRevenue - totalCost);
+    const totalCost = safeNumber(costPerServingWithWaste * servings);
+    const totalRevenue = safeNumber(sellPricePerServing * servings);
+    const profitPerServing = safeNumber(sellPricePerServing - costPerServingWithWaste);
+    const totalProfit = safeNumber(totalRevenue - totalCost);
     const profitMargin = sellPricePerServing > 0 
-      ? toSafeNumber((profitPerServing / sellPricePerServing) * 100) 
+      ? safeNumber((profitPerServing / sellPricePerServing) * 100) 
       : 0;
 
     // Calculate ingredient quantities needed for all servings, with waste
     const ingredientsNeeded = ingredientsNeededDetails.map(itemDetail => {
       const { ingredient_id, ingredient_name, quantity, unit, cost, ingredientDetail, missingFromInventory } = itemDetail;
 
-      const quantityNeededRaw = toSafeNumber(quantity) * servings;
-      const quantityNeededWithWaste = toSafeNumber(quantityNeededRaw * (1 + toSafeNumber(wastePercentage) / 100));
+      const quantityNeededRaw = safeNumber(quantity) * servings;
+      const quantityNeededWithWaste = safeNumber(quantityNeededRaw * (1 + safeNumber(wastePercentage) / 100));
 
       // Unit cost for reporting should reflect what we're basing the total cost on.
       let unitCostToReport = missingFromInventory 
-        ? (toSafeNumber(quantity) > 0 ? toSafeNumber(cost) / toSafeNumber(quantity) : 0) 
-        : toSafeNumber(ingredientDetail?.unit_cost);
+        ? (safeNumber(quantity) > 0 ? safeNumber(cost) / safeNumber(quantity) : 0) 
+        : safeNumber(ingredientDetail?.unit_cost);
       
-      const totalIngredientCostWithWaste = toSafeNumber(quantityNeededWithWaste * unitCostToReport);
+      const totalIngredientCostWithWaste = safeNumber(quantityNeededWithWaste * unitCostToReport);
 
       return {
         ingredient_id: ingredient_id,
@@ -445,12 +462,12 @@ export default function MenuManagement() {
     });
 
     return {
-      costPerServing: toSafeNumber(costPerServingWithWaste),
-      totalCost: toSafeNumber(totalCost),
-      totalRevenue: toSafeNumber(totalRevenue),
-      profitPerServing: toSafeNumber(profitPerServing),
-      totalProfit: toSafeNumber(totalProfit),
-      profitMargin: toSafeNumber(profitMargin),
+      costPerServing: safeNumber(costPerServingWithWaste),
+      totalCost: safeNumber(totalCost),
+      totalRevenue: safeNumber(totalRevenue),
+      profitPerServing: safeNumber(profitPerServing),
+      totalProfit: safeNumber(totalProfit),
+      profitMargin: safeNumber(profitMargin),
       ingredientsNeeded,
     };
   };
@@ -518,10 +535,10 @@ export default function MenuManagement() {
     try {
       let ordersCreated = 0;
       for (const order of Object.values(ordersBySupplier)) {
-        const subtotal = toSafeNumber(order.items.reduce((sum, item) => sum + toSafeNumber(item.line_total), 0));
+        const subtotal = safeNumber(order.items.reduce((sum, item) => sum + safeNumber(item.line_total), 0));
         const taxRate = 0.20; // 20% tax
-        const tax = toSafeNumber(subtotal * taxRate);
-        const total = toSafeNumber(subtotal + tax);
+        const tax = safeNumber(subtotal * taxRate);
+        const total = safeNumber(subtotal + tax);
 
         await createPurchaseOrderMutation.mutateAsync({
           order_number: `PO-MENU-${Date.now()}-${order.supplier_id.substring(0, 4)}`,
@@ -662,10 +679,10 @@ export default function MenuManagement() {
             </div>
           ) : (
             filteredMenuItems.map((item) => {
-              const sellPrice = toSafeNumber(item.sell_price);
-              const totalCost = toSafeNumber(item.total_cost);
-              const profitMargin = toSafeNumber(item.profit_margin);
-              const foodCostPercentage = toSafeNumber(item.food_cost_percentage);
+              const sellPrice = safeNumber(item.sell_price);
+              const totalCost = safeNumber(item.total_cost);
+              const profitMargin = safeNumber(item.profit_margin);
+              const foodCostPercentage = safeNumber(item.food_cost_percentage);
 
               return (
                 <Card key={item.id} className="bg-white border-none shadow-sm hover:shadow-lg transition-shadow overflow-hidden group">
@@ -721,22 +738,22 @@ export default function MenuManagement() {
                     <div className="space-y-2">
                       <div className="flex justify-between items-center">
                         <span className="text-sm text-gray-600">Sell Price:</span>
-                        <span className="text-xl font-bold text-gray-900">£{safeNumber(sellPrice, 2)}</span>
+                        <span className="text-xl font-bold text-gray-900">£{formatPrice(sellPrice)}</span>
                       </div>
                       <div className="flex justify-between items-center text-sm">
                         <span className="text-gray-600">Cost:</span>
-                        <span className="font-semibold text-gray-900">£{safeNumber(totalCost, 2)}</span>
+                        <span className="font-semibold text-gray-900">£{formatPrice(totalCost)}</span>
                       </div>
                       <div className="flex justify-between items-center text-sm">
                         <span className="text-gray-600">Profit:</span>
                         <span className={`font-semibold ${profitMargin > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                          £{safeNumber(profitMargin, 2)}
+                          £{formatPrice(profitMargin)}
                         </span>
                       </div>
                       <div className="flex justify-between items-center text-sm pt-2 border-t border-gray-100">
                         <span className="text-gray-600">Food Cost %:</span>
                         <Badge variant="outline" className={foodCostPercentage < 35 ? 'text-green-700 border-green-300' : 'text-amber-700 border-amber-300'}>
-                          {safeNumber(foodCostPercentage, 1)}%
+                          {formatPercent(foodCostPercentage)}%
                         </Badge>
                       </div>
                     </div>
@@ -853,9 +870,7 @@ export default function MenuManagement() {
                         </div>
                       ) : (
                         categories.map(cat => (
-                          <SelectItem key={cat.id} value={cat.id}>
-                            {cat.name}
-                          </SelectItem>
+                          <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
                         ))
                       )}
                     </SelectContent>
@@ -927,7 +942,7 @@ export default function MenuManagement() {
                           <SelectContent>
                             {ingredients.map(ing => (
                               <SelectItem key={ing.id} value={ing.id}>
-                                {ing.name} ({ing.unit}) - £{safeNumber(ing.unit_cost, 2)}
+                                {ing.name} ({ing.unit}) - £{formatPrice(ing.unit_cost)}
                               </SelectItem>
                             ))}
                           </SelectContent>
@@ -946,7 +961,7 @@ export default function MenuManagement() {
                       onClick={handleAddIngredient} 
                       className="w-full"
                       size="sm"
-                      disabled={!selectedIngredient || toSafeNumber(ingredientQty) <= 0}
+                      disabled={!selectedIngredient || safeNumber(ingredientQty) <= 0}
                     >
                       <Plus className="w-4 h-4 mr-2" />
                       Add Ingredient
@@ -965,7 +980,7 @@ export default function MenuManagement() {
                                 {item.ingredient_name}
                               </p>
                               <p className="text-sm text-gray-600">
-                                {item.quantity} {item.unit} × £{safeNumber(toSafeNumber(item.quantity) > 0 ? (toSafeNumber(item.cost) / toSafeNumber(item.quantity)) : 0, 2)} = £{safeNumber(item.cost, 2)}
+                                {item.quantity} {item.unit} × £{formatPrice(safeNumber(item.quantity) > 0 ? (safeNumber(item.cost) / safeNumber(item.quantity)) : 0)} = £{formatPrice(item.cost)}
                               </p>
                             </div>
                             <Button
@@ -984,27 +999,27 @@ export default function MenuManagement() {
                 )}
 
                 {/* Cost Summary */}
-                {itemFormData.recipe.length > 0 && toSafeNumber(itemFormData.sell_price) > 0 && (
+                {itemFormData.recipe.length > 0 && safeNumber(itemFormData.sell_price) > 0 && (
                   <Card className="bg-blue-50 border-blue-200">
                     <CardContent className="p-4 space-y-2">
                       <div className="flex justify-between text-sm">
                         <span className="font-medium">Total Cost:</span>
-                        <span className="font-bold">£{safeNumber(totals.totalCost, 2)}</span>
+                        <span className="font-bold">£{formatPrice(totals.totalCost)}</span>
                       </div>
                       <div className="flex justify-between text-sm">
                         <span className="font-medium">Sell Price:</span>
-                        <span className="font-bold">£{safeNumber(itemFormData.sell_price, 2)}</span>
+                        <span className="font-bold">£{formatPrice(itemFormData.sell_price)}</span>
                       </div>
                       <div className="flex justify-between text-sm border-t border-blue-300 pt-2">
                         <span className="font-medium">Profit Margin:</span>
                         <span className={`font-bold ${totals.profitMargin > 0 ? 'text-green-700' : 'text-red-700'}`}>
-                          £{safeNumber(totals.profitMargin, 2)}
+                          £{formatPrice(totals.profitMargin)}
                         </span>
                       </div>
                       <div className="flex justify-between text-sm">
                         <span className="font-medium">Food Cost %:</span>
                         <span className={`font-bold ${totals.foodCostPercentage < 35 ? 'text-green-700' : 'text-amber-700'}`}>
-                          {safeNumber(totals.foodCostPercentage, 1)}%
+                          {formatPercent(totals.foodCostPercentage)}%
                         </span>
                       </div>
                     </CardContent>
@@ -1018,7 +1033,7 @@ export default function MenuManagement() {
                 </Button>
                 <Button 
                   type="submit" 
-                  disabled={createMenuItemMutation.isPending || updateMenuItemMutation.isPending || itemFormData.recipe.length === 0 || toSafeNumber(itemFormData.sell_price) <= 0 || !itemFormData.name || !itemFormData.category_id}
+                  disabled={createMenuItemMutation.isPending || updateMenuItemMutation.isPending || itemFormData.recipe.length === 0 || safeNumber(itemFormData.sell_price) <= 0 || !itemFormData.name || !itemFormData.category_id}
                   className="bg-green-600 hover:bg-green-700"
                 >
                   {editingItem ? 'Update Item' : 'Create Item'}
@@ -1084,9 +1099,9 @@ export default function MenuManagement() {
               <div className="mt-6 border-t pt-4">
                 <h4 className="font-semibold text-gray-900 mb-3">Existing Categories</h4>
                 <div className="space-y-2">
-                  {categories.sort((a, b) => toSafeNumber(a.display_order) - toSafeNumber(b.display_order)).map(cat => (
+                  {categories.sort((a, b) => safeNumber(a.display_order) - safeNumber(b.display_order)).map(cat => (
                     <div key={cat.id} className="flex items-center justify-between p-2 bg-gray-50 rounded">
-                      <span className="font-medium text-gray-900">{cat.name} ({toSafeNumber(cat.display_order) || '-'})</span>
+                      <span className="font-medium text-gray-900">{cat.name} ({safeNumber(cat.display_order) || '-'})</span>
                       <div className="flex gap-1">
                         <Button variant="ghost" size="icon" onClick={() => handleEditCategory(cat)}>
                           <Pencil className="w-4 h-4" />
@@ -1139,7 +1154,7 @@ export default function MenuManagement() {
                   <div className="space-y-2">
                     <Label>Sale Price per Serving</Label>
                     <div className="text-2xl font-bold text-gray-900">
-                      £{safeNumber(calculatorItem?.sell_price, 2)}
+                      £{formatPrice(calculatorItem?.sell_price)}
                     </div>
                   </div>
 
@@ -1161,19 +1176,19 @@ export default function MenuManagement() {
                     <div className="grid md:grid-cols-4 gap-4">
                       <div>
                         <p className="text-sm font-medium mb-1">Cost/Serving</p>
-                        <p className="text-2xl font-bold">£{safeNumber(metrics.costPerServing, 2)}</p>
+                        <p className="text-2xl font-bold">£{formatPrice(metrics.costPerServing)}</p>
                       </div>
                       <div>
                         <p className="text-sm font-medium mb-1">Profit/Serving</p>
-                        <p className="text-2xl font-bold">£{safeNumber(metrics.profitPerServing, 2)}</p>
+                        <p className="text-2xl font-bold">£{formatPrice(metrics.profitPerServing)}</p>
                       </div>
                       <div>
                         <p className="text-sm font-medium mb-1">Profit Margin</p>
-                        <p className="text-2xl font-bold">{safeNumber(metrics.profitMargin, 1)}%</p>
+                        <p className="text-2xl font-bold">{formatPercent(metrics.profitMargin)}%</p>
                       </div>
                       <div>
                         <p className="text-sm font-medium mb-1">Total Profit ({servings}x)</p>
-                        <p className="text-2xl font-bold">£{safeNumber(metrics.totalProfit, 2)}</p>
+                        <p className="text-2xl font-bold">£{formatPrice(metrics.totalProfit)}</p>
                       </div>
                     </div>
                   </CardContent>
@@ -1231,9 +1246,9 @@ export default function MenuManagement() {
                                     )}
                                   </div>
                                   <p className="text-sm text-gray-600">
-                                    {safeNumber(item.quantity_needed, 2)} {item.unit} × £{safeNumber(item.unit_cost, 2)}
+                                    {formatPrice(item.quantity_needed)} {item.unit} × £{formatPrice(item.unit_cost)}
                                     {wastePercentage > 0 && (
-                                      <span className="text-amber-600 ml-1"> (+{safeNumber(wastePercentage, 1)}% waste)</span>
+                                      <span className="text-amber-600 ml-1"> (+{formatPercent(wastePercentage)}% waste)</span>
                                     )}
                                   </p>
                                   {!item.missing && item.supplier_name && (
@@ -1251,7 +1266,7 @@ export default function MenuManagement() {
                                   )}
                                 </div>
                                 <span className="font-semibold text-gray-900">
-                                  £{safeNumber(item.total_cost, 2)}
+                                  £{formatPrice(item.total_cost)}
                                 </span>
                               </div>
                             </CardContent>
@@ -1267,15 +1282,15 @@ export default function MenuManagement() {
                   <CardContent className="p-4 space-y-2">
                     <div className="flex justify-between text-sm">
                       <span className="font-medium">Total Ingredients Cost:</span>
-                      <span className="font-bold">£{safeNumber(metrics.totalCost, 2)}</span>
+                      <span className="font-bold">£{formatPrice(metrics.totalCost)}</span>
                     </div>
                     <div className="flex justify-between text-sm">
                       <span className="font-medium">Total Revenue:</span>
-                      <span className="font-bold text-green-700">£{safeNumber(metrics.totalRevenue, 2)}</span>
+                      <span className="font-bold text-green-700">£{formatPrice(metrics.totalRevenue)}</span>
                     </div>
                     <div className="flex justify-between text-lg border-t border-gray-300 pt-2">
                       <span className="font-semibold">Total Profit:</span>
-                      <span className="font-bold text-indigo-700">£{safeNumber(metrics.totalProfit, 2)}</span>
+                      <span className="font-bold text-indigo-700">£{formatPrice(metrics.totalProfit)}</span>
                     </div>
                   </CardContent>
                 </Card>

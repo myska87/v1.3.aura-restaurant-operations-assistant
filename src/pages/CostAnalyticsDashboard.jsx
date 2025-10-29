@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
@@ -12,11 +11,20 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { 
+  TrendingUp, 
+  TrendingDown, 
+  DollarSign, 
+  Package, 
+  ShoppingCart,
+  AlertCircle,
+  Home,
+  ArrowLeft,
+} from "lucide-react";
+import { format, subDays, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from "date-fns";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
-import { TrendingUp, TrendingDown, DollarSign, Package, ShoppingCart, ArrowLeft, Home } from "lucide-react";
 import { Link } from "react-router-dom";
-import { createPageUrl, safeNumber, toSafeNumber, safeCurrency } from "@/utils";
-import { format, subDays, startOfWeek, endOfWeek } from "date-fns";
+import { createPageUrl } from "@/utils";
 
 export default function CostAnalyticsDashboard() {
   const [timeRange, setTimeRange] = useState("7days");
@@ -38,10 +46,14 @@ export default function CostAnalyticsDashboard() {
     queryFn: () => base44.entities.MenuItem.list(),
   });
 
-  // Renamed purchaseOrders to orders for consistency with outline's calculations
-  const { data: orders = [] } = useQuery({
-    queryKey: ['purchaseOrders'], // Keep original query key if API entity name hasn't changed
+  const { data: purchaseOrders = [] } = useQuery({
+    queryKey: ['purchaseOrders'],
     queryFn: () => base44.entities.PurchaseOrder.list('-order_date', 100),
+  });
+
+  const { data: ingredientUsage = [] } = useQuery({
+    queryKey: ['ingredientUsage'],
+    queryFn: () => base44.entities.IngredientUsage.list('-usage_date', 200),
   });
 
   if (!isAuthorized) {
@@ -50,7 +62,7 @@ export default function CostAnalyticsDashboard() {
         <div className="max-w-4xl mx-auto">
           <Card className="bg-red-50 border-red-200">
             <CardContent className="p-12 text-center">
-              {/* Removed AlertCircle icon as per outline */}
+              <AlertCircle className="w-16 h-16 text-red-600 mx-auto mb-4" />
               <h2 className="text-2xl font-bold text-red-900 mb-2">Access Restricted</h2>
               <p className="text-red-700 mb-6">
                 This page is only accessible to Managers and Administrators.
@@ -68,113 +80,72 @@ export default function CostAnalyticsDashboard() {
     );
   }
 
-  // Calculate totals - WITH SAFE NUMBERS
-  const totalOrderValue = orders.reduce((sum, o) => sum + toSafeNumber(o.total), 0);
-  const totalIngredientCost = ingredients.reduce((sum, i) =>
-    sum + (toSafeNumber(i.current_stock) * toSafeNumber(i.unit_cost)), 0
-  );
-
-  // Daily spending trend - WITH SAFE NUMBERS
-  const getDays = () => {
+  // Calculate date range
+  const getDateRange = () => {
+    const now = new Date();
     switch (timeRange) {
-      case '7days': return 7;
-      case '30days': return 30;
-      case '90days': return 90;
-      default: return 7;
+      case '7days':
+        return { start: subDays(now, 7), end: now };
+      case '30days':
+        return { start: subDays(now, 30), end: now };
+      case 'week':
+        return { start: startOfWeek(now), end: endOfWeek(now) };
+      case 'month':
+        return { start: startOfMonth(now), end: endOfMonth(now) };
+      default:
+        return { start: subDays(now, 7), end: now };
     }
   };
 
-  const dateRange = Array.from({ length: getDays() }, (_, i) => {
-    const date = new Date();
-    date.setDate(date.getDate() - (getDays() - 1 - i));
-    return date;
+  const dateRange = getDateRange();
+
+  // Calculate total inventory value
+  const totalInventoryValue = ingredients.reduce((sum, ing) => {
+    return sum + ((ing.current_stock || 0) * (ing.unit_cost || 0));
+  }, 0);
+
+  // Calculate total purchases in period
+  const recentPurchases = purchaseOrders.filter(po => {
+    const orderDate = new Date(po.order_date);
+    return orderDate >= dateRange.start && orderDate <= dateRange.end;
   });
 
-  const spendingTrend = dateRange.map(date => {
-    const dateStr = format(date, 'yyyy-MM-dd');
-    const dayOrders = orders.filter(o => {
-      // Ensure order_date exists and is a string for startsWith
-      return typeof o.order_date === 'string' && o.order_date.startsWith(dateStr);
-    });
-    const dayTotal = dayOrders.reduce((sum, o) => sum + toSafeNumber(o.total), 0);
+  const totalPurchases = recentPurchases.reduce((sum, po) => sum + (po.total || 0), 0);
 
-    return {
-      date: format(date, 'MMM d'),
-      spending: toSafeNumber(dayTotal, 0),
-    };
+  // Calculate COGS (Cost of Goods Sold)
+  const recentUsage = ingredientUsage.filter(usage => {
+    const usageDate = new Date(usage.usage_date);
+    return usageDate >= dateRange.start && usageDate <= dateRange.end;
   });
 
-  // Category breakdown - WITH SAFE NUMBERS
-  const categorySpending = ingredients.reduce((acc, ing) => {
-    const category = ing.category || 'Other'; // Capitalize 'Other' for display
-    const value = toSafeNumber(ing.current_stock) * toSafeNumber(ing.unit_cost);
+  const totalCOGS = recentUsage.reduce((sum, usage) => sum + (usage.total_cost || 0), 0);
 
-    const existing = acc.find(c => c.name === category);
-    if (existing) {
-      existing.value += value;
-    } else {
-      acc.push({
-        name: category.replace(/_/g, ' ').split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' '), // Capitalize words and replace underscores
-        value: toSafeNumber(value, 0)
-      });
-    }
-    return acc;
-  }, []).sort((a, b) => b.value - a.value).slice(0, 5); // Take top 5 categories
+  // Calculate wastage cost
+  const wastageUsage = recentUsage.filter(u => u.usage_type === 'wastage');
+  const totalWastage = wastageUsage.reduce((sum, usage) => sum + (usage.total_cost || 0), 0);
 
-  // Supplier spending - WITH SAFE NUMBERS
-  const supplierSpending = orders.reduce((acc, order) => {
-    const supplier = order.supplier_name || 'Unknown';
-    const existing = acc.find(s => s.name === supplier);
+  // Calculate menu profitability
+  const menuProfitability = menuItems.map(item => ({
+    name: item.name,
+    cost: item.total_cost || 0,
+    price: item.sell_price || 0,
+    profit: (item.sell_price || 0) - (item.total_cost || 0),
+    margin: item.sell_price > 0 ? (((item.sell_price - item.total_cost) / item.sell_price) * 100) : 0,
+  })).sort((a, b) => b.profit - a.profit).slice(0, 10);
 
-    if (existing) {
-      existing.value += toSafeNumber(order.total);
-    } else {
-      acc.push({
-        name: supplier,
-        value: toSafeNumber(order.total, 0)
-      });
-    }
-    return acc;
-  }, []).sort((a, b) => b.value - a.value).slice(0, 5); // Take top 5 suppliers
-
-  // Menu item profitability - WITH SAFE NUMBERS, adjusted for existing JSX
-  const menuProfitability = menuItems
-    .map(item => {
-      const cost = toSafeNumber(item.total_cost);
-      const price = toSafeNumber(item.sell_price);
-      const profit = price - cost;
-      const margin = price > 0 ? (profit / price) * 100 : 0;
-
-      return {
-        name: item.name,
-        cost: cost,
-        price: price,
-        profit: profit,
-        margin: margin,
-        // foodCostPercent: toSafeNumber(item.food_cost_percentage), // Not directly used by current JSX
-      };
-    })
-    .sort((a, b) => b.profit - a.profit)
-    .slice(0, 10);
-
-  // Top ingredients by cost - WITH SAFE NUMBERS
+  // Top ingredients by cost
   const topIngredientsByCost = ingredients
-    .map(ing => {
-      const stock = toSafeNumber(ing.current_stock);
-      const unitCost = toSafeNumber(ing.unit_cost);
-      return {
-        name: ing.name,
-        value: stock * unitCost,
-        stock: stock,
-        unit_cost: unitCost,
-      };
-    })
+    .map(ing => ({
+      name: ing.name,
+      value: (ing.current_stock || 0) * (ing.unit_cost || 0),
+      stock: ing.current_stock || 0,
+      unit_cost: ing.unit_cost || 0,
+    }))
     .sort((a, b) => b.value - a.value)
     .slice(0, 10);
 
-
   return (
-    <div className="p-6 md:p-8 bg-gray-50 min-h-screen">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6 md:p-8">
       <div className="max-w-7xl mx-auto">
         {/* Navigation */}
         <div className="flex gap-3 mb-6">
@@ -193,54 +164,74 @@ export default function CostAnalyticsDashboard() {
         </div>
 
         {/* Header */}
-        <div className="flex justify-between items-center mb-8">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">Cost Analytics</h1>
-            <p className="text-gray-600">Track spending and profitability</p>
+            <div className="flex items-center gap-3 mb-2">
+              <div className="w-12 h-12 bg-gradient-to-br from-green-600 to-emerald-600 rounded-xl flex items-center justify-center">
+                <TrendingUp className="w-7 h-7 text-white" />
+              </div>
+              <div>
+                <h1 className="text-4xl font-bold text-gray-900">Cost Analytics</h1>
+                <p className="text-gray-600">Real-time cost tracking and profitability insights</p>
+              </div>
+            </div>
           </div>
           <Select value={timeRange} onValueChange={setTimeRange}>
-            <SelectTrigger className="w-40">
+            <SelectTrigger className="w-48">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="7days">Last 7 Days</SelectItem>
               <SelectItem value="30days">Last 30 Days</SelectItem>
-              <SelectItem value="90days">Last 90 Days</SelectItem>
+              <SelectItem value="week">This Week</SelectItem>
+              <SelectItem value="month">This Month</SelectItem>
             </SelectContent>
           </Select>
         </div>
 
-        {/* Summary Cards - WITH SAFE NUMBERS */}
-        <div className="grid md:grid-cols-3 gap-6 mb-6">
-          <Card className="bg-gradient-to-br from-blue-50 to-indigo-50 border-none shadow-sm">
-            <CardHeader>
-              <CardTitle className="text-sm text-gray-700">Total Orders</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-3xl font-bold text-blue-700">£{safeNumber(totalOrderValue, 2)}</p>
-              <p className="text-sm text-gray-600 mt-1">{orders.length} orders</p>
+        {/* KPI Cards */}
+        <div className="grid md:grid-cols-4 gap-4 mb-8">
+          <Card className="bg-gradient-to-br from-blue-500 to-blue-600 border-none">
+            <CardContent className="p-6 text-white">
+              <div className="flex items-center gap-3 mb-2">
+                <Package className="w-6 h-6" />
+                <p className="text-sm font-medium opacity-90">Inventory Value</p>
+              </div>
+              <p className="text-3xl font-bold">£{totalInventoryValue.toFixed(2)}</p>
+              <p className="text-xs opacity-75 mt-1">Current stock value</p>
             </CardContent>
           </Card>
 
-          <Card className="bg-gradient-to-br from-green-50 to-emerald-50 border-none shadow-sm">
-            <CardHeader>
-              <CardTitle className="text-sm text-gray-700">Inventory Value</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-3xl font-bold text-green-700">£{safeNumber(totalIngredientCost, 2)}</p>
-              <p className="text-sm text-gray-600 mt-1">{ingredients.length} ingredients</p>
+          <Card className="bg-gradient-to-br from-purple-500 to-purple-600 border-none">
+            <CardContent className="p-6 text-white">
+              <div className="flex items-center gap-3 mb-2">
+                <ShoppingCart className="w-6 h-6" />
+                <p className="text-sm font-medium opacity-90">Purchases</p>
+              </div>
+              <p className="text-3xl font-bold">£{totalPurchases.toFixed(2)}</p>
+              <p className="text-xs opacity-75 mt-1">{recentPurchases.length} orders</p>
             </CardContent>
           </Card>
 
-          <Card className="bg-gradient-to-br from-purple-50 to-pink-50 border-none shadow-sm">
-            <CardHeader>
-              <CardTitle className="text-sm text-gray-700">Avg. Menu Item Profit</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-3xl font-bold text-purple-700">
-                £{safeNumber(menuItems.reduce((sum, m) => sum + (toSafeNumber(m.sell_price) - toSafeNumber(m.total_cost)), 0) / Math.max(1, menuItems.length), 2)}
-              </p>
-              <p className="text-sm text-gray-600 mt-1">avg per item</p>
+          <Card className="bg-gradient-to-br from-green-500 to-green-600 border-none">
+            <CardContent className="p-6 text-white">
+              <div className="flex items-center gap-3 mb-2">
+                <DollarSign className="w-6 h-6" />
+                <p className="text-sm font-medium opacity-90">COGS</p>
+              </div>
+              <p className="text-3xl font-bold">£{totalCOGS.toFixed(2)}</p>
+              <p className="text-xs opacity-75 mt-1">Cost of goods sold</p>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-gradient-to-br from-red-500 to-red-600 border-none">
+            <CardContent className="p-6 text-white">
+              <div className="flex items-center gap-3 mb-2">
+                <TrendingDown className="w-6 h-6" />
+                <p className="text-sm font-medium opacity-90">Wastage</p>
+              </div>
+              <p className="text-3xl font-bold">£{totalWastage.toFixed(2)}</p>
+              <p className="text-xs opacity-75 mt-1">{wastageUsage.length} incidents</p>
             </CardContent>
           </Card>
         </div>
@@ -256,8 +247,8 @@ export default function CostAnalyticsDashboard() {
                 <BarChart data={menuProfitability}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                   <XAxis dataKey="name" tick={{ fontSize: 11 }} angle={-45} textAnchor="end" height={100} />
-                  <YAxis tickFormatter={(value) => `£${value.toFixed(0)}`} tick={{ fontSize: 12 }} />
-                  <Tooltip
+                  <YAxis tick={{ fontSize: 12 }} />
+                  <Tooltip 
                     contentStyle={{ backgroundColor: 'white', border: '1px solid #e2e8f0', borderRadius: '8px' }}
                     formatter={(value) => `£${value.toFixed(2)}`}
                   />
@@ -289,64 +280,6 @@ export default function CostAnalyticsDashboard() {
             </CardContent>
           </Card>
         </div>
-
-        {/* Daily Spending Trend */}
-        <Card className="mb-6">
-          <CardHeader>
-            <CardTitle>Daily Spending Trend</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={spendingTrend}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                <XAxis dataKey="date" tick={{ fontSize: 12 }} />
-                <YAxis tickFormatter={(value) => `£${value.toFixed(0)}`} tick={{ fontSize: 12 }} />
-                <Tooltip
-                  contentStyle={{ backgroundColor: 'white', border: '1px solid #e2e8f0', borderRadius: '8px' }}
-                  formatter={(value) => `£${value.toFixed(2)}`}
-                />
-                <Line type="monotone" dataKey="spending" stroke="#8884d8" activeDot={{ r: 8 }} strokeWidth={2} />
-              </LineChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-
-        <div className="grid lg:grid-cols-2 gap-6 mb-6">
-          {/* Category Spending Breakdown */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Top 5 Category Spending</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {categorySpending.map((cat, index) => (
-                  <div key={index} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-                    <p className="font-medium text-gray-900">{cat.name}</p>
-                    <p className="text-lg font-bold text-gray-900">£{safeNumber(cat.value, 2)}</p>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Supplier Spending Breakdown */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Top 5 Supplier Spending</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {supplierSpending.map((supplier, index) => (
-                  <div key={index} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-                    <p className="font-medium text-gray-900">{supplier.name}</p>
-                    <p className="text-lg font-bold text-gray-900">£{safeNumber(supplier.value, 2)}</p>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
 
         {/* Cost Breakdown */}
         <Card>
