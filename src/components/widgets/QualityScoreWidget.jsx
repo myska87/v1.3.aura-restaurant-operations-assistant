@@ -85,7 +85,7 @@ export default function QualityScoreWidget({ user }) {
             </div>
             <div className="p-3 bg-red-50 rounded-lg text-center">
               <p className="text-2xl font-bold text-red-600">{lowScores}</p>
-              <p className="text-xs text-gray-600">Needs Work (<3)</p>
+              <p className="text-xs text-gray-600">Needs Work (&lt;3)</p>
             </div>
           </div>
 
