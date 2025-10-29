@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQueryClient } from '@tanstack/react-query';
 import { startOfDay, format } from 'date-fns';
+import { toSafeNumber } from '@/utils/safeNumber';
 
 /**
  * 📊 Analytics Data Aggregator
@@ -32,11 +33,11 @@ export default function DataAggregator() {
           ? Math.round((completedTasks.length / todayTasks.length) * 100)
           : 0;
 
-        // 2. Get quality scores - WITH NULL SAFETY
+        // 2. Get quality scores - WITH SAFE NUMBERS
         const qualityRecords = await base44.entities.QualityRecord.list('-created_date', 100);
         const todayQuality = qualityRecords.filter(r => r.created_date?.startsWith(dateStr));
         const qualityScoreAvg = todayQuality.length > 0
-          ? Number((todayQuality.reduce((sum, r) => sum + (r.score || 0), 0) / todayQuality.length).toFixed(2))
+          ? todayQuality.reduce((sum, r) => sum + toSafeNumber(r.score), 0) / todayQuality.length
           : 0;
 
         // 3. Get attendance data
@@ -47,13 +48,13 @@ export default function DataAggregator() {
           ? Math.round((onTimeAttendance.length / todayAttendance.length) * 100)
           : 0;
 
-        // 4. Get inventory data - WITH NULL SAFETY
+        // 4. Get inventory data - WITH SAFE NUMBERS
         const ingredients = await base44.entities.Ingredient.list();
         const totalValue = ingredients.reduce((sum, i) => 
-          sum + ((Number(i.current_stock) || 0) * (Number(i.unit_cost) || 0)), 0
+          sum + (toSafeNumber(i.current_stock) * toSafeNumber(i.unit_cost)), 0
         );
         const lowStockItems = ingredients.filter(i => 
-          (Number(i.current_stock) || 0) <= (Number(i.reorder_point) || 0)
+          toSafeNumber(i.current_stock) <= toSafeNumber(i.reorder_point)
         );
         const inventoryCostVariance = ingredients.length > 0
           ? Math.round((lowStockItems.length / ingredients.length) * 100)
@@ -80,23 +81,23 @@ export default function DataAggregator() {
         // 8. Get staff data
         const staff = await base44.entities.User.filter({ status: 'active' });
 
-        // Create snapshot - ALL VALUES SAFELY CONVERTED TO NUMBERS
+        // Create snapshot - ALL VALUES SAFELY CONVERTED
         await base44.entities.AnalyticsSnapshot.create({
           snapshot_date: dateStr,
           period_type: 'daily',
           department: 'all',
-          task_completion_rate: Number(taskCompletionRate) || 0,
-          quality_score_avg: Number(qualityScoreAvg) || 0,
-          shift_compliance: Number(shiftCompliance) || 0,
-          inventory_cost_variance: Number(inventoryCostVariance) || 0,
-          active_alerts: Number(events.length) || 0,
-          sop_completion_rate: Number(todaySignatures.length) || 0,
-          checklist_completion_rate: Number(checklistCompletionRate) || 0,
-          attendance_rate: Number(shiftCompliance) || 0,
-          total_hours_worked: todayAttendance.reduce((sum, a) => sum + (Number(a.total_hours) || 0), 0),
-          overtime_hours: todayAttendance.reduce((sum, a) => sum + (Number(a.overtime_hours) || 0), 0),
-          total_staff: Number(staff.length) || 0,
-          stock_efficiency: Math.max(0, 100 - Number(inventoryCostVariance)),
+          task_completion_rate: toSafeNumber(taskCompletionRate, 0),
+          quality_score_avg: toSafeNumber(qualityScoreAvg, 0),
+          shift_compliance: toSafeNumber(shiftCompliance, 0),
+          inventory_cost_variance: toSafeNumber(inventoryCostVariance, 0),
+          active_alerts: toSafeNumber(events.length, 0),
+          sop_completion_rate: toSafeNumber(todaySignatures.length, 0),
+          checklist_completion_rate: toSafeNumber(checklistCompletionRate, 0),
+          attendance_rate: toSafeNumber(shiftCompliance, 0),
+          total_hours_worked: todayAttendance.reduce((sum, a) => sum + toSafeNumber(a.total_hours), 0),
+          overtime_hours: todayAttendance.reduce((sum, a) => sum + toSafeNumber(a.overtime_hours), 0),
+          total_staff: toSafeNumber(staff.length, 0),
+          stock_efficiency: Math.max(0, 100 - toSafeNumber(inventoryCostVariance)),
           generated_at: new Date().toISOString(),
           generated_by: 'system',
         });
@@ -104,7 +105,7 @@ export default function DataAggregator() {
         queryClient.invalidateQueries({ queryKey: ['analyticsSnapshots'] });
 
       } catch (error) {
-        console.error('[DataAggregator] Error:', error);
+        console.error('[DataAggregator] Error aggregating daily data:', error);
       }
     };
 

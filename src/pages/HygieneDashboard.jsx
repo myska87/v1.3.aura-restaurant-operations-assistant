@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -43,6 +44,7 @@ import { format } from "date-fns";
 import { Link, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { motion } from "framer-motion";
+import { safeNumber, toSafeNumber, safePercent } from "@/utils/safeNumber";
 
 export default function HygieneDashboard() {
   const navigate = useNavigate();
@@ -214,7 +216,7 @@ export default function HygieneDashboard() {
     }
   };
 
-  // Calculate stats from records - WITH NULL SAFETY
+  // Calculate stats from records - WITH SAFE NUMBER UTILITIES
   const todayRecords = records.filter(r => {
     const recordDate = new Date(r.created_date);
     const now = new Date();
@@ -231,7 +233,7 @@ export default function HygieneDashboard() {
   const criticalAlerts = alerts.filter(a => a.severity === 'critical' || a.severity === 'urgent').length;
   const openAlerts = alerts.filter(a => a.status === 'open').length;
 
-  // Form-based metrics - WITH NULL SAFETY
+  // Form-based metrics
   const todayDateOnly = new Date();
   todayDateOnly.setHours(0, 0, 0, 0);
 
@@ -308,8 +310,8 @@ export default function HygieneDashboard() {
       title: "Zero Alerts",
       description: "7 days without variance",
       icon: "✅",
-      progress: Math.min(100, ((myScore?.current_streak || 0) / 7) * 100),
-      unlocked: (myScore?.current_streak || 0) >= 7
+      progress: Math.min(100, (toSafeNumber(myScore?.current_streak) / 7) * 100),
+      unlocked: toSafeNumber(myScore?.current_streak) >= 7
     },
     {
       title: "Form Master",
@@ -499,10 +501,10 @@ export default function HygieneDashboard() {
                   const user = allUsers.find(u => u.email === score.staff_email);
                   const medals = ['🥇', '🥈', '🥉'];
                   
-                  // SAFE NULL HANDLING FOR ALL VALUES
-                  const complianceRateValue = Number(score.compliance_rate || 0);
-                  const totalPoints = Number(score.total_points || 0);
-                  const currentStreak = Number(score.current_streak || 0);
+                  // USE SAFE NUMBER UTILITIES
+                  const complianceRateValue = toSafeNumber(score.compliance_rate, 0);
+                  const totalPoints = toSafeNumber(score.total_points, 0);
+                  const currentStreak = toSafeNumber(score.current_streak, 0);
                   
                   return (
                     <div
@@ -539,7 +541,7 @@ export default function HygieneDashboard() {
                         <div className="mt-2">
                           <div className="flex justify-between text-xs text-gray-600 mb-1">
                             <span>Compliance Rate</span>
-                            <span>{complianceRateValue.toFixed(0)}%</span>
+                            <span>{safeNumber(complianceRateValue, 0)}%</span>
                           </div>
                           <Progress value={complianceRateValue} className="h-2" />
                         </div>
@@ -774,11 +776,11 @@ export default function HygieneDashboard() {
               <CardContent>
                 <div className="flex items-center justify-between mb-6">
                   <div>
-                    <p className="text-4xl font-bold text-purple-900">{Number(myScore.points_this_week || 0)}</p>
+                    <p className="text-4xl font-bold text-purple-900">{toSafeNumber(myScore.points_this_week)}</p>
                     <p className="text-sm text-gray-600">Points this week</p>
                   </div>
                   <div className="text-right">
-                    <p className="text-2xl font-bold text-gray-900">{Number(myScore.total_points || 0)}</p>
+                    <p className="text-2xl font-bold text-gray-900">{toSafeNumber(myScore.total_points)}</p>
                     <p className="text-xs text-gray-600">Total points</p>
                   </div>
                 </div>
@@ -787,7 +789,7 @@ export default function HygieneDashboard() {
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-gray-600">Current Streak</span>
                     <Badge className="bg-orange-100 text-orange-800">
-                      🔥 {Number(myScore.current_streak || 0)} days
+                      🔥 {toSafeNumber(myScore.current_streak)} days
                     </Badge>
                   </div>
                   <div className="flex items-center justify-between text-sm">
@@ -805,7 +807,7 @@ export default function HygieneDashboard() {
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-gray-600">Venue Rank</span>
                     <Badge variant="outline">
-                      #{Number(myScore.rank_in_venue || 0) || '-'}
+                      #{toSafeNumber(myScore.rank_in_venue) || '-'}
                     </Badge>
                   </div>
                 </div>
@@ -883,7 +885,7 @@ export default function HygieneDashboard() {
           </Card>
         )}
 
-        {/* Recent Records */}
+        {/* Recent Records - USE SAFE NUMBERS FOR TEMPERATURE DISPLAY */}
         <Card className="border-none shadow-lg bg-white/90 backdrop-blur">
           <CardHeader>
             <CardTitle className="flex items-center justify-between">
@@ -928,15 +930,15 @@ export default function HygieneDashboard() {
                         <p className="font-medium text-gray-900">{record.item_name}</p>
                         <p className="text-sm text-gray-600">
                           {record.record_type.replace('_', ' ')} •
-                          {record.recorded_value !== null && !isNaN(record.recorded_value) && ` ${Number(record.recorded_value || 0).toFixed(1)}°C`}
-                          {record.recorded_value !== null && isNaN(record.recorded_value) && ` ${record.recorded_value}`} •
+                          {record.recorded_value !== null && !isNaN(toSafeNumber(record.recorded_value)) && ` ${safeNumber(record.recorded_value, 1)}°C`}
+                          {(record.recorded_value === null || isNaN(toSafeNumber(record.recorded_value))) && record.recorded_value && ` ${record.recorded_value}`} •
                           {format(new Date(record.created_date), 'h:mm a')}
                         </p>
                       </div>
                     </div>
                     <div className="text-right">
                       <p className="text-sm font-medium text-gray-900">{record.recorded_by_name}</p>
-                      {(record.points_awarded || 0) > 0 && (
+                      {toSafeNumber(record.points_awarded) > 0 && (
                         <Badge className="bg-purple-100 text-purple-800 text-xs">
                           +{record.points_awarded} pts
                         </Badge>

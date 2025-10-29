@@ -14,12 +14,7 @@ import {
 import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { Download, TrendingUp, Calendar } from "lucide-react";
 import { format, subDays } from "date-fns";
-
-// Safe number formatting
-const safeNumber = (value, decimals = 2) => {
-  const num = parseFloat(value);
-  return isNaN(num) || num === null || num === undefined ? 0 : parseFloat(num.toFixed(decimals));
-};
+import { safeNumber, toSafeNumber } from "@/utils/safeNumber";
 
 export default function Reports() {
   const [timeRange, setTimeRange] = useState("7days");
@@ -61,7 +56,7 @@ export default function Reports() {
     return date;
   });
 
-  // Compliance trend data - WITH NULL SAFETY
+  // Compliance trend data - WITH SAFE NUMBERS
   const complianceTrendData = dateRange.map(date => {
     const dayChecks = complianceChecks.filter(check => {
       const checkDate = new Date(check.check_date);
@@ -74,7 +69,7 @@ export default function Reports() {
 
     return {
       date: format(date, 'MMM d'),
-      rate: safeNumber(passRate, 0),
+      rate: toSafeNumber(passRate, 0),
     };
   });
 
@@ -127,7 +122,7 @@ export default function Reports() {
       [''],
       ['Inventory Summary'],
       ['Total Items', inventoryItems.length],
-      ['Low Stock Items', inventoryItems.filter(i => (Number(i.current_quantity) || 0) <= (Number(i.minimum_quantity) || 0)).length],
+      ['Low Stock Items', inventoryItems.filter(i => toSafeNumber(i.current_quantity) <= toSafeNumber(i.minimum_quantity)).length],
       [''],
       ['Maintenance Summary'],
       ['Total Tickets', maintenanceTickets.length],

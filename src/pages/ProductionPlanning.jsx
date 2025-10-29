@@ -25,14 +25,7 @@ import { Plus, Calculator, ShoppingCart, ArrowLeft, Home, Send, MoreVertical, Ed
 import { format } from "date-fns";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
-
-// Safe number helpers
-const safeNumber = (value, decimals = 2) => {
-  const num = parseFloat(value);
-  return isNaN(num) || num === null || num === undefined ? 0 : parseFloat(num.toFixed(decimals));
-};
-
-const formatPrice = (price) => safeNumber(price, 2).toFixed(2);
+import { safeNumber, toSafeNumber } from "@/utils/safeNumber";
 
 export default function ProductionPlanning() {
   const queryClient = useQueryClient();
@@ -127,7 +120,7 @@ export default function ProductionPlanning() {
     }
 
     const ingredientsNeeded = plan.ingredients_needed || [];
-    const ingredientsToAdd = ingredientsNeeded.filter(ing => safeNumber(ing.to_order) > 0);
+    const ingredientsToAdd = ingredientsNeeded.filter(ing => toSafeNumber(ing.to_order) > 0);
 
     if (ingredientsToAdd.length === 0) {
       alert('✅ All ingredients are in stock for this plan!');
@@ -152,19 +145,19 @@ export default function ProductionPlanning() {
       const existingIndex = updatedCart.findIndex(item => item.ingredient_id === ing.ingredient_id);
 
       if (existingIndex !== -1) {
-        updatedCart[existingIndex].quantity = safeNumber(updatedCart[existingIndex].quantity) + safeNumber(ing.to_order);
-        updatedCart[existingIndex].line_total = updatedCart[existingIndex].quantity * safeNumber(inventoryItem.unit_cost);
+        updatedCart[existingIndex].quantity = toSafeNumber(updatedCart[existingIndex].quantity) + toSafeNumber(ing.to_order);
+        updatedCart[existingIndex].line_total = updatedCart[existingIndex].quantity * toSafeNumber(inventoryItem.unit_cost);
       } else {
         updatedCart.push({
           ingredient_id: ing.ingredient_id,
           ingredient_name: ing.ingredient_name,
-          quantity: safeNumber(ing.to_order),
+          quantity: toSafeNumber(ing.to_order),
           unit: ing.unit,
-          unit_cost: safeNumber(inventoryItem.unit_cost),
+          unit_cost: toSafeNumber(inventoryItem.unit_cost),
           supplier_id: inventoryItem.supplier_id,
           supplier_name: inventoryItem.supplier_name || 'Unknown',
           supplier_email: inventoryItem.supplier_email || null,
-          line_total: safeNumber(ing.to_order) * safeNumber(inventoryItem.unit_cost),
+          line_total: toSafeNumber(ing.to_order) * toSafeNumber(inventoryItem.unit_cost),
           from_plan: plan.name,
         });
       }
@@ -188,7 +181,7 @@ export default function ProductionPlanning() {
 
     setCart(cart.map(item =>
       item.ingredient_id === ingredientId
-        ? { ...item, quantity: parsedQuantity, line_total: parsedQuantity * safeNumber(item.unit_cost) }
+        ? { ...item, quantity: parsedQuantity, line_total: parsedQuantity * toSafeNumber(item.unit_cost) }
         : item
     ));
   };
@@ -225,10 +218,10 @@ export default function ProductionPlanning() {
         ordersBySupplier[item.supplier_id].items.push({
           ingredient_id: item.ingredient_id,
           ingredient_name: item.ingredient_name,
-          quantity_ordered: safeNumber(item.quantity),
+          quantity_ordered: toSafeNumber(item.quantity),
           unit: item.unit,
-          unit_cost: safeNumber(item.unit_cost),
-          line_total: safeNumber(item.line_total),
+          unit_cost: toSafeNumber(item.unit_cost),
+          line_total: toSafeNumber(item.line_total),
         });
       });
 
@@ -236,7 +229,7 @@ export default function ProductionPlanning() {
       const orderPromises = [];
 
       for (const order of Object.values(ordersBySupplier)) {
-        const subtotal = order.items.reduce((sum, item) => sum + safeNumber(item.line_total), 0);
+        const subtotal = order.items.reduce((sum, item) => sum + toSafeNumber(item.line_total), 0);
         const tax = subtotal * 0.2;
         const total = subtotal + tax;
 
@@ -247,9 +240,9 @@ export default function ProductionPlanning() {
           supplier_email: order.supplier_email,
           status: 'draft',
           items: order.items,
-          subtotal: safeNumber(subtotal),
-          tax: safeNumber(tax),
-          total: safeNumber(total),
+          subtotal: toSafeNumber(subtotal),
+          tax: toSafeNumber(tax),
+          total: toSafeNumber(total),
           order_date: new Date().toISOString(),
           notes: 'Created from Production Planning cart',
         });
@@ -288,8 +281,8 @@ export default function ProductionPlanning() {
       menu_item_id: menuItem.id,
       menu_item_name: menuItem.name,
       portions_needed: parseInt(portions),
-      sell_price: safeNumber(menuItem.sell_price),
-      cost_per_portion: safeNumber(menuItem.total_cost),
+      sell_price: toSafeNumber(menuItem.sell_price),
+      cost_per_portion: toSafeNumber(menuItem.total_cost),
     };
 
     setFormData({
@@ -304,10 +297,10 @@ export default function ProductionPlanning() {
   const calculatePlanTotals = () => {
     const totalPortions = formData.menu_items.reduce((sum, item) => sum + (parseInt(item.portions_needed) || 0), 0);
     const totalRevenue = formData.menu_items.reduce((sum, item) => 
-      sum + (safeNumber(item.sell_price) * (parseInt(item.portions_needed) || 0)), 0
+      sum + (toSafeNumber(item.sell_price) * (parseInt(item.portions_needed) || 0)), 0
     );
     const totalCost = formData.menu_items.reduce((sum, item) => 
-      sum + (safeNumber(item.cost_per_portion) * (parseInt(item.portions_needed) || 0)), 0
+      sum + (toSafeNumber(item.cost_per_portion) * (parseInt(item.portions_needed) || 0)), 0
     );
     const projectedProfit = totalRevenue - totalCost;
 
@@ -318,7 +311,7 @@ export default function ProductionPlanning() {
       if (!menuItem?.recipe) return;
 
       menuItem.recipe.forEach(recipeItem => {
-        const quantityNeeded = safeNumber(recipeItem.quantity) * (parseInt(planItem.portions_needed) || 0);
+        const quantityNeeded = toSafeNumber(recipeItem.quantity) * (parseInt(planItem.portions_needed) || 0);
         const existingIngredient = ingredientsMap.get(recipeItem.ingredient_id);
 
         if (existingIngredient) {
@@ -330,8 +323,8 @@ export default function ProductionPlanning() {
             ingredient_name: recipeItem.ingredient_name,
             quantity_needed: quantityNeeded,
             unit: recipeItem.unit,
-            current_stock: safeNumber(inventoryItem?.current_stock),
-            to_order: Math.max(0, quantityNeeded - safeNumber(inventoryItem?.current_stock)),
+            current_stock: toSafeNumber(inventoryItem?.current_stock),
+            to_order: Math.max(0, quantityNeeded - toSafeNumber(inventoryItem?.current_stock)),
           });
         }
       });
@@ -341,9 +334,9 @@ export default function ProductionPlanning() {
 
     return { 
       totalPortions, 
-      totalRevenue: safeNumber(totalRevenue), 
-      totalCost: safeNumber(totalCost), 
-      projectedProfit: safeNumber(projectedProfit), 
+      totalRevenue: toSafeNumber(totalRevenue), 
+      totalCost: toSafeNumber(totalCost), 
+      projectedProfit: toSafeNumber(projectedProfit), 
       ingredientsNeeded 
     };
   };
@@ -377,9 +370,9 @@ export default function ProductionPlanning() {
     const planData = {
       ...formData,
       total_portions: totalPortions,
-      total_revenue: safeNumber(totalRevenue),
-      total_cost: safeNumber(totalCost),
-      projected_profit: safeNumber(projectedProfit),
+      total_revenue: toSafeNumber(totalRevenue),
+      total_cost: toSafeNumber(totalCost),
+      projected_profit: toSafeNumber(projectedProfit),
       ingredients_needed: ingredientsNeeded,
     };
 
@@ -395,7 +388,7 @@ export default function ProductionPlanning() {
     
     try {
       const ingredientsNeeded = plan.ingredients_needed || [];
-      const ingredientsToOrder = ingredientsNeeded.filter(ing => safeNumber(ing.to_order) > 0);
+      const ingredientsToOrder = ingredientsNeeded.filter(ing => toSafeNumber(ing.to_order) > 0);
 
       if (ingredientsToOrder.length === 0) {
         alert('✅ All ingredients in stock!');
@@ -420,17 +413,17 @@ export default function ProductionPlanning() {
           ordersBySupplier[inventoryIngredient.supplier_id].items.push({
             ingredient_id: ing.ingredient_id,
             ingredient_name: ing.ingredient_name,
-            quantity_ordered: safeNumber(ing.to_order),
+            quantity_ordered: toSafeNumber(ing.to_order),
             unit: ing.unit,
-            unit_cost: safeNumber(inventoryIngredient.unit_cost),
-            line_total: safeNumber(ing.to_order) * safeNumber(inventoryIngredient.unit_cost),
+            unit_cost: toSafeNumber(inventoryIngredient.unit_cost),
+            line_total: toSafeNumber(ing.to_order) * toSafeNumber(inventoryIngredient.unit_cost),
           });
         }
       });
 
       let ordersCreated = 0;
       for (const order of Object.values(ordersBySupplier)) {
-        const subtotal = order.items.reduce((sum, item) => sum + safeNumber(item.line_total), 0);
+        const subtotal = order.items.reduce((sum, item) => sum + toSafeNumber(item.line_total), 0);
         const tax = subtotal * 0.2;
         const total = subtotal + tax;
 
@@ -441,9 +434,9 @@ export default function ProductionPlanning() {
           supplier_email: order.supplier_email,
           status: 'pending_approval',
           items: order.items,
-          subtotal: safeNumber(subtotal),
-          tax: safeNumber(tax),
-          total: safeNumber(total),
+          subtotal: toSafeNumber(subtotal),
+          tax: toSafeNumber(tax),
+          total: toSafeNumber(total),
           order_date: new Date().toISOString(),
           linked_production_plan_id: plan.id,
           linked_production_plan_name: plan.name,
@@ -468,7 +461,7 @@ export default function ProductionPlanning() {
     setCreatingOrders(false);
   };
 
-  const cartTotal = cart.reduce((sum, item) => sum + safeNumber(item.line_total), 0);
+  const cartTotal = cart.reduce((sum, item) => sum + toSafeNumber(item.line_total), 0);
   const cartTax = cartTotal * 0.2;
   const cartGrandTotal = cartTotal + cartTax;
   const totals = formData.menu_items.length > 0 ? calculatePlanTotals() : null;
@@ -587,15 +580,15 @@ export default function ProductionPlanning() {
                     </div>
                     <div>
                       <p className="text-xs text-gray-600">Revenue</p>
-                      <p className="text-lg font-bold text-green-700">£{formatPrice(plan.total_revenue)}</p>
+                      <p className="text-lg font-bold text-green-700">£{safeNumber(plan.total_revenue, 2)}</p>
                     </div>
                     <div>
                       <p className="text-xs text-gray-600">Cost</p>
-                      <p className="text-lg font-bold">£{formatPrice(plan.total_cost)}</p>
+                      <p className="text-lg font-bold">£{safeNumber(plan.total_cost, 2)}</p>
                     </div>
                     <div>
                       <p className="text-xs text-gray-600">Profit</p>
-                      <p className="text-lg font-bold text-emerald-700">£{formatPrice(plan.projected_profit)}</p>
+                      <p className="text-lg font-bold text-emerald-700">£{safeNumber(plan.projected_profit, 2)}</p>
                     </div>
                   </div>
 
@@ -627,11 +620,11 @@ export default function ProductionPlanning() {
                     )}
                   </div>
 
-                  {plan.ingredients_needed?.some(ing => safeNumber(ing.to_order) > 0) && !plan.orders_created && (
+                  {plan.ingredients_needed?.some(ing => toSafeNumber(ing.to_order) > 0) && !plan.orders_created && (
                     <div className="mt-4 p-3 bg-amber-50 rounded-lg">
                       <p className="text-sm text-amber-800 flex items-center gap-2">
                         <AlertTriangle className="w-4 h-4" />
-                        {plan.ingredients_needed.filter(ing => safeNumber(ing.to_order) > 0).length} ingredient(s) need ordering
+                        {plan.ingredients_needed.filter(ing => toSafeNumber(ing.to_order) > 0).length} ingredient(s) need ordering
                       </p>
                     </div>
                   )}
@@ -682,7 +675,7 @@ export default function ProductionPlanning() {
                     <option value="">Select menu item...</option>
                     {menuItems.map(item => (
                       <option key={item.id} value={item.id}>
-                        {item.name} - £{formatPrice(item.sell_price)}
+                        {item.name} - £{safeNumber(item.sell_price, 2)}
                       </option>
                     ))}
                   </select>
@@ -743,15 +736,15 @@ export default function ProductionPlanning() {
                       </div>
                       <div>
                         <p className="text-xs">Revenue</p>
-                        <p className="font-bold text-green-700">£{formatPrice(totals.totalRevenue)}</p>
+                        <p className="font-bold text-green-700">£{safeNumber(totals.totalRevenue, 2)}</p>
                       </div>
                       <div>
                         <p className="text-xs">Cost</p>
-                        <p className="font-bold">£{formatPrice(totals.totalCost)}</p>
+                        <p className="font-bold">£{safeNumber(totals.totalCost, 2)}</p>
                       </div>
                       <div>
                         <p className="text-xs">Profit</p>
-                        <p className="font-bold text-emerald-700">£{formatPrice(totals.projectedProfit)}</p>
+                        <p className="font-bold text-emerald-700">£{safeNumber(totals.projectedProfit, 2)}</p>
                       </div>
                     </div>
                   </CardContent>
@@ -770,7 +763,7 @@ export default function ProductionPlanning() {
           </DialogContent>
         </Dialog>
 
-        {/* Shopping Cart Dialog */}
+        {/* Shopping Cart Dialog - USE SAFE NUMBERS */}
         <Dialog open={showCart} onOpenChange={setShowCart}>
           <DialogContent className="max-w-4xl max-h-[90vh]">
             <DialogHeader>
@@ -832,7 +825,7 @@ export default function ProductionPlanning() {
                               <div className="flex-1">
                                 <p className="font-medium">{item.ingredient_name}</p>
                                 <p className="text-sm text-gray-600">
-                                  £{formatPrice(item.unit_cost)} per {item.unit}
+                                  £{safeNumber(item.unit_cost, 2)} per {item.unit}
                                 </p>
                                 {item.from_plan && (
                                   <p className="text-xs text-blue-600 mt-1">
@@ -850,7 +843,7 @@ export default function ProductionPlanning() {
                               />
                               <span className="text-sm w-16">{item.unit}</span>
                               <span className="font-semibold w-24 text-right">
-                                £{formatPrice(item.line_total)}
+                                £{safeNumber(item.line_total, 2)}
                               </span>
                               <Button
                                 variant="ghost"
@@ -867,21 +860,21 @@ export default function ProductionPlanning() {
                   ))}
                 </ScrollArea>
 
-                {/* Cart Summary */}
+                {/* Cart Summary - USE SAFE NUMBERS */}
                 <Card className="bg-gradient-to-br from-blue-50 to-green-50 border-2 border-blue-200">
                   <CardContent className="p-6">
                     <div className="space-y-2">
                       <div className="flex justify-between text-sm">
                         <span className="text-gray-600">Subtotal:</span>
-                        <span className="font-medium">£{formatPrice(cartTotal)}</span>
+                        <span className="font-medium">£{safeNumber(cartTotal, 2)}</span>
                       </div>
                       <div className="flex justify-between text-sm">
                         <span className="text-gray-600">VAT (20%):</span>
-                        <span className="font-medium">£{formatPrice(cartTax)}</span>
+                        <span className="font-medium">£{safeNumber(cartTax, 2)}</span>
                       </div>
                       <div className="flex justify-between text-lg font-bold pt-2 border-t border-blue-300">
                         <span>Total:</span>
-                        <span className="text-blue-700">£{formatPrice(cartGrandTotal)}</span>
+                        <span className="text-blue-700">£{safeNumber(cartGrandTotal, 2)}</span>
                       </div>
                       <p className="text-xs text-gray-500 mt-2">
                         {Object.keys(cartBySupplier).length} supplier(s) • {cart.length} item(s)
