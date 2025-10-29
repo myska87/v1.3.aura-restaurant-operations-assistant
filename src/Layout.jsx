@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -8,226 +7,163 @@ import {
   LayoutDashboard,
   ClipboardCheck,
   Package,
-  Wrench,
   Users,
   BarChart3,
   LogOut,
   Menu as MenuIcon,
   X,
-  ChevronDown,
-  ChevronRight,
-  Settings,
-  Calendar,
-  FileText,
   Utensils,
-  GraduationCap,
-  MessageCircle,
-  Star,
-  Brain,
-  Shield,
-  DollarSign,
-  Database,
-  TrendingUp,
   BookOpen,
+  Star,
+  FileText,
+  Calendar,
+  MessageCircle,
+  Search,
+  Settings,
+  ChevronDown,
+  Zap,
 } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import {
+  Command,
+  CommandDialog,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
 
 import AgentInitializer from './components/aurabrain/AgentInitializer';
 
-const mainNavigation = [
-  {
-    title: "Dashboard",
-    url: createPageUrl("Dashboard"),
-    icon: LayoutDashboard,
-  },
-  {
-    title: "Operations",
-    url: createPageUrl("OperationsDashboard"),
-    icon: ClipboardCheck,
-  },
-  {
-    title: "Inventory",
-    url: createPageUrl("InventoryDashboard"),
-    icon: Package,
-  },
-  {
-    title: "Smart Scheduler",
-    url: createPageUrl("SmartScheduler"),
-    icon: Calendar,
-  },
-  {
-    title: "Staff",
-    url: createPageUrl("StaffDashboard"),
-    icon: Users,
-  },
-  {
-    title: "SOPs",
-    url: createPageUrl("SOPDashboardHub"),
-    icon: BookOpen,
-  },
-  {
-    title: "Quality",
-    url: createPageUrl("QualityDashboard"),
-    icon: Star,
-  },
-  {
-    title: "Documents",
-    url: createPageUrl("DocumentsDashboard"),
-    icon: FileText,
-  },
-  {
-    title: "Reports",
-    url: createPageUrl("Reports"),
-    icon: BarChart3,
-  },
-];
+// Role-based navigation configuration
+const getRoleNavigation = (user) => {
+  if (!user) return [];
 
-const otherTools = [
-  {
-    category: "📋 Forms & Checklists",
-    items: [
-      { title: "Form Builder", url: createPageUrl("FormBuilder") },
-      { title: "Form Library", url: createPageUrl("FormLibrary") },
-      { title: "Form Intelligence", url: createPageUrl("FormIntelligence") },
-      { title: "Checklist Templates", url: createPageUrl("ChecklistTemplates") },
-      { title: "My Checklists", url: createPageUrl("MyChecklists") },
-      { title: "Daily Checklists", url: createPageUrl("DailyChecklists") },
-      { title: "Checklist Builder", url: createPageUrl("ChecklistBuilder") },
-    ]
-  },
-  {
-    category: "🍽️ Menu & Food",
-    items: [
-      { title: "Menu Management", url: createPageUrl("MenuManagement") },
-      { title: "Menu Analysis", url: createPageUrl("MenuAnalysis") },
-      { title: "Allergen Table", url: createPageUrl("AllergyTable") },
-      { title: "Menu Intelligence", url: createPageUrl("MenuIntelligence") },
-      { title: "Supplier Management", url: createPageUrl("SupplierManagement") },
-      { title: "Production Planning", url: createPageUrl("ProductionPlanning") },
-      { title: "Ordering", url: createPageUrl("Ordering") },
-      { title: "Order History", url: createPageUrl("OrderHistory") },
-    ]
-  },
-  {
-    category: "👥 Staff & Scheduling",
-    items: [
-      { title: "Staff Rota", url: createPageUrl("StaffRota") },
-      { title: "My Shifts", url: createPageUrl("MyShifts") },
-      { title: "Clock In/Out", url: createPageUrl("ClockInOut") },
-      { title: "My Tasks", url: createPageUrl("MyTasks") },
-      { title: "Shift Templates", url: createPageUrl("ShiftTemplates") },
-      { title: "AI Rota Generator", url: createPageUrl("AIRotaGenerator") },
-      { title: "Manage Availability", url: createPageUrl("ManageAvailability") },
-      { title: "Attendance Reports", url: createPageUrl("AttendanceReports") },
-      { title: "Attendance Approval", url: createPageUrl("AttendanceApproval") },
-      { title: "My Attendance", url: createPageUrl("MyAttendance") },
-      { title: "Team Directory", url: createPageUrl("TeamDirectory") },
-    ]
-  },
-  {
-    category: "🎓 Training & Growth",
-    items: [
-      { title: "Onboarding & Training", url: createPageUrl("OnboardingTraining") },
-      { title: "Culture Building", url: createPageUrl("CultureBuilding") },
-      { title: "Performance & Growth", url: createPageUrl("PerformanceGrowth") },
-      { title: "My Coaching", url: createPageUrl("MyCoaching") },
-      { title: "Coaching Dashboard", url: createPageUrl("CoachingDashboard") },
-      { title: "Self Reflection", url: createPageUrl("SelfReflection") },
-      { title: "Growth Tracker", url: createPageUrl("GrowthTracker") },
-    ]
-  },
-  {
-    category: "💬 Communication",
-    items: [
-      { title: "Team Chat", url: createPageUrl("TeamChat") },
-      { title: "Announcements", url: createPageUrl("Announcements") },
-      { title: "Suggestion Box", url: createPageUrl("SuggestionBox") },
-      { title: "Communication Hub", url: createPageUrl("CommunicationFeedback") },
-      { title: "Meeting Dashboard", url: createPageUrl("MeetingDashboard") },
-    ]
-  },
-  {
-    category: "🛠️ Maintenance & Equipment",
-    items: [
-      { title: "Maintenance Tickets", url: createPageUrl("Maintenance") },
-      { title: "Equipment Tracking", url: createPageUrl("InventoryManagement") },
-    ]
-  },
-  {
-    category: "🧠 AI & Intelligence",
-    items: [
-      { title: "AI Hub", url: createPageUrl("AIHub") },
-      { title: "AURA Brain", url: createPageUrl("AuraBrainDashboard") },
-      { title: "AI Console", url: createPageUrl("AIConsole") },
-      { title: "AURA Intelligence", url: createPageUrl("AuraIntelligence") },
-      { title: "Analytics Dashboard", url: createPageUrl("AnalyticsDashboard") },
-      { title: "Event Hub", url: createPageUrl("EventHub") },
-    ]
-  },
-  {
-    category: "🛡️ Compliance & Security",
-    items: [
-      { title: "Compliance Dashboard", url: createPageUrl("ComplianceDashboard") },
-      { title: "Compliance Core", url: createPageUrl("ComplianceCore") },
-      { title: "Compliance Checks", url: createPageUrl("Compliance") },
-      { title: "Hygiene Dashboard", url: createPageUrl("HygieneDashboard") },
-      { title: "EHO Control Center", url: createPageUrl("EHOControlCenter") },
-      { title: "Privacy Center", url: createPageUrl("PrivacyCenter") },
-      { title: "Security Dashboard", url: createPageUrl("SecurityDashboard") },
-      { title: "System Protection", url: createPageUrl("SystemProtection") },
-    ]
-  },
-  {
-    category: "💰 Payroll & Finance",
-    items: [
-      { title: "Payroll Dashboard", url: createPageUrl("PayrollDashboard") },
-      { title: "Weekly Payroll Report", url: createPageUrl("WeeklyPayrollReport") },
-      { title: "Staff Wages Report", url: createPageUrl("StaffWagesReport") },
-      { title: "Cost Analytics", url: createPageUrl("CostAnalyticsDashboard") },
-    ]
-  },
-  {
-    category: "⚙️ Settings & Admin",
-    items: [
-      { title: "Settings Dashboard", url: createPageUrl("SettingsDashboard") },
-      { title: "Manager Dashboard", url: createPageUrl("ManagerDashboard") },
-      { title: "User Management", url: createPageUrl("UserManagement") },
-      { title: "Data Management", url: createPageUrl("DataManagement") },
-      { title: "Backup Settings", url: createPageUrl("BackupSettings") },
-      { title: "System Health Check", url: createPageUrl("SystemHealthCheck") },
-      { title: "Data Bridge Monitor", url: createPageUrl("DataBridgeMonitor") },
-    ]
-  },
-  {
-    category: "🐛 Support & Feedback",
-    items: [
-      { title: "Bug Report", url: createPageUrl("BugReport") },
-      { title: "Feature Ideas", url: createPageUrl("FeatureIdeas") },
-      { title: "Feature List", url: createPageUrl("FeatureList") },
-    ]
-  },
+  const position = user.position?.toLowerCase();
+  const isManager = user.role === 'admin' || position === 'manager' || position === 'owner';
+
+  // Manager Navigation
+  if (isManager) {
+    return [
+      { title: "Dashboard", url: createPageUrl("Dashboard"), icon: LayoutDashboard },
+      { title: "Operations", url: createPageUrl("OperationsDashboard"), icon: ClipboardCheck },
+      { title: "Staff", url: createPageUrl("StaffDashboard"), icon: Users },
+      { title: "Inventory", url: createPageUrl("InventoryDashboard"), icon: Package },
+      { title: "Reports", url: createPageUrl("Reports"), icon: BarChart3 },
+      { title: "Settings", url: createPageUrl("SettingsDashboard"), icon: Settings },
+    ];
+  }
+
+  // Chef / Kitchen Navigation
+  if (position === 'chef' || position === 'sous_chef' || position === 'line_cook') {
+    return [
+      { title: "Dashboard", url: createPageUrl("Dashboard"), icon: LayoutDashboard },
+      { title: "Menu", url: createPageUrl("Menu"), icon: Utensils },
+      { title: "SOPs", url: createPageUrl("SOPDashboardHub"), icon: BookOpen },
+      { title: "Inventory", url: createPageUrl("InventoryDashboard"), icon: Package },
+      { title: "Quality", url: createPageUrl("QualityDashboard"), icon: Star },
+      { title: "My Shifts", url: createPageUrl("MyShifts"), icon: Calendar },
+    ];
+  }
+
+  // Front of House Navigation
+  if (position === 'server' || position === 'bartender' || position === 'host') {
+    return [
+      { title: "Dashboard", url: createPageUrl("Dashboard"), icon: LayoutDashboard },
+      { title: "My Shifts", url: createPageUrl("MyShifts"), icon: Calendar },
+      { title: "My Tasks", url: createPageUrl("MyTasks"), icon: ClipboardCheck },
+      { title: "Team Chat", url: createPageUrl("TeamChat"), icon: MessageCircle },
+      { title: "Documents", url: createPageUrl("DocumentsDashboard"), icon: FileText },
+      { title: "Training", url: createPageUrl("OnboardingTraining"), icon: BookOpen },
+    ];
+  }
+
+  // Cleaning / Maintenance Navigation
+  if (position === 'cleaner' || position === 'maintenance') {
+    return [
+      { title: "Dashboard", url: createPageUrl("Dashboard"), icon: LayoutDashboard },
+      { title: "My Shifts", url: createPageUrl("MyShifts"), icon: Calendar },
+      { title: "My Tasks", url: createPageUrl("MyTasks"), icon: ClipboardCheck },
+      { title: "Quality Checks", url: createPageUrl("QuickQualityCheck"), icon: Star },
+      { title: "Maintenance", url: createPageUrl("Maintenance"), icon: Settings },
+      { title: "Team Chat", url: createPageUrl("TeamChat"), icon: MessageCircle },
+    ];
+  }
+
+  // Default Navigation (fallback)
+  return [
+    { title: "Dashboard", url: createPageUrl("Dashboard"), icon: LayoutDashboard },
+    { title: "My Shifts", url: createPageUrl("MyShifts"), icon: Calendar },
+    { title: "My Tasks", url: createPageUrl("MyTasks"), icon: ClipboardCheck },
+    { title: "Team Chat", url: createPageUrl("TeamChat"), icon: MessageCircle },
+  ];
+};
+
+// All pages for search (comprehensive list)
+const ALL_PAGES = [
+  { name: "Dashboard", url: createPageUrl("Dashboard"), keywords: "home main overview" },
+  { name: "Operations", url: createPageUrl("OperationsDashboard"), keywords: "tasks checklists daily" },
+  { name: "Staff", url: createPageUrl("StaffDashboard"), keywords: "team employees scheduling" },
+  { name: "Inventory", url: createPageUrl("InventoryDashboard"), keywords: "stock supplies ordering" },
+  { name: "Quality", url: createPageUrl("QualityDashboard"), keywords: "audits checks standards" },
+  { name: "SOPs", url: createPageUrl("SOPDashboardHub"), keywords: "procedures training guides" },
+  { name: "Documents", url: createPageUrl("DocumentsDashboard"), keywords: "files policies contracts" },
+  { name: "Reports", url: createPageUrl("Reports"), keywords: "analytics statistics data" },
+  { name: "Menu Management", url: createPageUrl("Menu"), keywords: "food dishes recipes pricing" },
+  { name: "My Shifts", url: createPageUrl("MyShifts"), keywords: "schedule rota roster" },
+  { name: "My Tasks", url: createPageUrl("MyTasks"), keywords: "todo assignments work" },
+  { name: "Clock In/Out", url: createPageUrl("ClockInOut"), keywords: "attendance time tracking" },
+  { name: "Team Chat", url: createPageUrl("TeamChat"), keywords: "messages communication" },
+  { name: "Announcements", url: createPageUrl("Announcements"), keywords: "news updates notices" },
+  { name: "Team Directory", url: createPageUrl("TeamDirectory"), keywords: "contacts staff list" },
+  { name: "Training", url: createPageUrl("OnboardingTraining"), keywords: "learning courses onboarding" },
+  { name: "Performance", url: createPageUrl("PerformanceGrowth"), keywords: "reviews feedback growth" },
+  { name: "Payroll", url: createPageUrl("PayrollDashboard"), keywords: "wages salary pay" },
+  { name: "Compliance", url: createPageUrl("ComplianceCore"), keywords: "regulations safety health" },
+  { name: "Hygiene", url: createPageUrl("HygieneDashboard"), keywords: "cleanliness temperature" },
+  { name: "Maintenance", url: createPageUrl("Maintenance"), keywords: "repairs equipment issues" },
+  { name: "Settings", url: createPageUrl("SettingsDashboard"), keywords: "configuration admin" },
+  { name: "Analytics", url: createPageUrl("AnalyticsDashboard"), keywords: "insights metrics kpi" },
+  { name: "AI Hub", url: createPageUrl("AIHub"), keywords: "artificial intelligence brain" },
 ];
 
 export default function Layout({ children }) {
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [toolsExpanded, setToolsExpanded] = useState(false);
-  const [expandedCategories, setExpandedCategories] = useState({});
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
   const { data: user } = useQuery({
     queryKey: ["currentUser"],
     queryFn: () => base44.auth.me(),
   });
 
+  const navigation = getRoleNavigation(user);
+
   const handleLogout = async () => {
     await base44.auth.logout();
   };
 
-  const toggleCategory = (category) => {
-    setExpandedCategories(prev => ({
-      ...prev,
-      [category]: !prev[category]
-    }));
-  };
+  // Filter pages by search query
+  const filteredPages = searchQuery
+    ? ALL_PAGES.filter(page =>
+        page.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        page.keywords.toLowerCase().includes(searchQuery.toLowerCase())
+      )
+    : [];
+
+  // Keyboard shortcut for search (Ctrl+K or Cmd+K)
+  React.useEffect(() => {
+    const down = (e) => {
+      if (e.key === "k" && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault();
+        setSearchOpen(true);
+      }
+    };
+    document.addEventListener("keydown", down);
+    return () => document.removeEventListener("keydown", down);
+  }, []);
 
   return (
     <AgentInitializer>
@@ -267,10 +203,36 @@ export default function Layout({ children }) {
             </div>
           </div>
 
+          {/* Global Search */}
+          <div className="p-4 border-b border-gray-100">
+            <button
+              onClick={() => setSearchOpen(true)}
+              className="w-full flex items-center gap-2 px-3 py-2 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors"
+            >
+              <Search className="w-4 h-4 text-gray-500" />
+              <span className="text-sm text-gray-600">Search pages...</span>
+              <kbd className="ml-auto px-2 py-0.5 bg-white border border-gray-200 rounded text-xs text-gray-500">
+                ⌘K
+              </kbd>
+            </button>
+          </div>
+
+          {/* Role Badge */}
+          {user && (
+            <div className="px-4 py-3">
+              <div className="px-3 py-2 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg border border-blue-200">
+                <p className="text-xs text-gray-600 mb-1">Your Role</p>
+                <p className="font-semibold text-gray-900 capitalize">
+                  {user.position?.replace('_', ' ') || 'Staff Member'}
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* Main Navigation */}
           <div className="p-3">
             <div className="space-y-1">
-              {mainNavigation.map((item) => {
+              {navigation.map((item) => {
                 const isActive = location.pathname === item.url;
                 return (
                   <Link
@@ -289,70 +251,33 @@ export default function Layout({ children }) {
                 );
               })}
             </div>
+          </div>
 
-            {/* Other Tools Dropdown */}
-            <div className="mt-4">
+          {/* Quick Actions */}
+          <div className="px-4 py-3 border-t border-gray-100 mt-auto">
+            <p className="text-xs font-semibold text-gray-500 mb-2 px-3">QUICK ACTIONS</p>
+            <div className="space-y-1">
+              <Link to={createPageUrl("ClockInOut")} onClick={() => setSidebarOpen(false)}>
+                <button className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-lg transition-colors">
+                  ⏰ Clock In/Out
+                </button>
+              </Link>
+              <Link to={createPageUrl("TeamChat")} onClick={() => setSidebarOpen(false)}>
+                <button className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-lg transition-colors">
+                  💬 Team Chat
+                </button>
+              </Link>
               <button
-                onClick={() => setToolsExpanded(!toolsExpanded)}
-                className="w-full flex items-center justify-between px-4 py-3 rounded-xl hover:bg-gray-50 text-gray-700 transition-all duration-200"
+                onClick={() => setSearchOpen(true)}
+                className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-lg transition-colors"
               >
-                <div className="flex items-center gap-3">
-                  <Settings className="w-5 h-5 text-gray-500" />
-                  <span className="font-medium">Other Tools</span>
-                </div>
-                {toolsExpanded ? (
-                  <ChevronDown className="w-4 h-4 text-gray-500" />
-                ) : (
-                  <ChevronRight className="w-4 h-4 text-gray-500" />
-                )}
+                🔍 Find Anything...
               </button>
-
-              {toolsExpanded && (
-                <div className="mt-2 ml-4 space-y-2">
-                  {otherTools.map((section) => (
-                    <div key={section.category}>
-                      <button
-                        onClick={() => toggleCategory(section.category)}
-                        className="w-full flex items-center justify-between px-3 py-2 text-sm text-gray-600 hover:text-gray-900 transition-colors"
-                      >
-                        <span className="font-medium">{section.category}</span>
-                        {expandedCategories[section.category] ? (
-                          <ChevronDown className="w-3 h-3" />
-                        ) : (
-                          <ChevronRight className="w-3 h-3" />
-                        )}
-                      </button>
-
-                      {expandedCategories[section.category] && (
-                        <div className="ml-4 space-y-1">
-                          {section.items.map((item) => {
-                            const isActive = location.pathname === item.url;
-                            return (
-                              <Link
-                                key={item.title}
-                                to={item.url}
-                                onClick={() => setSidebarOpen(false)}
-                                className={`block px-3 py-2 text-sm rounded-lg transition-colors ${
-                                  isActive
-                                    ? "bg-blue-50 text-blue-700 font-medium"
-                                    : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
-                                }`}
-                              >
-                                {item.title}
-                              </Link>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
             </div>
           </div>
 
           {/* Footer */}
-          <div className="border-t border-gray-100 p-4 mt-auto">
+          <div className="border-t border-gray-100 p-4">
             {user && (
               <div className="space-y-3">
                 <div className="flex items-center gap-3 px-2">
@@ -366,7 +291,7 @@ export default function Layout({ children }) {
                       {user.full_name}
                     </p>
                     <p className="text-xs text-gray-500 truncate">
-                      {user.position || "Staff"}
+                      {user.position?.replace('_', ' ') || "Staff"}
                     </p>
                   </div>
                 </div>
@@ -394,12 +319,40 @@ export default function Layout({ children }) {
                 <MenuIcon className="w-5 h-5 text-gray-600" />
               </button>
               <h1 className="text-xl font-bold text-gray-900">AURA</h1>
+              <button
+                onClick={() => setSearchOpen(true)}
+                className="ml-auto hover:bg-gray-100 p-2 rounded-lg transition-colors"
+              >
+                <Search className="w-5 h-5 text-gray-600" />
+              </button>
             </div>
           </header>
 
           {/* Page Content */}
           <div className="flex-1 overflow-auto">{children}</div>
         </main>
+
+        {/* Global Search Dialog */}
+        <CommandDialog open={searchOpen} onOpenChange={setSearchOpen}>
+          <CommandInput placeholder="Search pages, features, or modules..." />
+          <CommandList>
+            <CommandEmpty>No results found.</CommandEmpty>
+            <CommandGroup heading="Pages">
+              {filteredPages.slice(0, 10).map((page) => (
+                <CommandItem
+                  key={page.url}
+                  onSelect={() => {
+                    window.location.href = page.url;
+                    setSearchOpen(false);
+                  }}
+                >
+                  <Search className="mr-2 h-4 w-4" />
+                  <span>{page.name}</span>
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </CommandDialog>
       </div>
     </AgentInitializer>
   );
