@@ -25,14 +25,9 @@ import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { buildRecipeWithLinks } from '@/utils/foreignKeyHelper'; // Added import
+import { safeNumber } from '@/utils'; // Added import
 
 // Safe number helpers
-const safeNumber = (value, decimals = 2) => {
-  const num = parseFloat(value);
-  return isNaN(num) || num === null || num === undefined ? 0 : parseFloat(num.toFixed(decimals));
-};
-
 const formatPrice = (price) => safeNumber(price, 2).toFixed(2);
 
 export default function ProductionPlanning() {
@@ -129,17 +124,16 @@ export default function ProductionPlanning() {
       return;
     }
 
-    const ingredientsNeeded = plan.ingredients_needed || [];
-    const ingredientsToAdd = ingredientsNeeded.filter(ing => safeNumber(ing.to_order) > 0);
+    const ingredientsNeeded = plan.ingredients_needed.filter(ing => safeNumber(ing.to_order) > 0);
 
-    if (ingredientsToAdd.length === 0) {
+    if (ingredientsNeeded.length === 0) {
       alert('✅ All ingredients are in stock for this plan!');
       return;
     }
 
     const updatedCart = [...cart];
 
-    ingredientsToAdd.forEach(ing => {
+    ingredientsNeeded.forEach(ing => {
       const inventoryItem = ingredients.find(i => i.id === ing.ingredient_id);
       
       if (!inventoryItem) {
@@ -174,7 +168,7 @@ export default function ProductionPlanning() {
     });
 
     setCart(updatedCart);
-    alert(`✅ Added ${ingredientsToAdd.length} ingredients to cart!`);
+    alert(`✅ Added ${ingredientsNeeded.length} ingredients to cart!`);
     setShowCart(true);
   };
 
