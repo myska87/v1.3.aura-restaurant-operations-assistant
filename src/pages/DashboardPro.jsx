@@ -1,5 +1,4 @@
-
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -19,15 +18,22 @@ import {
   ClipboardCheck,
   User,
   Zap,
-  Target, // ✨ NEW: Added Target icon for Operations
-  Lightbulb, // ✨ NEW: Added Lightbulb icon for AI Insights
-  BarChart3, // ✨ NEW: Added BarChart3 icon for Analytics
+  Target,
+  Lightbulb,
+  BarChart3,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
-import { format, formatDistanceToNow, startOfWeek } from 'date-fns'; // ✨ NEW: Added startOfWeek for weekly summary
+import { format, formatDistanceToNow, startOfWeek } from 'date-fns';
+import { AgentManager } from '@/components/aurabrain';
 
 export default function DashboardPro() {
+  const [agentStatus, setAgentStatus] = useState({
+    hygiene: { status: 'idle', icon: '⏸️' },
+    inventory: { status: 'idle', icon: '⏸️' },
+    quality: { status: 'idle', icon: '⏸️' }
+  });
+
   // Get current user
   const { data: user } = useQuery({
     queryKey: ['currentUser'],
@@ -38,6 +44,45 @@ export default function DashboardPro() {
   const isAdmin = user?.role === 'admin';
   const isManager = user?.position === 'manager' || user?.position === 'owner';
   const isStaff = !isAdmin && !isManager;
+
+  // Initialize agents for managers
+  useEffect(() => {
+    if (!isManager && !isAdmin) return;
+
+    const initializeAgents = async () => {
+      try {
+        const manager = new AgentManager();
+        
+        // Update status to running
+        setAgentStatus({
+          hygiene: { status: 'running', icon: '🔄' },
+          inventory: { status: 'running', icon: '🔄' },
+          quality: { status: 'running', icon: '🔄' }
+        });
+
+        const result = await manager.initialize();
+
+        // Update status based on results
+        setAgentStatus({
+          hygiene: { status: 'active', icon: '✅' },
+          inventory: { status: 'active', icon: '✅' },
+          quality: { status: 'active', icon: '✅' }
+        });
+
+        console.log('🧠 Agents initialized:', result);
+
+      } catch (error) {
+        console.error('Agent initialization failed:', error);
+        setAgentStatus({
+          hygiene: { status: 'error', icon: '❌' },
+          inventory: { status: 'error', icon: '❌' },
+          quality: { status: 'error', icon: '❌' }
+        });
+      }
+    };
+
+    initializeAgents();
+  }, [isManager, isAdmin]);
 
   // Get today's date
   const todayStr = format(new Date(), 'yyyy-MM-dd');
@@ -66,15 +111,13 @@ export default function DashboardPro() {
     enabled: !!user?.email,
   });
 
-  // ✨ NEW: Fetch recent activities with auto-refresh
+  // Fetch recent activities with auto-refresh
   const { data: recentActivities = [] } = useQuery({
     queryKey: ['recentActivities'],
     queryFn: async () => {
       if (isManager || isAdmin) {
-        // Managers see all activities
         return await base44.entities.ActivityLog.list('-created_date', 20);
       } else {
-        // Staff see only their activities
         return await base44.entities.ActivityLog.filter(
           { user_email: user?.email },
           '-created_date',
@@ -83,10 +126,10 @@ export default function DashboardPro() {
       }
     },
     enabled: !!user?.email,
-    refetchInterval: 10000, // Auto-refresh every 10 seconds
+    refetchInterval: 10000,
   });
 
-  // 🎯 Operations Core Metrics
+  // Operations Core Metrics
   const { data: operationTasks = [] } = useQuery({
     queryKey: ['operationTasksStats'],
     queryFn: () => base44.entities.OperationTask.list('-due_date', 100),
@@ -103,7 +146,7 @@ export default function DashboardPro() {
     },
   });
 
-  // 📊 Analytics Data
+  // Analytics Data
   const { data: latestAnalytics } = useQuery({
     queryKey: ['latestAnalyticsSnapshot'],
     queryFn: async () => {
@@ -197,6 +240,48 @@ export default function DashboardPro() {
           </p>
         </div>
 
+        {/* 🧠 AURA Brain Live Status - Managers Only */}
+        {(isManager || isAdmin) && (
+          <Card className="mb-6 bg-gradient-to-r from-purple-600 to-pink-600 text-white border-none shadow-xl">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="w-14 h-14 bg-white/20 backdrop-blur rounded-2xl flex items-center justify-center">
+                    <Zap className="w-8 h-8 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="text-2xl font-bold mb-1">AURA Brain Status</h3>
+                    <p className="text-purple-100">AI agents monitoring operations in real-time</p>
+                  </div>
+                </div>
+                <div className="flex gap-3">
+                  <div className="text-center bg-white/10 backdrop-blur rounded-lg px-4 py-2">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-2xl">{agentStatus.hygiene.icon}</span>
+                      <span className="text-xs font-medium">Hygiene</span>
+                    </div>
+                    <p className="text-xs text-purple-100 capitalize">{agentStatus.hygiene.status}</p>
+                  </div>
+                  <div className="text-center bg-white/10 backdrop-blur rounded-lg px-4 py-2">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-2xl">{agentStatus.inventory.icon}</span>
+                      <span className="text-xs font-medium">Stock</span>
+                    </div>
+                    <p className="text-xs text-purple-100 capitalize">{agentStatus.inventory.status}</p>
+                  </div>
+                  <div className="text-center bg-white/10 backdrop-blur rounded-lg px-4 py-2">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-2xl">{agentStatus.quality.icon}</span>
+                      <span className="text-xs font-medium">Quality</span>
+                    </div>
+                    <p className="text-xs text-purple-100 capitalize">{agentStatus.quality.status}</p>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Active Shift Banner */}
         {myActiveShift && (
           <Card className="mb-6 bg-gradient-to-r from-emerald-500 to-teal-600 text-white border-none">
@@ -221,7 +306,7 @@ export default function DashboardPro() {
           </Card>
         )}
 
-        {/* 📊 AI Analytics Summary Card */}
+        {/* AI Analytics Summary Card */}
         {latestAnalytics && (
           <Link to={createPageUrl('AnalyticsDashboard')}>
             <Card className="mb-6 bg-gradient-to-r from-blue-600 to-purple-600 text-white border-none hover:shadow-2xl transition-all cursor-pointer">
@@ -249,7 +334,7 @@ export default function DashboardPro() {
           </Link>
         )}
 
-        {/* 🎯 Operations Core Banner */}
+        {/* Operations Core Banner */}
         <Link to={createPageUrl('OperationsCore')}>
           <Card className="mb-6 bg-gradient-to-r from-emerald-600 to-teal-600 text-white border-none hover:shadow-2xl transition-all cursor-pointer">
             <CardContent className="p-6">
@@ -305,7 +390,7 @@ export default function DashboardPro() {
           </Card>
         )}
 
-        {/* 🎯 Operations Core Quick Stats */}
+        {/* Operations Core Quick Stats */}
         <div className="grid md:grid-cols-4 gap-4 mb-6">
           <Card className="border-l-4 border-l-emerald-500">
             <CardContent className="p-4">
@@ -356,10 +441,8 @@ export default function DashboardPro() {
           </Card>
         </div>
 
-
         {/* KPI Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-
           {/* Tasks Card */}
           <Card className="bg-white border-none shadow-sm hover:shadow-md transition-shadow">
             <CardHeader className="pb-3">
@@ -500,7 +583,7 @@ export default function DashboardPro() {
           </CardContent>
         </Card>
 
-        {/* ✨ NEW: Recent Activity Feed */}
+        {/* Recent Activity Feed */}
         <Card className="bg-white border-none shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="flex items-center gap-2">
