@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -25,10 +26,9 @@ import {
   CreditCard,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { createPageUrl } from '@/utils';
+import { createPageUrl, safeNumber, safeCurrency } from '@/utils';
 import { format, startOfWeek, endOfWeek, getISOWeek } from 'date-fns';
 import { motion } from 'framer-motion';
-import { safeNumber, safeCurrency } from '@/utils/safeNumber';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 
 export default function PayrollDashboard() {

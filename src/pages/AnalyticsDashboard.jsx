@@ -49,7 +49,7 @@ import {
 import { format, subDays, startOfWeek, endOfWeek } from 'date-fns';
 import { motion } from 'framer-motion';
 
-import { safeNumber, safePercent, safeAverage } from '@/utils/safeNumber';
+import { safeNumber, safePercent, safeAverage } from '@/utils';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import EmptyState from '../components/common/EmptyState';
 

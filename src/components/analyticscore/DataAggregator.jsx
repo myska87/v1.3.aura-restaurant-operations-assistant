@@ -3,7 +3,7 @@ import { base44 } from '@/api/base44Client';
 import { useQueryClient } from '@tanstack/react-query';
 import { format, subDays, startOfWeek, endOfWeek } from 'date-fns';
 import { useSafeMode } from '../SafeModeProvider';
-import { safeNumber, safePercent, safeAverage } from '@/utils/safeNumber';
+import { safeNumber, safePercent, safeAverage } from '@/utils';
 
 /**
  * 📊 Data Aggregator

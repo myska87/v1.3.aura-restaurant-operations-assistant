@@ -7,21 +7,21 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Clock, CheckCircle, AlertTriangle, Play, Home, CalendarDays, ClipboardList, TrendingUp } from "lucide-react"; // Added CalendarDays, ClipboardList, TrendingUp
+import { Clock, CheckCircle, AlertTriangle, Play, Home, CalendarDays, ClipboardList, TrendingUp } from "lucide-react";
 import { format } from "date-fns";
 import { Link, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
-import { safeNumber, safePercent } from '@/utils/safeNumber'; // Added
-import LoadingSpinner from '../components/common/LoadingSpinner'; // Added
-import EmptyState from '../components/common/EmptyState'; // Added
+import { safeNumber, safePercent } from '@/utils';
+import LoadingSpinner from '../components/common/LoadingSpinner';
+import EmptyState from '../components/common/EmptyState';
 
 export default function MyChecklists() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   // Removed: const [currentShift, setCurrentShift] = useState(null);
 
-  const [selectedStatus, setSelectedStatus] = useState('all'); // Added
-  const [selectedShift, setSelectedShift] = useState('all'); // Added
+  const [selectedStatus, setSelectedStatus] = useState('all');
+  const [selectedShift, setSelectedShift] = useState('all');
 
   const { data: user } = useQuery({
     queryKey: ['currentUser'],

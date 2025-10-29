@@ -21,8 +21,7 @@ import {
   Home
 } from "lucide-react";
 import { Link } from "react-router-dom";
-import { createPageUrl } from "@/utils";
-import { safeNumber, safeCurrency, safePercent } from "@/utils/safeNumber";
+import { createPageUrl, safeNumber, safeCurrency, safePercent } from "@/utils";
 
 // Helper function for safe average, not part of the original safeNumber.js but used in outline
 const safeAverage = (arr, key, decimals = 2) => {
