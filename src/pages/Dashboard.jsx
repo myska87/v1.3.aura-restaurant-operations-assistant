@@ -1,214 +1,154 @@
-import React from 'react';
-import { Card, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import React, { useState, useEffect } from "react";
+import { base44 } from "@/api/base44Client";
+import { useQuery } from "@tanstack/react-query";
 import { 
-  Target, 
+  ClipboardCheck, 
   Package, 
-  Users, 
-  BookOpen, 
-  Star, 
-  FileText,
-  ArrowRight,
-  TrendingUp,
-  CheckCircle,
+  Wrench, 
+  Users,
   AlertTriangle,
-} from 'lucide-react';
-import { Link } from 'react-router-dom';
-import { createPageUrl } from '@/utils';
-import { motion } from 'framer-motion';
-import { base44 } from '@/api/base44Client';
-import { useQuery } from '@tanstack/react-query';
-
-const hubCards = [
-  {
-    title: 'Operations',
-    description: 'Tasks, checklists, and daily operations',
-    icon: Target,
-    url: createPageUrl('OperationsDashboard'),
-    color: 'from-emerald-500 to-teal-600',
-    bgColor: 'bg-emerald-50',
-    iconColor: 'text-emerald-600',
-  },
-  {
-    title: 'Inventory',
-    description: 'Stock, suppliers, and menu costing',
-    icon: Package,
-    url: createPageUrl('InventoryDashboard'),
-    color: 'from-blue-500 to-indigo-600',
-    bgColor: 'bg-blue-50',
-    iconColor: 'text-blue-600',
-  },
-  {
-    title: 'Staff',
-    description: 'Team, scheduling, and development',
-    icon: Users,
-    url: createPageUrl('StaffDashboard'),
-    color: 'from-purple-500 to-pink-600',
-    bgColor: 'bg-purple-50',
-    iconColor: 'text-purple-600',
-  },
-  {
-    title: 'SOPs & Training',
-    description: 'Procedures and training materials',
-    icon: BookOpen,
-    url: createPageUrl('SOPsDashboard'),
-    color: 'from-indigo-500 to-purple-600',
-    bgColor: 'bg-indigo-50',
-    iconColor: 'text-indigo-600',
-  },
-  {
-    title: 'Quality & Hygiene',
-    description: 'Quality control and compliance',
-    icon: Star,
-    url: createPageUrl('QualityDashboardHub'),
-    color: 'from-amber-500 to-orange-600',
-    bgColor: 'bg-amber-50',
-    iconColor: 'text-amber-600',
-  },
-  {
-    title: 'Documents',
-    description: 'Policies, forms, and compliance',
-    icon: FileText,
-    url: createPageUrl('DocumentsDashboard'),
-    color: 'from-gray-500 to-slate-600',
-    bgColor: 'bg-gray-50',
-    iconColor: 'text-gray-600',
-  },
-];
+  TrendingUp
+} from "lucide-react";
+import StatCard from "../components/dashboard/StatCard";
+import ComplianceChart from "../components/dashboard/ComplianceChart";
+import RecentActivity from "../components/dashboard/RecentActivity";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 export default function Dashboard() {
-  const { data: user } = useQuery({
-    queryKey: ['currentUser'],
-    queryFn: () => base44.auth.me(),
+  const { data: complianceChecks = [], isLoading: loadingCompliance } = useQuery({
+    queryKey: ['complianceChecks'],
+    queryFn: () => base44.entities.ComplianceCheck.list("-check_date", 100),
   });
 
-  // Fetch quick stats
-  const { data: tasks = [] } = useQuery({
-    queryKey: ['myTasks'],
-    queryFn: async () => {
-      if (!user?.email) return [];
-      return await base44.entities.OperationTask.filter({
-        assigned_to: user.email,
-        status: { $in: ['pending', 'in_progress'] }
-      }, '-due_date', 10);
-    },
-    enabled: !!user?.email,
+  const { data: inventoryItems = [], isLoading: loadingInventory } = useQuery({
+    queryKey: ['inventoryItems'],
+    queryFn: () => base44.entities.InventoryItem.list(),
   });
 
-  const { data: shifts = [] } = useQuery({
-    queryKey: ['myUpcomingShifts'],
-    queryFn: async () => {
-      if (!user?.email) return [];
-      return await base44.entities.Shift.filter({
-        staff_email: user.email,
-        status: { $in: ['scheduled', 'in_progress'] }
-      }, 'shift_date', 5);
-    },
-    enabled: !!user?.email,
+  const { data: maintenanceTickets = [], isLoading: loadingMaintenance } = useQuery({
+    queryKey: ['maintenanceTickets'],
+    queryFn: () => base44.entities.MaintenanceTicket.list("-created_date"),
   });
 
-  const { data: events = [] } = useQuery({
-    queryKey: ['unreadEvents'],
-    queryFn: async () => {
-      if (!user?.email) return [];
-      return await base44.entities.Event.filter({
-        recipient_emails: { $in: [user.email] },
-        status: 'unread'
-      }, '-created_date', 5);
-    },
-    enabled: !!user?.email,
+  const { data: staffTasks = [], isLoading: loadingTasks } = useQuery({
+    queryKey: ['staffTasks'],
+    queryFn: () => base44.entities.StaffTask.list("-due_date", 50),
   });
+
+  // Calculate stats
+  const complianceRate = complianceChecks.length > 0
+    ? Math.round((complianceChecks.filter(c => c.status === "passed").length / complianceChecks.length) * 100)
+    : 0;
+
+  const lowStockItems = inventoryItems.filter(
+    item => item.current_quantity <= (item.minimum_quantity || 0)
+  ).length;
+
+  const openTickets = maintenanceTickets.filter(t => t.status === "open").length;
+  
+  const pendingTasks = staffTasks.filter(t => t.status === "pending" || t.status === "in_progress").length;
+
+  // Chart data
+  const today = new Date();
+  const last7Days = Array.from({ length: 7 }, (_, i) => {
+    const date = new Date(today);
+    date.setDate(date.getDate() - (6 - i));
+    return date;
+  });
+
+  const chartData = last7Days.map(date => {
+    const dayChecks = complianceChecks.filter(check => {
+      const checkDate = new Date(check.check_date);
+      return checkDate.toDateString() === date.toDateString();
+    });
+
+    return {
+      name: date.toLocaleDateString('en-US', { weekday: 'short' }),
+      passed: dayChecks.filter(c => c.status === "passed").length,
+      failed: dayChecks.filter(c => c.status === "failed" || c.status === "needs_attention").length,
+    };
+  });
+
+  // Recent activities
+  const recentActivities = [
+    ...complianceChecks.slice(0, 3).map(check => ({
+      title: `${check.check_type.replace(/_/g, ' ')} - ${check.area}`,
+      date: check.check_date,
+      type: 'compliance'
+    })),
+    ...maintenanceTickets.slice(0, 2).map(ticket => ({
+      title: ticket.title,
+      date: ticket.created_date,
+      type: 'maintenance'
+    }))
+  ].sort((a, b) => new Date(b.date) - new Date(a.date));
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 p-6 md:p-8">
-      <div className="max-w-7xl mx-auto">
-        {/* Welcome */}
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">
-            Welcome back, {user?.full_name?.split(' ')[0] || 'there'}! 👋
-          </h1>
-          <p className="text-lg text-gray-600">
-            Your restaurant operations command center
-          </p>
+    <div className="p-6 md:p-8 bg-gray-50 min-h-screen">
+      <div className="max-w-7xl mx-auto space-y-8">
+        {/* Header */}
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+          <div>
+            <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-2">Dashboard</h1>
+            <p className="text-gray-600">Real-time restaurant operations overview</p>
+          </div>
+          <div className="flex items-center gap-2 px-4 py-2 bg-white rounded-xl shadow-sm border border-gray-200">
+            <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+            <span className="text-sm font-medium text-gray-700">System Online</span>
+          </div>
         </div>
 
-        {/* Quick Stats */}
-        <div className="grid md:grid-cols-3 gap-4 mb-8">
-          <Card className="border-l-4 border-l-blue-500">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-600">My Tasks</p>
-                  <p className="text-3xl font-bold text-gray-900">{tasks.length}</p>
-                </div>
-                <CheckCircle className="w-8 h-8 text-blue-600" />
-              </div>
-            </CardContent>
-          </Card>
+        {/* Alerts */}
+        {(lowStockItems > 0 || openTickets > 0) && (
+          <Alert className="bg-amber-50 border-amber-200">
+            <AlertTriangle className="h-4 w-4 text-amber-600" />
+            <AlertDescription className="text-amber-800">
+              {lowStockItems > 0 && `${lowStockItems} items need reordering. `}
+              {openTickets > 0 && `${openTickets} maintenance tickets require attention.`}
+            </AlertDescription>
+          </Alert>
+        )}
 
-          <Card className="border-l-4 border-l-purple-500">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-600">Upcoming Shifts</p>
-                  <p className="text-3xl font-bold text-gray-900">{shifts.length}</p>
-                </div>
-                <TrendingUp className="w-8 h-8 text-purple-600" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="border-l-4 border-l-amber-500">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-600">Notifications</p>
-                  <p className="text-3xl font-bold text-gray-900">{events.length}</p>
-                </div>
-                <AlertTriangle className="w-8 h-8 text-amber-600" />
-              </div>
-            </CardContent>
-          </Card>
+        {/* Stats Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <StatCard
+            title="Compliance Rate"
+            value={`${complianceRate}%`}
+            subtitle={`${complianceChecks.length} checks this week`}
+            icon={ClipboardCheck}
+            color="bg-green-500"
+            trend={{ positive: true, value: "+3%" }}
+          />
+          <StatCard
+            title="Low Stock Items"
+            value={lowStockItems}
+            subtitle={`${inventoryItems.length} total items`}
+            icon={Package}
+            color="bg-orange-500"
+          />
+          <StatCard
+            title="Open Tickets"
+            value={openTickets}
+            subtitle={`${maintenanceTickets.length} total tickets`}
+            icon={Wrench}
+            color="bg-red-500"
+          />
+          <StatCard
+            title="Pending Tasks"
+            value={pendingTasks}
+            subtitle={`${staffTasks.length} total tasks`}
+            icon={Users}
+            color="bg-blue-500"
+          />
         </div>
 
-        {/* Main Hubs */}
-        <div className="mb-8">
-          <h2 className="text-2xl font-bold text-gray-900 mb-4">Operations Hubs</h2>
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {hubCards.map((hub, index) => {
-              const Icon = hub.icon;
-              return (
-                <motion.div
-                  key={hub.title}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.3, delay: index * 0.1 }}
-                >
-                  <Link to={hub.url}>
-                    <Card className="bg-white border-none shadow-lg hover:shadow-xl transition-all duration-300 group overflow-hidden relative h-full">
-                      <div className={`absolute inset-0 bg-gradient-to-br ${hub.color} opacity-0 group-hover:opacity-10 transition-opacity duration-300`} />
-                      
-                      <CardContent className="p-6">
-                        <div className="flex items-start justify-between mb-4">
-                          <div className={`p-4 ${hub.bgColor} rounded-xl group-hover:scale-110 transition-transform duration-300`}>
-                            <Icon className={`w-8 h-8 ${hub.iconColor}`} />
-                          </div>
-                          <ArrowRight className="w-5 h-5 text-gray-400 group-hover:text-gray-600 group-hover:translate-x-1 transition-all duration-300" />
-                        </div>
-
-                        <h3 className="text-xl font-bold text-gray-900 mb-2 group-hover:bg-gradient-to-r group-hover:from-emerald-600 group-hover:to-teal-600 group-hover:bg-clip-text group-hover:text-transparent transition-all">
-                          {hub.title}
-                        </h3>
-                        <p className="text-gray-600 text-sm leading-relaxed">
-                          {hub.description}
-                        </p>
-                      </CardContent>
-                    </Card>
-                  </Link>
-                </motion.div>
-              );
-            })}
+        {/* Charts and Activity */}
+        <div className="grid lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2">
+            <ComplianceChart data={chartData} />
+          </div>
+          <div>
+            <RecentActivity activities={recentActivities} isLoading={loadingCompliance} />
           </div>
         </div>
       </div>
