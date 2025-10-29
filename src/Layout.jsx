@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -43,7 +42,6 @@ import { Button } from "@/components/ui/button";
 
 import AgentInitializer from './components/aurabrain/AgentInitializer';
 
-// Voice Search Component
 function VoiceSearch({ onClose, navigate }) {
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState('');
@@ -195,10 +193,10 @@ function VoiceSearch({ onClose, navigate }) {
           <p className="text-xs text-purple-700 font-medium">"Show inventory"</p>
         </div>
       </div>
-    );
+    </div>
+  );
 }
 
-// Role-based navigation
 const getRoleNavigation = (user) => {
   if (!user) return [];
 
@@ -341,7 +339,6 @@ export default function Layout({ children }) {
   return (
     <AgentInitializer>
       <div className="min-h-screen flex w-full bg-gray-50 dark:bg-gray-900">
-        {/* Mobile overlay */}
         {sidebarOpen && (
           <div
             className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
@@ -349,13 +346,11 @@ export default function Layout({ children }) {
           />
         )}
 
-        {/* SIDEBAR */}
         <div
           className={`fixed top-0 left-0 h-screen bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 z-50 transition-transform duration-300 w-72 flex flex-col ${
             sidebarOpen ? "translate-x-0" : "-translate-x-full"
           } lg:translate-x-0`}
         >
-          {/* 1. LOGO HEADER - Fixed */}
           <div className="border-b border-gray-100 dark:border-gray-700 p-6 flex-shrink-0">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -376,7 +371,6 @@ export default function Layout({ children }) {
             </div>
           </div>
 
-          {/* 2. SEARCH & VOICE CONTROLS - Fixed */}
           <div className="p-4 border-b border-gray-100 dark:border-gray-700 space-y-2 flex-shrink-0">
             <button
               onClick={() => setSearchOpen(true)}
@@ -398,7 +392,6 @@ export default function Layout({ children }) {
             </button>
           </div>
 
-          {/* 3. USER ROLE BADGE - Fixed */}
           {user && (
             <div className="px-4 py-3 flex-shrink-0">
               <div className="px-3 py-2 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
@@ -410,7 +403,6 @@ export default function Layout({ children }) {
             </div>
           )}
 
-          {/* 4. NAVIGATION LINKS - Scrollable */}
           <div className="flex-1 overflow-y-auto px-3 py-2">
             <div className="space-y-1">
               {navigation.map((item) => {
@@ -433,7 +425,6 @@ export default function Layout({ children }) {
               })}
             </div>
 
-            {/* Quick Actions Inside Scrollable Area */}
             <div className="pt-4 mt-4 border-t border-gray-100 dark:border-gray-700">
               <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-2 px-3">QUICK ACTIONS</p>
               <div className="space-y-1">
@@ -457,11 +448,9 @@ export default function Layout({ children }) {
             </div>
           </div>
 
-          {/* 5. USER PROFILE & DARK MODE - ABSOLUTELY FIXED AT BOTTOM */}
           <div className="border-t border-gray-100 dark:border-gray-700 p-4 flex-shrink-0 bg-white dark:bg-gray-800">
             {user && (
               <div className="space-y-3">
-                {/* Profile Info + Dark Mode Toggle */}
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 bg-gradient-to-br from-gray-700 to-gray-900 rounded-full flex items-center justify-center flex-shrink-0">
                     <span className="text-white font-semibold text-sm">
@@ -476,7 +465,6 @@ export default function Layout({ children }) {
                       {user.position?.replace('_', ' ') || "Staff"}
                     </p>
                   </div>
-                  {/* Dark Mode Toggle Button */}
                   <Button
                     variant="ghost"
                     size="icon"
@@ -492,7 +480,6 @@ export default function Layout({ children }) {
                   </Button>
                 </div>
 
-                {/* Logout Button */}
                 <button
                   onClick={handleLogout}
                   className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors duration-200"
@@ -505,9 +492,7 @@ export default function Layout({ children }) {
           </div>
         </div>
 
-        {/* Main Content Area */}
         <main className="flex-1 flex flex-col overflow-hidden lg:ml-72">
-          {/* Mobile Header */}
           <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4 lg:hidden">
             <div className="flex items-center gap-4">
               <button
@@ -545,7 +530,6 @@ export default function Layout({ children }) {
           <div className="flex-1 overflow-auto bg-gray-50 dark:bg-gray-900">{children}</div>
         </main>
 
-        {/* Global Search Dialog */}
         <CommandDialog open={searchOpen} onOpenChange={setSearchOpen}>
           <CommandInput placeholder="Search pages, features, or modules..." />
           <CommandList>
@@ -569,7 +553,6 @@ export default function Layout({ children }) {
           </CommandList>
         </CommandDialog>
 
-        {/* Voice Search Dialog */}
         <Dialog open={voiceSearchOpen} onOpenChange={setVoiceSearchOpen}>
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
