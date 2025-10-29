@@ -1,24 +1,12 @@
 import React, { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Card, CardContent } from '@/components/ui/card';
 import { FileText, BarChart3, Settings } from 'lucide-react';
+import DocumentLibrary from './DocumentLibrary';
+import DocumentBuilder from './DocumentBuilder';
+import DocumentSignatureReport from './DocumentSignatureReport';
+import ComplianceCore from './ComplianceCore';
 import { base44 } from '@/api/base44Client';
 import { useQuery } from '@tanstack/react-query';
-
-// Lazy load components
-const DocumentLibrary = React.lazy(() => import('./DocumentLibrary'));
-const DocumentBuilder = React.lazy(() => import('./DocumentBuilder'));
-const DocumentSignatureReport = React.lazy(() => import('./DocumentSignatureReport'));
-const ComplianceCore = React.lazy(() => import('./ComplianceCore'));
-
-const LoadingFallback = () => (
-  <Card>
-    <CardContent className="p-12 text-center">
-      <div className="animate-spin w-12 h-12 border-4 border-gray-600 border-t-transparent rounded-full mx-auto mb-4"></div>
-      <p className="text-gray-600">Loading...</p>
-    </CardContent>
-  </Card>
-);
 
 export default function DocumentsDashboard() {
   const [activeTab, setActiveTab] = useState('overview');
@@ -49,33 +37,29 @@ export default function DocumentsDashboard() {
 
           {/* Tabs */}
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className={`grid w-full ${isManager ? 'grid-cols-3' : 'grid-cols-2'} mb-6`}>
-              <TabsTrigger value="overview">
-                <FileText className="w-4 h-4 mr-2" />
+            <TabsList className="grid w-full grid-cols-3 mb-6">
+              <TabsTrigger value="overview" className="flex items-center gap-2">
+                <FileText className="w-4 h-4" />
                 Library
               </TabsTrigger>
-              <TabsTrigger value="compliance">
-                <BarChart3 className="w-4 h-4 mr-2" />
+              <TabsTrigger value="compliance" className="flex items-center gap-2">
+                <BarChart3 className="w-4 h-4" />
                 Compliance
               </TabsTrigger>
               {isManager && (
-                <TabsTrigger value="manage">
-                  <Settings className="w-4 h-4 mr-2" />
+                <TabsTrigger value="manage" className="flex items-center gap-2">
+                  <Settings className="w-4 h-4" />
                   Manage
                 </TabsTrigger>
               )}
             </TabsList>
 
             <TabsContent value="overview">
-              <React.Suspense fallback={<LoadingFallback />}>
-                <DocumentLibrary />
-              </React.Suspense>
+              <DocumentLibrary />
             </TabsContent>
 
             <TabsContent value="compliance">
-              <React.Suspense fallback={<LoadingFallback />}>
-                <ComplianceCore />
-              </React.Suspense>
+              <ComplianceCore />
             </TabsContent>
 
             {isManager && (
@@ -87,15 +71,11 @@ export default function DocumentsDashboard() {
                   </TabsList>
 
                   <TabsContent value="builder">
-                    <React.Suspense fallback={<LoadingFallback />}>
-                      <DocumentBuilder />
-                    </React.Suspense>
+                    <DocumentBuilder />
                   </TabsContent>
 
                   <TabsContent value="reports">
-                    <React.Suspense fallback={<LoadingFallback />}>
-                      <DocumentSignatureReport />
-                    </React.Suspense>
+                    <DocumentSignatureReport />
                   </TabsContent>
                 </Tabs>
               </TabsContent>

@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -317,10 +316,7 @@ export default function OperationsCore() {
                           {task.status === 'pending' && task.assigned_to === user?.email && (
                             <Button
                               size="sm"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                completeTaskMutation.mutate({ taskId: task.id, comments: '', attachments: [] });
-                              }}
+                              onClick={() => completeTaskMutation.mutate({ taskId: task.id, comments: '', attachments: [] })}
                               className="bg-green-600 hover:bg-green-700"
                             >
                               <CheckCircle className="w-4 h-4" />

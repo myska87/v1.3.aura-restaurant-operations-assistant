@@ -154,7 +154,7 @@ export default function Layout({ children, currentPageName }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const location = useLocation();
 
-  const { data: user, isLoading: userLoading } = useQuery({
+  const { data: user } = useQuery({
     queryKey: ["currentUser"],
     queryFn: () => base44.auth.me(),
   });
@@ -165,47 +165,41 @@ export default function Layout({ children, currentPageName }) {
     await base44.auth.logout();
   };
 
-  // Loading state
-  if (userLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
-        <div className="text-center">
-          <div className="animate-spin w-16 h-16 border-4 border-emerald-600 border-t-transparent rounded-full mx-auto mb-4"></div>
-          <p className="text-gray-600 text-lg">Starting AURA One Pro...</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <ErrorBoundary>
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
         <ComplianceStyles />
-        
-        {/* Background Services */}
         <AutoBackupScheduler />
         <WelcomeNewHire />
         <WelcomeNewUser />
+        
         <MenuImporter />
         <SystemStatusCheck />
         <ComplianceEventListener />
+
         <ChangeDetector />
         <DataBridgeEngine />
         <FormIntelligenceEngine />
         <FormScheduler />
+
         <MenuAutoUpdateTrigger />
         <QualityAutomation />
         <SmartRoleSync />
         <ActivityTracker />
+
         <TaskAutomationEngine />
         <AISummaryEngine />
         <OperationsLinkManager />
+
         <EventProcessor />
         <EventRouter />
         <AutoActionEngine />
+
         <DataAggregator />
         <AIInsightsEngine />
+
         <PredictiveInsightsEngine />
+
         <RenewalMonitor />
         <AIComplianceSummary />
 

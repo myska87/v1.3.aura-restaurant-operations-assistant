@@ -1,25 +1,13 @@
 import React, { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Card, CardContent } from '@/components/ui/card';
 import { Package, BarChart3, Settings } from 'lucide-react';
-
-// Lazy load components
-const InventoryManagement = React.lazy(() => import('./InventoryManagement'));
-const IngredientStock = React.lazy(() => import('./IngredientStock'));
-const SupplierManagement = React.lazy(() => import('./SupplierManagement'));
-const Ordering = React.lazy(() => import('./Ordering'));
-const OrderHistory = React.lazy(() => import('./OrderHistory'));
-const ProductionPlanning = React.lazy(() => import('./ProductionPlanning'));
-const MenuAnalysis = React.lazy(() => import('./MenuAnalysis'));
-
-const LoadingFallback = () => (
-  <Card>
-    <CardContent className="p-12 text-center">
-      <div className="animate-spin w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full mx-auto mb-4"></div>
-      <p className="text-gray-600">Loading...</p>
-    </CardContent>
-  </Card>
-);
+import InventoryManagement from './InventoryManagement';
+import IngredientStock from './IngredientStock';
+import SupplierManagement from './SupplierManagement';
+import Ordering from './Ordering';
+import OrderHistory from './OrderHistory';
+import ProductionPlanning from './ProductionPlanning';
+import MenuAnalysis from './MenuAnalysis';
 
 export default function InventoryDashboard() {
   const [activeTab, setActiveTab] = useState('overview');
@@ -44,33 +32,29 @@ export default function InventoryDashboard() {
           {/* Tabs */}
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="grid w-full grid-cols-3 mb-6">
-              <TabsTrigger value="overview">
-                <Package className="w-4 h-4 mr-2" />
+              <TabsTrigger value="overview" className="flex items-center gap-2">
+                <Package className="w-4 h-4" />
                 Overview
               </TabsTrigger>
-              <TabsTrigger value="analytics">
-                <BarChart3 className="w-4 h-4 mr-2" />
+              <TabsTrigger value="analytics" className="flex items-center gap-2">
+                <BarChart3 className="w-4 h-4" />
                 Analytics
               </TabsTrigger>
-              <TabsTrigger value="manage">
-                <Settings className="w-4 h-4 mr-2" />
+              <TabsTrigger value="manage" className="flex items-center gap-2">
+                <Settings className="w-4 h-4" />
                 Manage
               </TabsTrigger>
             </TabsList>
 
-            <TabsContent value="overview">
-              <React.Suspense fallback={<LoadingFallback />}>
-                <InventoryManagement />
-              </React.Suspense>
+            <TabsContent value="overview" className="space-y-6">
+              <InventoryManagement />
             </TabsContent>
 
-            <TabsContent value="analytics">
-              <React.Suspense fallback={<LoadingFallback />}>
-                <MenuAnalysis />
-              </React.Suspense>
+            <TabsContent value="analytics" className="space-y-6">
+              <MenuAnalysis />
             </TabsContent>
 
-            <TabsContent value="manage">
+            <TabsContent value="manage" className="space-y-6">
               <Tabs defaultValue="ingredients" className="w-full">
                 <TabsList className="grid w-full grid-cols-4">
                   <TabsTrigger value="ingredients">Ingredients</TabsTrigger>
@@ -80,30 +64,22 @@ export default function InventoryDashboard() {
                 </TabsList>
 
                 <TabsContent value="ingredients">
-                  <React.Suspense fallback={<LoadingFallback />}>
-                    <IngredientStock />
-                  </React.Suspense>
+                  <IngredientStock />
                 </TabsContent>
 
                 <TabsContent value="suppliers">
-                  <React.Suspense fallback={<LoadingFallback />}>
-                    <SupplierManagement />
-                  </React.Suspense>
+                  <SupplierManagement />
                 </TabsContent>
 
                 <TabsContent value="ordering">
-                  <React.Suspense fallback={<LoadingFallback />}>
-                    <div className="space-y-6">
-                      <Ordering />
-                      <OrderHistory />
-                    </div>
-                  </React.Suspense>
+                  <div className="space-y-6">
+                    <Ordering />
+                    <OrderHistory />
+                  </div>
                 </TabsContent>
 
                 <TabsContent value="production">
-                  <React.Suspense fallback={<LoadingFallback />}>
-                    <ProductionPlanning />
-                  </React.Suspense>
+                  <ProductionPlanning />
                 </TabsContent>
               </Tabs>
             </TabsContent>
