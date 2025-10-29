@@ -6,81 +6,11 @@
 import { base44 } from '@/api/base44Client';
 import EventBus, { EVENT_TYPES } from './EventBus';
 
-class InventoryAgentClass {
+export class InventoryAgent {
   constructor() {
     this.name = 'inventory_agent';
     this.isRunning = false;
     this.lastRun = null;
-  }
-
-  /**
-   * Main run cycle
-   */
-  async run() {
-    if (this.isRunning) {
-      console.log('InventoryAgent: Already running, skipping...');
-      return { status: 'skipped', reason: 'already_running' };
-    }
-
-    this.isRunning = true;
-    const startTime = Date.now();
-    const results = {
-      lowStockDetected: 0,
-      ordersGenerated: 0,
-      predictionsCreated: 0,
-      errors: []
-    };
-
-    try {
-      console.log('🧠 InventoryAgent: Starting run...');
-      
-      await EventBus.emit(EVENT_TYPES.AGENT_STARTED, { 
-        agent: this.name,
-        timestamp: new Date().toISOString()
-      });
-
-      // 1. Check low stock items
-      const lowStockResult = await this.checkLowStock();
-      results.lowStockDetected = lowStockResult.detected;
-
-      // 2. Auto-generate orders for critical items
-      const orderResult = await this.autoGenerateOrders();
-      results.ordersGenerated = orderResult.generated;
-
-      // 3. Predict future shortages
-      const predictionResult = await this.predictShortages();
-      results.predictionsCreated = predictionResult.created;
-
-      // 4. Log agent action
-      await this.logAction('auto_run', 'completed', results);
-
-      const duration = Date.now() - startTime;
-      console.log(`✅ InventoryAgent: Completed in ${duration}ms`, results);
-
-      await EventBus.emit(EVENT_TYPES.AGENT_COMPLETED, { 
-        agent: this.name,
-        duration,
-        results
-      });
-
-      this.lastRun = new Date().toISOString();
-      return { status: 'success', results, duration };
-
-    } catch (error) {
-      console.error('❌ InventoryAgent: Run failed:', error);
-      results.errors.push(error.message);
-      
-      await this.logAction('auto_run', 'failed', { error: error.message });
-      
-      await EventBus.emit(EVENT_TYPES.AGENT_FAILED, { 
-        agent: this.name,
-        error: error.message
-      });
-
-      return { status: 'error', error: error.message, results };
-    } finally {
-      this.isRunning = false;
-    }
   }
 
   /**
@@ -97,8 +27,6 @@ class InventoryAgentClass {
       let detected = 0;
 
       for (const item of lowStockItems) {
-        const severity = item.current_stock === 0 ? 'critical' : 'warning';
-        
         await EventBus.emit(
           item.current_stock === 0 ? EVENT_TYPES.STOCK_CRITICAL : EVENT_TYPES.STOCK_LOW,
           {
@@ -114,10 +42,10 @@ class InventoryAgentClass {
       }
 
       console.log(`📦 InventoryAgent: Detected ${detected} low stock items`);
-      return { detected };
+      return { detected, lowStockItems };
 
     } catch (error) {
-      console.error('InventoryAgent: Error in checkLowStock:', error);
+      console.warn('InventoryAgent: Error in checkLowStock:', error);
       return { detected: 0, error: error.message };
     }
   }
@@ -129,14 +57,12 @@ class InventoryAgentClass {
     try {
       const ingredients = await base44.entities.Ingredient.list('-current_stock', 100);
       
-      // Only auto-order for critical items (stock = 0 or below critical threshold)
       const criticalItems = ingredients.filter(ing => 
         ing.auto_order_enabled &&
-        ing.current_stock <= (ing.reorder_point || 0) * 0.3 && // 30% of reorder point
+        ing.current_stock <= (ing.reorder_point || 0) * 0.3 &&
         ing.supplier_id
       );
 
-      // Group by supplier
       const ordersBySupplier = {};
 
       criticalItems.forEach(item => {
@@ -164,7 +90,6 @@ class InventoryAgentClass {
 
       let generated = 0;
 
-      // Create draft orders
       for (const order of Object.values(ordersBySupplier)) {
         const subtotal = order.items.reduce((sum, item) => sum + item.line_total, 0);
         const taxRate = 0.20;
@@ -200,7 +125,7 @@ class InventoryAgentClass {
       return { generated };
 
     } catch (error) {
-      console.error('InventoryAgent: Error in autoGenerateOrders:', error);
+      console.warn('InventoryAgent: Error in autoGenerateOrders:', error);
       return { generated: 0, error: error.message };
     }
   }
@@ -210,19 +135,17 @@ class InventoryAgentClass {
    */
   async predictShortages() {
     try {
-      // Get ingredients with low stock trend
       const ingredients = await base44.entities.Ingredient.list('-current_stock', 100);
       
       const predictions = [];
       let created = 0;
 
       for (const item of ingredients) {
-        // Simple prediction: if current stock < 50% of reorder point
         if (item.current_stock > 0 && 
             item.current_stock < (item.reorder_point || 0) * 0.5 &&
             item.supplier_id) {
           
-          const daysUntilOut = Math.ceil(item.current_stock / (item.reorder_point / 7)); // Rough estimate
+          const daysUntilOut = Math.ceil(item.current_stock / (item.reorder_point / 7));
           
           predictions.push({
             ingredient_id: item.id,
@@ -232,7 +155,6 @@ class InventoryAgentClass {
             confidence: 0.7
           });
 
-          // Create AI prediction record
           await base44.entities.AIPrediction.create({
             prediction_date: new Date().toISOString().split('T')[0],
             prediction_type: 'stock_shortage',
@@ -258,48 +180,8 @@ class InventoryAgentClass {
       return { created, predictions };
 
     } catch (error) {
-      console.error('InventoryAgent: Error in predictShortages:', error);
+      console.warn('InventoryAgent: Error in predictShortages:', error);
       return { created: 0, error: error.message };
     }
   }
-
-  /**
-   * Log agent action to database
-   */
-  async logAction(actionType, status, data = {}) {
-    try {
-      await base44.entities.AgentLog.create({
-        agent_name: this.name,
-        action_type: 'auto_action',
-        action_description: `Inventory agent ${actionType}: ${status}`,
-        trigger_event: 'scheduled_run',
-        decision_data: data,
-        decision_reasoning: 'Automated inventory monitoring and order generation',
-        confidence_score: 0.9,
-        severity: status === 'failed' ? 'high' : 'info',
-        status: status === 'failed' ? 'failed' : 'completed',
-        notification_sent: false,
-        success: status !== 'failed',
-        processing_time_ms: data.duration || 0
-      });
-    } catch (error) {
-      console.error('InventoryAgent: Failed to log action:', error);
-    }
-  }
-
-  /**
-   * Get agent status
-   */
-  getStatus() {
-    return {
-      name: this.name,
-      isRunning: this.isRunning,
-      lastRun: this.lastRun
-    };
-  }
 }
-
-// Create singleton instance
-const InventoryAgent = new InventoryAgentClass();
-
-export default InventoryAgent;
