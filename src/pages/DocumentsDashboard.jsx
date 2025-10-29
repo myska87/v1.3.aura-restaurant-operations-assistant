@@ -1,10 +1,11 @@
 import React from 'react';
-import { FileText, FilePlus, CheckCircle, BarChart3 } from 'lucide-react';
+import { FileText, FilePlus, CheckCircle, BarChart3, Shield } from 'lucide-react';
 import DashboardTabsLayout from '../components/DashboardTabsLayout';
 import DocumentLibrary from './DocumentLibrary';
 import DocumentBuilder from './DocumentBuilder';
 import DocumentSignatureReport from './DocumentSignatureReport';
 import DocumentManagement from './DocumentManagement';
+import ComplianceAuditMonitor from './ComplianceAuditMonitor';
 
 export default function DocumentsDashboard() {
   const tabs = [
@@ -31,6 +32,12 @@ export default function DocumentsDashboard() {
       label: 'Management',
       icon: BarChart3,
       component: <DocumentManagement />,
+    },
+    {
+      value: 'audit',
+      label: 'Audit Monitor',
+      icon: Shield,
+      component: <ComplianceAuditMonitor />,
     },
   ];
 

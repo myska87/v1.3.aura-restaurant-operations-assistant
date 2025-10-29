@@ -23,11 +23,15 @@ import {
   Settings,
   Calendar,
   Clock,
+  Upload,
+  Image as ImageIcon,
+  Sparkles,
 } from "lucide-react";
 import { DragDropContext, Draggable, Droppable } from "@hello-pangea/dnd";
 
 export default function FormEditor({ template, onSave, onCancel }) {
   const queryClient = useQueryClient();
+  const [uploading, setUploading] = useState(false);
   const [formData, setFormData] = useState({
     form_name: "",
     description: "",
@@ -45,14 +49,18 @@ export default function FormEditor({ template, onSave, onCancel }) {
     is_active: true,
     status: "active",
     completion_deadline_hours: 24,
+    icon: "📋",
+    color_theme: "#014D40",
     ...template,
   });
 
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [showAIHelper, setShowAIHelper] = useState(false);
+  const [aiPrompt, setAiPrompt] = useState("");
+  const [aiGenerating, setAiGenerating] = useState(false);
 
   const saveFormMutation = useMutation({
     mutationFn: async (data) => {
-      // Calculate next due date if auto_generate is enabled
       if (data.auto_generate && !data.next_due_date) {
         const nextDue = new Date();
         if (data.schedule_time) {
@@ -63,10 +71,8 @@ export default function FormEditor({ template, onSave, onCancel }) {
       }
 
       if (template?.id) {
-        // Update existing
         await base44.entities.FormTemplate.update(template.id, data);
         
-        // Create version history
         await base44.entities.FormHistory.create({
           form_id: template.id,
           form_name: data.form_name,
@@ -78,7 +84,6 @@ export default function FormEditor({ template, onSave, onCancel }) {
           previous_version: data.version_number || 1
         });
       } else {
-        // Create new
         await base44.entities.FormTemplate.create(data);
       }
     },
@@ -87,6 +92,68 @@ export default function FormEditor({ template, onSave, onCancel }) {
       onSave();
     },
   });
+
+  const handleImageUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploading(true);
+    try {
+      const { file_url } = await base44.integrations.Core.UploadFile({ file });
+      setFormData(prev => ({ ...prev, hero_image_url: file_url }));
+    } catch (error) {
+      alert('Failed to upload image');
+    }
+    setUploading(false);
+  };
+
+  const handleGenerateWithAI = async () => {
+    if (!aiPrompt.trim()) {
+      alert('Please describe what form you want to create');
+      return;
+    }
+
+    setAiGenerating(true);
+    try {
+      const response = await base44.integrations.Core.InvokeLLM({
+        prompt: `Generate a professional form template for a restaurant based on this request: "${aiPrompt}". 
+
+Return a JSON with:
+- form_name (string)
+- description (string) 
+- category (one of: haccp, workflow, equipment, pest, sops, training, suppliers, allergens, chemicals, waste, other)
+- assigned_position (one of: manager, chef, line_cook, server, bartender, cleaner, maintenance, any)
+- trigger_type (one of: shift_start, shift_end, opening, closing, mid_day, manual)
+- requires_signature (boolean)
+- fields (array of objects with: field_id, field_type, field_label, field_hint, required, order_index)
+
+Field types: text, textarea, number, yesno, dropdown, checkbox, radio, date, photo, file, signature, rating, section_header`,
+        response_json_schema: {
+          type: "object",
+          properties: {
+            form_name: { type: "string" },
+            description: { type: "string" },
+            category: { type: "string" },
+            assigned_position: { type: "string" },
+            trigger_type: { type: "string" },
+            requires_signature: { type: "boolean" },
+            fields: { type: "array" }
+          }
+        }
+      });
+
+      setFormData(prev => ({
+        ...prev,
+        ...response,
+        icon: "✨",
+      }));
+      setShowAIHelper(false);
+      setAiPrompt("");
+    } catch (error) {
+      alert('AI generation failed. Please try again.');
+    }
+    setAiGenerating(false);
+  };
 
   const handleAddField = () => {
     const newField = {
@@ -127,7 +194,6 @@ export default function FormEditor({ template, onSave, onCancel }) {
     const [reorderedItem] = items.splice(result.source.index, 1);
     items.splice(result.destination.index, 0, reorderedItem);
 
-    // Update order_index
     const updatedFields = items.map((field, index) => ({
       ...field,
       order_index: index,
@@ -157,7 +223,7 @@ export default function FormEditor({ template, onSave, onCancel }) {
     { value: "photo", label: "Photo Upload" },
     { value: "file", label: "File Upload" },
     { value: "signature", label: "Signature" },
-    { value: "rating", label: "Rating" },
+    { value: "rating", label: "Rating (1-5)" },
     { value: "section_header", label: "Section Header" },
   ];
 
@@ -175,6 +241,13 @@ export default function FormEditor({ template, onSave, onCancel }) {
             <ArrowLeft className="w-4 h-4 mr-2" />
             Cancel
           </Button>
+          <Button
+            variant="outline"
+            onClick={() => setShowAIHelper(!showAIHelper)}
+          >
+            <Sparkles className="w-4 h-4 mr-2" />
+            AI Helper
+          </Button>
           <Button 
             onClick={handleSave}
             disabled={saveFormMutation.isPending}
@@ -186,7 +259,36 @@ export default function FormEditor({ template, onSave, onCancel }) {
         </div>
       </div>
 
-      {/* Basic Settings */}
+      {showAIHelper && (
+        <Card className="bg-gradient-to-r from-purple-50 to-blue-50 border-purple-200">
+          <CardContent className="p-6">
+            <div className="flex items-start gap-3 mb-4">
+              <Sparkles className="w-6 h-6 text-purple-600" />
+              <div className="flex-1">
+                <h3 className="font-semibold text-gray-900 mb-2">AI Form Generator</h3>
+                <p className="text-sm text-gray-600 mb-3">
+                  Describe the form you need and AI will generate the structure for you
+                </p>
+                <Textarea
+                  value={aiPrompt}
+                  onChange={(e) => setAiPrompt(e.target.value)}
+                  placeholder="e.g., Create a daily fridge temperature log with fields for each fridge, temperature readings, signature, and photo upload..."
+                  rows={3}
+                  className="mb-3"
+                />
+                <Button
+                  onClick={handleGenerateWithAI}
+                  disabled={aiGenerating}
+                  className="bg-purple-600 hover:bg-purple-700"
+                >
+                  {aiGenerating ? 'Generating...' : 'Generate Form with AI'}
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <Card>
         <CardHeader>
           <CardTitle>Basic Information</CardTitle>
@@ -267,10 +369,52 @@ export default function FormEditor({ template, onSave, onCancel }) {
               </Select>
             </div>
           </div>
+
+          <div>
+            <label className="text-sm font-medium text-gray-700 mb-1 block">
+              Form Icon & Image (Optional)
+            </label>
+            <div className="flex gap-3">
+              <Input
+                value={formData.icon}
+                onChange={(e) => setFormData({ ...formData, icon: e.target.value })}
+                placeholder="Emoji (e.g., 📋, 🌡️)"
+                className="w-32"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => document.getElementById('form-hero-image').click()}
+                disabled={uploading}
+              >
+                <Upload className="w-4 h-4 mr-2" />
+                {uploading ? 'Uploading...' : 'Upload Image'}
+              </Button>
+              <input
+                id="form-hero-image"
+                type="file"
+                accept="image/*"
+                onChange={handleImageUpload}
+                className="hidden"
+              />
+              {formData.hero_image_url && (
+                <Badge className="bg-green-100 text-green-800">
+                  <ImageIcon className="w-3 h-3 mr-1" />
+                  Image uploaded
+                </Badge>
+              )}
+            </div>
+            {formData.hero_image_url && (
+              <img
+                src={formData.hero_image_url}
+                alt="Form"
+                className="mt-2 w-full h-32 object-cover rounded-lg"
+              />
+            )}
+          </div>
         </CardContent>
       </Card>
 
-      {/* Scheduling Settings */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -402,7 +546,7 @@ export default function FormEditor({ template, onSave, onCancel }) {
             </div>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-4 flex-wrap">
             <div className="flex items-center gap-2">
               <input
                 type="checkbox"
@@ -430,7 +574,6 @@ export default function FormEditor({ template, onSave, onCancel }) {
         </CardContent>
       </Card>
 
-      {/* Form Fields */}
       <Card>
         <CardHeader>
           <div className="flex justify-between items-center">

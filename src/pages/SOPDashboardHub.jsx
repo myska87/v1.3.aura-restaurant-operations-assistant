@@ -1,5 +1,5 @@
 import React from 'react';
-import { FileText, Sparkles, Award, Link2 } from 'lucide-react';
+import { FileText, Sparkles, Award, Link2, Plus } from 'lucide-react';
 import DashboardTabsLayout from '../components/DashboardTabsLayout';
 import SOPDashboard from './SOPDashboard';
 import SOPBuilder from './SOPBuilder';
@@ -15,7 +15,13 @@ export default function SOPDashboardHub() {
       component: <SOPDashboard />,
     },
     {
-      value: 'builder',
+      value: 'create',
+      label: 'Create New SOP',
+      icon: Plus,
+      component: <SOPBuilder />,
+    },
+    {
+      value: 'ai-builder',
       label: 'AI SOP Generator',
       icon: Sparkles,
       component: <SOPBuilder />,

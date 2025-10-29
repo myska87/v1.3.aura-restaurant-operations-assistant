@@ -126,6 +126,7 @@ import KPIDashboard from './pages/KPIDashboard';
 import Home from './pages/Home';
 import DocumentsFormsHub from './pages/DocumentsFormsHub';
 import OwnerControl from './pages/OwnerControl';
+import ComplianceAuditMonitor from './pages/ComplianceAuditMonitor';
 import Layout from './Layout.jsx';
 
 
@@ -258,6 +259,7 @@ export const PAGES = {
     "Home": Home,
     "DocumentsFormsHub": DocumentsFormsHub,
     "OwnerControl": OwnerControl,
+    "ComplianceAuditMonitor": ComplianceAuditMonitor,
 }
 
 export const pagesConfig = {

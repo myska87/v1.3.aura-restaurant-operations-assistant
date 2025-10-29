@@ -21,15 +21,18 @@ import {
   ArrowLeft,
   Home,
   Sparkles,
+  X,
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import ReactQuill from 'react-quill';
+import AIDocumentBuilder from '../components/AIDocumentBuilder';
 
 export default function DocumentBuilder() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [uploading, setUploading] = useState(false);
+  const [showAI, setShowAI] = useState(false);
 
   const urlParams = new URLSearchParams(window.location.search);
   const docId = urlParams.get('id');
@@ -76,7 +79,6 @@ export default function DocumentBuilder() {
     }
   }, [editingDoc]);
 
-  // ✅ FIXED: Proper save with activity logging
   const saveDocumentMutation = useMutation({
     mutationFn: async (data) => {
       if (editingDoc) {
@@ -89,7 +91,6 @@ export default function DocumentBuilder() {
       queryClient.invalidateQueries({ queryKey: ['documentLibrary'] });
       queryClient.invalidateQueries({ queryKey: ['allDocuments'] });
       
-      // ✨ Log activity for new documents
       if (!editingDoc) {
         await base44.entities.ActivityLog.create({
           activity_type: 'document_uploaded',
@@ -113,6 +114,20 @@ export default function DocumentBuilder() {
     },
   });
 
+  const handleImageUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploading(true);
+    try {
+      const { file_url } = await base44.integrations.Core.UploadFile({ file });
+      setFormData(prev => ({ ...prev, hero_image_url: file_url }));
+    } catch (error) {
+      alert('Failed to upload image');
+    }
+    setUploading(false);
+  };
+
   const handleAddTag = () => {
     if (!newTag.trim() || formData.tags.includes(newTag.trim())) return;
     
@@ -130,6 +145,20 @@ export default function DocumentBuilder() {
     }));
   };
 
+  const handleAIGenerated = (aiData) => {
+    setFormData(prev => ({
+      ...prev,
+      title: aiData.title,
+      category: aiData.category,
+      description: aiData.description,
+      content_html: aiData.content_html,
+      tags: aiData.tags || [],
+      department: aiData.department || 'all',
+      requires_signature: aiData.requires_signature || false,
+    }));
+    setShowAI(false);
+  };
+
   const handleSubmit = async (publish = false) => {
     if (!formData.title || !formData.content_html) {
       alert('Please provide title and content');
@@ -143,7 +172,7 @@ export default function DocumentBuilder() {
       created_by_name: user.full_name,
       updated_by: user.email,
       updated_by_name: user.full_name,
-      version: editingDoc?.version ? editingDoc.version + 1 : 1,
+      version: editingDoc?.version || 1,
       view_count: editingDoc?.view_count || 0,
       signature_count: editingDoc?.signature_count || 0,
     };
@@ -158,7 +187,6 @@ export default function DocumentBuilder() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6 md:p-8">
       <div className="max-w-5xl mx-auto">
-        {/* Navigation */}
         <div className="flex gap-3 mb-6">
           <Link to={createPageUrl('DocumentLibrary')}>
             <Button variant="outline" size="sm">
@@ -172,9 +200,16 @@ export default function DocumentBuilder() {
               Dashboard
             </Button>
           </Link>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowAI(!showAI)}
+          >
+            <Sparkles className="w-4 h-4 mr-2" />
+            {showAI ? 'Hide' : 'Show'} AI Helper
+          </Button>
         </div>
 
-        {/* Header */}
         <div className="mb-6">
           <h1 className="text-4xl font-bold text-gray-900 mb-2">
             {editingDoc ? 'Edit Document' : 'Create New Document'}
@@ -182,8 +217,13 @@ export default function DocumentBuilder() {
           <p className="text-gray-600">Build professional operational documents</p>
         </div>
 
+        {showAI && (
+          <div className="mb-6">
+            <AIDocumentBuilder onDocumentGenerated={handleAIGenerated} />
+          </div>
+        )}
+
         <div className="space-y-6">
-          {/* Basic Info */}
           <Card>
             <CardHeader>
               <CardTitle>Document Details</CardTitle>
@@ -255,15 +295,44 @@ export default function DocumentBuilder() {
               </div>
 
               <div>
+                <Label>Hero Image (Optional)</Label>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => document.getElementById('doc-hero-image').click()}
+                    disabled={uploading}
+                  >
+                    <Upload className="w-4 h-4 mr-2" />
+                    {uploading ? 'Uploading...' : 'Upload Image'}
+                  </Button>
+                  <input
+                    id="doc-hero-image"
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageUpload}
+                    className="hidden"
+                  />
+                </div>
+                {formData.hero_image_url && (
+                  <img
+                    src={formData.hero_image_url}
+                    alt="Hero"
+                    className="mt-2 w-full h-48 object-cover rounded-lg"
+                  />
+                )}
+              </div>
+
+              <div>
                 <Label>Tags</Label>
                 <div className="flex flex-wrap gap-2 mb-2">
                   {formData.tags.map(tag => (
-                    <Badge key={tag} variant="outline" className="gap-1">
+                    <span key={tag} className="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 rounded text-xs">
                       {tag}
                       <button onClick={() => handleRemoveTag(tag)}>
                         <X className="w-3 h-3" />
                       </button>
-                    </Badge>
+                    </span>
                   ))}
                 </div>
                 <div className="flex gap-2">
@@ -302,7 +371,6 @@ export default function DocumentBuilder() {
             </CardContent>
           </Card>
 
-          {/* Content Editor */}
           <Card>
             <CardHeader>
               <CardTitle>Document Content *</CardTitle>
@@ -318,7 +386,6 @@ export default function DocumentBuilder() {
             </CardContent>
           </Card>
 
-          {/* Action Buttons */}
           <Card>
             <CardContent className="p-6">
               <div className="flex flex-wrap gap-3 justify-end">
