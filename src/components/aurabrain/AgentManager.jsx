@@ -3,7 +3,9 @@
  * Orchestrates agent execution, prevents conflicts, manages state
  */
 
-import { HygieneAgent, InventoryAgent, QualityAgent } from "./";
+import { HygieneAgent } from './HygieneAgent';
+import { InventoryAgent } from './InventoryAgent';
+import { QualityAgent } from './QualityAgent';
 import EventBus, { EVENT_TYPES } from './EventBus';
 
 export class AgentManager {
@@ -86,19 +88,19 @@ export class AgentManager {
 
       const summary = {
         hygiene: {
-          checklistsAssigned: results[0].status === 'fulfilled' ? results[0].value.assigned : 0,
-          scoresUpdated: results[1].status === 'fulfilled' ? results[1].value.updated : 0,
-          alertsCreated: results[2].status === 'fulfilled' ? results[2].value.created : 0,
+          checklistsAssigned: results[0].status === 'fulfilled' ? results[0].value?.assigned || 0 : 0,
+          scoresUpdated: results[1].status === 'fulfilled' ? results[1].value?.updated || 0 : 0,
+          alertsCreated: results[2].status === 'fulfilled' ? results[2].value?.created || 0 : 0,
         },
         inventory: {
-          lowStockDetected: results[3].status === 'fulfilled' ? results[3].value.detected : 0,
-          ordersGenerated: results[4].status === 'fulfilled' ? results[4].value.generated : 0,
-          predictionsCreated: results[5].status === 'fulfilled' ? results[5].value.created : 0,
+          lowStockDetected: results[3].status === 'fulfilled' ? results[3].value?.detected || 0 : 0,
+          ordersGenerated: results[4].status === 'fulfilled' ? results[4].value?.generated || 0 : 0,
+          predictionsCreated: results[5].status === 'fulfilled' ? results[5].value?.created || 0 : 0,
         },
         quality: {
-          sopsAudited: results[6].status === 'fulfilled' ? results[6].value.audited : 0,
-          reportsGenerated: results[7].status === 'fulfilled' ? results[7].value.generated : 0,
-          correctiveTasksCreated: results[8].status === 'fulfilled' ? results[8].value.created : 0,
+          sopsAudited: results[6].status === 'fulfilled' ? results[6].value?.audited || 0 : 0,
+          reportsGenerated: results[7].status === 'fulfilled' ? results[7].value?.generated || 0 : 0,
+          correctiveTasksCreated: results[8].status === 'fulfilled' ? results[8].value?.created || 0 : 0,
         }
       };
 
@@ -147,9 +149,9 @@ export class AgentManager {
         ]);
         
         results = {
-          checklistsAssigned: checklists.status === 'fulfilled' ? checklists.value.assigned : 0,
-          scoresUpdated: scores.status === 'fulfilled' ? scores.value.updated : 0,
-          alertsCreated: issues.status === 'fulfilled' ? issues.value.created : 0,
+          checklistsAssigned: checklists.status === 'fulfilled' ? checklists.value?.assigned || 0 : 0,
+          scoresUpdated: scores.status === 'fulfilled' ? scores.value?.updated || 0 : 0,
+          alertsCreated: issues.status === 'fulfilled' ? issues.value?.created || 0 : 0,
         };
       } else if (agentName === 'inventory') {
         const [stock, orders, predictions] = await Promise.allSettled([
@@ -159,9 +161,9 @@ export class AgentManager {
         ]);
         
         results = {
-          lowStockDetected: stock.status === 'fulfilled' ? stock.value.detected : 0,
-          ordersGenerated: orders.status === 'fulfilled' ? orders.value.generated : 0,
-          predictionsCreated: predictions.status === 'fulfilled' ? predictions.value.created : 0,
+          lowStockDetected: stock.status === 'fulfilled' ? stock.value?.detected || 0 : 0,
+          ordersGenerated: orders.status === 'fulfilled' ? orders.value?.generated || 0 : 0,
+          predictionsCreated: predictions.status === 'fulfilled' ? predictions.value?.created || 0 : 0,
         };
       } else if (agentName === 'quality') {
         const [sopAudit, reports, issues] = await Promise.allSettled([
@@ -171,9 +173,9 @@ export class AgentManager {
         ]);
         
         results = {
-          sopsAudited: sopAudit.status === 'fulfilled' ? sopAudit.value.audited : 0,
-          reportsGenerated: reports.status === 'fulfilled' ? reports.value.generated : 0,
-          correctiveTasksCreated: issues.status === 'fulfilled' ? issues.value.created : 0,
+          sopsAudited: sopAudit.status === 'fulfilled' ? sopAudit.value?.audited || 0 : 0,
+          reportsGenerated: reports.status === 'fulfilled' ? reports.value?.generated || 0 : 0,
+          correctiveTasksCreated: issues.status === 'fulfilled' ? issues.value?.created || 0 : 0,
         };
       }
 

@@ -43,7 +43,7 @@ export class QualityAgent {
 
         if (overdueCerts.length > 0) {
           for (const cert of overdueCerts.slice(0, 5)) {
-            await EventBus.emit(EVENT_TYPES.SOP_MISSED, {
+            EventBus.publish(EVENT_TYPES.SOP_MISSED, {
               sop_id: sop.id,
               sop_title: sop.title,
               staff_email: cert.staff_email,
@@ -113,7 +113,7 @@ export class QualityAgent {
           calculated_at: new Date().toISOString()
         });
 
-        await EventBus.emit(EVENT_TYPES.QUALITY_SCORE_UPDATED, {
+        EventBus.publish(EVENT_TYPES.QUALITY_SCORE_UPDATED, {
           area: area,
           averageScore: data.total,
           totalChecks: data.count
@@ -171,7 +171,7 @@ export class QualityAgent {
             corrective_action_required: true
           });
 
-          await EventBus.emit(EVENT_TYPES.QUALITY_CHECK_FAILED, {
+          EventBus.publish(EVENT_TYPES.QUALITY_CHECK_FAILED, {
             record_id: record.id,
             check_title: record.check_title,
             score: record.score,

@@ -1,4 +1,3 @@
-
 /**
  * AURA Brain - Autonomous AI Agent System
  * Central export point for all brain agents
@@ -10,7 +9,10 @@ export { QualityAgent } from './QualityAgent';
 export { AgentManager } from './AgentManager';
 export { default as EventBus, EVENT_TYPES } from './EventBus';
 export { default as AgentInitializer, useAgentManager } from './AgentInitializer';
-export { default } from './AgentManager'; // Default export for singleton usage
+
+// Re-export AgentManager as default for singleton usage
+import agentManager from './AgentManager';
+export default agentManager;
 
 /**
  * Quick import examples:

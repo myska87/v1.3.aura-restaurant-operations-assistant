@@ -33,7 +33,7 @@ export class HygieneAgent {
              assignment.form_name.toLowerCase().includes('temperature') ||
              assignment.form_name.toLowerCase().includes('cleaning'))) {
           
-          await EventBus.emit(EVENT_TYPES.TASK_ASSIGNED, {
+          EventBus.publish(EVENT_TYPES.TASK_ASSIGNED, {
             type: 'hygiene_checklist',
             assignmentId: assignment.id,
             assignedTo: assignment.assigned_to_email,
@@ -127,7 +127,7 @@ export class HygieneAgent {
 
           updated++;
 
-          await EventBus.emit(EVENT_TYPES.HYGIENE_SCORE_UPDATED, {
+          EventBus.publish(EVENT_TYPES.HYGIENE_SCORE_UPDATED, {
             staff_email: email,
             complianceRate,
             points: data.points
@@ -190,7 +190,7 @@ export class HygieneAgent {
             notified_at: new Date().toISOString()
           });
 
-          await EventBus.emit(EVENT_TYPES.HYGIENE_ALERT, {
+          EventBus.publish(EVENT_TYPES.HYGIENE_ALERT, {
             severity,
             item: record.item_name,
             location: record.location,

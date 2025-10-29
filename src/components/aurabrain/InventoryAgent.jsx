@@ -27,7 +27,7 @@ export class InventoryAgent {
       let detected = 0;
 
       for (const item of lowStockItems) {
-        await EventBus.emit(
+        EventBus.publish(
           item.current_stock === 0 ? EVENT_TYPES.STOCK_CRITICAL : EVENT_TYPES.STOCK_LOW,
           {
             ingredient_id: item.id,
@@ -111,7 +111,7 @@ export class InventoryAgent {
           auto_generated: true
         });
 
-        await EventBus.emit(EVENT_TYPES.ORDER_GENERATED, {
+        EventBus.publish(EVENT_TYPES.ORDER_GENERATED, {
           supplier_id: order.supplier_id,
           supplier_name: order.supplier_name,
           itemCount: order.items.length,

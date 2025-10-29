@@ -3,75 +3,51 @@
  * Loads agents in background without blocking UI
  */
 
-import React, { useEffect, useState } from 'react';
-import { base44 } from '@/api/base44Client';
-import { useQuery } from '@tanstack/react-query';
-import agentManager from './AgentManager';
+import React, { useEffect, useState, createContext, useContext } from 'react';
+import { AgentManager } from './AgentManager';
+
+const AgentContext = createContext(null);
+
+export const useAgentManager = () => {
+  const context = useContext(AgentContext);
+  if (!context) {
+    console.warn('useAgentManager used outside of AgentInitializer');
+    return null;
+  }
+  return context;
+};
 
 export default function AgentInitializer({ children }) {
+  const [manager, setManager] = useState(null);
   const [initialized, setInitialized] = useState(false);
 
-  // Get current user to check permissions
-  const { data: user } = useQuery({
-    queryKey: ['currentUser'],
-    queryFn: () => base44.auth.me(),
-  });
-
-  const isManager = user?.position === 'manager' || user?.position === 'owner' || user?.role === 'admin';
-
   useEffect(() => {
-    // Only managers can trigger agent runs
-    if (!isManager) {
-      setInitialized(true);
-      return;
-    }
-
     // Initialize agents in background
-    const initializeAgents = async () => {
+    const initAgents = async () => {
       try {
-        await agentManager.initialize();
-        setInitialized(true);
-        console.log('✅ AURA Brain: Agents initialized');
-      } catch (err) {
-        console.warn('⚠️ AURA Brain: Initialization warning:', err);
+        const agentManager = new AgentManager();
+        setManager(agentManager);
+        
+        // Initialize asynchronously without blocking render
+        agentManager.initialize().then(() => {
+          setInitialized(true);
+          console.log('✅ Agents ready');
+        }).catch(err => {
+          console.warn('Agent init warning:', err);
+          setInitialized(true); // Continue anyway
+        });
+      } catch (error) {
+        console.error('AgentInitializer error:', error);
         setInitialized(true); // Continue anyway
       }
     };
 
-    initializeAgents();
-  }, [isManager]);
+    initAgents();
+  }, []);
 
-  // Always render children - don't block UI
-  return <>{children}</>;
-}
-
-/**
- * Hook to use AgentManager in components
- */
-export function useAgentManager() {
-  const [status, setStatus] = useState(agentManager.getStatus());
-
-  const runAll = async () => {
-    const result = await agentManager.runAll();
-    setStatus(agentManager.getStatus());
-    return result;
-  };
-
-  const runAgent = async (agentName) => {
-    const result = await agentManager.runAgent(agentName);
-    setStatus(agentManager.getStatus());
-    return result;
-  };
-
-  const refreshStatus = () => {
-    setStatus(agentManager.getStatus());
-  };
-
-  return {
-    status,
-    runAll,
-    runAgent,
-    refreshStatus,
-    healthCheck: () => agentManager.healthCheck()
-  };
+  return (
+    <AgentContext.Provider value={{ manager, initialized }}>
+      {children}
+    </AgentContext.Provider>
+  );
 }
