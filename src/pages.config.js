@@ -125,6 +125,7 @@ import StaffAnalytics from './pages/StaffAnalytics';
 import KPIDashboard from './pages/KPIDashboard';
 import Home from './pages/Home';
 import DocumentsFormsHub from './pages/DocumentsFormsHub';
+import OwnerControl from './pages/OwnerControl';
 import Layout from './Layout.jsx';
 
 
@@ -256,6 +257,7 @@ export const PAGES = {
     "KPIDashboard": KPIDashboard,
     "Home": Home,
     "DocumentsFormsHub": DocumentsFormsHub,
+    "OwnerControl": OwnerControl,
 }
 
 export const pagesConfig = {

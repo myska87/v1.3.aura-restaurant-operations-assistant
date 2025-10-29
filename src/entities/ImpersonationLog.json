@@ -1,0 +1,174 @@
+{
+  "name": "ImpersonationLog",
+  "type": "object",
+  "properties": {
+    "owner_id": {
+      "type": "string",
+      "description": "Reference to User who impersonated"
+    },
+    "owner_email": {
+      "type": "string",
+      "description": "Owner's email"
+    },
+    "owner_name": {
+      "type": "string",
+      "description": "Owner's full name"
+    },
+    "impersonated_role": {
+      "type": "string",
+      "enum": [
+        "manager",
+        "chef",
+        "sous_chef",
+        "line_cook",
+        "server",
+        "bartender",
+        "host",
+        "cleaner",
+        "maintenance"
+      ],
+      "description": "Role being impersonated"
+    },
+    "impersonated_position": {
+      "type": "string",
+      "description": "Position being simulated"
+    },
+    "session_start": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When impersonation started"
+    },
+    "session_end": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When impersonation ended"
+    },
+    "duration_minutes": {
+      "type": "number",
+      "description": "Total session duration in minutes"
+    },
+    "pages_visited": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "page_name": {
+            "type": "string"
+          },
+          "visited_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "description": "Pages accessed during impersonation"
+    },
+    "actions_performed": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "action_type": {
+            "type": "string"
+          },
+          "action_description": {
+            "type": "string"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "description": "Actions taken during session"
+    },
+    "purpose": {
+      "type": "string",
+      "enum": [
+        "testing",
+        "auditing",
+        "troubleshooting",
+        "training",
+        "demo"
+      ],
+      "description": "Reason for impersonation"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Session notes"
+    },
+    "ip_address": {
+      "type": "string",
+      "description": "IP address during session"
+    },
+    "device_info": {
+      "type": "string",
+      "description": "Browser and device info"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "active",
+        "completed"
+      ],
+      "default": "active",
+      "description": "Session status"
+    }
+  },
+  "required": [
+    "owner_id",
+    "owner_email",
+    "impersonated_role",
+    "session_start",
+    "status"
+  ],
+  "rls": {
+    "create": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        }
+      ]
+    },
+    "read": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

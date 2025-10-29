@@ -41,6 +41,7 @@ import {
 import { Button } from "@/components/ui/button";
 
 import AgentInitializer from './components/aurabrain/AgentInitializer';
+import ImpersonationBanner from './components/ImpersonationBanner';
 
 function VoiceSearch({ onClose, navigate }) {
   const [isListening, setIsListening] = useState(false);
@@ -197,11 +198,11 @@ function VoiceSearch({ onClose, navigate }) {
   );
 }
 
-const getRoleNavigation = (user) => {
+const getRoleNavigation = (user, impersonatedRole = null) => {
   if (!user) return [];
 
-  const position = user.position?.toLowerCase();
-  const isManager = user.role === 'admin' || position === 'manager' || position === 'owner';
+  const effectivePosition = impersonatedRole || user.position?.toLowerCase();
+  const isManager = user.role === 'admin' || effectivePosition === 'manager' || effectivePosition === 'owner';
 
   if (isManager) {
     return [
@@ -215,7 +216,7 @@ const getRoleNavigation = (user) => {
     ];
   }
 
-  if (position === 'chef' || position === 'sous_chef' || position === 'line_cook') {
+  if (effectivePosition === 'chef' || effectivePosition === 'sous_chef' || effectivePosition === 'line_cook') {
     return [
       { title: "Dashboard", url: createPageUrl("Dashboard"), icon: LayoutDashboard },
       { title: "Menu", url: createPageUrl("Menu"), icon: Utensils },
@@ -226,7 +227,7 @@ const getRoleNavigation = (user) => {
     ];
   }
 
-  if (position === 'server' || position === 'bartender' || position === 'host') {
+  if (effectivePosition === 'server' || effectivePosition === 'bartender' || effectivePosition === 'host') {
     return [
       { title: "Dashboard", url: createPageUrl("Dashboard"), icon: LayoutDashboard },
       { title: "My Shifts", url: createPageUrl("MyShifts"), icon: Calendar },
@@ -237,7 +238,7 @@ const getRoleNavigation = (user) => {
     ];
   }
 
-  if (position === 'cleaner' || position === 'maintenance') {
+  if (effectivePosition === 'cleaner' || effectivePosition === 'maintenance') {
     return [
       { title: "Dashboard", url: createPageUrl("Dashboard"), icon: LayoutDashboard },
       { title: "My Shifts", url: createPageUrl("MyShifts"), icon: Calendar },
@@ -260,6 +261,7 @@ const ALL_PAGES = [
   { name: "Dashboard", url: createPageUrl("Dashboard"), keywords: "home main overview", category: "Core" },
   { name: "AURA Control Center", url: createPageUrl("DashboardPro"), keywords: "unified widgets ai brain", category: "Core" },
   { name: "Documents & Forms Hub", url: createPageUrl("DocumentsFormsHub"), keywords: "documents forms sops unified", category: "Core" },
+  { name: "Owner Control Panel", url: createPageUrl("OwnerControl"), keywords: "impersonation testing audit", category: "Owner" },
   { name: "Operations Hub", url: createPageUrl("OperationsDashboard"), keywords: "tasks checklists daily", category: "Operations" },
   { name: "My Tasks", url: createPageUrl("MyTasks"), keywords: "todo assignments work", category: "Operations" },
   { name: "Staff Hub", url: createPageUrl("StaffDashboard"), keywords: "team employees hr", category: "Staff" },
@@ -292,6 +294,13 @@ export default function Layout({ children }) {
     queryFn: () => base44.auth.me(),
   });
 
+  const impersonationData = React.useMemo(() => {
+    const stored = localStorage.getItem('aura-impersonation');
+    return stored ? JSON.parse(stored) : null;
+  }, []);
+
+  const effectiveRole = impersonationData?.role || user?.position;
+
   React.useEffect(() => {
     const savedTheme = localStorage.getItem('aura-theme');
     if (savedTheme === 'dark') {
@@ -300,7 +309,7 @@ export default function Layout({ children }) {
     }
   }, []);
 
-  const navigation = getRoleNavigation(user);
+  const navigation = getRoleNavigation(user, impersonationData?.role);
 
   const handleLogout = async () => {
     await base44.auth.logout();
@@ -316,6 +325,29 @@ export default function Layout({ children }) {
     } else {
       document.documentElement.classList.remove('dark');
       localStorage.setItem('aura-theme', 'light');
+    }
+  };
+
+  const handleExitImpersonation = async () => {
+    if (impersonationData) {
+      try {
+        const startTime = new Date(impersonationData.startTime);
+        const endTime = new Date();
+        const durationMinutes = Math.round((endTime - startTime) / 60000);
+
+        await base44.entities.ImpersonationLog.update(impersonationData.logId, {
+          session_end: endTime.toISOString(),
+          duration_minutes: durationMinutes,
+          status: 'completed',
+        });
+
+        localStorage.removeItem('aura-impersonation');
+        window.location.href = createPageUrl('OwnerControl');
+      } catch (error) {
+        console.error('Error ending impersonation:', error);
+        localStorage.removeItem('aura-impersonation');
+        window.location.reload();
+      }
     }
   };
 
@@ -339,6 +371,13 @@ export default function Layout({ children }) {
   return (
     <AgentInitializer>
       <div className="min-h-screen flex w-full bg-gray-50 dark:bg-gray-900">
+        {impersonationData && (
+          <ImpersonationBanner 
+            role={impersonationData.role} 
+            onExit={handleExitImpersonation}
+          />
+        )}
+
         {sidebarOpen && (
           <div
             className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
@@ -349,7 +388,7 @@ export default function Layout({ children }) {
         <div
           className={`fixed top-0 left-0 h-screen bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 z-50 transition-transform duration-300 w-72 flex flex-col ${
             sidebarOpen ? "translate-x-0" : "-translate-x-full"
-          } lg:translate-x-0`}
+          } lg:translate-x-0 ${impersonationData ? 'mt-14' : ''}`}
         >
           <div className="border-b border-gray-100 dark:border-gray-700 p-6 flex-shrink-0">
             <div className="flex items-center justify-between">
@@ -394,11 +433,22 @@ export default function Layout({ children }) {
 
           {user && (
             <div className="px-4 py-3 flex-shrink-0">
-              <div className="px-3 py-2 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
-                <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Your Role</p>
-                <p className="font-semibold text-gray-900 dark:text-white capitalize">
-                  {user.position?.replace('_', ' ') || 'Staff Member'}
+              <div className={`px-3 py-2 rounded-lg border ${
+                impersonationData 
+                  ? 'bg-gradient-to-r from-orange-50 to-red-50 border-orange-300'
+                  : 'bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 border-blue-200 dark:border-blue-800'
+              }`}>
+                <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">
+                  {impersonationData ? 'Viewing As' : 'Your Role'}
                 </p>
+                <p className="font-semibold text-gray-900 dark:text-white capitalize">
+                  {effectiveRole?.replace('_', ' ') || 'Staff Member'}
+                </p>
+                {impersonationData && (
+                  <p className="text-xs text-orange-600 font-medium mt-1">
+                    🛡️ Owner Mode Active
+                  </p>
+                )}
               </div>
             </div>
           )}
@@ -444,6 +494,13 @@ export default function Layout({ children }) {
                 >
                   🔍 Find Anything...
                 </button>
+                {(user?.role === 'admin' || user?.position === 'owner') && (
+                  <Link to={createPageUrl("OwnerControl")} onClick={() => setSidebarOpen(false)}>
+                    <button className="w-full text-left px-3 py-2 text-sm text-orange-700 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-900/20 rounded-lg transition-colors font-medium">
+                      🛡️ Owner Control
+                    </button>
+                  </Link>
+                )}
               </div>
             </div>
           </div>
@@ -492,7 +549,7 @@ export default function Layout({ children }) {
           </div>
         </div>
 
-        <main className="flex-1 flex flex-col overflow-hidden lg:ml-72">
+        <main className={`flex-1 flex flex-col overflow-hidden lg:ml-72 ${impersonationData ? 'mt-14' : ''}`}>
           <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4 lg:hidden">
             <div className="flex items-center gap-4">
               <button
