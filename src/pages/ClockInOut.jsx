@@ -1,5 +1,4 @@
-
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,7 +9,6 @@ import { format, differenceInMinutes } from "date-fns";
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
-import { toast } from "sonner"; // Keep toast for potential future use or if it's generally used elsewhere in the app. The outline replaced its use with alert, but didn't explicitly remove the import.
 
 export default function ClockInOut() {
   const queryClient = useQueryClient();
@@ -37,7 +35,7 @@ export default function ClockInOut() {
       return allShifts;
     },
     enabled: !!user?.email,
-    refetchInterval: 10000, // Refresh every 10 seconds
+    refetchInterval: 10000,
   });
 
   // Get today's attendance records
@@ -56,7 +54,7 @@ export default function ClockInOut() {
 
   const activeShift = myShifts.find(s => s.status === 'in_progress');
   const scheduledShift = myShifts.find(s => s.status === 'scheduled');
-  const todayAttendance = attendanceRecords[0]; // Assuming one attendance record per staff per day/shift ID
+  const todayAttendance = attendanceRecords[0];
 
   // Update current time every second
   useEffect(() => {
@@ -79,7 +77,6 @@ export default function ClockInOut() {
         },
         (error) => {
           console.log('Location access denied or error:', error);
-          // Optional: Notify user about location issues
         }
       );
     }
@@ -88,7 +85,6 @@ export default function ClockInOut() {
   // Clock In Mutation
   const clockInMutation = useMutation({
     mutationFn: async () => {
-      // Prioritize scheduledShift if available, otherwise activeShift (should not happen for clock in, but for robustness)
       const shiftToClockIn = scheduledShift;
       if (!shiftToClockIn) throw new Error('No scheduled shift found for today.');
       if (!user) throw new Error('User not authenticated.');
@@ -100,15 +96,13 @@ export default function ClockInOut() {
 
       const scheduledHours = parseFloat(((new Date(`${shiftToClockIn.shift_date}T${shiftToClockIn.end_time}`).getTime() - new Date(`${shiftToClockIn.shift_date}T${shiftToClockIn.start_time}`).getTime()) / 3600000).toFixed(2));
 
-
-      // Create or update attendance record
       if (todayAttendance) {
         await base44.entities.AttendanceRecord.update(todayAttendance.id, {
           actual_clock_in: clockInTime.toISOString(),
           clock_in_location: location,
           status: status,
           lateness_minutes: latenessMinutes,
-          reminder_sent_clock_in: false, // Reset reminder flag
+          reminder_sent_clock_in: false,
         });
       } else {
         await base44.entities.AttendanceRecord.create({
@@ -126,13 +120,11 @@ export default function ClockInOut() {
         });
       }
 
-      // Update shift status
       await base44.entities.Shift.update(shiftToClockIn.id, {
         status: 'in_progress',
         clock_in_time: clockInTime.toISOString(),
       });
 
-      // Log activity
       await base44.entities.ActivityLog.create({
         activity_type: 'clock_in',
         title: 'Clocked In',
@@ -176,8 +168,6 @@ export default function ClockInOut() {
       const scheduledEnd = new Date(`${activeShift.shift_date}T${activeShift.end_time}`);
       const earlyDepartureMinutes = Math.max(0, differenceInMinutes(scheduledEnd, clockOutTime));
 
-
-      // Update attendance record
       await base44.entities.AttendanceRecord.update(todayAttendance.id, {
         actual_clock_out: clockOutTime.toISOString(),
         clock_out_location: location,
@@ -187,13 +177,11 @@ export default function ClockInOut() {
         status: 'completed'
       });
 
-      // Update shift status
       await base44.entities.Shift.update(activeShift.id, {
         status: 'completed',
         clock_out_time: clockOutTime.toISOString(),
       });
 
-      // Log activity
       await base44.entities.ActivityLog.create({
         activity_type: 'clock_out',
         title: 'Clocked Out',
@@ -233,7 +221,7 @@ export default function ClockInOut() {
     if (!activeShift?.clock_in_time) return '0:00:00';
 
     const clockIn = new Date(activeShift.clock_in_time);
-    const diff = currentTime.getTime() - clockIn.getTime(); // Get time in milliseconds
+    const diff = currentTime.getTime() - clockIn.getTime();
 
     const hours = Math.floor(diff / 3600000);
     const minutes = Math.floor((diff % 3600000) / 60000);
@@ -245,8 +233,6 @@ export default function ClockInOut() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6 md:p-8">
       <div className="max-w-4xl mx-auto">
-
-        {/* Navigation */}
         <div className="flex gap-3 mb-6">
           <Link to={createPageUrl('MyShifts')}>
             <Button variant="outline" size="sm">
@@ -262,7 +248,6 @@ export default function ClockInOut() {
           </Link>
         </div>
 
-        {/* Current Time Display */}
         <Card className="mb-6 bg-gradient-to-r from-blue-600 to-purple-600 text-white border-none">
           <CardContent className="p-8 text-center">
             <Clock className="w-16 h-16 mx-auto mb-4 opacity-90" />
@@ -275,7 +260,6 @@ export default function ClockInOut() {
           </CardContent>
         </Card>
 
-        {/* Active Shift Status */}
         {activeShift && (
           <motion.div
             initial={{ scale: 0.95, opacity: 0 }}
@@ -310,7 +294,6 @@ export default function ClockInOut() {
           </motion.div>
         )}
 
-        {/* Clock In Button (if no active shift, but a scheduled shift exists) */}
         {!activeShift && scheduledShift && (
           <Card className="mb-6">
             <CardContent className="p-8 text-center">
@@ -339,7 +322,6 @@ export default function ClockInOut() {
           </Card>
         )}
 
-        {/* No Shift Scheduled Today (if no active shift and no scheduled shift) */}
         {!activeShift && !scheduledShift && (
           <Card className="mb-6">
             <CardContent className="p-8 text-center">
@@ -360,8 +342,6 @@ export default function ClockInOut() {
           </Card>
         )}
 
-
-        {/* Today's Attendance Summary */}
         {todayAttendance && (
           <Card>
             <CardHeader>

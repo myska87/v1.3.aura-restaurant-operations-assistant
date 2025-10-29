@@ -135,6 +135,7 @@ export default function InventoryManagement() {
   };
 
   const addAllLowStockToCart = () => {
+    const lowStockItems = ingredients.filter(ing => ing.current_stock <= (ing.reorder_point || 0));
     const lowStockWithSuppliers = lowStockItems.filter(item => item.supplier_id);
     const lowStockWithoutSuppliers = lowStockItems.filter(item => !item.supplier_id);
 
@@ -144,57 +145,18 @@ export default function InventoryManagement() {
     }
 
     if (lowStockWithoutSuppliers.length > 0) {
-      showConfirm(
-        'Items Missing Suppliers',
-        `${lowStockWithoutSuppliers.length} low stock item(s) don't have suppliers assigned. Do you want to add the remaining ${lowStockWithSuppliers.length} items with suppliers to cart?`,
-        () => {
-          if (lowStockWithSuppliers.length === 0) {
-            alert('⚠️ None of the low stock items have suppliers assigned.');
-            return;
-          }
-          // Add items to cart logic
-          let itemsAddedOrUpdated = 0;
-          setCart(prevCart => {
-            let updatedCart = [...prevCart];
-            lowStockWithSuppliers.forEach(ingredient => {
-              const quantityToOrder = ingredient.auto_order_quantity ||
-                (ingredient.par_level ? ingredient.par_level - ingredient.current_stock : 10);
-
-              const existingItemIndex = updatedCart.findIndex(item => item.ingredient_id === ingredient.id);
-              const currentSupplier = suppliers.find(s => s.id === ingredient.supplier_id);
-
-              if (existingItemIndex !== -1) {
-                updatedCart = updatedCart.map((item, index) =>
-                  index === existingItemIndex
-                    ? { ...item, quantity: item.quantity + quantityToOrder, line_total: (item.quantity + quantityToOrder) * ingredient.unit_cost }
-                    : item
-                );
-              } else {
-                updatedCart.push({
-                  ingredient_id: ingredient.id,
-                  ingredient_name: ingredient.name,
-                  quantity: quantityToOrder,
-                  unit: ingredient.unit,
-                  unit_cost: ingredient.unit_cost,
-                  supplier_id: ingredient.supplier_id,
-                  supplier_name: currentSupplier?.name || 'Unknown Supplier',
-                  supplier_email: currentSupplier?.email || null,
-                  line_total: quantityToOrder * ingredient.unit_cost,
-                });
-              }
-              itemsAddedOrUpdated++;
-            });
-            return updatedCart;
-          });
-
-          alert(`✅ ${itemsAddedOrUpdated} low stock item(s) added to cart!`);
-          setShowCart(true);
-        }
+      const proceed = window.confirm(
+        `${lowStockWithoutSuppliers.length} low stock item(s) don't have suppliers assigned. Do you want to add the remaining ${lowStockWithSuppliers.length} items with suppliers to cart?`
       );
-      return;
+      
+      if (!proceed) return;
+      
+      if (lowStockWithSuppliers.length === 0) {
+        alert('⚠️ None of the low stock items have suppliers assigned.');
+        return;
+      }
     }
 
-    // Rest of original logic for when all items have suppliers
     let itemsAddedOrUpdated = 0;
     setCart(prevCart => {
       let updatedCart = [...prevCart];
@@ -229,7 +191,7 @@ export default function InventoryManagement() {
       return updatedCart;
     });
 
-    alert(`✅ ${itemsAddedOrUpdated} low stock item(s) added/updated in cart!`);
+    alert(`✅ ${itemsAddedOrUpdated} low stock item(s) added to cart!`);
     setShowCart(true);
   };
 
@@ -349,7 +311,7 @@ export default function InventoryManagement() {
     e.preventDefault();
 
     if (!formData.supplier_id) {
-      alert('⚠️ Please select a supplier for this item. This is required for auto-ordering.');
+      alert('⚠️ Please select a supplier for this item.');
       return;
     }
 
@@ -390,10 +352,6 @@ export default function InventoryManagement() {
       id: ingredientId,
       data: { current_stock: parsedNewStock }
     });
-
-    if (ingredient.auto_order_enabled && parsedNewStock <= (ingredient.reorder_point || 0)) {
-      await triggerAutoOrder(ingredient);
-    }
   };
 
   const triggerAutoOrder = async (ingredient) => {
@@ -470,41 +428,25 @@ export default function InventoryManagement() {
     .sort((a, b) => {
       switch (sortBy) {
         case 'low_stock':
-          const aBelowReorder = a.reorder_point !== null && a.reorder_point !== undefined && a.reorder_point > 0 && a.current_stock <= a.reorder_point;
-          const bBelowReorder = b.reorder_point !== null && b.reorder_point !== undefined && b.reorder_point > 0 && b.current_stock <= b.reorder_point;
-
+          const aBelowReorder = a.reorder_point && a.current_stock <= a.reorder_point;
+          const bBelowReorder = b.reorder_point && b.current_stock <= b.reorder_point;
           if (aBelowReorder && !bBelowReorder) return -1;
           if (!aBelowReorder && bBelowReorder) return 1;
-
-          const aUrgency = (a.reorder_point !== null && a.reorder_point !== undefined && a.reorder_point > 0) ? (a.current_stock / a.reorder_point) : (a.current_stock <= 0 ? -1 : 9999);
-          const bUrgency = (b.reorder_point !== null && b.reorder_point !== undefined && b.reorder_point > 0) ? (b.current_stock / b.reorder_point) : (b.current_stock <= 0 ? -1 : 9999);
-
-          return aUrgency - bUrgency;
-
+          return (a.reorder_point ? a.current_stock / a.reorder_point : 9999) - (b.reorder_point ? b.current_stock / b.reorder_point : 9999);
         case 'high_stock':
           return b.current_stock - a.current_stock;
-
         case 'name':
           return a.name.localeCompare(b.name);
-
         case 'category':
           return a.category.localeCompare(b.category);
-
         case 'value_high':
-          const aValue = a.current_stock * a.unit_cost;
-          const bValue = b.current_stock * b.unit_cost;
-          return bValue - aValue;
-
+          return (b.current_stock * b.unit_cost) - (a.current_stock * a.unit_cost);
         case 'value_low':
-          const aVal = a.current_stock * a.unit_cost;
-          const bVal = b.current_stock * b.unit_cost;
-          return aVal - bVal;
-
+          return (a.current_stock * a.unit_cost) - (b.current_stock * b.unit_cost);
         case 'no_supplier':
           if (!a.supplier_id && b.supplier_id) return -1;
           if (a.supplier_id && !b.supplier_id) return 1;
           return 0;
-
         default:
           return a.name.localeCompare(b.name);
       }
@@ -521,13 +463,7 @@ export default function InventoryManagement() {
           <Link to={createPageUrl("Inventory")}>
             <Button variant="outline" size="sm">
               <ArrowLeft className="w-4 h-4 mr-2" />
-              Back to Inventory Hub
-            </Button>
-          </Link>
-          <Link to={createPageUrl("Dashboard")}>
-            <Button variant="outline" size="sm">
-              <Home className="w-4 h-4 mr-2" />
-              Dashboard
+              Back
             </Button>
           </Link>
         </div>
@@ -979,7 +915,7 @@ export default function InventoryManagement() {
                 {formData.supplier_id && (
                   <div className="mt-3 p-3 bg-white rounded border border-blue-200">
                     <p className="text-sm font-medium text-gray-700">Selected Supplier:</p>
-                    <p className="text-lg font-bold text-blue-900">
+                    <p className="lg font-bold text-blue-900">
                       {suppliers.find(s => s.id === formData.supplier_id)?.name}
                     </p>
                     <p className="text-xs text-gray-600">
