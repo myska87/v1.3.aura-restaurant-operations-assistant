@@ -1,39 +1,31 @@
 import React, { useState } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery } from '@tanstack/react-query';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Input } from '@/components/ui/input';
 import {
   FileText,
+  FileCheck,
+  FileSignature,
   ClipboardList,
   BookOpen,
-  PenTool,
+  Search,
   AlertCircle,
   CheckCircle,
   Clock,
-  Search,
-  Sparkles,
-  Home,
+  Eye,
   Plus,
-  Filter,
+  Home,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
-import { format, formatDistanceToNow } from 'date-fns';
-import { Input } from '@/components/ui/input';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { format } from 'date-fns';
+import { motion } from 'framer-motion';
 
 export default function DocumentsFormsHub() {
   const [searchQuery, setSearchQuery] = useState('');
-  const [filterCategory, setFilterCategory] = useState('all');
   const [activeTab, setActiveTab] = useState('pending');
 
   const { data: user } = useQuery({
@@ -43,503 +35,446 @@ export default function DocumentsFormsHub() {
 
   const isManager = user?.role === 'admin' || user?.position === 'manager' || user?.position === 'owner';
 
-  // Fetch pending documents
-  const { data: pendingDocs = [] } = useQuery({
-    queryKey: ['pendingDocuments', user?.email],
-    queryFn: async () => {
-      if (!user?.email) return [];
-      const allDocs = await base44.entities.Document.filter({
-        is_mandatory: true,
-        is_active: true
-      });
-      
-      const acknowledgments = await base44.entities.DocumentReview.filter({
-        staff_email: user.email
-      });
+  // Documents that require signature
+  const { data: allDocuments = [] } = useQuery({
+    queryKey: ['allDocuments'],
+    queryFn: () => base44.entities.DocumentBuilder.filter({ status: 'published' }),
+  });
 
-      const acknowledgedDocIds = acknowledgments.map(a => a.document_id);
-      return allDocs.filter(doc => !acknowledgedDocIds.includes(doc.id));
-    },
+  // My signatures
+  const { data: mySignatures = [] } = useQuery({
+    queryKey: ['mySignatures', user?.email],
+    queryFn: () => base44.entities.DocumentBuilderSignature.filter({ staff_email: user?.email }),
     enabled: !!user?.email,
   });
 
-  // Fetch pending forms
-  const { data: pendingForms = [] } = useQuery({
-    queryKey: ['pendingForms', user?.email],
+  // My form responses
+  const { data: myFormResponses = [] } = useQuery({
+    queryKey: ['myFormResponses', user?.email],
+    queryFn: () => base44.entities.FormResponse.filter({ staff_email: user?.email }),
+    enabled: !!user?.email,
+  });
+
+  // SOPs
+  const { data: allSOPs = [] } = useQuery({
+    queryKey: ['allSOPs'],
+    queryFn: () => base44.entities.SOPDocument.filter({ status: 'active' }),
+  });
+
+  // My SOP signatures
+  const { data: mySOPSignatures = [] } = useQuery({
+    queryKey: ['mySOPSignatures', user?.email],
+    queryFn: () => base44.entities.SOPSignatureLog.filter({ staff_email: user?.email }),
+    enabled: !!user?.email,
+  });
+
+  // My assigned forms
+  const { data: myAssignedForms = [] } = useQuery({
+    queryKey: ['myAssignedForms', user?.email],
     queryFn: async () => {
       if (!user?.email) return [];
-      return await base44.entities.FormAssignmentMetadata.filter({
+      const assignments = await base44.entities.FormAssignmentMetadata.filter({
         assigned_to_email: user.email,
         completion_status: { $in: ['pending', 'in_progress'] }
-      }, '-due_date', 50);
+      });
+      return assignments;
     },
     enabled: !!user?.email,
   });
 
-  // Fetch pending SOPs
-  const { data: pendingSOPs = [] } = useQuery({
-    queryKey: ['pendingSOPs', user?.email],
-    queryFn: async () => {
-      if (!user?.email) return [];
-      return await base44.entities.SOPCertification.filter({
-        staff_email: user.email,
-        status: { $in: ['pending', 'in_progress', 'overdue'] }
-      }, '-assigned_date', 50);
-    },
-    enabled: !!user?.email,
+  // Filter documents that need my signature
+  const pendingDocuments = allDocuments.filter(doc => {
+    if (!doc.requires_signature) return false;
+    
+    // Check if for my department
+    if (doc.department !== 'all' && doc.department !== user?.department) return false;
+    
+    // Check if I already signed
+    const alreadySigned = mySignatures.some(sig => sig.document_id === doc.id);
+    return !alreadySigned;
   });
 
-  // Fetch my completed items (for history)
-  const { data: completedDocs = [] } = useQuery({
-    queryKey: ['completedDocuments', user?.email],
-    queryFn: async () => {
-      if (!user?.email) return [];
-      const reviews = await base44.entities.DocumentReview.filter({
-        staff_email: user.email,
-        acknowledged: true
-      }, '-acknowledgment_date', 50);
-      return reviews;
-    },
-    enabled: !!user?.email,
+  // Filter SOPs that need my signature
+  const pendingSOPs = allSOPs.filter(sop => {
+    if (!sop.requires_signature) return false;
+    
+    // Check if for my role
+    const myRole = user?.position?.toLowerCase();
+    if (sop.role_assigned && !sop.role_assigned.includes(myRole) && !sop.role_assigned.includes('all')) {
+      return false;
+    }
+    
+    // Check if I already signed
+    const alreadySigned = mySOPSignatures.some(sig => sig.sop_id === sop.id);
+    return !alreadySigned;
   });
 
-  const { data: completedForms = [] } = useQuery({
-    queryKey: ['completedForms', user?.email],
-    queryFn: async () => {
-      if (!user?.email) return [];
-      return await base44.entities.FormResponse.filter({
-        staff_email: user.email,
-        status: 'submitted'
-      }, '-submitted_at', 50);
-    },
-    enabled: !!user?.email,
-  });
+  const signedDocuments = allDocuments.filter(doc => 
+    mySignatures.some(sig => sig.document_id === doc.id)
+  );
 
-  const { data: completedSOPs = [] } = useQuery({
-    queryKey: ['completedSOPs', user?.email],
-    queryFn: async () => {
-      if (!user?.email) return [];
-      return await base44.entities.SOPCertification.filter({
-        staff_email: user.email,
-        status: 'completed'
-      }, '-completed_date', 50);
-    },
-    enabled: !!user?.email,
-  });
+  const signedSOPs = allSOPs.filter(sop => 
+    mySOPSignatures.some(sig => sig.sop_id === sop.id)
+  );
 
-  const totalPending = pendingDocs.length + pendingForms.length + pendingSOPs.length;
-  const totalCompleted = completedDocs.length + completedForms.length + completedSOPs.length;
+  const totalPending = pendingDocuments.length + pendingSOPs.length + myAssignedForms.length;
+
+  const filteredPendingDocs = pendingDocuments.filter(doc =>
+    doc.title?.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const filteredPendingSOPs = pendingSOPs.filter(sop =>
+    sop.title?.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6 md:p-8">
       <div className="max-w-7xl mx-auto">
+        
+        <div className="flex gap-3 mb-6">
+          <Link to={createPageUrl('Dashboard')}>
+            <Button variant="outline" size="sm">
+              <Home className="w-4 h-4 mr-2" />
+              Dashboard
+            </Button>
+          </Link>
+        </div>
 
-        {/* Header */}
-        <div className="mb-6 flex flex-wrap justify-between items-start gap-4">
-          <div>
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-12 h-12 bg-gradient-to-br from-purple-600 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg">
-                <FileText className="w-7 h-7 text-white" />
-              </div>
-              <div>
-                <h1 className="text-4xl font-bold text-gray-900">Documents & Forms Hub</h1>
-                <p className="text-gray-600">Unified document, form, and SOP management</p>
-              </div>
-            </div>
+        <div className="mb-8">
+          <h1 className="text-4xl font-bold text-gray-900 mb-3">Documents & Forms Hub</h1>
+          <p className="text-gray-600 text-lg">
+            {isManager 
+              ? "Create, manage, and track all operational documents"
+              : "View documents, complete forms, and acknowledge policies"
+            }
+          </p>
+        </div>
+
+        {/* Pending Alert */}
+        {totalPending > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+          >
+            <Card className="bg-gradient-to-r from-orange-500 to-red-500 text-white border-none shadow-xl mb-6">
+              <CardContent className="p-6">
+                <div className="flex items-center gap-4">
+                  <AlertCircle className="w-12 h-12" />
+                  <div>
+                    <h2 className="text-2xl font-bold mb-1">
+                      {totalPending} Item{totalPending !== 1 ? 's' : ''} Require Your Action
+                    </h2>
+                    <p className="text-orange-100">
+                      Documents, SOPs, or forms waiting for your signature or completion
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+        )}
+
+        {/* Search */}
+        <div className="mb-6">
+          <div className="relative max-w-md">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+            <Input
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search documents, SOPs, forms..."
+              className="pl-10"
+            />
           </div>
+        </div>
 
-          <div className="flex gap-2">
-            <Link to={createPageUrl('Dashboard')}>
-              <Button variant="outline" size="sm">
-                <Home className="w-4 h-4 mr-2" />
-                Dashboard
+        {/* Tabs */}
+        <div className="flex gap-2 mb-6 overflow-x-auto">
+          <Button
+            variant={activeTab === 'pending' ? 'default' : 'outline'}
+            onClick={() => setActiveTab('pending')}
+            className={activeTab === 'pending' ? 'bg-orange-600 hover:bg-orange-700' : ''}
+          >
+            <AlertCircle className="w-4 h-4 mr-2" />
+            Pending ({totalPending})
+          </Button>
+          <Button
+            variant={activeTab === 'signed' ? 'default' : 'outline'}
+            onClick={() => setActiveTab('signed')}
+          >
+            <CheckCircle className="w-4 h-4 mr-2" />
+            Completed
+          </Button>
+          {isManager && (
+            <>
+              <Button
+                variant={activeTab === 'manage' ? 'default' : 'outline'}
+                onClick={() => setActiveTab('manage')}
+              >
+                <FileText className="w-4 h-4 mr-2" />
+                All Documents
               </Button>
-            </Link>
-            {isManager && (
-              <>
-                <Link to={createPageUrl('FormIntelligence')}>
-                  <Button className="bg-purple-600 hover:bg-purple-700" size="sm">
-                    <Plus className="w-4 h-4 mr-2" />
-                    Create Form
-                  </Button>
-                </Link>
-                <Link to={createPageUrl('DocumentBuilder')}>
-                  <Button className="bg-indigo-600 hover:bg-indigo-700" size="sm">
-                    <Plus className="w-4 h-4 mr-2" />
-                    Create Document
-                  </Button>
-                </Link>
-                <Link to={createPageUrl('SOPBuilder')}>
-                  <Button className="bg-blue-600 hover:bg-blue-700" size="sm">
-                    <Plus className="w-4 h-4 mr-2" />
-                    Create SOP
-                  </Button>
-                </Link>
-              </>
+              <Button
+                variant={activeTab === 'create' ? 'default' : 'outline'}
+                onClick={() => setActiveTab('create')}
+                className="bg-blue-600 hover:bg-blue-700 text-white"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Create New
+              </Button>
+            </>
+          )}
+        </div>
+
+        {/* Pending Tab */}
+        {activeTab === 'pending' && (
+          <div className="space-y-6">
+            {/* Pending Documents */}
+            {filteredPendingDocs.length > 0 && (
+              <div>
+                <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+                  <FileSignature className="w-5 h-5 text-orange-600" />
+                  Documents Requiring Your Signature ({filteredPendingDocs.length})
+                </h2>
+                <div className="grid md:grid-cols-2 gap-4">
+                  {filteredPendingDocs.map((doc) => (
+                    <Link key={doc.id} to={createPageUrl(`DocumentViewer?id=${doc.id}`)}>
+                      <Card className="hover:shadow-lg transition-shadow border-l-4 border-l-orange-500">
+                        <CardContent className="p-6">
+                          <div className="flex items-start justify-between mb-3">
+                            <div className="flex-1">
+                              <h3 className="font-semibold text-gray-900 mb-1">{doc.title}</h3>
+                              <p className="text-sm text-gray-600 mb-2">{doc.description}</p>
+                              <div className="flex flex-wrap gap-2">
+                                <Badge className="capitalize">{doc.category}</Badge>
+                                <Badge variant="outline">{doc.department}</Badge>
+                                <Badge className="bg-orange-100 text-orange-800">
+                                  <FileSignature className="w-3 h-3 mr-1" />
+                                  Signature Required
+                                </Badge>
+                              </div>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Pending SOPs */}
+            {filteredPendingSOPs.length > 0 && (
+              <div>
+                <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+                  <BookOpen className="w-5 h-5 text-blue-600" />
+                  SOPs Requiring Your Acknowledgment ({filteredPendingSOPs.length})
+                </h2>
+                <div className="grid md:grid-cols-2 gap-4">
+                  {filteredPendingSOPs.map((sop) => (
+                    <Link key={sop.id} to={createPageUrl(`SOPViewer?id=${sop.id}`)}>
+                      <Card className="hover:shadow-lg transition-shadow border-l-4 border-l-blue-500">
+                        <CardContent className="p-6">
+                          <div className="flex items-start justify-between mb-3">
+                            <div className="flex-1">
+                              <h3 className="font-semibold text-gray-900 mb-1">{sop.title}</h3>
+                              <p className="text-sm text-gray-600 mb-2">{sop.description}</p>
+                              <div className="flex flex-wrap gap-2">
+                                <Badge className="capitalize">{sop.category}</Badge>
+                                {sop.frequency && (
+                                  <Badge variant="outline">{sop.frequency}</Badge>
+                                )}
+                                <Badge className="bg-blue-100 text-blue-800">
+                                  <CheckCircle className="w-3 h-3 mr-1" />
+                                  Sign to Acknowledge
+                                </Badge>
+                              </div>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Pending Forms */}
+            {myAssignedForms.length > 0 && (
+              <div>
+                <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+                  <ClipboardList className="w-5 h-5 text-green-600" />
+                  Forms to Complete ({myAssignedForms.length})
+                </h2>
+                <div className="grid md:grid-cols-2 gap-4">
+                  {myAssignedForms.map((assignment) => (
+                    <Card key={assignment.id} className="hover:shadow-lg transition-shadow border-l-4 border-l-green-500">
+                      <CardContent className="p-6">
+                        <div className="flex items-start justify-between mb-3">
+                          <div className="flex-1">
+                            <h3 className="font-semibold text-gray-900 mb-1">
+                              {assignment.form_name}
+                            </h3>
+                            <div className="flex flex-wrap gap-2">
+                              <Badge className="bg-green-100 text-green-800">
+                                <Clock className="w-3 h-3 mr-1" />
+                                Due: {assignment.due_date ? format(new Date(assignment.due_date), 'MMM d') : 'ASAP'}
+                              </Badge>
+                            </div>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {totalPending === 0 && (
+              <Card>
+                <CardContent className="p-12 text-center">
+                  <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
+                  <h3 className="text-xl font-bold text-gray-900 mb-2">All Caught Up!</h3>
+                  <p className="text-gray-600">
+                    You have no pending documents, SOPs, or forms to complete
+                  </p>
+                </CardContent>
+              </Card>
             )}
           </div>
-        </div>
+        )}
 
-        {/* Stats Grid */}
-        <div className="grid md:grid-cols-3 gap-4 mb-6">
-          <Card className="border-l-4 border-l-red-500">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-600 mb-1">Pending Action</p>
-                  <p className="text-3xl font-bold text-red-600">{totalPending}</p>
-                </div>
-                <AlertCircle className="w-10 h-10 text-red-500" />
+        {/* Signed/Completed Tab */}
+        {activeTab === 'signed' && (
+          <div className="space-y-6">
+            <div>
+              <h2 className="text-xl font-bold text-gray-900 mb-4">
+                Signed Documents ({signedDocuments.length})
+              </h2>
+              <div className="grid md:grid-cols-2 gap-4">
+                {signedDocuments.map((doc) => {
+                  const mySignature = mySignatures.find(sig => sig.document_id === doc.id);
+                  return (
+                    <Link key={doc.id} to={createPageUrl(`DocumentViewer?id=${doc.id}`)}>
+                      <Card className="hover:shadow-lg transition-shadow">
+                        <CardContent className="p-6">
+                          <h3 className="font-semibold text-gray-900 mb-2">{doc.title}</h3>
+                          <div className="flex flex-wrap gap-2">
+                            <Badge className="bg-green-100 text-green-800">
+                              <CheckCircle className="w-3 h-3 mr-1" />
+                              Signed {mySignature ? format(new Date(mySignature.signed_at), 'MMM d') : ''}
+                            </Badge>
+                            <Badge className="capitalize">{doc.category}</Badge>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </Link>
+                  );
+                })}
               </div>
-            </CardContent>
-          </Card>
-
-          <Card className="border-l-4 border-l-green-500">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-600 mb-1">Completed</p>
-                  <p className="text-3xl font-bold text-green-600">{totalCompleted}</p>
-                </div>
-                <CheckCircle className="w-10 h-10 text-green-500" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="border-l-4 border-l-blue-500">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-600 mb-1">Completion Rate</p>
-                  <p className="text-3xl font-bold text-blue-600">
-                    {totalPending + totalCompleted > 0 
-                      ? Math.round((totalCompleted / (totalPending + totalCompleted)) * 100)
-                      : 0}%
-                  </p>
-                </div>
-                <Badge className="bg-blue-100 text-blue-800 text-lg px-3 py-1">
-                  Active
-                </Badge>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Search and Filters */}
-        <Card className="mb-6">
-          <CardContent className="p-4">
-            <div className="flex flex-wrap gap-3">
-              <div className="flex-1 min-w-[250px] relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                <Input
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search documents, forms, SOPs..."
-                  className="pl-10"
-                />
-              </div>
-
-              <Select value={filterCategory} onValueChange={setFilterCategory}>
-                <SelectTrigger className="w-48">
-                  <SelectValue placeholder="All Categories" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Categories</SelectItem>
-                  <SelectItem value="policy">Policies</SelectItem>
-                  <SelectItem value="training">Training</SelectItem>
-                  <SelectItem value="compliance">Compliance</SelectItem>
-                  <SelectItem value="safety">Safety</SelectItem>
-                  <SelectItem value="hr">HR</SelectItem>
-                </SelectContent>
-              </Select>
             </div>
-          </CardContent>
-        </Card>
 
-        {/* Main Tabs */}
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-2 mb-6">
-            <TabsTrigger value="pending" className="flex items-center gap-2">
-              <Clock className="w-4 h-4" />
-              Pending ({totalPending})
-            </TabsTrigger>
-            <TabsTrigger value="completed" className="flex items-center gap-2">
-              <CheckCircle className="w-4 h-4" />
-              Completed ({totalCompleted})
-            </TabsTrigger>
-          </TabsList>
-
-          {/* Pending Tab */}
-          <TabsContent value="pending">
-            <div className="space-y-6">
-              
-              {/* Pending Documents */}
-              {pendingDocs.length > 0 && (
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                    <FileText className="w-5 h-5 text-purple-600" />
-                    Documents to Review ({pendingDocs.length})
-                  </h3>
-                  <div className="grid gap-3">
-                    {pendingDocs.map(doc => (
-                      <Card key={doc.id} className="bg-purple-50 border-purple-200 hover:shadow-lg transition-all">
-                        <CardContent className="p-4">
-                          <div className="flex items-start justify-between gap-4">
-                            <div className="flex-1">
-                              <div className="flex items-start gap-3">
-                                <FileText className="w-5 h-5 text-purple-600 flex-shrink-0 mt-1" />
-                                <div>
-                                  <h4 className="font-semibold text-gray-900">{doc.title}</h4>
-                                  <p className="text-sm text-gray-600 mt-1">{doc.description}</p>
-                                  <div className="flex flex-wrap gap-2 mt-2">
-                                    <Badge className="bg-purple-100 text-purple-800">
-                                      {doc.category}
-                                    </Badge>
-                                    {doc.requires_signature && (
-                                      <Badge variant="outline">
-                                        <PenTool className="w-3 h-3 mr-1" />
-                                        Signature Required
-                                      </Badge>
-                                    )}
-                                    <Badge variant="outline" className="text-gray-600">
-                                      {doc.department}
-                                    </Badge>
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                            <Link to={createPageUrl(`DocumentViewer?id=${doc.id}`)}>
-                              <Button size="sm" className="bg-purple-600 hover:bg-purple-700">
-                                Review
-                              </Button>
-                            </Link>
+            <div>
+              <h2 className="text-xl font-bold text-gray-900 mb-4">
+                Acknowledged SOPs ({signedSOPs.length})
+              </h2>
+              <div className="grid md:grid-cols-2 gap-4">
+                {signedSOPs.map((sop) => {
+                  const mySignature = mySOPSignatures.find(sig => sig.sop_id === sop.id);
+                  return (
+                    <Link key={sop.id} to={createPageUrl(`SOPViewer?id=${sop.id}`)}>
+                      <Card className="hover:shadow-lg transition-shadow">
+                        <CardContent className="p-6">
+                          <h3 className="font-semibold text-gray-900 mb-2">{sop.title}</h3>
+                          <div className="flex flex-wrap gap-2">
+                            <Badge className="bg-green-100 text-green-800">
+                              <CheckCircle className="w-3 h-3 mr-1" />
+                              Signed {mySignature ? format(new Date(mySignature.signed_at), 'MMM d') : ''}
+                            </Badge>
+                            <Badge className="capitalize">{sop.category}</Badge>
                           </div>
                         </CardContent>
                       </Card>
-                    ))}
-                  </div>
-                </div>
-              )}
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
 
-              {/* Pending Forms */}
-              {pendingForms.length > 0 && (
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                    <ClipboardList className="w-5 h-5 text-blue-600" />
-                    Forms to Complete ({pendingForms.length})
-                  </h3>
-                  <div className="grid gap-3">
-                    {pendingForms.map(form => (
-                      <Card key={form.id} className="bg-blue-50 border-blue-200 hover:shadow-lg transition-all">
-                        <CardContent className="p-4">
-                          <div className="flex items-start justify-between gap-4">
-                            <div className="flex-1">
-                              <div className="flex items-start gap-3">
-                                <ClipboardList className="w-5 h-5 text-blue-600 flex-shrink-0 mt-1" />
-                                <div>
-                                  <h4 className="font-semibold text-gray-900">{form.form_name}</h4>
-                                  <p className="text-sm text-gray-600 mt-1">
-                                    Due: {format(new Date(form.due_date), 'PPp')}
-                                  </p>
-                                  <div className="flex flex-wrap gap-2 mt-2">
-                                    <Badge className={
-                                      form.completion_status === 'overdue'
-                                        ? 'bg-red-100 text-red-800'
-                                        : 'bg-blue-100 text-blue-800'
-                                    }>
-                                      {form.completion_status}
-                                    </Badge>
-                                    {form.linked_shift_id && (
-                                      <Badge variant="outline">
-                                        <Clock className="w-3 h-3 mr-1" />
-                                        Shift-based
-                                      </Badge>
-                                    )}
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                            <Link to={createPageUrl(`FormIntelligence`)}>
-                              <Button size="sm" className="bg-blue-600 hover:bg-blue-700">
-                                Complete
-                              </Button>
-                            </Link>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Pending SOPs */}
-              {pendingSOPs.length > 0 && (
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                    <BookOpen className="w-5 h-5 text-indigo-600" />
-                    SOPs to Complete ({pendingSOPs.length})
-                  </h3>
-                  <div className="grid gap-3">
-                    {pendingSOPs.map(sop => (
-                      <Card key={sop.id} className="bg-indigo-50 border-indigo-200 hover:shadow-lg transition-all">
-                        <CardContent className="p-4">
-                          <div className="flex items-start justify-between gap-4">
-                            <div className="flex-1">
-                              <div className="flex items-start gap-3">
-                                <BookOpen className="w-5 h-5 text-indigo-600 flex-shrink-0 mt-1" />
-                                <div>
-                                  <h4 className="font-semibold text-gray-900">{sop.sop_title}</h4>
-                                  <p className="text-sm text-gray-600 mt-1">
-                                    Assigned {formatDistanceToNow(new Date(sop.assigned_date), { addSuffix: true })}
-                                  </p>
-                                  <div className="flex flex-wrap gap-2 mt-2">
-                                    <Badge className={
-                                      sop.status === 'overdue'
-                                        ? 'bg-red-100 text-red-800'
-                                        : sop.status === 'in_progress'
-                                        ? 'bg-blue-100 text-blue-800'
-                                        : 'bg-gray-100 text-gray-800'
-                                    }>
-                                      {sop.status}
-                                    </Badge>
-                                    <Badge variant="outline">
-                                      Version {sop.sop_version}
-                                    </Badge>
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                            <Link to={createPageUrl(`SOPViewer?id=${sop.sop_id}`)}>
-                              <Button size="sm" className="bg-indigo-600 hover:bg-indigo-700">
-                                View SOP
-                              </Button>
-                            </Link>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {totalPending === 0 && (
-                <Card className="bg-green-50 border-green-200">
-                  <CardContent className="p-12 text-center">
-                    <CheckCircle className="w-16 h-16 text-green-600 mx-auto mb-4" />
-                    <h3 className="text-xl font-bold text-gray-900 mb-2">All Caught Up!</h3>
-                    <p className="text-gray-600">You have no pending documents, forms, or SOPs.</p>
+        {/* Manager: All Documents Tab */}
+        {isManager && activeTab === 'manage' && (
+          <div>
+            <div className="grid md:grid-cols-3 gap-4 mb-6">
+              <Link to={createPageUrl('DocumentLibrary')}>
+                <Card className="hover:shadow-lg transition-shadow cursor-pointer">
+                  <CardContent className="p-6 text-center">
+                    <FileText className="w-12 h-12 text-blue-600 mx-auto mb-3" />
+                    <h3 className="font-semibold text-gray-900 mb-1">Document Library</h3>
+                    <p className="text-sm text-gray-600">Policies & guides</p>
                   </CardContent>
                 </Card>
-              )}
-            </div>
-          </TabsContent>
+              </Link>
 
-          {/* Completed Tab */}
-          <TabsContent value="completed">
-            <div className="space-y-6">
-              
-              {/* Completed Documents */}
-              {completedDocs.length > 0 && (
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                    <FileText className="w-5 h-5 text-green-600" />
-                    Reviewed Documents ({completedDocs.length})
-                  </h3>
-                  <div className="grid gap-3">
-                    {completedDocs.slice(0, 5).map(review => (
-                      <Card key={review.id} className="bg-white border-gray-200">
-                        <CardContent className="p-4">
-                          <div className="flex items-start justify-between">
-                            <div className="flex-1">
-                              <h4 className="font-semibold text-gray-900">{review.document_title}</h4>
-                              <p className="text-sm text-gray-600">
-                                Acknowledged {formatDistanceToNow(new Date(review.acknowledgment_date), { addSuffix: true })}
-                              </p>
-                            </div>
-                            <CheckCircle className="w-5 h-5 text-green-600" />
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Completed Forms */}
-              {completedForms.length > 0 && (
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                    <ClipboardList className="w-5 h-5 text-green-600" />
-                    Submitted Forms ({completedForms.length})
-                  </h3>
-                  <div className="grid gap-3">
-                    {completedForms.slice(0, 5).map(response => (
-                      <Card key={response.id} className="bg-white border-gray-200">
-                        <CardContent className="p-4">
-                          <div className="flex items-start justify-between">
-                            <div className="flex-1">
-                              <h4 className="font-semibold text-gray-900">{response.form_name}</h4>
-                              <p className="text-sm text-gray-600">
-                                Submitted {formatDistanceToNow(new Date(response.submitted_at), { addSuffix: true })}
-                              </p>
-                              {response.score && (
-                                <Badge className="bg-green-100 text-green-800 mt-2">
-                                  Score: {response.score}%
-                                </Badge>
-                              )}
-                            </div>
-                            <CheckCircle className="w-5 h-5 text-green-600" />
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Completed SOPs */}
-              {completedSOPs.length > 0 && (
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                    <BookOpen className="w-5 h-5 text-green-600" />
-                    Completed SOPs ({completedSOPs.length})
-                  </h3>
-                  <div className="grid gap-3">
-                    {completedSOPs.slice(0, 5).map(cert => (
-                      <Card key={cert.id} className="bg-white border-gray-200">
-                        <CardContent className="p-4">
-                          <div className="flex items-start justify-between">
-                            <div className="flex-1">
-                              <h4 className="font-semibold text-gray-900">{cert.sop_title}</h4>
-                              <p className="text-sm text-gray-600">
-                                Completed {formatDistanceToNow(new Date(cert.completed_date), { addSuffix: true })}
-                              </p>
-                              {cert.quiz_score && (
-                                <Badge className="bg-green-100 text-green-800 mt-2">
-                                  Quiz: {cert.quiz_score}%
-                                </Badge>
-                              )}
-                            </div>
-                            <CheckCircle className="w-5 h-5 text-green-600" />
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {totalCompleted === 0 && (
-                <Card>
-                  <CardContent className="p-12 text-center">
-                    <FileText className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                    <p className="text-gray-500">No completed items yet</p>
+              <Link to={createPageUrl('SOPDashboard')}>
+                <Card className="hover:shadow-lg transition-shadow cursor-pointer">
+                  <CardContent className="p-6 text-center">
+                    <BookOpen className="w-12 h-12 text-green-600 mx-auto mb-3" />
+                    <h3 className="font-semibold text-gray-900 mb-1">SOP Library</h3>
+                    <p className="text-sm text-gray-600">Standard procedures</p>
                   </CardContent>
                 </Card>
-              )}
+              </Link>
+
+              <Link to={createPageUrl('FormLibrary')}>
+                <Card className="hover:shadow-lg transition-shadow cursor-pointer">
+                  <CardContent className="p-6 text-center">
+                    <ClipboardList className="w-12 h-12 text-purple-600 mx-auto mb-3" />
+                    <h3 className="font-semibold text-gray-900 mb-1">Form Library</h3>
+                    <p className="text-sm text-gray-600">Custom forms</p>
+                  </CardContent>
+                </Card>
+              </Link>
             </div>
-          </TabsContent>
-        </Tabs>
+          </div>
+        )}
+
+        {/* Manager: Create New Tab */}
+        {isManager && activeTab === 'create' && (
+          <div>
+            <div className="grid md:grid-cols-3 gap-6">
+              <Link to={createPageUrl('DocumentBuilder')}>
+                <Card className="hover:shadow-xl transition-shadow cursor-pointer bg-gradient-to-br from-blue-50 to-blue-100">
+                  <CardContent className="p-8 text-center">
+                    <FileText className="w-16 h-16 text-blue-600 mx-auto mb-4" />
+                    <h3 className="font-bold text-xl text-gray-900 mb-2">Create Document</h3>
+                    <p className="text-sm text-gray-600">Policies, guides, procedures</p>
+                  </CardContent>
+                </Card>
+              </Link>
+
+              <Link to={createPageUrl('SOPBuilder')}>
+                <Card className="hover:shadow-xl transition-shadow cursor-pointer bg-gradient-to-br from-green-50 to-green-100">
+                  <CardContent className="p-8 text-center">
+                    <BookOpen className="w-16 h-16 text-green-600 mx-auto mb-4" />
+                    <h3 className="font-bold text-xl text-gray-900 mb-2">Create SOP</h3>
+                    <p className="text-sm text-gray-600">Standard operating procedures</p>
+                  </CardContent>
+                </Card>
+              </Link>
+
+              <Link to={createPageUrl('FormBuilder')}>
+                <Card className="hover:shadow-xl transition-shadow cursor-pointer bg-gradient-to-br from-purple-50 to-purple-100">
+                  <CardContent className="p-8 text-center">
+                    <ClipboardList className="w-16 h-16 text-purple-600 mx-auto mb-4" />
+                    <h3 className="font-bold text-xl text-gray-900 mb-2">Create Form</h3>
+                    <p className="text-sm text-gray-600">Custom checklists & forms</p>
+                  </CardContent>
+                </Card>
+              </Link>
+            </div>
+          </div>
+        )}
 
       </div>
     </div>

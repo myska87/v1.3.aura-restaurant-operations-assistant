@@ -22,12 +22,14 @@ import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import { format } from 'date-fns';
 import LoadingSpinner from '../components/common/LoadingSpinner';
+import SOPSignatureCanvas from '../components/SOPSignatureCanvas';
 
 export default function DocumentViewer() {
   const queryClient = useQueryClient();
   const [documentId, setDocumentId] = useState(null);
   const [newComment, setNewComment] = useState('');
   const [readStartTime] = useState(Date.now());
+  const [showSignature, setShowSignature] = useState(false);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -61,8 +63,24 @@ export default function DocumentViewer() {
     enabled: !!documentId,
   });
 
+  // Track document view
+  useEffect(() => {
+    if (document && user && documentId) {
+      const logView = async () => {
+        try {
+          await base44.entities.DocumentBuilder.update(documentId, {
+            view_count: (document.view_count || 0) + 1
+          });
+        } catch (error) {
+          console.error('Failed to log view:', error);
+        }
+      };
+      logView();
+    }
+  }, [document?.id, user?.id, documentId]);
+
   const signDocumentMutation = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (signatureDataUrl) => {
       const timeSpent = Math.floor((Date.now() - readStartTime) / 1000 / 60); // minutes
 
       return await base44.entities.DocumentBuilderSignature.create({
@@ -73,11 +91,18 @@ export default function DocumentViewer() {
         staff_name: user.full_name,
         signed_at: new Date().toISOString(),
         acknowledgment_text: 'I have read and understood this document',
+        signature_url: signatureDataUrl,
         time_spent_minutes: timeSpent,
       });
     },
-    onSuccess: () => {
+    onSuccess: async () => {
+      await base44.entities.DocumentBuilder.update(documentId, {
+        signature_count: (document.signature_count || 0) + 1
+      });
+      
       queryClient.invalidateQueries({ queryKey: ['documentSignatures'] });
+      queryClient.invalidateQueries({ queryKey: ['document'] });
+      setShowSignature(false);
       alert('✅ Document signed successfully!');
     },
   });
@@ -115,8 +140,8 @@ export default function DocumentViewer() {
             <CardContent className="p-12 text-center">
               <FileText className="w-16 h-16 text-red-600 mx-auto mb-4" />
               <h2 className="text-2xl font-bold text-red-900 mb-2">Document Not Found</h2>
-              <Link to={createPageUrl('DocumentLibrary')}>
-                <Button>Back to Library</Button>
+              <Link to={createPageUrl('DocumentsFormsHub')}>
+                <Button>Back to Documents</Button>
               </Link>
             </CardContent>
           </Card>
@@ -130,10 +155,10 @@ export default function DocumentViewer() {
       <div className="max-w-5xl mx-auto">
         {/* Header */}
         <div className="flex gap-3 mb-6">
-          <Link to={createPageUrl('DocumentLibrary')}>
+          <Link to={createPageUrl('DocumentsFormsHub')}>
             <Button variant="outline" size="sm">
               <ArrowLeft className="w-4 h-4 mr-2" />
-              Back to Library
+              Back to Documents
             </Button>
           </Link>
         </div>
@@ -170,7 +195,7 @@ export default function DocumentViewer() {
                   <Button
                     size="sm"
                     className="bg-green-600 hover:bg-green-700"
-                    onClick={() => signDocumentMutation.mutate()}
+                    onClick={() => setShowSignature(true)}
                   >
                     <CheckCircle className="w-4 h-4 mr-2" />
                     Sign Document
@@ -180,6 +205,27 @@ export default function DocumentViewer() {
             </div>
           </CardHeader>
           <CardContent>
+            {hasUserSigned && (
+              <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
+                <div className="flex items-center gap-2">
+                  <CheckCircle className="w-5 h-5 text-green-600" />
+                  <p className="text-green-800 font-medium">
+                    ✅ You signed this document on {format(new Date(signatures.find(s => s.staff_email === user.email)?.signed_at), 'PPP')}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Signature Canvas */}
+            {showSignature && (
+              <div className="mb-6">
+                <SOPSignatureCanvas
+                  onSign={(signatureDataUrl) => signDocumentMutation.mutate(signatureDataUrl)}
+                  onCancel={() => setShowSignature(false)}
+                />
+              </div>
+            )}
+
             <div className="grid md:grid-cols-4 gap-4 text-sm mb-6">
               <div>
                 <p className="text-gray-600 flex items-center gap-2">

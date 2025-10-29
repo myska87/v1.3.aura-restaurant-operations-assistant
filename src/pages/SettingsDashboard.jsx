@@ -1,47 +1,40 @@
 import React from 'react';
-import { Settings, Users, Database, Shield, Palette } from 'lucide-react';
+import { Settings, Users, Database, Shield } from 'lucide-react';
 import DashboardTabsLayout from '../components/DashboardTabsLayout';
 import UserManagement from './UserManagement';
 import DataManagement from './DataManagement';
-import SecurityDashboard from './SecurityDashboard';
-import BackupSettings from './BackupSettings';
+import SystemProtection from './SystemProtection';
 
 export default function SettingsDashboard() {
   const tabs = [
     {
       value: 'users',
-      label: 'Users',
+      label: 'User Management',
       icon: Users,
       component: <UserManagement />,
     },
     {
       value: 'data',
-      label: 'Data',
+      label: 'Data Management',
       icon: Database,
       component: <DataManagement />,
     },
     {
       value: 'security',
-      label: 'Security',
+      label: 'System Protection',
       icon: Shield,
-      component: <SecurityDashboard />,
-    },
-    {
-      value: 'backups',
-      label: 'Backups',
-      icon: Database,
-      component: <BackupSettings />,
+      component: <SystemProtection />,
     },
   ];
 
   return (
     <DashboardTabsLayout
       title="Settings"
-      description="System configuration and administration"
+      description="System configuration and management"
       icon={Settings}
       tabs={tabs}
       defaultTab="users"
-      helpText="Configure system settings, manage users, and control security."
+      helpText="Manage users, data, and system security settings."
     />
   );
 }
