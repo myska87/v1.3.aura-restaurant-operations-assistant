@@ -130,6 +130,9 @@ import ComplianceAuditMonitor from './pages/ComplianceAuditMonitor';
 import RolePermissionsCenter from './pages/RolePermissionsCenter';
 import ReportsDashboard from './pages/ReportsDashboard';
 import TrainingAcademy from './pages/TrainingAcademy';
+import TrainingWelcome from './pages/TrainingWelcome';
+import TrainingMentor from './pages/TrainingMentor';
+import ManagerTrainingDashboard from './pages/ManagerTrainingDashboard';
 import Layout from './Layout.jsx';
 
 
@@ -266,6 +269,9 @@ export const PAGES = {
     "RolePermissionsCenter": RolePermissionsCenter,
     "ReportsDashboard": ReportsDashboard,
     "TrainingAcademy": TrainingAcademy,
+    "TrainingWelcome": TrainingWelcome,
+    "TrainingMentor": TrainingMentor,
+    "ManagerTrainingDashboard": ManagerTrainingDashboard,
 }
 
 export const pagesConfig = {

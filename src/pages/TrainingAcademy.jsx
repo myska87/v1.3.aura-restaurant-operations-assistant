@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/components/ui/input';
 import {
   Dialog,
   DialogContent,
@@ -31,38 +32,14 @@ import {
   ArrowLeft,
   Home,
   Sparkles,
+  BookOpen,
+  MessageCircle,
+  Users,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import { format } from 'date-fns';
 import { motion } from 'framer-motion';
-
-const TRAINING_LEVELS = {
-  culture: {
-    name: "Culture & Values",
-    icon: Heart,
-    color: "from-purple-500 to-pink-500",
-    description: "Learn our mission, values, and what makes Chai Patta special"
-  },
-  level_1: {
-    name: "Level 1: Foundations",
-    icon: Star,
-    color: "from-blue-500 to-cyan-500",
-    description: "Essential basics for all team members"
-  },
-  level_2: {
-    name: "Level 2: Advanced",
-    icon: Target,
-    color: "from-green-500 to-emerald-500",
-    description: "Advanced skills and specialized knowledge"
-  },
-  level_3: {
-    name: "Level 3: Mastery",
-    icon: Trophy,
-    color: "from-amber-500 to-orange-500",
-    description: "Expert level training and leadership"
-  }
-};
 
 export default function TrainingAcademy() {
   const queryClient = useQueryClient();
@@ -70,32 +47,24 @@ export default function TrainingAcademy() {
   const [showQuiz, setShowQuiz] = useState(false);
   const [quizAnswers, setQuizAnswers] = useState({});
   const [quizResults, setQuizResults] = useState(null);
-  const [feedback, setFeedback] = useState('');
+  const [reflection, setReflection] = useState('');
+  const [showReflection, setShowReflection] = useState(false);
 
   const { data: user } = useQuery({
     queryKey: ['currentUser'],
     queryFn: () => base44.auth.me(),
   });
 
+  const isManager = user?.role === 'admin' || user?.position === 'manager' || user?.position === 'owner';
+
   const { data: trainingModules = [] } = useQuery({
     queryKey: ['trainingModules'],
     queryFn: () => base44.entities.TrainingModule.list('order_sequence'),
   });
 
-  const { data: cultureContent = [] } = useQuery({
-    queryKey: ['cultureContent'],
-    queryFn: () => base44.entities.CultureContent.list('order_sequence'),
-  });
-
   const { data: myTrainingProgress = [] } = useQuery({
     queryKey: ['trainingProgress', user?.email],
     queryFn: () => base44.entities.TrainingRecord.filter({ staff_email: user?.email }),
-    enabled: !!user?.email,
-  });
-
-  const { data: myCultureProgress = [] } = useQuery({
-    queryKey: ['cultureProgress', user?.email],
-    queryFn: () => base44.entities.CultureAcknowledgement.filter({ staff_email: user?.email }),
     enabled: !!user?.email,
   });
 
@@ -112,6 +81,13 @@ export default function TrainingAcademy() {
     },
   });
 
+  const updateProgressRecordMutation = useMutation({
+    mutationFn: ({ id, data }) => base44.entities.TrainingRecord.update(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['trainingProgress'] });
+    },
+  });
+
   const createCertificateMutation = useMutation({
     mutationFn: (data) => base44.entities.Certificate.create(data),
     onSuccess: () => {
@@ -119,10 +95,13 @@ export default function TrainingAcademy() {
     },
   });
 
+  const createEventMutation = useMutation({
+    mutationFn: (data) => base44.entities.Event.create(data),
+  });
+
   const handleStartModule = (module) => {
     setSelectedModule(module);
     
-    // Create or update progress
     const existingProgress = myTrainingProgress.find(p => p.module_id === module.id);
     if (!existingProgress) {
       updateProgressMutation.mutate({
@@ -167,38 +146,72 @@ export default function TrainingAcademy() {
       results,
     });
 
-    // Update progress
     const existingProgress = myTrainingProgress.find(p => p.module_id === selectedModule.id);
     if (existingProgress) {
-      await base44.entities.TrainingRecord.update(existingProgress.id, {
-        status: passed ? 'completed' : 'failed',
-        completed_at: passed ? new Date().toISOString() : null,
-        quiz_score: score,
-        quiz_attempts: (existingProgress.quiz_attempts || 0) + 1,
+      await updateProgressRecordMutation.mutateAsync({
+        id: existingProgress.id,
+        data: {
+          quiz_score: score,
+          quiz_attempts: (existingProgress.quiz_attempts || 0) + 1,
+        }
       });
     }
 
-    // Generate certificate if passed
     if (passed) {
-      const certId = `CERT-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-      await createCertificateMutation.mutateAsync({
-        certificate_id: certId,
-        staff_email: user?.email,
-        staff_name: user?.full_name,
-        certificate_type: 'training_module',
-        title: `${selectedModule.title} - Certificate of Completion`,
-        description: `Successfully completed ${selectedModule.title} training module`,
-        issued_date: new Date().toISOString(),
-        issued_by: 'AURA Training Academy',
-        is_verified: true,
-        points_awarded: 10,
+      setShowQuiz(false);
+      setShowReflection(true);
+    } else {
+      setQuizAnswers({});
+    }
+  };
+
+  const handleReflectionSubmit = async () => {
+    const existingProgress = myTrainingProgress.find(p => p.module_id === selectedModule.id);
+    
+    if (existingProgress) {
+      await updateProgressRecordMutation.mutateAsync({
+        id: existingProgress.id,
+        data: {
+          status: 'completed',
+          completed_at: new Date().toISOString(),
+          notes: reflection,
+        }
       });
     }
 
-    setShowQuiz(false);
-    setQuizAnswers({});
+    // Generate certificate
+    const certId = `CERT-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    await createCertificateMutation.mutateAsync({
+      certificate_id: certId,
+      staff_email: user?.email,
+      staff_name: user?.full_name,
+      certificate_type: 'training_module',
+      title: `${selectedModule.title} - Certificate of Completion`,
+      description: `Successfully completed ${selectedModule.title} training with ${quizResults.score}% score`,
+      issued_date: new Date().toISOString(),
+      issued_by: 'AURA Training Academy',
+      is_verified: true,
+      points_awarded: selectedModule.level === 3 ? 20 : selectedModule.level === 2 ? 15 : 10,
+      badge_earned: selectedModule.level === 3 ? 'Master Trainer' : null,
+    });
+
+    // Post to EventHub
+    await createEventMutation.mutateAsync({
+      source_module: 'ai',
+      event_type: 'sop_signed',
+      title: `🎓 ${user?.full_name} completed training!`,
+      message: `${user?.full_name} just completed "${selectedModule.title}" training and earned a certificate! 🏆`,
+      severity: 'success',
+      recipient_roles: ['manager', 'all'],
+    });
+
+    setShowReflection(false);
+    setReflection('');
+    setSelectedModule(null);
+    setQuizResults(null);
     
     await queryClient.invalidateQueries({ queryKey: ['trainingProgress'] });
+    await queryClient.invalidateQueries({ queryKey: ['certificates'] });
   };
 
   const getModuleProgress = (moduleId) => {
@@ -214,44 +227,64 @@ export default function TrainingAcademy() {
     });
   };
 
-  const getCategoryProgress = (category) => {
-    const categoryModules = trainingModules.filter(m => m.category === category);
-    if (categoryModules.length === 0) return 0;
+  const getCategoryProgress = (level) => {
+    const levelModules = trainingModules.filter(m => {
+      if (level === 'culture') return m.category === 'culture' || m.category === 'onboarding';
+      if (level === 1) return m.level === 1 || ['hygiene', 'safety'].includes(m.category);
+      if (level === 2) return m.level === 2 || ['product_knowledge', 'customer_service'].includes(m.category);
+      if (level === 3) return m.level === 3 || ['compliance', 'equipment_use'].includes(m.category);
+      return false;
+    });
     
-    const completed = categoryModules.filter(m => {
+    if (levelModules.length === 0) return 0;
+    
+    const completed = levelModules.filter(m => {
       const progress = getModuleProgress(m.id);
       return progress?.status === 'completed';
     }).length;
     
-    return Math.round((completed / categoryModules.length) * 100);
+    return Math.round((completed / levelModules.length) * 100);
   };
 
-  const cultureProgress = Math.round((myCultureProgress.length / Math.max(cultureContent.length, 1)) * 100);
   const totalProgress = Math.round(
-    ((myTrainingProgress.filter(p => p.status === 'completed').length + myCultureProgress.length) / 
-    Math.max((trainingModules.length + cultureContent.length), 1)) * 100
+    (myTrainingProgress.filter(p => p.status === 'completed').length / 
+    Math.max(trainingModules.length, 1)) * 100
   );
 
   const cultureModules = trainingModules.filter(m => m.category === 'culture' || m.category === 'onboarding');
-  const level1Modules = trainingModules.filter(m => m.level === 1 || m.category === 'hygiene' || m.category === 'safety');
-  const level2Modules = trainingModules.filter(m => m.level === 2 || m.category === 'product_knowledge' || m.category === 'customer_service');
-  const level3Modules = trainingModules.filter(m => m.level === 3 || m.category === 'compliance' || m.category === 'equipment_use');
+  const level1Modules = trainingModules.filter(m => m.level === 1 || ['hygiene', 'safety'].includes(m.category));
+  const level2Modules = trainingModules.filter(m => m.level === 2 || ['product_knowledge', 'customer_service'].includes(m.category));
+  const level3Modules = trainingModules.filter(m => m.level === 3 || ['compliance', 'equipment_use'].includes(m.category));
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6 md:p-8">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-purple-50 to-slate-50 p-6 md:p-8">
       <div className="max-w-7xl mx-auto">
         
         <div className="flex gap-3 mb-6">
-          <Link to={createPageUrl('StaffModel')}>
+          <Link to={createPageUrl('TrainingWelcome')}>
             <Button variant="outline" size="sm">
               <ArrowLeft className="w-4 h-4 mr-2" />
-              Staff Model
+              Welcome
             </Button>
           </Link>
           <Link to={createPageUrl('Dashboard')}>
             <Button variant="outline" size="sm">
               <Home className="w-4 h-4 mr-2" />
               Dashboard
+            </Button>
+          </Link>
+          {isManager && (
+            <Link to={createPageUrl('ManagerTrainingDashboard')}>
+              <Button variant="outline" size="sm" className="ml-auto">
+                <Users className="w-4 h-4 mr-2" />
+                Manager View
+              </Button>
+            </Link>
+          )}
+          <Link to={createPageUrl('TrainingMentor')}>
+            <Button variant="outline" size="sm" className="bg-purple-50">
+              <MessageCircle className="w-4 h-4 mr-2" />
+              AI Mentor
             </Button>
           </Link>
         </div>
@@ -269,15 +302,19 @@ export default function TrainingAcademy() {
                     Training Academy
                   </h1>
                   <p className="text-xl text-purple-100 mb-2">
-                    Welcome to your learning journey, {user?.full_name?.split(' ')[0]}!
+                    Welcome back, {user?.full_name?.split(' ')[0]}! 🌟
                   </p>
                   <p className="text-purple-200">
-                    "We don't create customers — we create <strong>Craving Fans</strong>"
+                    Continue your journey to becoming a Chai Patta champion
                   </p>
                 </div>
-                <div className="text-center">
+                <div className="text-center bg-white/10 backdrop-blur-lg rounded-2xl p-6">
                   <div className="text-6xl font-bold mb-2">{totalProgress}%</div>
                   <p className="text-purple-200">Overall Progress</p>
+                  <div className="mt-3 flex items-center justify-center gap-2">
+                    <Award className="w-5 h-5 text-yellow-300" />
+                    <span className="text-yellow-300 font-semibold">{myCertificates.length} Certificates</span>
+                  </div>
                 </div>
               </div>
             </CardContent>
@@ -285,81 +322,80 @@ export default function TrainingAcademy() {
         </motion.div>
 
         <div className="grid md:grid-cols-4 gap-4 mb-8">
-          <Card className="border-l-4 border-l-purple-500">
+          <Card className="border-l-4 border-l-purple-500 hover:shadow-lg transition-shadow">
             <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-2">
-                <Heart className="w-8 h-8 text-purple-600" />
-              </div>
-              <p className="text-3xl font-bold text-purple-600">{cultureProgress}%</p>
+              <Heart className="w-8 h-8 text-purple-600 mb-2" />
+              <p className="text-3xl font-bold text-purple-600">{getCategoryProgress('culture')}%</p>
               <p className="text-sm text-gray-600">Culture Mastery</p>
             </CardContent>
           </Card>
 
-          <Card className="border-l-4 border-l-blue-500">
+          <Card className="border-l-4 border-l-blue-500 hover:shadow-lg transition-shadow">
             <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-2">
-                <Star className="w-8 h-8 text-blue-600" />
-              </div>
-              <p className="text-3xl font-bold text-blue-600">{getCategoryProgress('hygiene')}%</p>
-              <p className="text-sm text-gray-600">Level 1 Progress</p>
+              <Star className="w-8 h-8 text-blue-600 mb-2" />
+              <p className="text-3xl font-bold text-blue-600">{getCategoryProgress(1)}%</p>
+              <p className="text-sm text-gray-600">Level 1 - Foundation</p>
             </CardContent>
           </Card>
 
-          <Card className="border-l-4 border-l-green-500">
+          <Card className="border-l-4 border-l-green-500 hover:shadow-lg transition-shadow">
             <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-2">
-                <Target className="w-8 h-8 text-green-600" />
-              </div>
-              <p className="text-3xl font-bold text-green-600">{getCategoryProgress('customer_service')}%</p>
-              <p className="text-sm text-gray-600">Level 2 Progress</p>
+              <Target className="w-8 h-8 text-green-600 mb-2" />
+              <p className="text-3xl font-bold text-green-600">{getCategoryProgress(2)}%</p>
+              <p className="text-sm text-gray-600">Level 2 - Excellence</p>
             </CardContent>
           </Card>
 
-          <Card className="border-l-4 border-l-amber-500">
+          <Card className="border-l-4 border-l-amber-500 hover:shadow-lg transition-shadow">
             <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-2">
-                <Trophy className="w-8 h-8 text-amber-600" />
-              </div>
-              <p className="text-3xl font-bold text-amber-600">{myCertificates.length}</p>
-              <p className="text-sm text-gray-600">Certificates Earned</p>
+              <Trophy className="w-8 h-8 text-amber-600 mb-2" />
+              <p className="text-3xl font-bold text-amber-600">{getCategoryProgress(3)}%</p>
+              <p className="text-sm text-gray-600">Level 3 - Mastery</p>
             </CardContent>
           </Card>
         </div>
 
         <Tabs defaultValue="culture" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4 h-auto">
-            <TabsTrigger value="culture" className="flex-col gap-2 py-3">
+          <TabsList className="grid w-full grid-cols-4 h-auto bg-white shadow-sm">
+            <TabsTrigger value="culture" className="flex-col gap-2 py-4 data-[state=active]:bg-purple-100">
               <Heart className="w-5 h-5" />
-              <span>Culture</span>
+              <span className="font-semibold">Culture & Values</span>
+              <span className="text-xs text-gray-500">Start Here</span>
             </TabsTrigger>
-            <TabsTrigger value="level1" className="flex-col gap-2 py-3">
+            <TabsTrigger value="level1" className="flex-col gap-2 py-4 data-[state=active]:bg-blue-100">
               <Star className="w-5 h-5" />
-              <span>Level 1</span>
+              <span className="font-semibold">Level 1</span>
+              <span className="text-xs text-gray-500">Foundation</span>
             </TabsTrigger>
-            <TabsTrigger value="level2" className="flex-col gap-2 py-3">
+            <TabsTrigger value="level2" className="flex-col gap-2 py-4 data-[state=active]:bg-green-100">
               <Target className="w-5 h-5" />
-              <span>Level 2</span>
+              <span className="font-semibold">Level 2</span>
+              <span className="text-xs text-gray-500">Excellence</span>
             </TabsTrigger>
-            <TabsTrigger value="level3" className="flex-col gap-2 py-3">
+            <TabsTrigger value="level3" className="flex-col gap-2 py-4 data-[state=active]:bg-amber-100">
               <Trophy className="w-5 h-5" />
-              <span>Level 3</span>
+              <span className="font-semibold">Level 3</span>
+              <span className="text-xs text-gray-500">Leadership</span>
             </TabsTrigger>
           </TabsList>
 
           <TabsContent value="culture" className="space-y-4">
-            <Card className="bg-gradient-to-r from-purple-50 to-pink-50 border-purple-200">
-              <CardContent className="p-6">
+            <Card className="bg-gradient-to-r from-purple-500 to-pink-500 text-white border-none shadow-lg">
+              <CardContent className="p-8">
                 <div className="flex items-start gap-4">
-                  <Heart className="w-12 h-12 text-purple-600 flex-shrink-0" />
+                  <Heart className="w-16 h-16 flex-shrink-0" />
                   <div className="flex-1">
-                    <h3 className="text-2xl font-bold text-gray-900 mb-2">Culture & Values</h3>
-                    <p className="text-gray-700 mb-4">
-                      Learn the heart of Chai Patta - our mission, values, and the philosophy of creating Craving Fans. 
-                      This is where your journey begins.
+                    <h3 className="text-3xl font-bold mb-3">Culture & Values Training</h3>
+                    <p className="text-purple-100 text-lg mb-4">
+                      "Learn the Heart of Chai Patta"
+                    </p>
+                    <p className="text-purple-50 mb-6">
+                      Understand our mission, embrace our values, and discover what makes us different. 
+                      This is where every journey begins - with purpose and passion.
                     </p>
                     <div className="flex items-center gap-4">
-                      <Progress value={cultureProgress} className="flex-1" />
-                      <span className="font-bold text-purple-600">{cultureProgress}%</span>
+                      <Progress value={getCategoryProgress('culture')} className="flex-1 bg-purple-300" />
+                      <span className="font-bold text-2xl">{getCategoryProgress('culture')}%</span>
                     </div>
                   </div>
                 </div>
@@ -367,51 +403,37 @@ export default function TrainingAcademy() {
             </Card>
 
             <div className="grid md:grid-cols-2 gap-4">
-              {cultureContent.map((content, index) => {
-                const isCompleted = myCultureProgress.some(p => p.culture_content_id === content.id);
-                
-                return (
-                  <motion.div
-                    key={content.id}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: index * 0.1 }}
-                  >
-                    <Card className={isCompleted ? 'border-green-500 border-2' : ''}>
-                      <CardHeader>
-                        <CardTitle className="flex items-center justify-between">
-                          <span className="text-lg">{content.title}</span>
-                          {isCompleted && <CheckCircle className="w-6 h-6 text-green-600" />}
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <p className="text-sm text-gray-600 mb-4">{content.content?.substring(0, 120)}...</p>
-                        <Link to={createPageUrl('CultureBuilding')}>
-                          <Button size="sm" className="w-full bg-purple-600 hover:bg-purple-700">
-                            {isCompleted ? 'Review' : 'Start Learning'}
-                          </Button>
-                        </Link>
-                      </CardContent>
-                    </Card>
-                  </motion.div>
-                );
-              })}
+              {cultureModules.map((module, index) => (
+                <ModuleCard
+                  key={module.id}
+                  module={module}
+                  progress={getModuleProgress(module.id)}
+                  isUnlocked={isModuleUnlocked(module)}
+                  isCompleted={getModuleProgress(module.id)?.status === 'completed'}
+                  onStart={() => handleStartModule(module)}
+                  index={index}
+                />
+              ))}
             </div>
           </TabsContent>
 
           <TabsContent value="level1" className="space-y-4">
-            <Card className="bg-gradient-to-r from-blue-50 to-cyan-50 border-blue-200">
-              <CardContent className="p-6">
+            <Card className="bg-gradient-to-r from-blue-500 to-cyan-500 text-white border-none shadow-lg">
+              <CardContent className="p-8">
                 <div className="flex items-start gap-4">
-                  <Star className="w-12 h-12 text-blue-600 flex-shrink-0" />
+                  <Star className="w-16 h-16 flex-shrink-0" />
                   <div className="flex-1">
-                    <h3 className="text-2xl font-bold text-gray-900 mb-2">Level 1: Foundation Training</h3>
-                    <p className="text-gray-700 mb-4">
-                      Essential training for all team members. Master hygiene, safety, and core operational skills.
+                    <h3 className="text-3xl font-bold mb-3">Level 1: Foundation Training</h3>
+                    <p className="text-blue-100 text-lg mb-4">
+                      "Master the Essentials"
+                    </p>
+                    <p className="text-blue-50 mb-6">
+                      Build your foundation with hygiene basics, safety protocols, and essential guest interaction skills. 
+                      These are the non-negotiables for every team member.
                     </p>
                     <div className="flex items-center gap-4">
-                      <Progress value={getCategoryProgress('hygiene')} className="flex-1" />
-                      <span className="font-bold text-blue-600">{getCategoryProgress('hygiene')}%</span>
+                      <Progress value={getCategoryProgress(1)} className="flex-1 bg-blue-300" />
+                      <span className="font-bold text-2xl">{getCategoryProgress(1)}%</span>
                     </div>
                   </div>
                 </div>
@@ -419,39 +441,37 @@ export default function TrainingAcademy() {
             </Card>
 
             <div className="grid md:grid-cols-2 gap-4">
-              {level1Modules.map((module, index) => {
-                const progress = getModuleProgress(module.id);
-                const isUnlocked = isModuleUnlocked(module);
-                const isCompleted = progress?.status === 'completed';
-                
-                return (
-                  <ModuleCard
-                    key={module.id}
-                    module={module}
-                    progress={progress}
-                    isUnlocked={isUnlocked}
-                    isCompleted={isCompleted}
-                    onStart={() => handleStartModule(module)}
-                    index={index}
-                  />
-                );
-              })}
+              {level1Modules.map((module, index) => (
+                <ModuleCard
+                  key={module.id}
+                  module={module}
+                  progress={getModuleProgress(module.id)}
+                  isUnlocked={isModuleUnlocked(module)}
+                  isCompleted={getModuleProgress(module.id)?.status === 'completed'}
+                  onStart={() => handleStartModule(module)}
+                  index={index}
+                />
+              ))}
             </div>
           </TabsContent>
 
           <TabsContent value="level2" className="space-y-4">
-            <Card className="bg-gradient-to-r from-green-50 to-emerald-50 border-green-200">
-              <CardContent className="p-6">
+            <Card className="bg-gradient-to-r from-green-500 to-emerald-500 text-white border-none shadow-lg">
+              <CardContent className="p-8">
                 <div className="flex items-start gap-4">
-                  <Target className="w-12 h-12 text-green-600 flex-shrink-0" />
+                  <Target className="w-16 h-16 flex-shrink-0" />
                   <div className="flex-1">
-                    <h3 className="text-2xl font-bold text-gray-900 mb-2">Level 2: Advanced Skills</h3>
-                    <p className="text-gray-700 mb-4">
-                      Deepen your expertise in customer service, product knowledge, and specialized skills.
+                    <h3 className="text-3xl font-bold mb-3">Level 2: Excellence in Action</h3>
+                    <p className="text-green-100 text-lg mb-4">
+                      "Serve with Precision & Pride"
+                    </p>
+                    <p className="text-green-50 mb-6">
+                      Master the art of perfect Karak Chai, understand our complete menu, and deliver exceptional service. 
+                      This is where good becomes great.
                     </p>
                     <div className="flex items-center gap-4">
-                      <Progress value={getCategoryProgress('customer_service')} className="flex-1" />
-                      <span className="font-bold text-green-600">{getCategoryProgress('customer_service')}%</span>
+                      <Progress value={getCategoryProgress(2)} className="flex-1 bg-green-300" />
+                      <span className="font-bold text-2xl">{getCategoryProgress(2)}%</span>
                     </div>
                   </div>
                 </div>
@@ -459,39 +479,37 @@ export default function TrainingAcademy() {
             </Card>
 
             <div className="grid md:grid-cols-2 gap-4">
-              {level2Modules.map((module, index) => {
-                const progress = getModuleProgress(module.id);
-                const isUnlocked = isModuleUnlocked(module);
-                const isCompleted = progress?.status === 'completed';
-                
-                return (
-                  <ModuleCard
-                    key={module.id}
-                    module={module}
-                    progress={progress}
-                    isUnlocked={isUnlocked}
-                    isCompleted={isCompleted}
-                    onStart={() => handleStartModule(module)}
-                    index={index}
-                  />
-                );
-              })}
+              {level2Modules.map((module, index) => (
+                <ModuleCard
+                  key={module.id}
+                  module={module}
+                  progress={getModuleProgress(module.id)}
+                  isUnlocked={isModuleUnlocked(module)}
+                  isCompleted={getModuleProgress(module.id)?.status === 'completed'}
+                  onStart={() => handleStartModule(module)}
+                  index={index}
+                />
+              ))}
             </div>
           </TabsContent>
 
           <TabsContent value="level3" className="space-y-4">
-            <Card className="bg-gradient-to-r from-amber-50 to-orange-50 border-amber-200">
-              <CardContent className="p-6">
+            <Card className="bg-gradient-to-r from-amber-500 to-orange-500 text-white border-none shadow-lg">
+              <CardContent className="p-8">
                 <div className="flex items-start gap-4">
-                  <Trophy className="w-12 h-12 text-amber-600 flex-shrink-0" />
+                  <Trophy className="w-16 h-16 flex-shrink-0" />
                   <div className="flex-1">
-                    <h3 className="text-2xl font-bold text-gray-900 mb-2">Level 3: Mastery & Leadership</h3>
-                    <p className="text-gray-700 mb-4">
-                      Expert-level training for team leaders, trainers, and specialists. Master advanced techniques and leadership.
+                    <h3 className="text-3xl font-bold mb-3">Level 3: Leadership & Growth</h3>
+                    <p className="text-amber-100 text-lg mb-4">
+                      "Lead → Inspire → Grow"
+                    </p>
+                    <p className="text-amber-50 mb-6">
+                      Develop leadership skills, master conflict resolution, and learn to inspire others. 
+                      Become a mentor who creates more Craving Fans - both customers and team members.
                     </p>
                     <div className="flex items-center gap-4">
-                      <Progress value={getCategoryProgress('compliance')} className="flex-1" />
-                      <span className="font-bold text-amber-600">{getCategoryProgress('compliance')}%</span>
+                      <Progress value={getCategoryProgress(3)} className="flex-1 bg-amber-300" />
+                      <span className="font-bold text-2xl">{getCategoryProgress(3)}%</span>
                     </div>
                   </div>
                 </div>
@@ -499,89 +517,107 @@ export default function TrainingAcademy() {
             </Card>
 
             <div className="grid md:grid-cols-2 gap-4">
-              {level3Modules.map((module, index) => {
-                const progress = getModuleProgress(module.id);
-                const isUnlocked = isModuleUnlocked(module);
-                const isCompleted = progress?.status === 'completed';
-                
-                return (
-                  <ModuleCard
-                    key={module.id}
-                    module={module}
-                    progress={progress}
-                    isUnlocked={isUnlocked}
-                    isCompleted={isCompleted}
-                    onStart={() => handleStartModule(module)}
-                    index={index}
-                  />
-                );
-              })}
+              {level3Modules.map((module, index) => (
+                <ModuleCard
+                  key={module.id}
+                  module={module}
+                  progress={getModuleProgress(module.id)}
+                  isUnlocked={isModuleUnlocked(module)}
+                  isCompleted={getModuleProgress(module.id)?.status === 'completed'}
+                  onStart={() => handleStartModule(module)}
+                  index={index}
+                />
+              ))}
             </div>
           </TabsContent>
         </Tabs>
 
         {myCertificates.length > 0 && (
-          <Card className="mt-8 bg-gradient-to-r from-yellow-50 to-amber-50 border-yellow-300">
+          <Card className="mt-8 bg-gradient-to-r from-yellow-50 to-amber-50 border-yellow-300 shadow-lg">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Award className="w-6 h-6 text-yellow-600" />
-                Your Certificates ({myCertificates.length})
+              <CardTitle className="flex items-center gap-2 text-2xl">
+                <Award className="w-7 h-7 text-yellow-600" />
+                Your Achievements ({myCertificates.length} Certificates)
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="grid md:grid-cols-3 gap-4">
                 {myCertificates.map(cert => (
-                  <Card key={cert.id} className="border-2 border-yellow-300">
-                    <CardContent className="p-4 text-center">
-                      <Trophy className="w-12 h-12 text-yellow-600 mx-auto mb-3" />
-                      <h4 className="font-semibold text-gray-900 mb-2">{cert.title}</h4>
-                      <p className="text-xs text-gray-600 mb-3">
-                        {format(new Date(cert.issued_date), 'MMM d, yyyy')}
-                      </p>
-                      <Button size="sm" variant="outline" className="w-full">
-                        <Download className="w-4 h-4 mr-2" />
-                        Download
-                      </Button>
-                    </CardContent>
-                  </Card>
+                  <motion.div
+                    key={cert.id}
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                  >
+                    <Card className="border-2 border-yellow-400 hover:shadow-xl transition-shadow">
+                      <CardContent className="p-6 text-center">
+                        <Trophy className="w-12 h-12 text-yellow-600 mx-auto mb-3" />
+                        <h4 className="font-semibold text-gray-900 mb-2">{cert.title}</h4>
+                        <p className="text-xs text-gray-600 mb-1">{cert.description}</p>
+                        <p className="text-xs text-gray-500 mb-3">
+                          {format(new Date(cert.issued_date), 'MMM d, yyyy')}
+                        </p>
+                        {cert.points_awarded > 0 && (
+                          <Badge className="bg-green-100 text-green-800 mb-3">
+                            +{cert.points_awarded} points
+                          </Badge>
+                        )}
+                        <Button size="sm" variant="outline" className="w-full">
+                          <Download className="w-4 h-4 mr-2" />
+                          Download PDF
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  </motion.div>
                 ))}
               </div>
             </CardContent>
           </Card>
         )}
 
+        {/* Module Detail Dialog */}
         <Dialog open={!!selectedModule} onOpenChange={() => setSelectedModule(null)}>
-          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle className="text-2xl">{selectedModule?.title}</DialogTitle>
+              <DialogTitle className="text-2xl flex items-center gap-2">
+                <GraduationCap className="w-6 h-6 text-purple-600" />
+                {selectedModule?.title}
+              </DialogTitle>
             </DialogHeader>
             {selectedModule && (
               <div className="space-y-6 mt-4">
-                <div className="flex items-center gap-4 text-sm text-gray-600">
+                <div className="flex flex-wrap items-center gap-3 text-sm">
                   {selectedModule.duration_minutes && (
-                    <div className="flex items-center gap-1">
-                      <Clock className="w-4 h-4" />
-                      <span>{selectedModule.duration_minutes} min</span>
-                    </div>
+                    <Badge variant="outline" className="flex items-center gap-1">
+                      <Clock className="w-3 h-3" />
+                      {selectedModule.duration_minutes} minutes
+                    </Badge>
                   )}
-                  <Badge>{selectedModule.category}</Badge>
+                  <Badge className="bg-purple-100 text-purple-800">
+                    {selectedModule.category?.replace('_', ' ')}
+                  </Badge>
+                  {selectedModule.level && (
+                    <Badge className="bg-blue-100 text-blue-800">
+                      Level {selectedModule.level}
+                    </Badge>
+                  )}
                 </div>
 
                 <div className="prose max-w-none">
-                  <p className="text-gray-700">{selectedModule.description}</p>
+                  <p className="text-gray-700 text-lg leading-relaxed">{selectedModule.description}</p>
                 </div>
 
                 {selectedModule.video_url && (
                   <div>
-                    <h3 className="font-semibold mb-3 flex items-center gap-2">
+                    <h3 className="font-semibold text-lg mb-3 flex items-center gap-2">
                       <Video className="w-5 h-5 text-blue-600" />
                       Training Video
                     </h3>
-                    <div className="aspect-video bg-gray-100 rounded-lg overflow-hidden">
+                    <div className="aspect-video bg-gray-900 rounded-xl overflow-hidden shadow-lg">
                       <video
                         src={selectedModule.video_url}
                         controls
                         className="w-full h-full"
+                        controlsList="nodownload"
                       />
                     </div>
                   </div>
@@ -589,12 +625,34 @@ export default function TrainingAcademy() {
 
                 {selectedModule.content_text && (
                   <div>
-                    <h3 className="font-semibold mb-3 flex items-center gap-2">
+                    <h3 className="font-semibold text-lg mb-3 flex items-center gap-2">
                       <FileText className="w-5 h-5 text-gray-600" />
                       Course Material
                     </h3>
-                    <div className="p-4 bg-gray-50 rounded-lg whitespace-pre-wrap text-sm">
-                      {selectedModule.content_text}
+                    <Card className="bg-gray-50">
+                      <CardContent className="p-6">
+                        <div className="whitespace-pre-wrap text-gray-800 leading-relaxed">
+                          {selectedModule.content_text}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+                )}
+
+                {selectedModule.linked_sop_ids?.length > 0 && (
+                  <div>
+                    <h3 className="font-semibold text-lg mb-3 flex items-center gap-2">
+                      <BookOpen className="w-5 h-5 text-green-600" />
+                      Related SOPs
+                    </h3>
+                    <div className="flex flex-wrap gap-2">
+                      {selectedModule.linked_sop_ids.map(sopId => (
+                        <Link key={sopId} to={createPageUrl(`SOPViewer?id=${sopId}`)}>
+                          <Button variant="outline" size="sm">
+                            View SOP Procedure
+                          </Button>
+                        </Link>
+                      ))}
                     </div>
                   </div>
                 )}
@@ -602,9 +660,9 @@ export default function TrainingAcademy() {
                 {selectedModule.quiz_questions?.length > 0 && (
                   <Button
                     onClick={() => setShowQuiz(true)}
-                    className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700"
+                    className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 py-6 text-lg"
                   >
-                    <Sparkles className="w-4 h-4 mr-2" />
+                    <Sparkles className="w-5 h-5 mr-2" />
                     Take Knowledge Check ({selectedModule.quiz_questions.length} questions)
                   </Button>
                 )}
@@ -613,49 +671,59 @@ export default function TrainingAcademy() {
           </DialogContent>
         </Dialog>
 
+        {/* Quiz Dialog */}
         <Dialog open={showQuiz} onOpenChange={setShowQuiz}>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>Knowledge Check: {selectedModule?.title}</DialogTitle>
+              <DialogTitle className="text-xl">📝 Knowledge Check: {selectedModule?.title}</DialogTitle>
             </DialogHeader>
             {selectedModule && (
               <div className="space-y-6 mt-4">
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  <p className="text-sm text-blue-800">
-                    📝 Answer all questions. You need {selectedModule.passing_score || 80}% to pass and earn your certificate.
-                  </p>
-                </div>
+                <Card className="bg-blue-50 border-blue-200">
+                  <CardContent className="p-4">
+                    <p className="text-sm text-blue-900 font-medium">
+                      📚 Answer all questions carefully. You need {selectedModule.passing_score || 80}% to pass and earn your certificate.
+                    </p>
+                  </CardContent>
+                </Card>
 
                 {selectedModule.quiz_questions?.map((q, index) => (
-                  <div key={index} className="space-y-3 p-4 bg-gray-50 rounded-lg border">
-                    <p className="font-semibold text-gray-900">{index + 1}. {q.question}</p>
-                    <div className="space-y-2">
-                      {q.options.map((option, optIndex) => (
-                        <label
-                          key={optIndex}
-                          className={`flex items-center gap-3 p-3 rounded-lg border-2 cursor-pointer transition-all ${
-                            quizAnswers[index] === optIndex
-                              ? 'border-blue-500 bg-blue-50'
-                              : 'border-gray-200 bg-white hover:border-gray-300'
-                          }`}
-                        >
-                          <input
-                            type="radio"
-                            name={`q-${index}`}
-                            value={optIndex}
-                            checked={quizAnswers[index] === optIndex}
-                            onChange={() => setQuizAnswers({ ...quizAnswers, [index]: optIndex })}
-                            className="w-4 h-4"
-                          />
-                          <span>{option}</span>
-                        </label>
-                      ))}
-                    </div>
-                  </div>
+                  <Card key={index} className="border-2">
+                    <CardContent className="p-6">
+                      <p className="font-semibold text-gray-900 text-lg mb-4">
+                        Question {index + 1}: {q.question}
+                      </p>
+                      <div className="space-y-3">
+                        {q.options.map((option, optIndex) => (
+                          <label
+                            key={optIndex}
+                            className={`flex items-center gap-3 p-4 rounded-lg border-2 cursor-pointer transition-all ${
+                              quizAnswers[index] === optIndex
+                                ? 'border-blue-600 bg-blue-50 shadow-md'
+                                : 'border-gray-200 bg-white hover:border-blue-300 hover:bg-gray-50'
+                            }`}
+                          >
+                            <input
+                              type="radio"
+                              name={`q-${index}`}
+                              value={optIndex}
+                              checked={quizAnswers[index] === optIndex}
+                              onChange={() => setQuizAnswers({ ...quizAnswers, [index]: optIndex })}
+                              className="w-5 h-5"
+                            />
+                            <span className="text-gray-800 flex-1">{option}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
                 ))}
 
                 <div className="flex justify-end gap-3">
-                  <Button variant="outline" onClick={() => setShowQuiz(false)}>
+                  <Button variant="outline" onClick={() => {
+                    setShowQuiz(false);
+                    setQuizAnswers({});
+                  }}>
                     Cancel
                   </Button>
                   <Button
@@ -663,7 +731,8 @@ export default function TrainingAcademy() {
                     disabled={Object.keys(quizAnswers).length !== selectedModule.quiz_questions?.length}
                     className="bg-green-600 hover:bg-green-700"
                   >
-                    Submit Quiz
+                    <CheckCircle className="w-4 h-4 mr-2" />
+                    Submit Answers
                   </Button>
                 </div>
               </div>
@@ -671,55 +740,96 @@ export default function TrainingAcademy() {
           </DialogContent>
         </Dialog>
 
-        {quizResults && (
-          <Dialog open={!!quizResults} onOpenChange={() => setQuizResults(null)}>
-            <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle className="text-2xl">
-                  {quizResults.passed ? '🎉 Congratulations!' : '📚 Keep Learning!'}
-                </DialogTitle>
-              </DialogHeader>
+        {/* Reflection Dialog */}
+        <Dialog open={showReflection} onOpenChange={setShowReflection}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle className="text-2xl flex items-center gap-2">
+                <Sparkles className="w-6 h-6 text-purple-600" />
+                Reflection: What Did You Learn?
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 mt-4">
+              <Card className="bg-purple-50 border-purple-200">
+                <CardContent className="p-4">
+                  <p className="text-sm text-purple-900">
+                    ✨ Take a moment to reflect on what you learned. How will you apply this in your role?
+                  </p>
+                </CardContent>
+              </Card>
 
-              <div className="space-y-6 mt-4">
-                <Card className={`border-none shadow-lg ${
-                  quizResults.passed
-                    ? 'bg-gradient-to-r from-green-500 to-green-600'
-                    : 'bg-gradient-to-r from-amber-500 to-amber-600'
-                } text-white`}>
-                  <CardContent className="p-6 text-center">
-                    <div className="text-6xl font-bold mb-3">{quizResults.score}%</div>
-                    <p className="text-xl mb-2">
-                      {quizResults.correctCount} out of {quizResults.totalQuestions} correct
-                    </p>
-                    <p className="text-lg opacity-90">
-                      {quizResults.passed
-                        ? '✅ You passed! Certificate generated!'
-                        : '⚠️ You need 80% to pass. Review and try again.'}
+              <Textarea
+                value={reflection}
+                onChange={(e) => setReflection(e.target.value)}
+                placeholder="Share your key takeaways and how you'll apply this learning...
+
+Example:
+- I learned the importance of temperature control for food safety
+- I will always check fridge temps at the start of my shift
+- I understand why this matters for customer safety and our reputation"
+                rows={8}
+                className="text-base"
+              />
+
+              <div className="flex justify-end gap-3">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowReflection(false)}
+                >
+                  Skip for Now
+                </Button>
+                <Button
+                  onClick={handleReflectionSubmit}
+                  disabled={!reflection.trim()}
+                  className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700"
+                >
+                  <Award className="w-4 h-4 mr-2" />
+                  Complete & Get Certificate
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Quiz Results */}
+        {quizResults && !quizResults.passed && (
+          <Dialog open={!!quizResults} onOpenChange={() => setQuizResults(null)}>
+            <DialogContent className="max-w-2xl">
+              <div className="text-center space-y-6 py-6">
+                <div className="text-6xl">📚</div>
+                <h2 className="text-3xl font-bold text-gray-900">Keep Learning!</h2>
+                <Card className="bg-amber-100 border-amber-300">
+                  <CardContent className="p-6">
+                    <p className="text-5xl font-bold text-amber-600 mb-2">{quizResults.score}%</p>
+                    <p className="text-gray-700">
+                      You got {quizResults.correctCount} out of {quizResults.totalQuestions} correct
                     </p>
                   </CardContent>
                 </Card>
-
-                {quizResults.passed && (
-                  <Card className="bg-gradient-to-r from-yellow-50 to-amber-50 border-yellow-300">
-                    <CardContent className="p-6 text-center">
-                      <Trophy className="w-16 h-16 text-yellow-600 mx-auto mb-3" />
-                      <h3 className="text-xl font-bold text-gray-900 mb-2">Certificate Earned!</h3>
-                      <p className="text-gray-700 mb-4">+10 Performance Points Added</p>
-                      <Button className="bg-yellow-600 hover:bg-yellow-700">
-                        <Download className="w-4 h-4 mr-2" />
-                        Download Certificate
-                      </Button>
-                    </CardContent>
-                  </Card>
-                )}
-
-                <Button
-                  variant="outline"
-                  onClick={() => setQuizResults(null)}
-                  className="w-full"
-                >
-                  Close
-                </Button>
+                <p className="text-gray-600">
+                  You need {selectedModule?.passing_score || 80}% to pass. Review the material and try again!
+                </p>
+                <div className="flex gap-3 justify-center">
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setQuizResults(null);
+                      setQuizAnswers({});
+                    }}
+                  >
+                    Review Material
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      setQuizResults(null);
+                      setQuizAnswers({});
+                      setShowQuiz(true);
+                    }}
+                    className="bg-blue-600 hover:bg-blue-700"
+                  >
+                    Try Again
+                  </Button>
+                </div>
               </div>
             </DialogContent>
           </Dialog>
@@ -737,63 +847,68 @@ function ModuleCard({ module, progress, isUnlocked, isCompleted, onStart, index 
       transition={{ delay: index * 0.1 }}
     >
       <Card className={`${
-        isCompleted ? 'border-green-500 border-2 bg-green-50' :
-        !isUnlocked ? 'border-gray-200 bg-gray-50' : 'bg-white'
-      } hover:shadow-lg transition-all`}>
+        isCompleted ? 'border-green-500 border-2 bg-green-50/50' :
+        !isUnlocked ? 'border-gray-200 bg-gray-50/50 opacity-75' : 'bg-white border-blue-200'
+      } hover:shadow-xl transition-all`}>
         <CardContent className="p-6">
           <div className="flex items-start gap-4">
-            <div className={`w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 ${
-              isCompleted ? 'bg-green-500' :
-              !isUnlocked ? 'bg-gray-300' : 'bg-blue-500'
+            <div className={`w-14 h-14 rounded-xl flex items-center justify-center flex-shrink-0 shadow-lg ${
+              isCompleted ? 'bg-gradient-to-br from-green-500 to-green-600' :
+              !isUnlocked ? 'bg-gray-300' : 'bg-gradient-to-br from-blue-500 to-blue-600'
             }`}>
               {isCompleted ? (
-                <CheckCircle className="w-6 h-6 text-white" />
+                <CheckCircle className="w-7 h-7 text-white" />
               ) : !isUnlocked ? (
-                <Lock className="w-6 h-6 text-white" />
+                <Lock className="w-7 h-7 text-white" />
               ) : (
-                <Play className="w-6 h-6 text-white" />
+                <Play className="w-7 h-7 text-white" />
               )}
             </div>
 
             <div className="flex-1">
-              <h3 className="font-bold text-gray-900 mb-1">{module.title}</h3>
-              <p className="text-sm text-gray-600 mb-3">{module.description}</p>
+              <h3 className="font-bold text-gray-900 text-lg mb-2">{module.title}</h3>
+              <p className="text-sm text-gray-600 mb-4 leading-relaxed">{module.description}</p>
 
-              <div className="flex items-center gap-4 text-xs text-gray-500 mb-3">
+              <div className="flex flex-wrap items-center gap-3 text-xs mb-4">
                 {module.duration_minutes && (
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-1 text-gray-500">
                     <Clock className="w-3 h-3" />
                     {module.duration_minutes} min
                   </div>
                 )}
                 {module.content_type && (
-                  <Badge variant="outline" className="text-xs">{module.content_type}</Badge>
+                  <Badge variant="outline" className="text-xs capitalize">
+                    {module.content_type.replace('_', ' ')}
+                  </Badge>
                 )}
-                {progress?.quiz_score && (
-                  <span className="text-green-600 font-medium">Score: {progress.quiz_score}%</span>
+                {progress?.quiz_score !== undefined && (
+                  <Badge className={progress.quiz_score >= 80 ? 'bg-green-100 text-green-800' : 'bg-amber-100 text-amber-800'}>
+                    Score: {progress.quiz_score}%
+                  </Badge>
                 )}
               </div>
 
               {isUnlocked && !isCompleted && (
                 <Button
                   onClick={onStart}
-                  size="sm"
-                  className="w-full bg-blue-600 hover:bg-blue-700"
+                  className="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800"
                 >
                   <Play className="w-4 h-4 mr-2" />
-                  {progress?.status === 'in_progress' ? 'Continue' : 'Start Module'}
+                  {progress?.status === 'in_progress' ? 'Continue Learning' : 'Start Module'}
                 </Button>
               )}
 
               {isCompleted && progress?.completed_at && (
-                <div className="text-sm text-green-600 font-medium">
-                  ✓ Completed {format(new Date(progress.completed_at), 'MMM d, yyyy')}
+                <div className="flex items-center gap-2 text-sm text-green-700 bg-green-50 px-3 py-2 rounded-lg font-medium">
+                  <CheckCircle className="w-4 h-4" />
+                  Completed {format(new Date(progress.completed_at), 'MMM d, yyyy')}
                 </div>
               )}
 
               {!isUnlocked && (
-                <div className="text-sm text-gray-500 italic">
-                  🔒 Complete prerequisites to unlock
+                <div className="flex items-center gap-2 text-sm text-gray-500 bg-gray-100 px-3 py-2 rounded-lg">
+                  <Lock className="w-4 h-4" />
+                  Complete prerequisites to unlock
                 </div>
               )}
             </div>
