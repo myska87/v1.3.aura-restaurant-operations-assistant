@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -56,6 +57,11 @@ export default function MenuItemView() {
   const [aiPrompt, setAiPrompt] = useState('');
   const [aiMode, setAiMode] = useState('generate'); // generate, enhance, add_step
   const [aiGenerating, setAiGenerating] = useState(false);
+  const [isEditingPrice, setIsEditingPrice] = useState(false);
+  const [editedPrice, setEditedPrice] = useState('');
+  const [isEditingIngredients, setIsEditingIngredients] = useState(false);
+  const [selectedIngredient, setSelectedIngredient] = useState('');
+  const [ingredientQty, setIngredientQty] = useState('');
   const quillRef = useRef(null);
 
   useEffect(() => {
@@ -96,6 +102,18 @@ export default function MenuItemView() {
   const { data: ingredients = [] } = useQuery({
     queryKey: ['ingredients'],
     queryFn: () => base44.entities.Ingredient.list(),
+  });
+
+  const updateMenuItemMutation = useMutation({
+    mutationFn: async (data) => {
+      return await base44.entities.MenuItem.update(item.id, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['menuItem'] });
+      setIsEditingPrice(false);
+      setIsEditingIngredients(false);
+      alert('✅ Menu item updated successfully!');
+    },
   });
 
   const linkSOPMutation = useMutation({
@@ -141,6 +159,85 @@ export default function MenuItemView() {
       alert('✅ Instructions updated successfully!');
     },
   });
+
+  const handleSavePrice = () => {
+    const newPrice = parseFloat(editedPrice);
+    if (isNaN(newPrice) || newPrice <= 0) {
+      alert('Please enter a valid price');
+      return;
+    }
+
+    const totalCost = item.recipe?.reduce((sum, r) => sum + (parseFloat(r.cost) || 0), 0) || 0;
+    const profitMargin = newPrice - totalCost;
+    const foodCostPercentage = newPrice > 0 ? (totalCost / newPrice) * 100 : 0;
+
+    updateMenuItemMutation.mutate({
+      sell_price: newPrice,
+      profit_margin: profitMargin,
+      food_cost_percentage: foodCostPercentage,
+    });
+  };
+
+  const handleAddIngredient = () => {
+    const quantity = parseFloat(ingredientQty);
+    if (!selectedIngredient || isNaN(quantity) || quantity <= 0) {
+      alert('Please select an ingredient and enter a valid quantity');
+      return;
+    }
+
+    const ingredient = ingredients.find(i => i.id === selectedIngredient);
+    if (!ingredient) return;
+
+    const existingRecipe = item.recipe || [];
+    if (existingRecipe.some(r => r.ingredient_id === ingredient.id)) {
+      alert('This ingredient is already in the recipe');
+      return;
+    }
+
+    const costPerUnit = parseFloat(ingredient.unit_cost) || 0;
+    const cost = costPerUnit * quantity;
+
+    const newRecipeItem = {
+      ingredient_id: ingredient.id,
+      ingredient_name: ingredient.name,
+      quantity: quantity,
+      unit: ingredient.unit,
+      cost: cost,
+    };
+
+    const updatedRecipe = [...existingRecipe, newRecipeItem];
+    const totalCost = updatedRecipe.reduce((sum, r) => sum + (parseFloat(r.cost) || 0), 0);
+    const sellPrice = parseFloat(item.sell_price) || 0;
+    const profitMargin = sellPrice - totalCost;
+    const foodCostPercentage = sellPrice > 0 ? (totalCost / sellPrice) * 100 : 0;
+
+    updateMenuItemMutation.mutate({
+      recipe: updatedRecipe,
+      total_cost: totalCost,
+      profit_margin: profitMargin,
+      food_cost_percentage: foodCostPercentage,
+    });
+
+    setSelectedIngredient('');
+    setIngredientQty('');
+  };
+
+  const handleRemoveIngredient = (ingredientId) => {
+    if (!confirm('Remove this ingredient from the recipe?')) return;
+
+    const updatedRecipe = (item.recipe || []).filter(r => r.ingredient_id !== ingredientId);
+    const totalCost = updatedRecipe.reduce((sum, r) => sum + (parseFloat(r.cost) || 0), 0);
+    const sellPrice = parseFloat(item.sell_price) || 0;
+    const profitMargin = sellPrice - totalCost;
+    const foodCostPercentage = sellPrice > 0 ? (totalCost / sellPrice) * 100 : 0;
+
+    updateMenuItemMutation.mutate({
+      recipe: updatedRecipe,
+      total_cost: totalCost,
+      profit_margin: profitMargin,
+      food_cost_percentage: foodCostPercentage,
+    });
+  };
 
   const handleLinkSOP = () => {
     if (!selectedSOPId) {
@@ -341,7 +438,7 @@ Add the new step in the appropriate place with proper formatting. Return the com
           </style>
         </head>
         <body>
-          <h1>${item.name}</h1>
+          <h1>${item.name} - Cooking Instructions</h1>
           
           <div class="header-info">
             <div>
@@ -473,9 +570,53 @@ Add the new step in the appropriate place with proper formatting. Return the com
               </div>
             )}
             <div className="absolute top-4 right-4">
-              <Badge className="bg-green-600 text-white text-lg px-4 py-2">
-                £{formatPrice(item.sell_price)}
-              </Badge>
+              {isEditingPrice ? (
+                <div className="bg-white rounded-lg shadow-lg p-3 flex items-center gap-2">
+                  <span className="text-sm font-medium text-gray-700">£</span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={editedPrice}
+                    onChange={(e) => setEditedPrice(e.target.value)}
+                    className="w-24 px-2 py-1 border rounded"
+                    autoFocus
+                  />
+                  <Button
+                    size="sm"
+                    onClick={handleSavePrice}
+                    disabled={updateMenuItemMutation.isPending}
+                    className="bg-green-600 hover:bg-green-700"
+                  >
+                    <Save className="w-4 h-4" />
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setIsEditingPrice(false)}
+                  >
+                    <X className="w-4 h-4" />
+                  </Button>
+                </div>
+              ) : (
+                <div className="flex gap-2">
+                  <Badge className="bg-green-600 text-white text-lg px-4 py-2">
+                    £{formatPrice(item.sell_price)}
+                  </Badge>
+                  {(isManager || isChef) && (
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      className="bg-white/90 hover:bg-white"
+                      onClick={() => {
+                        setEditedPrice(item.sell_price?.toString() || '');
+                        setIsEditingPrice(true);
+                      }}
+                    >
+                      <Edit className="w-4 h-4" />
+                    </Button>
+                  )}
+                </div>
+              )}
             </div>
           </div>
           <CardContent className="p-6">
@@ -628,17 +769,86 @@ Add the new step in the appropriate place with proper formatting. Return the com
         {item.recipe && item.recipe.length > 0 && (
           <Card className="mb-6">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Package className="w-5 h-5 text-purple-600" />
-                Recipe Ingredients
-              </CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2">
+                  <Package className="w-5 h-5 text-purple-600" />
+                  Recipe Ingredients
+                </CardTitle>
+                {(isManager || isChef) && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setIsEditingIngredients(!isEditingIngredients)}
+                  >
+                    {isEditingIngredients ? (
+                      <>
+                        <X className="w-4 h-4 mr-2" />
+                        Done
+                      </>
+                    ) : (
+                      <>
+                        <Edit className="w-4 h-4 mr-2" />
+                        Edit Recipe
+                      </>
+                    )}
+                  </Button>
+                )}
+              </div>
             </CardHeader>
             <CardContent>
+              {isEditingIngredients && (
+                <Card className="bg-gradient-to-r from-purple-50 to-indigo-50 border border-purple-200 mb-4">
+                  <CardContent className="p-4 space-y-3">
+                    <h4 className="font-semibold text-purple-900 flex items-center gap-2">
+                      <Plus className="w-4 h-4" />
+                      Add Ingredient to Recipe
+                    </h4>
+                    <div className="grid grid-cols-3 gap-3">
+                      <div className="col-span-2">
+                        <Select
+                          value={selectedIngredient}
+                          onValueChange={setSelectedIngredient}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select ingredient" />
+                          </SelectTrigger>
+                          <SelectContent className="max-h-[200px]">
+                            {ingredients.map(ing => (
+                              <SelectItem key={ing.id} value={ing.id}>
+                                {ing.name} ({ing.unit}) - £{formatPrice(ing.unit_cost)}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <input
+                        type="number"
+                        step="0.01"
+                        placeholder="Quantity"
+                        value={ingredientQty}
+                        onChange={(e) => setIngredientQty(e.target.value)}
+                        className="px-3 py-2 border rounded-lg"
+                      />
+                    </div>
+                    <Button 
+                      type="button" 
+                      onClick={handleAddIngredient} 
+                      className="w-full bg-purple-600 hover:bg-purple-700"
+                      size="sm"
+                      disabled={!selectedIngredient || !ingredientQty || updateMenuItemMutation.isPending}
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      Add to Recipe
+                    </Button>
+                  </CardContent>
+                </Card>
+              )}
+
               <div className="space-y-2">
                 {item.recipe.map((recipeItem, idx) => {
                   const ingredient = ingredients.find(ing => ing.id === recipeItem.ingredient_id);
                   return (
-                    <div key={idx} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <div key={idx} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
                       <div className="flex items-center gap-3">
                         <Package className="w-5 h-5 text-gray-400" />
                         <div>
@@ -650,16 +860,37 @@ Add the new step in the appropriate place with proper formatting. Return the com
                           )}
                         </div>
                       </div>
-                      <div className="text-right">
-                        <p className="font-semibold text-gray-900">
-                          {safeNumber(recipeItem.quantity).toFixed(2)} {recipeItem.unit}
-                        </p>
-                        <p className="text-sm text-gray-600">£{formatPrice(recipeItem.cost)}</p>
+                      <div className="flex items-center gap-4">
+                        <div className="text-right">
+                          <p className="font-semibold text-gray-900">
+                            {safeNumber(recipeItem.quantity).toFixed(2)} {recipeItem.unit}
+                          </p>
+                          <p className="text-sm text-gray-600">£{formatPrice(recipeItem.cost)}</p>
+                        </div>
+                        {isEditingIngredients && (isManager || isChef) && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleRemoveIngredient(recipeItem.ingredient_id)}
+                            disabled={updateMenuItemMutation.isPending}
+                            className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                          >
+                            <X className="w-4 h-4" />
+                          </Button>
+                        )}
                       </div>
                     </div>
                   );
                 })}
               </div>
+
+              {isEditingIngredients && (
+                <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                  <p className="text-xs text-amber-800">
+                    💡 <strong>Note:</strong> Adding or removing ingredients will automatically recalculate the total cost, profit margin, and food cost percentage.
+                  </p>
+                </div>
+              )}
             </CardContent>
           </Card>
         )}
