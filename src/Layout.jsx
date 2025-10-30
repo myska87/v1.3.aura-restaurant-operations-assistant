@@ -24,6 +24,7 @@ import {
   Mic,
   Moon,
   Sun,
+  GraduationCap, // Added GraduationCap import
 } from "lucide-react";
 import {
   CommandDialog,
@@ -134,6 +135,8 @@ function VoiceSearch({ onClose, navigate }) {
       'staff': 'StaffDashboard',
       'hygiene': 'HygieneDashboard',
       'settings': 'SettingsDashboard',
+      'training': 'TrainingAcademy', // Added for voice search
+      'academy': 'TrainingAcademy', // Added for voice search
     };
 
     for (const [keyword, page] of Object.entries(navMap)) {
@@ -216,6 +219,7 @@ const getRoleNavigation = (user, impersonatedRole = null) => {
       { title: "Documents & Forms", url: createPageUrl("DocumentsFormsHub"), icon: FileText },
       { title: "Operations", url: createPageUrl("OperationsDashboard"), icon: ClipboardCheck },
       { title: "Staff", url: createPageUrl("StaffDashboard"), icon: Users },
+      { title: "Training Academy", url: createPageUrl("TrainingAcademy"), icon: GraduationCap },
       { title: "Inventory", url: createPageUrl("InventoryDashboard"), icon: Package },
       { title: "Reports", url: createPageUrl("Reports"), icon: BarChart3 },
       { title: "Settings", url: createPageUrl("SettingsDashboard"), icon: Settings },
@@ -226,6 +230,7 @@ const getRoleNavigation = (user, impersonatedRole = null) => {
     return [
       { title: "Dashboard", url: createPageUrl("Dashboard"), icon: LayoutDashboard },
       { title: "Menu", url: createPageUrl("Menu"), icon: Utensils },
+      { title: "Training Academy", url: createPageUrl("TrainingAcademy"), icon: GraduationCap },
       { title: "SOPs", url: createPageUrl("SOPDashboardHub"), icon: BookOpen },
       { title: "Inventory", url: createPageUrl("InventoryDashboard"), icon: Package },
       { title: "Quality", url: createPageUrl("QualityDashboard"), icon: Star },
@@ -237,11 +242,11 @@ const getRoleNavigation = (user, impersonatedRole = null) => {
     return [
       { title: "Dashboard", url: createPageUrl("Dashboard"), icon: LayoutDashboard },
       { title: "Menu", url: createPageUrl("Menu"), icon: Utensils },
+      { title: "Training Academy", url: createPageUrl("TrainingAcademy"), icon: GraduationCap },
       { title: "My Shifts", url: createPageUrl("MyShifts"), icon: Calendar },
       { title: "My Tasks", url: createPageUrl("MyTasks"), icon: ClipboardCheck },
       { title: "Team Chat", url: createPageUrl("TeamChat"), icon: MessageCircle },
       { title: "Documents & Forms", url: createPageUrl("DocumentsFormsHub"), icon: FileText },
-      { title: "Training", url: createPageUrl("OnboardingTraining"), icon: BookOpen },
     ];
   }
 
@@ -250,6 +255,7 @@ const getRoleNavigation = (user, impersonatedRole = null) => {
       { title: "Dashboard", url: createPageUrl("Dashboard"), icon: LayoutDashboard },
       { title: "My Shifts", url: createPageUrl("MyShifts"), icon: Calendar },
       { title: "My Tasks", url: createPageUrl("MyTasks"), icon: ClipboardCheck },
+      { title: "Training Academy", url: createPageUrl("TrainingAcademy"), icon: GraduationCap },
       { title: "Quality Checks", url: createPageUrl("QuickQualityCheck"), icon: Star },
       { title: "Maintenance", url: createPageUrl("Maintenance"), icon: Settings },
       { title: "Team Chat", url: createPageUrl("TeamChat"), icon: MessageCircle },
@@ -259,6 +265,7 @@ const getRoleNavigation = (user, impersonatedRole = null) => {
   return [
     { title: "Dashboard", url: createPageUrl("Dashboard"), icon: LayoutDashboard },
     { title: "Menu", url: createPageUrl("Menu"), icon: Utensils },
+    { title: "Training Academy", url: createPageUrl("TrainingAcademy"), icon: GraduationCap },
     { title: "My Shifts", url: createPageUrl("MyShifts"), icon: Calendar },
     { title: "My Tasks", url: createPageUrl("MyTasks"), icon: ClipboardCheck },
     { title: "Team Chat", url: createPageUrl("TeamChat"), icon: MessageCircle },
@@ -289,6 +296,7 @@ const ALL_PAGES = [
   { name: "Team Chat", url: createPageUrl("TeamChat"), keywords: "messages communication", category: "Communication" },
   { name: "Announcements", url: createPageUrl("Announcements"), keywords: "news updates notices", category: "Communication" },
   { name: "Training", url: createPageUrl("OnboardingTraining"), keywords: "learning courses onboarding", category: "Training" },
+  { name: "Training Academy", url: createPageUrl("TrainingAcademy"), keywords: "education courses learning development academy", category: "Training" }, // Added Training Academy
   { name: "Reports", url: createPageUrl("Reports"), keywords: "analytics statistics data", category: "Reports" },
   { name: "Settings", url: createPageUrl("SettingsDashboard"), keywords: "configuration admin", category: "Settings" },
 ];

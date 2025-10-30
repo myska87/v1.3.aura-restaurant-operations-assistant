@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -14,6 +14,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Input } from '@/components/ui/input';
 import {
   GraduationCap,
   Trophy,
@@ -34,7 +42,9 @@ import {
   BookOpen,
   MessageCircle,
   Users,
-  RefreshCw, // Added RefreshCw icon
+  RefreshCw,
+  Plus, // Added Plus icon
+  Pencil, // Added Pencil icon
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
@@ -62,6 +72,24 @@ export default function TrainingAcademy() {
   const [showResetDialog, setShowResetDialog] = useState(false);
   // Initializing randomQuote from the MOTIVATIONAL_QUOTES array
   const [randomQuote] = useState(MOTIVATIONAL_QUOTES[Math.floor(Math.random() * MOTIVATIONAL_QUOTES.length)]);
+
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [editingModule, setEditingModule] = useState(null);
+  const [moduleForm, setModuleForm] = useState({
+    title: '',
+    category: 'culture',
+    level: null,
+    description: '',
+    content_type: 'video',
+    video_url: '',
+    content_text: '',
+    duration_minutes: 5,
+    quiz_questions: [],
+    passing_score: 80,
+    is_mandatory: true,
+    order_sequence: 1,
+    prerequisites: [],
+  });
 
   const { data: user } = useQuery({
     queryKey: ['currentUser'],
@@ -136,6 +164,108 @@ export default function TrainingAcademy() {
       alert('Failed to reset training progress. Please try again.');
     }
   });
+
+  const createModuleMutation = useMutation({
+    mutationFn: (data) => base44.entities.TrainingModule.create(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['trainingModules'] });
+      setShowEditDialog(false);
+      setEditingModule(null);
+      resetModuleForm();
+    },
+  });
+
+  const updateModuleMutation = useMutation({
+    mutationFn: ({ id, data }) => base44.entities.TrainingModule.update(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['trainingModules'] });
+      setShowEditDialog(false);
+      setEditingModule(null);
+      resetModuleForm();
+    },
+  });
+
+  const deleteModuleMutation = useMutation({
+    mutationFn: (id) => base44.entities.TrainingModule.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['trainingModules'] });
+    },
+  });
+
+  const resetModuleForm = useCallback(() => {
+    setModuleForm({
+      title: '',
+      category: 'culture',
+      level: null,
+      description: '',
+      content_type: 'video',
+      video_url: '',
+      content_text: '',
+      duration_minutes: 5,
+      quiz_questions: [],
+      passing_score: 80,
+      is_mandatory: true,
+      order_sequence: trainingModules.length > 0 ? Math.max(...trainingModules.map(m => m.order_sequence)) + 1 : 1,
+      prerequisites: [],
+    });
+  }, [trainingModules]);
+
+  const handleEditModule = useCallback((module) => {
+    setEditingModule(module);
+    setModuleForm({
+      title: module.title,
+      category: module.category,
+      level: module.level || null,
+      description: module.description,
+      content_type: module.content_type,
+      video_url: module.video_url || '',
+      content_text: module.content_text || '',
+      duration_minutes: module.duration_minutes || 5,
+      quiz_questions: module.quiz_questions || [],
+      passing_score: module.passing_score || 80,
+      is_mandatory: module.is_mandatory ?? true,
+      order_sequence: module.order_sequence || 1,
+      prerequisites: module.prerequisites || [],
+    });
+    setShowEditDialog(true);
+  }, []);
+
+  const handleSaveModule = () => {
+    if (!moduleForm.title.trim()) {
+      alert('Please enter a module title');
+      return;
+    }
+
+    // Ensure level is null for 'culture' or 'onboarding' if it was accidentally set
+    const finalForm = { ...moduleForm };
+    if (['culture', 'onboarding'].includes(finalForm.category)) {
+      finalForm.level = null;
+    }
+
+    if (editingModule) {
+      updateModuleMutation.mutate({ id: editingModule.id, data: finalForm });
+    } else {
+      createModuleMutation.mutate(finalForm);
+    }
+  };
+
+  const handleDeleteModule = (module) => {
+    if (confirm(`Delete "${module.title}"? This cannot be undone.`)) {
+      deleteModuleMutation.mutate(module.id);
+    }
+  };
+
+  useEffect(() => {
+    const handleEditRequest = (event) => {
+      if (event.detail) {
+        handleEditModule(event.detail);
+      }
+    };
+    window.addEventListener('editModule', handleEditRequest);
+    return () => {
+      window.removeEventListener('editModule', handleEditRequest);
+    };
+  }, [handleEditModule]);
 
   // New confetti trigger function
   const triggerConfetti = () => {
@@ -388,12 +518,26 @@ export default function TrainingAcademy() {
             </Button>
           </Link>
           {isManager && (
-            <Link to={createPageUrl('ManagerTrainingDashboard')}>
-              <Button variant="outline" size="sm">
-                <Users className="w-4 h-4 mr-2" />
-                Manager View
+            <>
+              <Link to={createPageUrl('ManagerTrainingDashboard')}>
+                <Button variant="outline" size="sm">
+                  <Users className="w-4 h-4 mr-2" />
+                  Manager View
+                </Button>
+              </Link>
+              <Button
+                onClick={() => {
+                  setEditingModule(null);
+                  resetModuleForm();
+                  setShowEditDialog(true);
+                }}
+                size="sm"
+                className="bg-blue-600 hover:bg-blue-700"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Create Module
               </Button>
-            </Link>
+            </>
           )}
           <Link to={createPageUrl('TrainingMentor')}>
             <Button variant="outline" size="sm" className="bg-purple-50">
@@ -402,7 +546,6 @@ export default function TrainingAcademy() {
             </Button>
           </Link>
           
-          {/* Reset Button - Available to ALL users */}
           <Button
             variant="outline"
             size="sm"
@@ -410,8 +553,8 @@ export default function TrainingAcademy() {
             className="ml-auto bg-orange-50 border-orange-300 hover:bg-orange-100 text-orange-700"
             disabled={myTrainingProgress.length === 0}
           >
-            <RefreshCw className="w-4 h-4 mr-2" /> {/* Changed icon to RefreshCw */}
-            Reset & Retake {/* Changed text */}
+            <RefreshCw className="w-4 h-4 mr-2" />
+            Reset & Retake
           </Button>
         </div>
 
@@ -564,6 +707,7 @@ export default function TrainingAcademy() {
                     isCompleted={getModuleProgress(module.id)?.status === 'completed'}
                     onStart={() => handleStartModule(module)}
                     index={index}
+                    isManager={isManager}
                   />
                 ))}
               </div>
@@ -612,6 +756,7 @@ export default function TrainingAcademy() {
                     isCompleted={getModuleProgress(module.id)?.status === 'completed'}
                     onStart={() => handleStartModule(module)}
                     index={index}
+                    isManager={isManager}
                   />
                 ))}
               </div>
@@ -660,6 +805,7 @@ export default function TrainingAcademy() {
                     isCompleted={getModuleProgress(module.id)?.status === 'completed'}
                     onStart={() => handleStartModule(module)}
                     index={index}
+                    isManager={isManager}
                   />
                 ))}
               </div>
@@ -708,6 +854,7 @@ export default function TrainingAcademy() {
                     isCompleted={getModuleProgress(module.id)?.status === 'completed'}
                     onStart={() => handleStartModule(module)}
                     index={index}
+                    isManager={isManager}
                   />
                 ))}
               </div>
@@ -863,6 +1010,148 @@ export default function TrainingAcademy() {
                 )}
               </div>
             )}
+          </DialogContent>
+        </Dialog>
+
+        {/* Module Edit Dialog */}
+        <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="text-2xl">
+                {editingModule ? 'Edit Training Module' : 'Create New Training Module'}
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 mt-4">
+              <div className="grid md:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-semibold mb-2 block">Module Title *</label>
+                  <Input
+                    value={moduleForm.title}
+                    onChange={(e) => setModuleForm({...moduleForm, title: e.target.value})}
+                    placeholder="e.g., The Perfect Karak Chai"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-sm font-semibold mb-2 block">Category *</label>
+                  <Select value={moduleForm.category} onValueChange={(v) => setModuleForm({...moduleForm, category: v})}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select Category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="culture">Culture & Values</SelectItem>
+                      <SelectItem value="onboarding">Onboarding</SelectItem>
+                      <SelectItem value="hygiene">Hygiene & Safety</SelectItem>
+                      <SelectItem value="customer_service">Customer Service</SelectItem>
+                      <SelectItem value="product_knowledge">Product Knowledge</SelectItem>
+                      <SelectItem value="compliance">Compliance</SelectItem>
+                      <SelectItem value="equipment_use">Equipment Use</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="grid md:grid-cols-3 gap-4">
+                <div>
+                  <label className="text-sm font-semibold mb-2 block">Level (optional)</label>
+                  <Select 
+                    value={moduleForm.level?.toString() || 'none'} 
+                    onValueChange={(v) => setModuleForm({...moduleForm, level: v === 'none' ? null : parseInt(v)})}
+                    disabled={['culture', 'onboarding'].includes(moduleForm.category)} // Disable level for culture/onboarding
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select Level" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">N/A (Culture/Onboarding)</SelectItem>
+                      <SelectItem value="1">Level 1 - Foundation</SelectItem>
+                      <SelectItem value="2">Level 2 - Excellence</SelectItem>
+                      <SelectItem value="3">Level 3 - Leadership</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <label className="text-sm font-semibold mb-2 block">Duration (minutes)</label>
+                  <Input
+                    type="number"
+                    value={moduleForm.duration_minutes}
+                    onChange={(e) => setModuleForm({...moduleForm, duration_minutes: parseInt(e.target.value) || 0})}
+                  />
+                </div>
+
+                <div>
+                  <label className="text-sm font-semibold mb-2 block">Passing Score (%)</label>
+                  <Input
+                    type="number"
+                    value={moduleForm.passing_score}
+                    onChange={(e) => setModuleForm({...moduleForm, passing_score: parseInt(e.target.value) || 0})}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-sm font-semibold mb-2 block">Description *</label>
+                <Textarea
+                  value={moduleForm.description}
+                  onChange={(e) => setModuleForm({...moduleForm, description: e.target.value})}
+                  placeholder="What will learners gain from this module?"
+                  rows={2}
+                />
+              </div>
+
+              <div>
+                <label className="text-sm font-semibold mb-2 block">Video URL (YouTube)</label>
+                <Input
+                  value={moduleForm.video_url}
+                  onChange={(e) => setModuleForm({...moduleForm, video_url: e.target.value})}
+                  placeholder="https://www.youtube.com/watch?v=..."
+                />
+              </div>
+
+              <div>
+                <label className="text-sm font-semibold mb-2 block">Course Material (Text)</label>
+                <Textarea
+                  value={moduleForm.content_text}
+                  onChange={(e) => setModuleForm({...moduleForm, content_text: e.target.value})}
+                  placeholder="Detailed course content, instructions, tips..."
+                  rows={6}
+                />
+              </div>
+
+              <div className="flex items-center gap-4">
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={moduleForm.is_mandatory}
+                    onChange={(e) => setModuleForm({...moduleForm, is_mandatory: e.target.checked})}
+                    className="w-4 h-4"
+                  />
+                  <span className="text-sm font-semibold">Mandatory for all staff</span>
+                </label>
+              </div>
+
+              <Card className="bg-blue-50 border-blue-200">
+                <CardContent className="p-4">
+                  <p className="text-sm text-blue-900">
+                    💡 <strong>Tip:</strong> Add quiz questions after creating the module by editing it. Keep modules short (5-15 min) for better engagement.
+                  </p>
+                </CardContent>
+              </Card>
+
+              <div className="flex justify-end gap-3 pt-4 border-t">
+                <Button variant="outline" onClick={() => setShowEditDialog(false)}>
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleSaveModule}
+                  disabled={createModuleMutation.isPending || updateModuleMutation.isPending}
+                  className="bg-emerald-600 hover:bg-emerald-700"
+                >
+                  {editingModule ? 'Update Module' : 'Create Module'}
+                </Button>
+              </div>
+            </div>
           </DialogContent>
         </Dialog>
 
@@ -1109,7 +1398,9 @@ Example:
   );
 }
 
-function ModuleCard({ module, progress, isUnlocked, isCompleted, onStart, index }) {
+function ModuleCard({ module, progress, isUnlocked, isCompleted, onStart, index, isManager }) {
+  // `showMenu` was in the outline but unused. Removing it for cleanliness.
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -1120,7 +1411,24 @@ function ModuleCard({ module, progress, isUnlocked, isCompleted, onStart, index 
         isCompleted ? 'border-green-500 border-2 bg-gradient-to-br from-green-50 to-emerald-50' : // Updated styles for completed
         !isUnlocked ? 'border-gray-300 bg-gray-50/50 opacity-75' : // Updated styles for unlocked
         'bg-white border-2 border-blue-200' // Updated border-2
-      } hover:shadow-xl transition-all`}>
+      } hover:shadow-xl transition-all relative`}>
+        
+        {isManager && (
+          <div className="absolute top-3 right-3 z-10">
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={(e) => {
+                e.stopPropagation(); // Prevent card click from triggering onStart
+                window.dispatchEvent(new CustomEvent('editModule', { detail: module }))
+              }}
+              className="text-gray-400 hover:text-blue-600"
+            >
+              <Pencil className="w-4 h-4" />
+            </Button>
+          </div>
+        )}
+
         <CardContent className="p-6">
           <div className="flex items-start gap-4">
             <div className={`w-14 h-14 rounded-xl flex items-center justify-center flex-shrink-0 shadow-lg ${
