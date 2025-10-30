@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -48,6 +49,7 @@ export default function TrainingAcademy() {
   const [quizResults, setQuizResults] = useState(null);
   const [reflection, setReflection] = useState('');
   const [showReflection, setShowReflection] = useState(false);
+  const [showResetDialog, setShowResetDialog] = useState(false);
 
   const { data: user } = useQuery({
     queryKey: ['currentUser'],
@@ -96,6 +98,26 @@ export default function TrainingAcademy() {
 
   const createEventMutation = useMutation({
     mutationFn: (data) => base44.entities.Event.create(data),
+  });
+
+  const resetProgressMutation = useMutation({
+    mutationFn: async () => {
+      // Delete all training progress records for this user (but keep certificates)
+      const progressRecords = myTrainingProgress.filter(p => p.staff_email === user?.email);
+      const progressIds = progressRecords.map(p => p.id);
+      
+      // Use Promise.all to await all delete operations
+      await Promise.all(progressIds.map(id => base44.entities.TrainingRecord.delete(id)));
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['trainingProgress'] });
+      setShowResetDialog(false);
+      alert('✅ Training progress reset! Your certificates are saved. You can now retake all modules.');
+    },
+    onError: (error) => {
+      console.error('Error resetting progress:', error);
+      alert('Failed to reset training progress. Please try again.');
+    }
   });
 
   const handleStartModule = (module) => {
@@ -213,6 +235,14 @@ export default function TrainingAcademy() {
     await queryClient.invalidateQueries({ queryKey: ['certificates'] });
   };
 
+  const handleResetProgress = () => {
+    setShowResetDialog(true);
+  };
+
+  const confirmReset = () => {
+    resetProgressMutation.mutate();
+  };
+
   const getModuleProgress = (moduleId) => {
     return myTrainingProgress.find(p => p.module_id === moduleId);
   };
@@ -265,7 +295,7 @@ export default function TrainingAcademy() {
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-purple-50 to-slate-50 p-6 md:p-8">
       <div className="max-w-7xl mx-auto">
         
-        <div className="flex gap-3 mb-6">
+        <div className="flex gap-3 mb-6 flex-wrap items-center">
           <Link to={createPageUrl('TrainingWelcome')}>
             <Button variant="outline" size="sm">
               <ArrowLeft className="w-4 h-4 mr-2" />
@@ -280,7 +310,7 @@ export default function TrainingAcademy() {
           </Link>
           {isManager && (
             <Link to={createPageUrl('ManagerTrainingDashboard')}>
-              <Button variant="outline" size="sm" className="ml-auto">
+              <Button variant="outline" size="sm">
                 <Users className="w-4 h-4 mr-2" />
                 Manager View
               </Button>
@@ -292,6 +322,18 @@ export default function TrainingAcademy() {
               AI Mentor
             </Button>
           </Link>
+          
+          {/* Reset Button - Available to ALL users */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleResetProgress}
+            className="ml-auto bg-orange-50 border-orange-300 hover:bg-orange-100 text-orange-700"
+            disabled={myTrainingProgress.length === 0}
+          >
+            <Award className="w-4 h-4 mr-2" />
+            Reset & Retake Training
+          </Button>
         </div>
 
         {/* Hero Header */}
@@ -893,6 +935,67 @@ Example:
             </DialogContent>
           </Dialog>
         )}
+
+        {/* Reset Confirmation Dialog */}
+        <Dialog open={showResetDialog} onOpenChange={setShowResetDialog}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="text-2xl flex items-center gap-2">
+                <Award className="w-6 h-6 text-orange-600" />
+                Reset Training Progress?
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 mt-4">
+              <Card className="bg-blue-50 border-blue-200">
+                <CardContent className="p-4">
+                  <p className="text-sm text-blue-900">
+                    <strong>✅ What will be saved:</strong>
+                  </p>
+                  <ul className="text-sm text-blue-800 mt-2 space-y-1">
+                    <li>• All your certificates ({myCertificates.length} total)</li>
+                    <li>• Your performance points</li>
+                    <li>• Your badges and achievements</li>
+                  </ul>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-amber-50 border-amber-200">
+                <CardContent className="p-4">
+                  <p className="text-sm text-amber-900">
+                    <strong>🔄 What will be reset:</strong>
+                  </p>
+                  <ul className="text-sm text-amber-800 mt-2 space-y-1">
+                    <li>• Module completion status (you can retake all modules)</li>
+                    <li>• Quiz scores (start fresh)</li>
+                    <li>• Progress percentages</li>
+                  </ul>
+                </CardContent>
+              </Card>
+
+              <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                <p className="text-sm text-purple-900 text-center">
+                  💡 <strong>Perfect for:</strong> Refreshing your knowledge, improving quiz scores, or retraining on updated content
+                </p>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-4">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowResetDialog(false)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={confirmReset}
+                  disabled={resetProgressMutation.isPending}
+                  className="bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600"
+                >
+                  {resetProgressMutation.isPending ? 'Resetting...' : 'Reset & Start Fresh'}
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );
@@ -941,7 +1044,7 @@ function ModuleCard({ module, progress, isUnlocked, isCompleted, onStart, index 
                   </Badge>
                 )}
                 {progress?.quiz_score !== undefined && (
-                  <Badge className={progress.quiz_score >= 80 ? 'bg-green-100 text-green-800' : 'bg-amber-100 text-amber-800'}>
+                  <Badge className={progress.quiz_score >= (module.passing_score || 80) ? 'bg-green-100 text-green-800' : 'bg-amber-100 text-amber-800'}>
                     Score: {progress.quiz_score}%
                   </Badge>
                 )}
