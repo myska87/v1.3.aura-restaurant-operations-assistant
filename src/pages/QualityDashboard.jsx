@@ -1,4 +1,3 @@
-
 import React, { useEffect } from 'react';
 import { Star, Zap, BarChart3, FileText } from 'lucide-react';
 import DashboardTabsLayout from '../components/DashboardTabsLayout';
@@ -13,168 +12,109 @@ import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import EmptyState from '../components/common/EmptyState';
-import { Button } from '@/components/ui/button'; // Assuming Button is imported if used in EmptyState action
 
-function QualityOverview() {
+const QualityMetrics = () => {
   const { data: records = [], isLoading } = useQuery({
     queryKey: ['qualityRecords'],
     queryFn: () => base44.entities.QualityRecord.list('-created_date', 50),
   });
 
   if (isLoading) {
-    return <LoadingSpinner message="Loading quality data..." />;
+    return <LoadingSpinner message="Loading quality metrics..." />;
   }
 
-  const avgScore = records.length > 0
-    ? (records.reduce((sum, r) => sum + (r.score || 0), 0) / records.length).toFixed(1)
-    : 0;
+  if (!records || records.length === 0) {
+    return (
+      <EmptyState 
+        icon={Star}
+        title="No Quality Data Yet"
+        message="Start recording quality checks to see metrics here"
+      />
+    );
+  }
 
-  const needsAttention = records.filter(r => (r.score || 0) < 3).length;
-  const excellent = records.filter(r => r.score === 5).length;
+  const avgScore = records.reduce((sum, r) => sum + (parseFloat(r.score) || 0), 0) / records.length;
+  const excellentCount = records.filter(r => parseFloat(r.score) >= 4.5).length;
+  const needsAttention = records.filter(r => parseFloat(r.score) < 3).length;
 
   return (
-    <div className="space-y-6">
-      <div className="grid md:grid-cols-3 gap-6">
-        <Card className="border-l-4 border-l-emerald-500">
-          <CardContent className="p-6">
-            <p className="text-sm text-gray-600 mb-2">Average Quality</p>
-            <p className="text-4xl font-bold text-emerald-600">{avgScore}/5</p>
-            <p className="text-xs text-gray-500 mt-2">Last 50 checks</p>
-          </CardContent>
-        </Card>
-
-        <Card className="border-l-4 border-l-red-500">
-          <CardContent className="p-6">
-            <p className="text-sm text-gray-600 mb-2">Needs Attention</p>
-            <p className="text-4xl font-bold text-red-600">{needsAttention}</p>
-            <p className="text-xs text-gray-500 mt-2">Score &lt; 3</p>
-          </CardContent>
-        </Card>
-
-        <Card className="border-l-4 border-l-amber-500">
-          <CardContent className="p-6">
-            <p className="text-sm text-gray-600 mb-2">Excellent</p>
-            <p className="text-4xl font-bold text-amber-600">{excellent}</p>
-            <p className="text-xs text-gray-500 mt-2">Perfect 5/5 scores</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      <Card>
+    <div className="grid md:grid-cols-3 gap-4 mb-6">
+      <Card className="border-l-4 border-l-green-500">
         <CardContent className="p-6">
-          <h3 className="text-lg font-semibold mb-4">Quick Actions</h3>
-          <div className="grid md:grid-cols-2 gap-4">
-            <Link to={createPageUrl('QuickQualityCheck')}>
-              <Card className="bg-emerald-50 border-emerald-200 hover:shadow-md transition-shadow cursor-pointer">
-                <CardContent className="p-4 flex items-center gap-3">
-                  <Zap className="w-8 h-8 text-emerald-600" />
-                  <div>
-                    <p className="font-semibold text-gray-900">Quick Quality Check</p>
-                    <p className="text-xs text-gray-600">Perform instant audit</p>
-                  </div>
-                </CardContent>
-              </Card>
-            </Link>
-
-            <Link to={createPageUrl('QualityTemplates')}>
-              <Card className="bg-blue-50 border-blue-200 hover:shadow-md transition-shadow cursor-pointer">
-                <CardContent className="p-4 flex items-center gap-3">
-                  <FileText className="w-8 h-8 text-blue-600" />
-                  <div>
-                    <p className="font-semibold text-gray-900">Manage Templates</p>
-                    <p className="text-xs text-gray-600">Create audit forms</p>
-                  </div>
-                </CardContent>
-              </Card>
-            </Link>
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-600">Average Score</p>
+              <p className="text-3xl font-bold text-green-600">{avgScore.toFixed(1)}/5</p>
+            </div>
+            <Star className="w-10 h-10 text-green-500" />
           </div>
         </CardContent>
       </Card>
 
-      {/* Recent Quality Checks */}
-      <Card>
+      <Card className="border-l-4 border-l-blue-500">
         <CardContent className="p-6">
-          <h3 className="text-lg font-semibold mb-4">Recent Quality Checks</h3>
-          {records.length === 0 ? (
-            <EmptyState
-              icon={Star}
-              title="No quality checks yet"
-              description="Start performing quality checks to track performance"
-              action={
-                <Link to={createPageUrl('QuickQualityCheck')}>
-                  <Button>Perform First Check</Button>
-                </Link>
-              }
-            />
-          ) : (
-            <div className="space-y-3">
-              {records.slice(0, 5).map((record) => (
-                <Card key={record.id} className="bg-gray-50">
-                  <CardContent className="p-4 flex items-center justify-between">
-                    <div>
-                      <p className="font-medium text-gray-900">{record.check_title}</p>
-                      <p className="text-sm text-gray-600">{record.area} • {record.category}</p>
-                      <p className="text-xs text-gray-500 mt-1">
-                        {record.checked_by_name} • {new Date(record.created_date).toLocaleDateString()}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Badge className={
-                        (record.score || 0) >= 4 ? 'bg-green-100 text-green-800' :
-                        (record.score || 0) === 3 ? 'bg-yellow-100 text-yellow-800' :
-                        'bg-red-100 text-red-800'
-                      }>
-                        {record.score || 0}/5
-                      </Badge>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-600">Excellent Checks</p>
+              <p className="text-3xl font-bold text-blue-600">{excellentCount}</p>
             </div>
-          )}
+            <Zap className="w-10 h-10 text-blue-500" />
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="border-l-4 border-l-orange-500">
+        <CardContent className="p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-600">Needs Attention</p>
+              <p className="text-3xl font-bold text-orange-600">{needsAttention}</p>
+            </div>
+            <BarChart3 className="w-10 h-10 text-orange-500" />
+          </div>
         </CardContent>
       </Card>
     </div>
   );
-}
+};
 
 export default function QualityDashboard() {
+  useEffect(() => {
+    document.title = 'Quality Dashboard - AURA';
+  }, []);
+
   const tabs = [
     {
-      value: 'overview',
-      label: 'Overview',
-      icon: Star,
-      component: <QualityOverview />,
-    },
-    {
-      value: 'quick-check',
+      id: 'quick-check',
       label: 'Quick Check',
-      icon: Zap,
-      component: <QuickQualityCheck />,
+      icon: Star,
+      component: QuickQualityCheck,
     },
     {
-      value: 'templates',
+      id: 'templates',
       label: 'Templates',
       icon: FileText,
-      component: <QualityTemplates />,
+      component: QualityTemplates,
     },
     {
-      value: 'reports',
+      id: 'reports',
       label: 'Reports',
       icon: BarChart3,
-      component: <QualityReports />,
+      component: QualityReports,
     },
   ];
 
   return (
-    <DashboardTabsLayout
-      title="Quality Hub"
-      description="Quality audits, templates, and performance tracking"
-      icon={Star}
-      tabs={tabs}
-      defaultTab="overview"
-      helpText="Monitor and improve quality standards across all operations."
-      searchPlaceholder="Search quality checks..."
-    />
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6 md:p-8">
+      <div className="max-w-7xl mx-auto">
+        <QualityMetrics />
+        <DashboardTabsLayout 
+          tabs={tabs}
+          defaultTab="quick-check"
+          title="Quality Dashboard"
+          icon={Star}
+        />
+      </div>
+    </div>
   );
 }

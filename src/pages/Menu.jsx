@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { base44 } from '@/api/base44Client';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery } from '@tantml:react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -20,6 +20,8 @@ import {
   Plus,
   Eye,
   Edit,
+  Grid3x3,
+  List,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
@@ -34,6 +36,7 @@ const formatPrice = (price) => safeNumber(price, 2).toFixed(2);
 export default function Menu() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
+  const [viewMode, setViewMode] = useState('grid'); // 'grid' or 'list'
 
   const { data: user } = useQuery({
     queryKey: ['currentUser'],
@@ -60,7 +63,8 @@ export default function Menu() {
 
   const filteredMenuItems = menuItems
     .filter(item => {
-      const matchesSearch = item.name?.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesSearch = item.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        item.description?.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesCategory = selectedCategory === 'all' || item.category_id === selectedCategory;
       return matchesSearch && matchesCategory;
     })
@@ -79,6 +83,13 @@ export default function Menu() {
   const lowStockIngredients = ingredients.filter(ing => 
     safeNumber(ing.current_stock) <= safeNumber(ing.reorder_point)
   ).length;
+
+  const getProfitColor = (percentage) => {
+    if (percentage < 20) return 'bg-red-100 text-red-800 border-red-300';
+    if (percentage < 30) return 'bg-orange-100 text-orange-800 border-orange-300';
+    if (percentage < 40) return 'bg-yellow-100 text-yellow-800 border-yellow-300';
+    return 'bg-green-100 text-green-800 border-green-300';
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6 md:p-8">
@@ -103,7 +114,6 @@ export default function Menu() {
           </p>
         </div>
 
-        {/* Quick Stats */}
         <div className="grid md:grid-cols-4 gap-4 mb-8">
           <Card className="border-l-4 border-l-green-500">
             <CardContent className="p-4">
@@ -154,9 +164,8 @@ export default function Menu() {
           </Card>
         </div>
 
-        {/* Action Cards */}
-        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-          {(isManager || isChef) && (
+        {(isManager || isChef) && (
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
             <Link to={createPageUrl('MenuManagement')}>
               <Card className="hover:shadow-xl transition-all cursor-pointer bg-gradient-to-br from-green-50 to-green-100 border-green-200">
                 <CardContent className="p-6 text-center">
@@ -166,19 +175,17 @@ export default function Menu() {
                 </CardContent>
               </Card>
             </Link>
-          )}
 
-          <Link to={createPageUrl('AllergyTable')}>
-            <Card className="hover:shadow-xl transition-all cursor-pointer bg-gradient-to-br from-red-50 to-red-100 border-red-200">
-              <CardContent className="p-6 text-center">
-                <FileText className="w-12 h-12 text-red-600 mx-auto mb-3" />
-                <h3 className="font-bold text-lg text-gray-900 mb-1">Allergen Info</h3>
-                <p className="text-sm text-gray-600">View allergen matrix</p>
-              </CardContent>
-            </Card>
-          </Link>
+            <Link to={createPageUrl('AllergyTable')}>
+              <Card className="hover:shadow-xl transition-all cursor-pointer bg-gradient-to-br from-red-50 to-red-100 border-red-200">
+                <CardContent className="p-6 text-center">
+                  <FileText className="w-12 h-12 text-red-600 mx-auto mb-3" />
+                  <h3 className="font-bold text-lg text-gray-900 mb-1">Allergen Info</h3>
+                  <p className="text-sm text-gray-600">View allergen matrix</p>
+                </CardContent>
+              </Card>
+            </Link>
 
-          {(isManager || isChef) && (
             <Link to={createPageUrl('MenuAnalysis')}>
               <Card className="hover:shadow-xl transition-all cursor-pointer bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
                 <CardContent className="p-6 text-center">
@@ -188,9 +195,7 @@ export default function Menu() {
                 </CardContent>
               </Card>
             </Link>
-          )}
 
-          {(isManager || isChef) && (
             <Link to={createPageUrl('InventoryDashboard')}>
               <Card className="hover:shadow-xl transition-all cursor-pointer bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200">
                 <CardContent className="p-6 text-center">
@@ -200,10 +205,9 @@ export default function Menu() {
                 </CardContent>
               </Card>
             </Link>
-          )}
-        </div>
+          </div>
+        )}
 
-        {/* Search & Filter */}
         <Card className="mb-6">
           <CardContent className="p-4">
             <div className="flex flex-col md:flex-row gap-4">
@@ -226,12 +230,27 @@ export default function Menu() {
                   <option key={cat.id} value={cat.id}>{cat.name}</option>
                 ))}
               </select>
+              <div className="flex gap-2">
+                <Button
+                  variant={viewMode === 'grid' ? 'default' : 'outline'}
+                  size="icon"
+                  onClick={() => setViewMode('grid')}
+                >
+                  <Grid3x3 className="w-4 h-4" />
+                </Button>
+                <Button
+                  variant={viewMode === 'list' ? 'default' : 'outline'}
+                  size="icon"
+                  onClick={() => setViewMode('list')}
+                >
+                  <List className="w-4 h-4" />
+                </Button>
+              </div>
             </div>
           </CardContent>
         </Card>
 
-        {/* Menu Items Grid */}
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className={viewMode === 'grid' ? 'grid md:grid-cols-2 lg:grid-cols-3 gap-6' : 'space-y-4'}>
           {filteredMenuItems.length === 0 ? (
             <div className="col-span-full">
               <Card>
@@ -254,79 +273,135 @@ export default function Menu() {
             </div>
           ) : (
             filteredMenuItems.map(item => (
-              <Link key={item.id} to={createPageUrl(`MenuItemView?id=${item.id}`)}>
-                <Card className="hover:shadow-xl transition-all cursor-pointer overflow-hidden group">
-                  {/* Image */}
-                  <div className="relative h-48 bg-gray-100 overflow-hidden">
-                    {item.image_url ? (
-                      <img
-                        src={item.image_url}
-                        alt={item.name}
-                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center">
-                        <Utensils className="w-16 h-16 text-gray-300" />
-                      </div>
-                    )}
-                    <div className="absolute top-2 right-2">
-                      <Badge className="bg-green-600">
-                        £{formatPrice(item.sell_price)}
-                      </Badge>
-                    </div>
-                  </div>
-
-                  {/* Content */}
-                  <CardContent className="p-4">
-                    <div className="mb-3">
-                      <h3 className="text-lg font-bold text-gray-900 mb-1">{item.name}</h3>
-                      <Badge variant="outline" className="text-xs">
-                        {item.category_name || 'Uncategorized'}
-                      </Badge>
-                    </div>
-
-                    {item.description && (
-                      <p className="text-sm text-gray-600 mb-3 line-clamp-2">
-                        {item.description}
-                      </p>
-                    )}
-
-                    {/* Cost Breakdown */}
-                    <div className="space-y-2 text-sm">
-                      <div className="flex justify-between items-center">
-                        <span className="text-gray-600">Food Cost:</span>
-                        <span className="font-semibold">£{formatPrice(item.total_cost)}</span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-gray-600">Profit:</span>
-                        <span className={`font-semibold ${safeNumber(item.profit_margin) > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                          £{formatPrice(item.profit_margin)}
-                        </span>
-                      </div>
-                      <div className="flex justify-between items-center pt-2 border-t">
-                        <span className="text-gray-600">Food Cost %:</span>
-                        <Badge className={
-                          safeNumber(item.food_cost_percentage) < 30 ? 'bg-green-100 text-green-800' :
-                          safeNumber(item.food_cost_percentage) < 40 ? 'bg-blue-100 text-blue-800' :
-                          'bg-amber-100 text-amber-800'
-                        }>
-                          {safeNumber(item.food_cost_percentage, 1).toFixed(1)}%
+              viewMode === 'grid' ? (
+                <Link key={item.id} to={createPageUrl(`MenuItemView?id=${item.id}`)}>
+                  <Card className="hover:shadow-xl transition-all cursor-pointer overflow-hidden group">
+                    <div className="relative h-48 bg-gray-100 overflow-hidden">
+                      {item.image_url ? (
+                        <img
+                          src={item.image_url}
+                          alt={item.name}
+                          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <Utensils className="w-16 h-16 text-gray-300" />
+                        </div>
+                      )}
+                      <div className="absolute top-2 right-2">
+                        <Badge className="bg-green-600">
+                          £{formatPrice(item.sell_price)}
                         </Badge>
                       </div>
                     </div>
 
-                    {/* Footer */}
-                    <div className="mt-4 pt-3 border-t text-xs text-gray-500">
-                      {item.recipe?.length || 0} ingredients • {item.prep_time_minutes || 0} min prep
+                    <CardContent className="p-4">
+                      <div className="mb-3">
+                        <h3 className="text-lg font-bold text-gray-900 mb-1">{item.name}</h3>
+                        <Badge variant="outline" className="text-xs">
+                          {item.category_name || 'Uncategorized'}
+                        </Badge>
+                      </div>
+
+                      {item.description && (
+                        <p className="text-sm text-gray-600 mb-3 line-clamp-2">
+                          {item.description}
+                        </p>
+                      )}
+
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between items-center">
+                          <span className="text-gray-600">Food Cost:</span>
+                          <span className="font-semibold">£{formatPrice(item.total_cost)}</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-gray-600">Profit:</span>
+                          <span className={`font-semibold ${safeNumber(item.profit_margin) > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                            £{formatPrice(item.profit_margin)}
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center pt-2 border-t">
+                          <span className="text-gray-600">Food Cost %:</span>
+                          <Badge className={getProfitColor(safeNumber(item.food_cost_percentage))}>
+                            {safeNumber(item.food_cost_percentage, 1).toFixed(1)}%
+                          </Badge>
+                        </div>
+                      </div>
+
+                      <div className="mt-4 pt-3 border-t text-xs text-gray-500">
+                        {item.recipe?.length || 0} ingredients • {item.prep_time_minutes || 0} min prep
+                      </div>
+                    </CardContent>
+                  </Card>
+                </Link>
+              ) : (
+                <Card key={item.id} className="hover:shadow-lg transition-all">
+                  <CardContent className="p-4">
+                    <div className="flex gap-4">
+                      <div className="w-24 h-24 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
+                        {item.image_url ? (
+                          <img src={item.image_url} alt={item.name} className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center">
+                            <Utensils className="w-8 h-8 text-gray-300" />
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex-1">
+                        <div className="flex items-start justify-between mb-2">
+                          <div>
+                            <h3 className="text-lg font-bold text-gray-900">{item.name}</h3>
+                            <Badge variant="outline" className="text-xs mt-1">
+                              {item.category_name || 'Uncategorized'}
+                            </Badge>
+                          </div>
+                          <Badge className="bg-green-600 text-lg px-3 py-1">
+                            £{formatPrice(item.sell_price)}
+                          </Badge>
+                        </div>
+                        {item.description && (
+                          <p className="text-sm text-gray-600 mb-3">{item.description}</p>
+                        )}
+                        <div className="flex gap-4 text-sm">
+                          <div>
+                            <span className="text-gray-600">Cost: </span>
+                            <span className="font-semibold">£{formatPrice(item.total_cost)}</span>
+                          </div>
+                          <div>
+                            <span className="text-gray-600">Profit: </span>
+                            <span className={`font-semibold ${safeNumber(item.profit_margin) > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                              £{formatPrice(item.profit_margin)}
+                            </span>
+                          </div>
+                          <Badge className={getProfitColor(safeNumber(item.food_cost_percentage))}>
+                            {safeNumber(item.food_cost_percentage, 1).toFixed(1)}% Food Cost
+                          </Badge>
+                        </div>
+                        <div className="mt-2 flex gap-2">
+                          <Link to={createPageUrl(`MenuItemView?id=${item.id}`)}>
+                            <Button size="sm" variant="outline">
+                              <Eye className="w-4 h-4 mr-1" />
+                              View
+                            </Button>
+                          </Link>
+                          {(isManager || isChef) && (
+                            <Link to={createPageUrl('MenuManagement')}>
+                              <Button size="sm" variant="outline">
+                                <Edit className="w-4 h-4 mr-1" />
+                                Edit
+                              </Button>
+                            </Link>
+                          )}
+                        </div>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
-              </Link>
+              )
             ))
           )}
         </div>
 
-        {/* Management Actions - Only for Managers/Chefs */}
         {(isManager || isChef) && (
           <div className="fixed bottom-6 right-6 flex flex-col gap-3">
             <Link to={createPageUrl('MenuManagement')}>

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -29,11 +30,15 @@ import {
 import { Link, useNavigate } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import ReactQuill from 'react-quill';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 export default function SOPBuilder() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [uploading, setUploading] = useState(false);
+  const [showAIModal, setShowAIModal] = useState(false);
+  const [aiPrompt, setAIPrompt] = useState('');
+  const [aiGenerating, setAIGenerating] = useState(false);
 
   const urlParams = new URLSearchParams(window.location.search);
   const sopId = urlParams.get('id');
@@ -70,6 +75,7 @@ export default function SOPBuilder() {
     requires_signature: true,
     is_mandatory: false,
     review_frequency_months: 6,
+    quality_standards: '', // Added for AI generation
   });
 
   const [newStep, setNewStep] = useState({
@@ -100,6 +106,7 @@ export default function SOPBuilder() {
         requires_signature: editingSOP.requires_signature ?? true,
         is_mandatory: editingSOP.is_mandatory || false,
         review_frequency_months: editingSOP.review_frequency_months || 6,
+        quality_standards: editingSOP.quality_standards || '', // Added for AI generation
       });
     }
   }, [editingSOP]);
@@ -220,31 +227,116 @@ export default function SOPBuilder() {
     await saveSopMutation.mutateAsync(sopData);
   };
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6 md:p-8">
-      <div className="max-w-5xl mx-auto">
-        {/* Navigation */}
-        <div className="flex gap-3 mb-6">
-          <Link to={createPageUrl('SOPDashboard')}>
-            <Button variant="outline" size="sm">
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Back to SOPs
-            </Button>
-          </Link>
-          <Link to={createPageUrl('Dashboard')}>
-            <Button variant="outline" size="sm">
-              <Home className="w-4 h-4 mr-2" />
-              Dashboard
-            </Button>
-          </Link>
-        </div>
+  const handleAIGenerate = async () => {
+    if (!aiPrompt.trim()) {
+      alert('Please enter a description for the SOP');
+      return;
+    }
 
-        {/* Header */}
-        <div className="mb-6">
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">
-            {editingSOP ? 'Edit SOP' : 'Create New SOP'}
-          </h1>
-          <p className="text-gray-600">Build a comprehensive standard operating procedure</p>
+    setAIGenerating(true);
+    try {
+      const response = await base44.integrations.Core.InvokeLLM({
+        prompt: `You are an expert at creating Standard Operating Procedures (SOPs) for restaurants.
+
+Create a detailed SOP based on this request: "${aiPrompt}"
+
+Generate a comprehensive SOP with:
+1. Clear title
+2. Objective (what this SOP achieves)
+3. Scope (who this applies to)
+4. Step-by-step procedure (5-10 detailed steps), including a title, description, and estimated time for each step.
+5. Quality standards
+6. Safety notes if applicable
+
+Format the response as a structured JSON.`,
+        response_json_schema: {
+          type: "object",
+          properties: {
+            title: { type: "string" },
+            objective: { type: "string" },
+            scope: { type: "string" },
+            steps: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  step_number: { type: "number" },
+                  title: { type: "string" },
+                  description: { type: "string" },
+                  time_estimate_minutes: { type: "number" },
+                  // safety_notes: { type: "string" } // Removed as per existing formData structure
+                },
+                required: ["step_number", "title", "description", "time_estimate_minutes"]
+              }
+            },
+            quality_standards: { type: "string" },
+            safety_notes: { type: "string" }
+          },
+          required: ["title", "objective", "scope", "steps", "quality_standards"]
+        }
+      });
+      
+      setFormData(prev => ({
+        ...prev,
+        title: response.title || '',
+        objective: response.objective || '',
+        scope: response.scope || '',
+        procedure_steps: (response.steps || []).map((step, index) => ({
+          step_number: index + 1,
+          title: step.title,
+          description: step.description,
+          time_estimate_minutes: step.time_estimate_minutes,
+          role_responsible: prev.role_assigned[0] || 'chef', // Default for new steps
+          equipment_needed: [], // Default for new steps
+        })),
+        quality_standards: response.quality_standards || '',
+        safety_notes: response.safety_notes || '',
+      }));
+
+      setShowAIModal(false);
+      setAIPrompt('');
+      alert('✅ SOP generated successfully! Review and edit as needed.');
+    } catch (error) {
+      console.error('AI generation failed:', error);
+      alert(`❌ Failed to generate SOP. Please try again. Error: ${error.message}`);
+    }
+    setAIGenerating(false);
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-50 p-6 md:p-8">
+      <div className="max-w-5xl mx-auto">
+        <div className="flex justify-between items-center mb-8">
+          <div className="flex items-center gap-4">
+            <div className="flex gap-3">
+              <Link to={createPageUrl('SOPDashboard')}>
+                <Button variant="outline" size="sm">
+                  <ArrowLeft className="w-4 h-4 mr-2" />
+                  Back to SOPs
+                </Button>
+              </Link>
+              <Link to={createPageUrl('Dashboard')}>
+                <Button variant="outline" size="sm">
+                  <Home className="w-4 h-4 mr-2" />
+                  Dashboard
+                </Button>
+              </Link>
+            </div>
+            <div className="h-full border-l border-gray-300 mx-2"></div>
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">
+                {editingSOP ? 'Edit SOP' : 'Create New SOP'}
+              </h1>
+              <p className="text-gray-600 text-sm">Build a comprehensive standard operating procedure</p>
+            </div>
+          </div>
+          <Button
+            onClick={() => setShowAIModal(true)}
+            className="bg-purple-600 hover:bg-purple-700"
+          >
+            <Sparkles className="w-4 h-4 mr-2" />
+            Generate with AI
+          </Button>
         </div>
 
         <div className="space-y-6">
@@ -349,6 +441,51 @@ export default function SOPBuilder() {
                   />
                 )}
               </div>
+            </CardContent>
+          </Card>
+
+          {/* Objective */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Objective</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Textarea
+                value={formData.objective}
+                onChange={(e) => setFormData({...formData, objective: e.target.value})}
+                placeholder="What is the main goal or purpose of this SOP?"
+                rows={3}
+              />
+            </CardContent>
+          </Card>
+
+          {/* Scope */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Scope</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Textarea
+                value={formData.scope}
+                onChange={(e) => setFormData({...formData, scope: e.target.value})}
+                placeholder="Who does this SOP apply to? What areas or tasks does it cover?"
+                rows={3}
+              />
+            </CardContent>
+          </Card>
+
+          {/* Quality Standards */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Quality Standards</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Textarea
+                value={formData.quality_standards}
+                onChange={(e) => setFormData({...formData, quality_standards: e.target.value})}
+                placeholder="Describe the expected quality outcomes and standards for this procedure."
+                rows={3}
+              />
             </CardContent>
           </Card>
 
@@ -574,6 +711,59 @@ export default function SOPBuilder() {
           </Card>
         </div>
       </div>
+
+      {/* AI Generation Modal */}
+      <Dialog open={showAIModal} onOpenChange={setShowAIModal}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Sparkles className="w-5 h-5 text-purple-600" />
+              Generate SOP with AI
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 mt-4">
+            <div>
+              <Label htmlFor="ai-prompt">Describe the SOP you want to create</Label>
+              <Textarea
+                id="ai-prompt"
+                value={aiPrompt}
+                onChange={(e) => setAIPrompt(e.target.value)}
+                placeholder="Example: Create an SOP for preparing Masala Chai from start to finish, including temperature control and quality checks"
+                rows={6}
+                className="mt-2"
+              />
+            </div>
+            <div className="bg-blue-50 p-4 rounded-lg">
+              <p className="text-sm text-blue-900">
+                💡 <strong>Tip:</strong> Be specific about what you want. Include details like:
+                steps, safety requirements, quality standards, and target audience.
+              </p>
+            </div>
+            <div className="flex justify-end gap-3">
+              <Button variant="outline" onClick={() => setShowAIModal(false)} disabled={aiGenerating}>
+                Cancel
+              </Button>
+              <Button 
+                onClick={handleAIGenerate}
+                disabled={aiGenerating || !aiPrompt.trim()}
+                className="bg-purple-600 hover:bg-purple-700"
+              >
+                {aiGenerating ? (
+                  <>
+                    <Sparkles className="w-4 h-4 mr-2 animate-spin" />
+                    Generating...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-4 h-4 mr-2" />
+                    Generate SOP
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
