@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -36,6 +37,8 @@ import { createPageUrl } from '@/utils';
 import { format, formatDistanceToNow } from 'date-fns';
 import { motion } from 'framer-motion';
 
+import AccessGuard from '../components/AccessGuard';
+
 export default function OwnerControl() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -54,7 +57,7 @@ export default function OwnerControl() {
     queryFn: () => base44.entities.ImpersonationLog.list('-session_start', 50),
   });
 
-  const isOwner = user?.role === 'admin' || user?.position === 'owner';
+  // isOwner check is now handled by AccessGuard component
   const currentImpersonation = localStorage.getItem('aura-impersonation');
   const impersonationData = currentImpersonation ? JSON.parse(currentImpersonation) : null;
 
@@ -131,28 +134,6 @@ export default function OwnerControl() {
     }
   };
 
-  if (!isOwner) {
-    return (
-      <div className="min-h-screen bg-gray-50 p-6 flex items-center justify-center">
-        <Card className="max-w-md">
-          <CardContent className="p-12 text-center">
-            <Lock className="w-16 h-16 text-red-500 mx-auto mb-4" />
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">Access Denied</h2>
-            <p className="text-gray-600">
-              This feature is only available to app owners and administrators.
-            </p>
-            <Link to={createPageUrl('Dashboard')}>
-              <Button className="mt-6">
-                <Home className="w-4 h-4 mr-2" />
-                Return to Dashboard
-              </Button>
-            </Link>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
   const roleOptions = [
     { value: 'manager', label: 'Manager', icon: '👔', description: 'Full management access' },
     { value: 'chef', label: 'Head Chef', icon: '👨‍🍳', description: 'Kitchen operations & menu' },
@@ -169,8 +150,8 @@ export default function OwnerControl() {
   const recentSessions = impersonationLogs.filter(log => log.status === 'completed').slice(0, 10);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6 md:p-8">
-      <div className="max-w-7xl mx-auto">
+    <AccessGuard allowedRoles={['admin']} allowedPositions={['owner']}>
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6 md:p-8">
         {/* Header */}
         <div className="mb-8">
           <div className="flex items-center gap-3 mb-2">
@@ -424,6 +405,6 @@ export default function OwnerControl() {
           </DialogContent>
         </Dialog>
       </div>
-    </div>
+    </AccessGuard>
   );
 }

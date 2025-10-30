@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery } from '@tanstack/react-query';
@@ -38,6 +39,7 @@ import { format, subDays, startOfWeek, endOfWeek } from 'date-fns';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import LoadingSpinner from '../components/common/LoadingSpinner';
+import AccessGuard from '../components/AccessGuard';
 
 const COLORS = ['#014D40', '#10B981', '#3B82F6', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899'];
 
@@ -198,18 +200,27 @@ export default function ReportsDashboard() {
   const handleGenerateAISummary = async () => {
     setAiGenerating(true);
     try {
+      const onTimeCount = attendanceRecords.filter(r => r.status === 'on_time').length;
+      const lateCount = attendanceRecords.filter(r => r.status === 'late').length;
+      const hygieneCompliance = hygieneRecords.length > 0 
+        ? Math.round((hygieneRecords.filter(r => r.is_in_range).length / hygieneRecords.length) * 100)
+        : 0;
+      const avgQuality = qualityRecords.length > 0
+        ? (qualityRecords.reduce((sum, r) => sum + (parseFloat(r.score) || 0), 0) / qualityRecords.length).toFixed(1)
+        : 0;
+
       const response = await base44.integrations.Core.InvokeLLM({
         prompt: `You are a restaurant operations analyst. Analyze this week's data and provide a concise executive summary.
 
 Data:
 - Total attendance records: ${attendanceRecords.length}
-- On-time clock-ins: ${attendanceRecords.filter(r => r.status === 'on_time').length}
-- Late clock-ins: ${attendanceRecords.filter(r => r.status === 'late').length}
+- On-time clock-ins: ${onTimeCount}
+- Late clock-ins: ${lateCount}
 - Total SOP signatures: ${sopSignatures.length}
 - Total hygiene records: ${hygieneRecords.length}
-- Hygiene compliance rate: ${Math.round((hygieneRecords.filter(r => r.is_in_range).length / hygieneRecords.length) * 100)}%
+- Hygiene compliance rate: ${hygieneCompliance}%
 - Total quality checks: ${qualityRecords.length}
-- Average quality score: ${(qualityRecords.reduce((sum, r) => sum + (parseFloat(r.score) || 0), 0) / qualityRecords.length).toFixed(1)}/5
+- Average quality score: ${avgQuality}/5
 - Forms completed: ${formResponses.filter(f => f.status === 'submitted').length}
 - Coaching sessions: ${coachingSessions.length}
 
@@ -245,7 +256,7 @@ Provide:
       ['Total Records', attendanceRecords.length],
       ['On Time', attendanceRecords.filter(r => r.status === 'on_time').length],
       ['Late', attendanceRecords.filter(r => r.status === 'late').length],
-      ['Compliance Rate', `${Math.round((attendanceRecords.filter(r => r.status === 'on_time').length / attendanceRecords.length) * 100)}%`],
+      ['Compliance Rate', `${attendanceRecords.length > 0 ? Math.round((attendanceRecords.filter(r => r.status === 'on_time').length / attendanceRecords.length) * 100) : 0}%`],
       [''],
       ['SOP COMPLIANCE'],
       ['Total Signatures', sopSignatures.length],
@@ -254,11 +265,11 @@ Provide:
       ['HYGIENE METRICS'],
       ['Total Records', hygieneRecords.length],
       ['In Range', hygieneRecords.filter(r => r.is_in_range).length],
-      ['Compliance Rate', `${Math.round((hygieneRecords.filter(r => r.is_in_range).length / hygieneRecords.length) * 100)}%`],
+      ['Compliance Rate', `${hygieneRecords.length > 0 ? Math.round((hygieneRecords.filter(r => r.is_in_range).length / hygieneRecords.length) * 100) : 0}%`],
       [''],
       ['QUALITY METRICS'],
       ['Total Checks', qualityRecords.length],
-      ['Avg Score', `${(qualityRecords.reduce((sum, r) => sum + (parseFloat(r.score) || 0), 0) / qualityRecords.length).toFixed(1)}/5`],
+      ['Avg Score', `${qualityRecords.length > 0 ? (qualityRecords.reduce((sum, r) => sum + (parseFloat(r.score) || 0), 0) / qualityRecords.length).toFixed(1) : 0}/5`],
     ];
 
     const csvContent = csvData.map(row => row.join(',')).join('\n');
@@ -269,28 +280,6 @@ Provide:
     a.download = `aura-report-${format(new Date(), 'yyyy-MM-dd')}.csv`;
     a.click();
   };
-
-  if (!isAuthorized) {
-    return (
-      <div className="min-h-screen bg-gray-50 p-6 flex items-center justify-center">
-        <Card className="max-w-md">
-          <CardContent className="p-12 text-center">
-            <Lock className="w-16 h-16 text-red-500 mx-auto mb-4" />
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">Access Restricted</h2>
-            <p className="text-gray-600 mb-6">
-              Reports Center is only accessible to managers and owners.
-            </p>
-            <Link to={createPageUrl('Dashboard')}>
-              <Button>
-                <Home className="w-4 h-4 mr-2" />
-                Back to Dashboard
-              </Button>
-            </Link>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
 
   const isLoading = !attendanceRecords || !shifts;
 
@@ -314,8 +303,8 @@ Provide:
     : 0;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6 md:p-8">
-      <div className="max-w-7xl mx-auto">
+    <AccessGuard allowedRoles={['admin']} allowedPositions={['manager', 'owner']}>
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6 md:p-8">
         
         <div className="flex gap-3 mb-6">
           <Link to={createPageUrl('Dashboard')}>
@@ -592,6 +581,6 @@ Provide:
           </CardContent>
         </Card>
       </div>
-    </div>
+    </AccessGuard>
   );
 }

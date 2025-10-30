@@ -58,6 +58,7 @@ import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import { format } from 'date-fns';
 import { motion } from 'framer-motion';
+import AccessGuard from '../components/AccessGuard';
 
 export default function UserManagement() {
   const queryClient = useQueryClient();
@@ -838,899 +839,879 @@ ${currentUser.full_name}`,
     return colors[status] || 'bg-gray-100 text-gray-800 border-gray-200';
   };
 
-  if (!isAdmin && !isManager) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 p-6">
-        <Card className="max-w-md">
-          <CardContent className="p-12 text-center">
-            <Lock className="w-16 h-16 text-red-500 mx-auto mb-4" />
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">Access Denied</h2>
-            <p className="text-gray-600 mb-6">
-              Only administrators and managers can access user management.
-            </p>
-            <Link to={createPageUrl('Dashboard')}>
-              <Button>
-                <Home className="w-4 h-4 mr-2" />
-                Go to Dashboard
-              </Button>
-            </Link>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6 md:p-8">
-      <div className="max-w-7xl mx-auto">
-        <div className="flex gap-3 mb-6">
-          <Link to={createPageUrl('ManagerDashboard')}>
-            <Button variant="outline" size="sm">
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Manager Dashboard
-            </Button>
-          </Link>
-          <Link to={createPageUrl('Dashboard')}>
-            <Button variant="outline" size="sm">
-              <Home className="w-4 h-4 mr-2" />
-              Dashboard
-            </Button>
-          </Link>
-        </div>
-
-        <div className="mb-8 flex justify-between items-start">
-          <div>
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-12 h-12 bg-gradient-to-br from-purple-600 to-pink-600 rounded-xl flex items-center justify-center">
-                <Users className="w-7 h-7 text-white" />
-              </div>
-              <div>
-                <h1 className="text-4xl font-bold text-gray-900">User Management</h1>
-                <p className="text-gray-600">Unified staff directory & access control</p>
-              </div>
-            </div>
+      <AccessGuard allowedRoles={['admin']} allowedPositions={['owner']}>
+        <div className="max-w-7xl mx-auto space-y-6">
+          <div className="flex gap-3 mb-6">
+            <Link to={createPageUrl('ManagerDashboard')}>
+              <Button variant="outline" size="sm">
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Manager Dashboard
+              </Button>
+            </Link>
+            <Link to={createPageUrl('Dashboard')}>
+              <Button variant="outline" size="sm">
+                <Home className="w-4 h-4 mr-2" />
+                Dashboard
+              </Button>
+            </Link>
           </div>
 
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              onClick={handleSyncAll}
-              disabled={syncing}
-            >
-              <RefreshCw className={`w-4 h-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
-              {syncing ? 'Syncing...' : 'Sync All'}
-            </Button>
-            
-            <Button
-              onClick={() => setShowManualAddDialog(true)}
-              className="bg-emerald-600 hover:bg-emerald-700"
-            >
-              <User className="w-4 h-4 mr-2" />
-              Add User Manually
-            </Button>
+          <div className="mb-8 flex justify-between items-start">
+            <div>
+              <div className="flex items-center gap-3 mb-2">
+                <div className="w-12 h-12 bg-gradient-to-br from-purple-600 to-pink-600 rounded-xl flex items-center justify-center">
+                  <Users className="w-7 h-7 text-white" />
+                </div>
+                <div>
+                  <h1 className="text-4xl font-bold text-gray-900">User Management</h1>
+                  <p className="text-gray-600">Unified staff directory & access control</p>
+                </div>
+              </div>
+            </div>
 
-            <Button
-              onClick={() => {
-                setShowInviteDialog(true);
-                setGeneratedLink(null);
-                setInviteFormData({ email: '', name: '', position: 'server', department: 'front_of_house' });
-              }}
-              className="bg-blue-600 hover:bg-blue-700"
-            >
-              <UserPlus className="w-4 h-4 mr-2" />
-              Invite User
-            </Button>
-
-            {registrationRequests.length > 0 && (
+            <div className="flex gap-2">
               <Button
                 variant="outline"
-                onClick={() => setShowRegistrationRequests(true)}
-                className="relative"
+                onClick={handleSyncAll}
+                disabled={syncing}
               >
-                <Users className="w-4 h-4 mr-2" />
-                Registrations
-                <Badge className="ml-2 bg-red-500 text-white">
-                  {registrationRequests.length}
-                </Badge>
+                <RefreshCw className={`w-4 h-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
+                {syncing ? 'Syncing...' : 'Sync All'}
               </Button>
-            )}
-          </div>
-        </div>
-
-        {/* Stats Cards */}
-        <div className="grid md:grid-cols-4 gap-4 mb-6">
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600 mb-1">Total Users</p>
-                    <p className="text-3xl font-bold text-gray-900">{stats.total}</p>
-                  </div>
-                  <Users className="w-10 h-10 text-blue-600" />
-                </div>
-              </CardContent>
-            </Card>
-          </motion.div>
-
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}>
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600 mb-1">Active</p>
-                    <p className="text-3xl font-bold text-green-600">{stats.active}</p>
-                  </div>
-                  <CheckCircle className="w-10 h-10 text-green-600" />
-                </div>
-              </CardContent>
-            </Card>
-          </motion.div>
-
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600 mb-1">Managers</p>
-                    <p className="text-3xl font-bold text-purple-600">{stats.managers}</p>
-                  </div>
-                  <Shield className="w-10 h-10 text-purple-600" />
-                </div>
-              </CardContent>
-            </Card>
-          </motion.div>
-
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600 mb-1">Synced</p>
-                    <p className="text-3xl font-bold text-indigo-600">{stats.synced}</p>
-                  </div>
-                  <UserCheck className="w-10 h-10 text-indigo-600" />
-                </div>
-              </CardContent>
-            </Card>
-          </motion.div>
-        </div>
-
-        {/* Search and Filters */}
-        <Card className="mb-6">
-          <CardContent className="p-4">
-            <div className="flex flex-wrap gap-4">
-              <div className="flex-1 min-w-[250px] relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                <Input
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search users..."
-                  className="pl-10"
-                />
-              </div>
-
-              <Select value={filterRole} onValueChange={setFilterRole}>
-                <SelectTrigger className="w-40">
-                  <SelectValue placeholder="Role" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Roles</SelectItem>
-                  <SelectItem value="owner">Owner</SelectItem>
-                  <SelectItem value="manager">Manager</SelectItem>
-                  <SelectItem value="chef">Chef</SelectItem>
-                  <SelectItem value="sous_chef">Sous Chef</SelectItem>
-                  <SelectItem value="line_cook">Line Cook</SelectItem>
-                  <SelectItem value="server">Server</SelectItem>
-                  <SelectItem value="bartender">Bartender</SelectItem>
-                  <SelectItem value="host">Host</SelectItem>
-                  <SelectItem value="cleaner">Cleaner</SelectItem>
-                  <SelectItem value="maintenance">Maintenance</SelectItem>
-                </SelectContent>
-              </Select>
-
-              <Select value={filterStatus} onValueChange={setFilterStatus}>
-                <SelectTrigger className="w-32">
-                  <SelectValue placeholder="Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="inactive">Inactive</SelectItem>
-                  <SelectItem value="on_leave">On Leave</SelectItem>
-                  <SelectItem value="probation">Probation</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Users Table */}
-        <Card>
-          <CardContent className="p-0">
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50 border-b">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      User
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Position
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Department
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Status
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Sync Status
-                    </th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {filteredUsers.map((user) => (
-                    <tr key={user.email} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center">
-                          {user.photo_url ? (
-                            <img
-                              src={user.photo_url}
-                              alt={user.full_name}
-                              className="w-10 h-10 rounded-full object-cover"
-                            />
-                          ) : (
-                            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white font-bold">
-                              {user.full_name?.charAt(0)?.toUpperCase()}
-                            </div>
-                          )}
-                          <div className="ml-3">
-                            <p className="text-sm font-medium text-gray-900">{user.full_name}</p>
-                            <p className="text-sm text-gray-500">{user.email}</p>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <Badge className={`${getRoleColor(user.position)} border`}>
-                          {user.position || 'N/A'}
-                        </Badge>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {user.department || 'N/A'}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <Badge className={`${getStatusColor(user.status)} border`}>
-                          {user.status}
-                        </Badge>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        {user.has_team_member ? (
-                          <Badge className="bg-green-100 text-green-800 border-green-200 border">
-                            <CheckCircle className="w-3 h-3 mr-1" />
-                            Synced
-                          </Badge>
-                        ) : (
-                          <Badge className="bg-yellow-100 text-yellow-800 border-yellow-200 border">
-                            <AlertTriangle className="w-3 h-3 mr-1" />
-                            Pending
-                          </Badge>
-                        )}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon">
-                              <MoreVertical className="w-4 h-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => handleEdit(user)}>
-                              <Edit className="w-4 h-4 mr-2" />
-                              Edit User
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => {
-                              setUserToDelete(user);
-                              setShowDeleteDialog(true);
-                            }}>
-                              {user.status === 'active' ? (
-                                <>
-                                  <Lock className="w-4 h-4 mr-2" />
-                                  Deactivate
-                                </>
-                              ) : (
-                                <>
-                                  <Unlock className="w-4 h-4 mr-2" />
-                                  Activate
-                                </>
-                              )}
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem
-                              className="text-red-600"
-                              onClick={() => {
-                                setUserToDelete(user);
-                                setShowDeleteDialog(true);
-                              }}
-                            >
-                              <Trash2 className="w-4 h-4 mr-2" />
-                              Delete
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            {filteredUsers.length === 0 && (
-              <div className="p-12 text-center">
-                <Users className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-500">No users found</p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Manual Add User Dialog */}
-        <Dialog open={showManualAddDialog} onOpenChange={setShowManualAddDialog}>
-          <DialogContent className="max-w-2xl">
-            <DialogHeader>
-              <DialogTitle>Add User Manually</DialogTitle>
-              <DialogDescription>
-                Create a user account directly. They can register later with this email.
-              </DialogDescription>
-            </DialogHeader>
-
-            <div className="space-y-4 py-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="manualEmail">Email Address *</Label>
-                  <Input
-                    id="manualEmail"
-                    type="email"
-                    value={manualUserData.email}
-                    onChange={(e) => setManualUserData({ ...manualUserData, email: e.target.value })}
-                    placeholder="user@example.com"
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="manualName">Full Name *</Label>
-                  <Input
-                    id="manualName"
-                    value={manualUserData.full_name}
-                    onChange={(e) => setManualUserData({ ...manualUserData, full_name: e.target.value })}
-                    placeholder="John Doe"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="manualPosition">Position</Label>
-                  <Select
-                    value={manualUserData.position}
-                    onValueChange={(value) => setManualUserData({ ...manualUserData, position: value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select position" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="manager">Manager</SelectItem>
-                      <SelectItem value="chef">Chef</SelectItem>
-                      <SelectItem value="sous_chef">Sous Chef</SelectItem>
-                      <SelectItem value="line_cook">Line Cook</SelectItem>
-                      <SelectItem value="server">Server</SelectItem>
-                      <SelectItem value="bartender">Bartender</SelectItem>
-                      <SelectItem value="host">Host</SelectItem>
-                      <SelectItem value="cleaner">Cleaner</SelectItem>
-                      <SelectItem value="maintenance">Maintenance</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div>
-                  <Label htmlFor="manualDepartment">Department</Label>
-                  <Select
-                    value={manualUserData.department}
-                    onValueChange={(value) => setManualUserData({ ...manualUserData, department: value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select department" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="management">Management</SelectItem>
-                      <SelectItem value="kitchen">Kitchen</SelectItem>
-                      <SelectItem value="front_of_house">Front of House</SelectItem>
-                      <SelectItem value="bar">Bar</SelectItem>
-                      <SelectItem value="cleaning">Cleaning</SelectItem>
-                      <SelectItem value="maintenance">Maintenance</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="manualPhone">Phone</Label>
-                  <Input
-                    id="manualPhone"
-                    value={manualUserData.phone}
-                    onChange={(e) => setManualUserData({ ...manualUserData, phone: e.target.value })}
-                    placeholder="Phone number"
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="manualHireDate">Hire Date</Label>
-                  <Input
-                    id="manualHireDate"
-                    type="date"
-                    value={manualUserData.hire_date}
-                    onChange={(e) => setManualUserData({ ...manualUserData, hire_date: e.target.value })}
-                  />
-                </div>
-              </div>
-
-              <div>
-                <Label htmlFor="manualRate">Hourly Rate (£)</Label>
-                <Input
-                  id="manualRate"
-                  type="number"
-                  step="0.01"
-                  value={manualUserData.hourly_rate}
-                  onChange={(e) => setManualUserData({ ...manualUserData, hourly_rate: e.target.value })}
-                  placeholder="0.00"
-                />
-              </div>
-            </div>
-
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setShowManualAddDialog(false)}>
-                Cancel
-              </Button>
+              
               <Button
-                onClick={handleManualAddUser}
-                disabled={createManualUserMutation.isPending}
+                onClick={() => setShowManualAddDialog(true)}
                 className="bg-emerald-600 hover:bg-emerald-700"
               >
-                {createManualUserMutation.isPending ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Creating...
-                  </>
-                ) : (
-                  <>
-                    <User className="w-4 h-4 mr-2" />
-                    Create User
-                  </>
-                )}
+                <User className="w-4 h-4 mr-2" />
+                Add User Manually
               </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
 
-        {/* Invite User Dialog */}
-        <Dialog open={showInviteDialog} onOpenChange={setShowInviteDialog}>
-          <DialogContent className="max-w-2xl">
-            <DialogHeader>
-              <DialogTitle>Invite New User</DialogTitle>
-              <DialogDescription>
-                Send an invitation via email or generate a registration link
-              </DialogDescription>
-            </DialogHeader>
+              <Button
+                onClick={() => {
+                  setShowInviteDialog(true);
+                  setGeneratedLink(null);
+                  setInviteFormData({ email: '', name: '', position: 'server', department: 'front_of_house' });
+                }}
+                className="bg-blue-600 hover:bg-blue-700"
+              >
+                <UserPlus className="w-4 h-4 mr-2" />
+                Invite User
+              </Button>
 
-            {!generatedLink ? (
-              <div className="space-y-4">
-                <div className="flex gap-2 mb-4">
-                  <Button
-                    variant={inviteType === 'email' ? 'default' : 'outline'}
-                    onClick={() => setInviteType('email')}
-                    className="flex-1"
-                  >
-                    <Mail className="w-4 h-4 mr-2" />
-                    Email Invitation
-                  </Button>
-                  <Button
-                    variant={inviteType === 'link' ? 'default' : 'outline'}
-                    onClick={() => setInviteType('link')}
-                    className="flex-1"
-                  >
-                    <LinkIcon className="w-4 h-4 mr-2" />
-                    Registration Link
-                  </Button>
+              {registrationRequests.length > 0 && (
+                <Button
+                  variant="outline"
+                  onClick={() => setShowRegistrationRequests(true)}
+                  className="relative"
+                >
+                  <Users className="w-4 h-4 mr-2" />
+                  Registrations
+                  <Badge className="ml-2 bg-red-500 text-white">
+                    {registrationRequests.length}
+                  </Badge>
+                </Button>
+              )}
+            </div>
+          </div>
+
+          {/* Stats Cards */}
+          <div className="grid md:grid-cols-4 gap-4 mb-6">
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
+              <Card>
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-gray-600 mb-1">Total Users</p>
+                      <p className="text-3xl font-bold text-gray-900">{stats.total}</p>
+                    </div>
+                    <Users className="w-10 h-10 text-blue-600" />
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}>
+              <Card>
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-gray-600 mb-1">Active</p>
+                      <p className="text-3xl font-bold text-green-600">{stats.active}</p>
+                    </div>
+                    <CheckCircle className="w-10 h-10 text-green-600" />
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
+              <Card>
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-gray-600 mb-1">Managers</p>
+                      <p className="text-3xl font-bold text-purple-600">{stats.managers}</p>
+                    </div>
+                    <Shield className="w-10 h-10 text-purple-600" />
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
+              <Card>
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-gray-600 mb-1">Synced</p>
+                      <p className="text-3xl font-bold text-indigo-600">{stats.synced}</p>
+                    </div>
+                    <UserCheck className="w-10 h-10 text-indigo-600" />
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          </div>
+
+          {/* Search and Filters */}
+          <Card className="mb-6">
+            <CardContent className="p-4">
+              <div className="flex flex-wrap gap-4">
+                <div className="flex-1 min-w-[250px] relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <Input
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search users..."
+                    className="pl-10"
+                  />
                 </div>
 
-                <div className="grid gap-4">
+                <Select value={filterRole} onValueChange={setFilterRole}>
+                  <SelectTrigger className="w-40">
+                    <SelectValue placeholder="Role" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Roles</SelectItem>
+                    <SelectItem value="owner">Owner</SelectItem>
+                    <SelectItem value="manager">Manager</SelectItem>
+                    <SelectItem value="chef">Chef</SelectItem>
+                    <SelectItem value="sous_chef">Sous Chef</SelectItem>
+                    <SelectItem value="line_cook">Line Cook</SelectItem>
+                    <SelectItem value="server">Server</SelectItem>
+                    <SelectItem value="bartender">Bartender</SelectItem>
+                    <SelectItem value="host">Host</SelectItem>
+                    <SelectItem value="cleaner">Cleaner</SelectItem>
+                    <SelectItem value="maintenance">Maintenance</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                <Select value={filterStatus} onValueChange={setFilterStatus}>
+                  <SelectTrigger className="w-32">
+                    <SelectValue placeholder="Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Status</SelectItem>
+                    <SelectItem value="active">Active</SelectItem>
+                    <SelectItem value="inactive">Inactive</SelectItem>
+                    <SelectItem value="on_leave">On Leave</SelectItem>
+                    <SelectItem value="probation">Probation</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Users Table */}
+          <Card>
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-gray-50 border-b">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        User
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Position
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Department
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Status
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Sync Status
+                      </th>
+                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Actions
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {filteredUsers.map((user) => (
+                      <tr key={user.email} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center">
+                            {user.photo_url ? (
+                              <img
+                                src={user.photo_url}
+                                alt={user.full_name}
+                                className="w-10 h-10 rounded-full object-cover"
+                              />
+                            ) : (
+                              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white font-bold">
+                                {user.full_name?.charAt(0)?.toUpperCase()}
+                              </div>
+                            )}
+                            <div className="ml-3">
+                              <p className="text-sm font-medium text-gray-900">{user.full_name}</p>
+                              <p className="text-sm text-gray-500">{user.email}</p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <Badge className={`${getRoleColor(user.position)} border`}>
+                            {user.position || 'N/A'}
+                          </Badge>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {user.department || 'N/A'}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <Badge className={`${getStatusColor(user.status)} border`}>
+                            {user.status}
+                          </Badge>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          {user.has_team_member ? (
+                            <Badge className="bg-green-100 text-green-800 border-green-200 border">
+                              <CheckCircle className="w-3 h-3 mr-1" />
+                              Synced
+                            </Badge>
+                          ) : (
+                            <Badge className="bg-yellow-100 text-yellow-800 border-yellow-200 border">
+                              <AlertTriangle className="w-3 h-3 mr-1" />
+                              Pending
+                            </Badge>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon">
+                                <MoreVertical className="w-4 h-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => handleEdit(user)}>
+                                <Edit className="w-4 h-4 mr-2" />
+                                Edit User
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => {
+                                setUserToDelete(user);
+                                setShowDeleteDialog(true);
+                              }}>
+                                {user.status === 'active' ? (
+                                  <>
+                                    <Lock className="w-4 h-4 mr-2" />
+                                    Deactivate
+                                  </>
+                                ) : (
+                                  <>
+                                    <Unlock className="w-4 h-4 mr-2" />
+                                    Activate
+                                  </>
+                                )}
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                className="text-red-600"
+                                onClick={() => {
+                                  setUserToDelete(user);
+                                  setShowDeleteDialog(true);
+                                }}
+                              >
+                                <Trash2 className="w-4 h-4 mr-2" />
+                                Delete
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {filteredUsers.length === 0 && (
+                <div className="p-12 text-center">
+                  <Users className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                  <p className="text-gray-500">No users found</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Manual Add User Dialog */}
+          <Dialog open={showManualAddDialog} onOpenChange={setShowManualAddDialog}>
+            <DialogContent className="max-w-2xl">
+              <DialogHeader>
+                <DialogTitle>Add User Manually</DialogTitle>
+                <DialogDescription>
+                  Create a user account directly. They can register later with this email.
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="space-y-4 py-4">
+                <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <Label htmlFor="inviteEmail">Email Address *</Label>
+                    <Label htmlFor="manualEmail">Email Address *</Label>
                     <Input
-                      id="inviteEmail"
+                      id="manualEmail"
                       type="email"
-                      value={inviteFormData.email}
-                      onChange={(e) => setInviteFormData({ ...inviteFormData, email: e.target.value })}
+                      value={manualUserData.email}
+                      onChange={(e) => setManualUserData({ ...manualUserData, email: e.target.value })}
                       placeholder="user@example.com"
                     />
                   </div>
 
                   <div>
-                    <Label htmlFor="inviteName">Full Name *</Label>
+                    <Label htmlFor="manualName">Full Name *</Label>
                     <Input
-                      id="inviteName"
-                      value={inviteFormData.name}
-                      onChange={(e) => setInviteFormData({ ...inviteFormData, name: e.target.value })}
+                      id="manualName"
+                      value={manualUserData.full_name}
+                      onChange={(e) => setManualUserData({ ...manualUserData, full_name: e.target.value })}
                       placeholder="John Doe"
                     />
                   </div>
+                </div>
 
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label htmlFor="invitePosition">Position</Label>
-                      <Select
-                        value={inviteFormData.position}
-                        onValueChange={(value) => setInviteFormData({ ...inviteFormData, position: value })}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select position" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="manager">Manager</SelectItem>
-                          <SelectItem value="chef">Chef</SelectItem>
-                          <SelectItem value="sous_chef">Sous Chef</SelectItem>
-                          <SelectItem value="line_cook">Line Cook</SelectItem>
-                          <SelectItem value="server">Server</SelectItem>
-                          <SelectItem value="bartender">Bartender</SelectItem>
-                          <SelectItem value="host">Host</SelectItem>
-                          <SelectItem value="cleaner">Cleaner</SelectItem>
-                          <SelectItem value="maintenance">Maintenance</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="manualPosition">Position</Label>
+                    <Select
+                      value={manualUserData.position}
+                      onValueChange={(value) => setManualUserData({ ...manualUserData, position: value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select position" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="manager">Manager</SelectItem>
+                        <SelectItem value="chef">Chef</SelectItem>
+                        <SelectItem value="sous_chef">Sous Chef</SelectItem>
+                        <SelectItem value="line_cook">Line Cook</SelectItem>
+                        <SelectItem value="server">Server</SelectItem>
+                        <SelectItem value="bartender">Bartender</SelectItem>
+                        <SelectItem value="host">Host</SelectItem>
+                        <SelectItem value="cleaner">Cleaner</SelectItem>
+                        <SelectItem value="maintenance">Maintenance</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
 
-                    <div>
-                      <Label htmlFor="inviteDepartment">Department</Label>
-                      <Select
-                        value={inviteFormData.department}
-                        onValueChange={(value) => setInviteFormData({ ...inviteFormData, department: value })}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select department" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="management">Management</SelectItem>
-                          <SelectItem value="kitchen">Kitchen</SelectItem>
-                          <SelectItem value="front_of_house">Front of House</SelectItem>
-                          <SelectItem value="bar">Bar</SelectItem>
-                          <SelectItem value="cleaning">Cleaning</SelectItem>
-                          <SelectItem value="maintenance">Maintenance</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
+                  <div>
+                    <Label htmlFor="manualDepartment">Department</Label>
+                    <Select
+                      value={manualUserData.department}
+                      onValueChange={(value) => setManualUserData({ ...manualUserData, department: value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select department" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="management">Management</SelectItem>
+                        <SelectItem value="kitchen">Kitchen</SelectItem>
+                        <SelectItem value="front_of_house">Front of House</SelectItem>
+                        <SelectItem value="bar">Bar</SelectItem>
+                        <SelectItem value="cleaning">Cleaning</SelectItem>
+                        <SelectItem value="maintenance">Maintenance</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
 
-                <DialogFooter>
-                  <Button variant="outline" onClick={() => setShowInviteDialog(false)}>
-                    Cancel
-                  </Button>
-                  <Button
-                    onClick={handleSendInvite}
-                    disabled={sendInvitationMutation.isPending}
-                    className="bg-blue-600 hover:bg-blue-700"
-                  >
-                    {sendInvitationMutation.isPending ? (
-                      <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        Sending...
-                      </>
-                    ) : (
-                      <>
-                        {inviteType === 'email' ? <Mail className="w-4 h-4 mr-2" /> : <LinkIcon className="w-4 h-4 mr-2" />}
-                        {inviteType === 'email' ? 'Send Invitation' : 'Generate Link'}
-                      </>
-                    )}
-                  </Button>
-                </DialogFooter>
-              </div>
-            ) : (
-              <div className="text-center space-y-4">
-                <h3 className="text-lg font-semibold">Registration Link Generated!</h3>
-                <div className="bg-gray-100 p-4 rounded-lg">
-                  <p className="text-sm text-gray-600 mb-2">Share this link with the new user:</p>
-                  <p className="text-sm font-mono bg-white p-3 rounded border break-all">
-                    {generatedLink}
-                  </p>
-                </div>
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      setGeneratedLink(null);
-                      setShowInviteDialog(false);
-                    }}
-                    className="flex-1"
-                  >
-                    Close
-                  </Button>
-                  <Button
-                    onClick={() => copyToClipboard(generatedLink)}
-                    className="flex-1 bg-blue-600"
-                  >
-                    <Copy className="w-4 h-4 mr-2" />
-                    Copy Link
-                  </Button>
-                </div>
-              </div>
-            )}
-          </DialogContent>
-        </Dialog>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="manualPhone">Phone</Label>
+                    <Input
+                      id="manualPhone"
+                      value={manualUserData.phone}
+                      onChange={(e) => setManualUserData({ ...manualUserData, phone: e.target.value })}
+                      placeholder="Phone number"
+                    />
+                  </div>
 
-        {/* Registration Requests Dialog */}
-        <Dialog open={showRegistrationRequests} onOpenChange={setShowRegistrationRequests}>
-          <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Registration Requests ({registrationRequests.length})</DialogTitle>
-              <DialogDescription>
-                Review and approve new user registrations
-              </DialogDescription>
-            </DialogHeader>
-
-            <div className="space-y-4">
-              {registrationRequests.map((request) => (
-                <Card key={request.id} className="border-2">
-                  <CardContent className="p-4">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-3 mb-2">
-                          {request.photo_url ? (
-                            <img
-                              src={request.photo_url}
-                              alt={request.full_name}
-                              className="w-12 h-12 rounded-full object-cover"
-                            />
-                          ) : (
-                            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white font-bold text-lg">
-                              {request.full_name?.charAt(0)}
-                            </div>
-                          )}
-                          <div>
-                            <h3 className="font-bold text-lg">{request.full_name}</h3>
-                            <p className="text-sm text-gray-600">{request.email}</p>
-                          </div>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-4 mb-3">
-                          <div>
-                            <p className="text-xs text-gray-500">Position</p>
-                            <p className="font-medium">{request.desired_position}</p>
-                          </div>
-                          <div>
-                            <p className="text-xs text-gray-500">Department</p>
-                            <p className="font-medium">{request.desired_department}</p>
-                          </div>
-                          <div>
-                            <p className="text-xs text-gray-500">Phone</p>
-                            <p className="font-medium">{request.phone || 'N/A'}</p>
-                          </div>
-                          <div>
-                            <p className="text-xs text-gray-500">Submitted</p>
-                            <p className="font-medium">
-                              {request.requested_at ? format(new Date(request.requested_at), 'PPp') : 'N/A'}
-                            </p>
-                          </div>
-                        </div>
-
-                        {request.message && (
-                          <div className="mb-3">
-                            <p className="text-xs text-gray-500 mb-1">Message</p>
-                            <p className="text-sm bg-gray-50 p-3 rounded">{request.message}</p>
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="flex flex-col gap-2">
-                        <Button
-                          onClick={() => approveRegistrationMutation.mutate(request)}
-                          className="bg-green-600 hover:bg-green-700"
-                          disabled={approveRegistrationMutation.isPending}
-                        >
-                          <CheckCircle className="w-4 h-4 mr-2" />
-                          Approve
-                        </Button>
-                        <Button
-                          variant="destructive"
-                          onClick={() => {
-                            const reason = prompt('Reason for rejection (optional):');
-                            rejectRegistrationMutation.mutate({ request, reason });
-                          }}
-                          disabled={rejectRegistrationMutation.isPending}
-                        >
-                          <X className="w-4 h-4 mr-2" />
-                          Reject
-                        </Button>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-
-              {registrationRequests.length === 0 && (
-                <p className="text-center text-gray-500 py-8">
-                  No pending registration requests
-                </p>
-              )}
-            </div>
-          </DialogContent>
-        </Dialog>
-
-        {/* Edit User Dialog */}
-        <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
-          <DialogContent className="sm:max-w-[500px]">
-            <DialogHeader>
-              <DialogTitle>Edit User</DialogTitle>
-              <DialogDescription>
-                Update user information and permissions
-              </DialogDescription>
-            </DialogHeader>
-
-            <div className="grid gap-4 py-4">
-              <div className="grid gap-2">
-                <Label>Full Name</Label>
-                <Input
-                  value={formData.full_name}
-                  onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
-                  disabled
-                />
-              </div>
-
-              <div className="grid gap-2">
-                <Label>Email</Label>
-                <Input
-                  value={formData.email}
-                  disabled
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="grid gap-2">
-                  <Label>Position</Label>
-                  <Select
-                    value={formData.position}
-                    onValueChange={(value) => setFormData({ ...formData, position: value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select position" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="owner">Owner</SelectItem>
-                      <SelectItem value="manager">Manager</SelectItem>
-                      <SelectItem value="chef">Chef</SelectItem>
-                      <SelectItem value="sous_chef">Sous Chef</SelectItem>
-                      <SelectItem value="line_cook">Line Cook</SelectItem>
-                      <SelectItem value="server">Server</SelectItem>
-                      <SelectItem value="bartender">Bartender</SelectItem>
-                      <SelectItem value="host">Host</SelectItem>
-                      <SelectItem value="cleaner">Cleaner</SelectItem>
-                      <SelectItem value="maintenance">Maintenance</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <div>
+                    <Label htmlFor="manualHireDate">Hire Date</Label>
+                    <Input
+                      id="manualHireDate"
+                      type="date"
+                      value={manualUserData.hire_date}
+                      onChange={(e) => setManualUserData({ ...manualUserData, hire_date: e.target.value })}
+                    />
+                  </div>
                 </div>
 
-                <div className="grid gap-2">
-                  <Label>Department</Label>
-                  <Select
-                    value={formData.department}
-                    onValueChange={(value) => setFormData({ ...formData, department: value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select department" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="management">Management</SelectItem>
-                      <SelectItem value="kitchen">Kitchen</SelectItem>
-                      <SelectItem value="front_of_house">Front of House</SelectItem>
-                      <SelectItem value="bar">Bar</SelectItem>
-                      <SelectItem value="cleaning">Cleaning</SelectItem>
-                      <SelectItem value="maintenance">Maintenance</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="grid gap-2">
-                  <Label>Phone</Label>
+                <div>
+                  <Label htmlFor="manualRate">Hourly Rate (£)</Label>
                   <Input
-                    value={formData.phone}
-                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                    placeholder="Phone number"
-                  />
-                </div>
-
-                <div className="grid gap-2">
-                  <Label>Status</Label>
-                  <Select
-                    value={formData.status}
-                    onValueChange={(value) => setFormData({ ...formData, status: value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="active">Active</SelectItem>
-                      <SelectItem value="inactive">Inactive</SelectItem>
-                      <SelectItem value="on_leave">On Leave</SelectItem>
-                      <SelectItem value="probation">Probation</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="grid gap-2">
-                  <Label>Hire Date</Label>
-                  <Input
-                    type="date"
-                    value={formData.hire_date}
-                    onChange={(e) => setFormData({ ...formData, hire_date: e.target.value })}
-                  />
-                </div>
-
-                <div className="grid gap-2">
-                  <Label>Hourly Rate (£)</Label>
-                  <Input
+                    id="manualRate"
                     type="number"
                     step="0.01"
-                    value={formData.hourly_rate}
-                    onChange={(e) => setFormData({ ...formData, hourly_rate: e.target.value })}
+                    value={manualUserData.hourly_rate}
+                    onChange={(e) => setManualUserData({ ...manualUserData, hourly_rate: e.target.value })}
                     placeholder="0.00"
                   />
                 </div>
               </div>
-            </div>
 
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setShowEditDialog(false)}>
-                Cancel
-              </Button>
-              <Button onClick={handleSaveUser} disabled={updateUserMutation.isPending}>
-                {updateUserMutation.isPending ? 'Saving...' : 'Save Changes'}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setShowManualAddDialog(false)}>
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleManualAddUser}
+                  disabled={createManualUserMutation.isPending}
+                  className="bg-emerald-600 hover:bg-emerald-700"
+                >
+                  {createManualUserMutation.isPending ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Creating...
+                    </>
+                  ) : (
+                    <>
+                      <User className="w-4 h-4 mr-2" />
+                      Create User
+                    </>
+                  )}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
 
-        {/* Delete/Deactivate User Dialog */}
-        <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Confirm Action</DialogTitle>
-              <DialogDescription>
-                Are you sure you want to deactivate {userToDelete?.full_name}? They will no longer be able to access the system.
-              </DialogDescription>
-            </DialogHeader>
+          {/* Invite User Dialog */}
+          <Dialog open={showInviteDialog} onOpenChange={setShowInviteDialog}>
+            <DialogContent className="max-w-2xl">
+              <DialogHeader>
+                <DialogTitle>Invite New User</DialogTitle>
+                <DialogDescription>
+                  Send an invitation via email or generate a registration link
+                </DialogDescription>
+              </DialogHeader>
 
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setShowDeleteDialog(false)}>
-                Cancel
-              </Button>
-              <Button
-                variant="destructive"
-                onClick={handleDeleteUser}
-                disabled={deleteUserMutation.isPending}
-              >
-                {deleteUserMutation.isPending ? 'Processing...' : 'Deactivate User'}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      </div>
+              {!generatedLink ? (
+                <div className="space-y-4">
+                  <div className="flex gap-2 mb-4">
+                    <Button
+                      variant={inviteType === 'email' ? 'default' : 'outline'}
+                      onClick={() => setInviteType('email')}
+                      className="flex-1"
+                    >
+                      <Mail className="w-4 h-4 mr-2" />
+                      Email Invitation
+                    </Button>
+                    <Button
+                      variant={inviteType === 'link' ? 'default' : 'outline'}
+                      onClick={() => setInviteType('link')}
+                      className="flex-1"
+                    >
+                      <LinkIcon className="w-4 h-4 mr-2" />
+                      Registration Link
+                    </Button>
+                  </div>
+
+                  <div className="grid gap-4">
+                    <div>
+                      <Label htmlFor="inviteEmail">Email Address *</Label>
+                      <Input
+                        id="inviteEmail"
+                        type="email"
+                        value={inviteFormData.email}
+                        onChange={(e) => setInviteFormData({ ...inviteFormData, email: e.target.value })}
+                        placeholder="user@example.com"
+                      />
+                    </div>
+
+                    <div>
+                      <Label htmlFor="inviteName">Full Name *</Label>
+                      <Input
+                        id="inviteName"
+                        value={inviteFormData.name}
+                        onChange={(e) => setInviteFormData({ ...inviteFormData, name: e.target.value })}
+                        placeholder="John Doe"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="invitePosition">Position</Label>
+                        <Select
+                          value={inviteFormData.position}
+                          onValueChange={(value) => setInviteFormData({ ...inviteFormData, position: value })}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select position" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="manager">Manager</SelectItem>
+                            <SelectItem value="chef">Chef</SelectItem>
+                            <SelectItem value="sous_chef">Sous Chef</SelectItem>
+                            <SelectItem value="line_cook">Line Cook</SelectItem>
+                            <SelectItem value="server">Server</SelectItem>
+                            <SelectItem value="bartender">Bartender</SelectItem>
+                            <SelectItem value="host">Host</SelectItem>
+                            <SelectItem value="cleaner">Cleaner</SelectItem>
+                            <SelectItem value="maintenance">Maintenance</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div>
+                        <Label htmlFor="inviteDepartment">Department</Label>
+                        <Select
+                          value={inviteFormData.department}
+                          onValueChange={(value) => setInviteFormData({ ...inviteFormData, department: value })}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select department" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="management">Management</SelectItem>
+                            <SelectItem value="kitchen">Kitchen</SelectItem>
+                            <SelectItem value="front_of_house">Front of House</SelectItem>
+                            <SelectItem value="bar">Bar</SelectItem>
+                            <SelectItem value="cleaning">Cleaning</SelectItem>
+                            <SelectItem value="maintenance">Maintenance</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  </div>
+
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setShowInviteDialog(false)}>
+                      Cancel
+                    </Button>
+                    <Button
+                      onClick={handleSendInvite}
+                      disabled={sendInvitationMutation.isPending}
+                      className="bg-blue-600 hover:bg-blue-700"
+                    >
+                      {sendInvitationMutation.isPending ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Sending...
+                        </>
+                      ) : (
+                        <>
+                          {inviteType === 'email' ? <Mail className="w-4 h-4 mr-2" /> : <LinkIcon className="w-4 h-4 mr-2" />}
+                          {inviteType === 'email' ? 'Send Invitation' : 'Generate Link'}
+                        </>
+                      )}
+                    </Button>
+                  </DialogFooter>
+                </div>
+              ) : (
+                <div className="text-center space-y-4">
+                  <h3 className="text-lg font-semibold">Registration Link Generated!</h3>
+                  <div className="bg-gray-100 p-4 rounded-lg">
+                    <p className="text-sm text-gray-600 mb-2">Share this link with the new user:</p>
+                    <p className="text-sm font-mono bg-white p-3 rounded border break-all">
+                      {generatedLink}
+                    </p>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setGeneratedLink(null);
+                        setShowInviteDialog(false);
+                      }}
+                      className="flex-1"
+                    >
+                      Close
+                    </Button>
+                    <Button
+                      onClick={() => copyToClipboard(generatedLink)}
+                      className="flex-1 bg-blue-600"
+                    >
+                      <Copy className="w-4 h-4 mr-2" />
+                      Copy Link
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </DialogContent>
+          </Dialog>
+
+          {/* Registration Requests Dialog */}
+          <Dialog open={showRegistrationRequests} onOpenChange={setShowRegistrationRequests}>
+            <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Registration Requests ({registrationRequests.length})</DialogTitle>
+                <DialogDescription>
+                  Review and approve new user registrations
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="space-y-4">
+                {registrationRequests.map((request) => (
+                  <Card key={request.id} className="border-2">
+                    <CardContent className="p-4">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-3 mb-2">
+                            {request.photo_url ? (
+                              <img
+                                src={request.photo_url}
+                                alt={request.full_name}
+                                className="w-12 h-12 rounded-full object-cover"
+                              />
+                            ) : (
+                              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white font-bold text-lg">
+                                {request.full_name?.charAt(0)}
+                              </div>
+                            )}
+                            <div>
+                              <h3 className="font-bold text-lg">{request.full_name}</h3>
+                              <p className="text-sm text-gray-600">{request.email}</p>
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-4 mb-3">
+                            <div>
+                              <p className="text-xs text-gray-500">Position</p>
+                              <p className="font-medium">{request.desired_position}</p>
+                            </div>
+                            <div>
+                              <p className="text-xs text-gray-500">Department</p>
+                              <p className="font-medium">{request.desired_department}</p>
+                            </div>
+                            <div>
+                              <p className="text-xs text-gray-500">Phone</p>
+                              <p className="font-medium">{request.phone || 'N/A'}</p>
+                            </div>
+                            <div>
+                              <p className="text-xs text-gray-500">Submitted</p>
+                              <p className="font-medium">
+                                {request.requested_at ? format(new Date(request.requested_at), 'PPp') : 'N/A'}
+                              </p>
+                            </div>
+                          </div>
+
+                          {request.message && (
+                            <div className="mb-3">
+                              <p className="text-xs text-gray-500 mb-1">Message</p>
+                              <p className="text-sm bg-gray-50 p-3 rounded">{request.message}</p>
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="flex flex-col gap-2">
+                          <Button
+                            onClick={() => approveRegistrationMutation.mutate(request)}
+                            className="bg-green-600 hover:bg-green-700"
+                            disabled={approveRegistrationMutation.isPending}
+                          >
+                            <CheckCircle className="w-4 h-4 mr-2" />
+                            Approve
+                          </Button>
+                          <Button
+                            variant="destructive"
+                            onClick={() => {
+                              const reason = prompt('Reason for rejection (optional):');
+                              rejectRegistrationMutation.mutate({ request, reason });
+                            }}
+                            disabled={rejectRegistrationMutation.isPending}
+                          >
+                            <X className="w-4 h-4 mr-2" />
+                            Reject
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+
+                {registrationRequests.length === 0 && (
+                  <p className="text-center text-gray-500 py-8">
+                    No pending registration requests
+                  </p>
+                )}
+              </div>
+            </DialogContent>
+          </Dialog>
+
+          {/* Edit User Dialog */}
+          <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+            <DialogContent className="sm:max-w-[500px]">
+              <DialogHeader>
+                <DialogTitle>Edit User</DialogTitle>
+                <DialogDescription>
+                  Update user information and permissions
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="grid gap-4 py-4">
+                <div className="grid gap-2">
+                  <Label>Full Name</Label>
+                  <Input
+                    value={formData.full_name}
+                    onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
+                    disabled
+                  />
+                </div>
+
+                <div className="grid gap-2">
+                  <Label>Email</Label>
+                  <Input
+                    value={formData.email}
+                    disabled
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="grid gap-2">
+                    <Label>Position</Label>
+                    <Select
+                      value={formData.position}
+                      onValueChange={(value) => setFormData({ ...formData, position: value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select position" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="owner">Owner</SelectItem>
+                        <SelectItem value="manager">Manager</SelectItem>
+                        <SelectItem value="chef">Chef</SelectItem>
+                        <SelectItem value="sous_chef">Sous Chef</SelectItem>
+                        <SelectItem value="line_cook">Line Cook</SelectItem>
+                        <SelectItem value="server">Server</SelectItem>
+                        <SelectItem value="bartender">Bartender</SelectItem>
+                        <SelectItem value="host">Host</SelectItem>
+                        <SelectItem value="cleaner">Cleaner</SelectItem>
+                        <SelectItem value="maintenance">Maintenance</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="grid gap-2">
+                    <Label>Department</Label>
+                    <Select
+                      value={formData.department}
+                      onValueChange={(value) => setFormData({ ...formData, department: value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select department" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="management">Management</SelectItem>
+                        <SelectItem value="kitchen">Kitchen</SelectItem>
+                        <SelectItem value="front_of_house">Front of House</SelectItem>
+                        <SelectItem value="bar">Bar</SelectItem>
+                        <SelectItem value="cleaning">Cleaning</SelectItem>
+                        <SelectItem value="maintenance">Maintenance</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="grid gap-2">
+                    <Label>Phone</Label>
+                    <Input
+                      value={formData.phone}
+                      onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                      placeholder="Phone number"
+                    />
+                  </div>
+
+                  <div className="grid gap-2">
+                    <Label>Status</Label>
+                    <Select
+                      value={formData.status}
+                      onValueChange={(value) => setFormData({ ...formData, status: value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="active">Active</SelectItem>
+                        <SelectItem value="inactive">Inactive</SelectItem>
+                        <SelectItem value="on_leave">On Leave</SelectItem>
+                        <SelectItem value="probation">Probation</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="grid gap-2">
+                    <Label>Hire Date</Label>
+                    <Input
+                      type="date"
+                      value={formData.hire_date}
+                      onChange={(e) => setFormData({ ...formData, hire_date: e.target.value })}
+                    />
+                  </div>
+
+                  <div className="grid gap-2">
+                    <Label>Hourly Rate (£)</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={formData.hourly_rate}
+                      onChange={(e) => setFormData({ ...formData, hourly_rate: e.target.value })}
+                      placeholder="0.00"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setShowEditDialog(false)}>
+                  Cancel
+                </Button>
+                <Button onClick={handleSaveUser} disabled={updateUserMutation.isPending}>
+                  {updateUserMutation.isPending ? 'Saving...' : 'Save Changes'}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
+          {/* Delete/Deactivate User Dialog */}
+          <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Confirm Action</DialogTitle>
+                <DialogDescription>
+                  Are you sure you want to deactivate {userToDelete?.full_name}? They will no longer be able to access the system.
+                </DialogDescription>
+              </DialogHeader>
+
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setShowDeleteDialog(false)}>
+                  Cancel
+                </Button>
+                <Button
+                  variant="destructive"
+                  onClick={handleDeleteUser}
+                  disabled={deleteUserMutation.isPending}
+                >
+                  {deleteUserMutation.isPending ? 'Processing...' : 'Deactivate User'}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </div>
+      </AccessGuard>
     </div>
   );
 }
