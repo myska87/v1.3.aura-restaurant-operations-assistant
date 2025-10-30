@@ -45,6 +45,8 @@ import AgentInitializer from './components/aurabrain/AgentInitializer';
 import ImpersonationBanner from './components/ImpersonationBanner';
 import DataIntegrityChecker from './components/DataIntegrityChecker';
 import GlobalErrorHandler from './components/GlobalErrorHandler';
+import SystemHealthCheck from './components/SystemHealthCheck';
+import ProtectionModeIndicator from './components/ProtectionModeIndicator';
 
 function VoiceSearch({ onClose, navigate }) {
   const [isListening, setIsListening] = useState(false);
@@ -380,6 +382,8 @@ export default function Layout({ children }) {
   return (
     <GlobalErrorHandler>
       <AgentInitializer>
+        <SystemHealthCheck />
+        <ProtectionModeIndicator />
         <DataIntegrityChecker />
         <div className="min-h-screen flex w-full bg-gray-50 dark:bg-gray-900">
           {impersonationData && (

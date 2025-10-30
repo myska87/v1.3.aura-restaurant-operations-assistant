@@ -133,6 +133,7 @@ import TrainingAcademy from './pages/TrainingAcademy';
 import TrainingWelcome from './pages/TrainingWelcome';
 import TrainingMentor from './pages/TrainingMentor';
 import ManagerTrainingDashboard from './pages/ManagerTrainingDashboard';
+import ProtectionDashboard from './pages/ProtectionDashboard';
 import Layout from './Layout.jsx';
 
 
@@ -272,6 +273,7 @@ export const PAGES = {
     "TrainingWelcome": TrainingWelcome,
     "TrainingMentor": TrainingMentor,
     "ManagerTrainingDashboard": ManagerTrainingDashboard,
+    "ProtectionDashboard": ProtectionDashboard,
 }
 
 export const pagesConfig = {
