@@ -208,11 +208,11 @@ const getRoleNavigation = (user, impersonatedRole = null) => {
   if (isManager) {
     return [
       { title: "Dashboard", url: createPageUrl("Dashboard"), icon: LayoutDashboard },
+      { title: "Menu", url: createPageUrl("Menu"), icon: Utensils },
       { title: "Documents & Forms", url: createPageUrl("DocumentsFormsHub"), icon: FileText },
       { title: "Operations", url: createPageUrl("OperationsDashboard"), icon: ClipboardCheck },
       { title: "Staff", url: createPageUrl("StaffDashboard"), icon: Users },
       { title: "Inventory", url: createPageUrl("InventoryDashboard"), icon: Package },
-      { title: "Menu", url: createPageUrl("Menu"), icon: Utensils },
       { title: "Reports", url: createPageUrl("Reports"), icon: BarChart3 },
       { title: "Settings", url: createPageUrl("SettingsDashboard"), icon: Settings },
     ];
@@ -264,6 +264,10 @@ const getRoleNavigation = (user, impersonatedRole = null) => {
 const ALL_PAGES = [
   { name: "Dashboard", url: createPageUrl("Dashboard"), keywords: "home main overview", category: "Core" },
   { name: "AURA Control Center", url: createPageUrl("DashboardPro"), keywords: "unified widgets ai brain", category: "Core" },
+  { name: "Menu Hub", url: createPageUrl("Menu"), keywords: "food dishes recipes allergens", category: "Menu" },
+  { name: "Menu Management", url: createPageUrl("MenuManagement"), keywords: "edit items recipes profit", category: "Menu" },
+  { name: "Menu Analysis", url: createPageUrl("MenuAnalysis"), keywords: "costing profit calculator", category: "Menu" },
+  { name: "Allergen Table", url: createPageUrl("AllergyTable"), keywords: "allergies ingredients safety", category: "Menu" },
   { name: "Documents & Forms Hub", url: createPageUrl("DocumentsFormsHub"), keywords: "documents forms sops unified", category: "Core" },
   { name: "Owner Control Panel", url: createPageUrl("OwnerControl"), keywords: "impersonation testing audit", category: "Owner" },
   { name: "Operations Hub", url: createPageUrl("OperationsDashboard"), keywords: "tasks checklists daily", category: "Operations" },
@@ -274,7 +278,6 @@ const ALL_PAGES = [
   { name: "Staff Rota", url: createPageUrl("StaffRota"), keywords: "schedule weekly planning", category: "Staff" },
   { name: "Clock In/Out", url: createPageUrl("ClockInOut"), keywords: "attendance time tracking", category: "Staff" },
   { name: "Inventory Hub", url: createPageUrl("InventoryDashboard"), keywords: "stock supplies ordering", category: "Inventory" },
-  { name: "Menu Hub", url: createPageUrl("Menu"), keywords: "food dishes recipes", category: "Menu" },
   { name: "SOP Hub", url: createPageUrl("SOPDashboardHub"), keywords: "procedures training guides", category: "SOPs" },
   { name: "Quality Dashboard", url: createPageUrl("QualityDashboard"), keywords: "audits checks standards", category: "Quality" },
   { name: "Hygiene Central", url: createPageUrl("HygieneDashboard"), keywords: "cleanliness temperature safety", category: "Hygiene" },
