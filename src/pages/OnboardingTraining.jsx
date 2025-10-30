@@ -527,6 +527,12 @@ export default function OnboardingTraining() {
               Dashboard
             </Button>
           </Link>
+          <Link to={createPageUrl("TrainingAcademy")}>
+            <Button size="sm" className="bg-gradient-to-r from-[#014D40] to-emerald-600 hover:from-[#013830] hover:to-emerald-700 text-white">
+              <GraduationCap className="w-4 h-4 mr-2" />
+              Go to Training Academy
+            </Button>
+          </Link>
         </div>
 
         {/* Welcome Section */}

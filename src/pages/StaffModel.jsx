@@ -1,3 +1,4 @@
+
 import React from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
@@ -29,13 +30,23 @@ export default function StaffModel() {
       accessLevel: "all",
     },
     {
-      title: "Onboarding & Training",
-      description: "New hire onboarding and skill development programs",
+      title: "New Hire Onboarding",
+      description: "Step-by-step onboarding process for new team members",
       icon: GraduationCap,
       url: createPageUrl("OnboardingTraining"),
       color: "from-blue-500 to-blue-600",
       bgColor: "bg-blue-50",
       iconColor: "text-blue-600",
+      accessLevel: "all",
+    },
+    {
+      title: "Training Academy",
+      description: "Culture training, skill development, and certification programs",
+      icon: Award,
+      url: createPageUrl("TrainingAcademy"),
+      color: "from-emerald-500 to-emerald-600",
+      bgColor: "bg-emerald-50",
+      iconColor: "text-emerald-600",
       accessLevel: "all",
     },
     {
@@ -46,7 +57,7 @@ export default function StaffModel() {
       color: "from-green-500 to-green-600",
       bgColor: "bg-green-50",
       iconColor: "text-green-600",
-      accessLevel: hasManagementAccess ? "all" : "limited", // Staff can view their own data
+      accessLevel: hasManagementAccess ? "all" : "limited",
     },
     {
       title: "Recognition & Rewards",
