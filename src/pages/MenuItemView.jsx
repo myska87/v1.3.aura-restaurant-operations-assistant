@@ -1,10 +1,10 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Textarea } from '@/components/ui/textarea';
 import {
   Select,
   SelectContent,
@@ -35,6 +35,8 @@ import {
   X,
   Printer,
   Image as ImageIcon,
+  Sparkles,
+  Wand2,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
@@ -50,6 +52,10 @@ export default function MenuItemView() {
   const [isEditingInstructions, setIsEditingInstructions] = useState(false);
   const [editedInstructions, setEditedInstructions] = useState('');
   const [uploadingInstructionImage, setUploadingInstructionImage] = useState(false);
+  const [showAIModal, setShowAIModal] = useState(false);
+  const [aiPrompt, setAiPrompt] = useState('');
+  const [aiMode, setAiMode] = useState('generate'); // generate, enhance, add_step
+  const [aiGenerating, setAiGenerating] = useState(false);
   const quillRef = useRef(null);
 
   useEffect(() => {
@@ -172,7 +178,6 @@ export default function MenuItemView() {
     try {
       const { file_url } = await base44.integrations.Core.UploadFile({ file });
       
-      // Insert image at current cursor position in Quill editor
       const quill = quillRef.current?.getEditor();
       if (quill) {
         const range = quill.getSelection(true);
@@ -180,13 +185,85 @@ export default function MenuItemView() {
         quill.setSelection(range.index + 1);
       }
       
-      // Clear file input
       e.target.value = '';
     } catch (error) {
       console.error('Failed to upload image:', error);
       alert('Failed to upload image');
     }
     setUploadingInstructionImage(false);
+  };
+
+  const handleAIGenerate = async () => {
+    if (aiMode === 'generate' && !aiPrompt.trim() && !item.recipe) {
+      alert('Please provide some details or add ingredients to the recipe first');
+      return;
+    }
+
+    setAiGenerating(true);
+    try {
+      let prompt = '';
+      
+      if (aiMode === 'generate') {
+        const ingredientsList = item.recipe?.map(r => `${r.quantity} ${r.unit} ${r.ingredient_name}`).join(', ') || '';
+        prompt = `Create detailed, professional cooking instructions for "${item.name}".
+
+${ingredientsList ? `Ingredients: ${ingredientsList}` : ''}
+${item.description ? `Description: ${item.description}` : ''}
+${aiPrompt ? `Additional context: ${aiPrompt}` : ''}
+
+Create step-by-step instructions that:
+- Are clear and easy to follow
+- Include timing for each step
+- Mention temperature controls
+- Include plating/presentation tips
+- Use professional kitchen language
+- Format with headers, bold text, and lists
+
+Return HTML formatted text with proper headings and structure.`;
+      } else if (aiMode === 'enhance') {
+        prompt = `Improve and enhance these cooking instructions for "${item.name}":
+
+Current instructions:
+${editedInstructions || item.cooking_instructions || 'No instructions yet'}
+
+${aiPrompt ? `Focus on: ${aiPrompt}` : ''}
+
+Make them more professional by:
+- Adding missing steps or details
+- Improving clarity and flow
+- Adding temperature and timing specifics
+- Including quality checkpoints
+- Better formatting with headers
+
+Return enhanced HTML formatted text.`;
+      } else if (aiMode === 'add_step') {
+        prompt = `Add a new step to these cooking instructions based on this request: "${aiPrompt}"
+
+Current instructions:
+${editedInstructions || item.cooking_instructions || ''}
+
+Add the new step in the appropriate place with proper formatting. Return the complete updated HTML.`;
+      }
+
+      const response = await base44.integrations.Core.InvokeLLM({
+        prompt: prompt,
+        response_json_schema: {
+          type: "object",
+          properties: {
+            instructions_html: { type: "string" }
+          }
+        }
+      });
+
+      setEditedInstructions(response.instructions_html || response);
+      setShowAIModal(false);
+      setAiPrompt('');
+      alert('✅ AI instructions generated! Review and edit as needed.');
+    } catch (error) {
+      console.error('AI generation failed:', error);
+      alert('Failed to generate with AI. Please try again.');
+    }
+    setAiGenerating(false);
   };
 
   const handlePrint = () => {
@@ -638,6 +715,19 @@ export default function MenuItemView() {
                         <ImageIcon className="w-4 h-4 mr-2" />
                         {uploadingInstructionImage ? 'Uploading...' : 'Insert Image at Cursor'}
                       </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setShowAIModal(true);
+                          setAiMode('generate');
+                          setAiPrompt('');
+                        }}
+                        className="flex-1 bg-gradient-to-r from-purple-50 to-indigo-50 hover:from-purple-100 hover:to-indigo-100"
+                      >
+                        <Sparkles className="w-4 h-4 mr-2" />
+                        AI Assistant
+                      </Button>
                       <input
                         id="instruction-image-upload"
                         type="file"
@@ -870,6 +960,134 @@ Add oil and aromatics...
                 >
                   <Link2 className="w-4 h-4 mr-2" />
                   {linkSOPMutation.isPending ? 'Linking...' : 'Link SOP'}
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={showAIModal} onOpenChange={setShowAIModal}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-purple-600" />
+                AI Cooking Instructions Assistant
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 mt-4">
+              <div className="grid grid-cols-3 gap-2">
+                <button
+                  onClick={() => setAiMode('generate')}
+                  className={`p-3 rounded-lg border-2 transition-all ${
+                    aiMode === 'generate' 
+                      ? 'border-purple-600 bg-purple-50' 
+                      : 'border-gray-200 hover:border-purple-300'
+                  }`}
+                >
+                  <Wand2 className="w-5 h-5 text-purple-600 mx-auto mb-1" />
+                  <p className="text-xs font-semibold">Generate</p>
+                  <p className="text-xs text-gray-500">From scratch</p>
+                </button>
+                <button
+                  onClick={() => setAiMode('enhance')}
+                  className={`p-3 rounded-lg border-2 transition-all ${
+                    aiMode === 'enhance' 
+                      ? 'border-blue-600 bg-blue-50' 
+                      : 'border-gray-200 hover:border-blue-300'
+                  }`}
+                >
+                  <Sparkles className="w-5 h-5 text-blue-600 mx-auto mb-1" />
+                  <p className="text-xs font-semibold">Enhance</p>
+                  <p className="text-xs text-gray-500">Improve existing</p>
+                </button>
+                <button
+                  onClick={() => setAiMode('add_step')}
+                  className={`p-3 rounded-lg border-2 transition-all ${
+                    aiMode === 'add_step' 
+                      ? 'border-green-600 bg-green-50' 
+                      : 'border-gray-200 hover:border-green-300'
+                  }`}
+                >
+                  <Plus className="w-5 h-5 text-green-600 mx-auto mb-1" />
+                  <p className="text-xs font-semibold">Add Step</p>
+                  <p className="text-xs text-gray-500">Insert new step</p>
+                </button>
+              </div>
+
+              <div>
+                <label className="text-sm font-medium text-gray-900 mb-2 block">
+                  {aiMode === 'generate' && 'Describe what instructions you need'}
+                  {aiMode === 'enhance' && 'What would you like to improve?'}
+                  {aiMode === 'add_step' && 'Describe the step to add'}
+                </label>
+                <Textarea
+                  value={aiPrompt}
+                  onChange={(e) => setAiPrompt(e.target.value)}
+                  placeholder={
+                    aiMode === 'generate' 
+                      ? "e.g., Focus on traditional preparation methods, include plating tips..." 
+                      : aiMode === 'enhance'
+                      ? "e.g., Add more detail to step 2, include temperature guidelines..."
+                      : "e.g., Add a step about garnishing with fresh herbs..."
+                  }
+                  rows={4}
+                  className="mt-2"
+                />
+              </div>
+
+              <div className="bg-gradient-to-r from-purple-50 to-blue-50 p-4 rounded-lg border border-purple-200">
+                <p className="text-sm text-gray-900 mb-2">
+                  <strong>✨ AI will help you:</strong>
+                </p>
+                {aiMode === 'generate' && (
+                  <ul className="text-xs text-gray-700 space-y-1 ml-4">
+                    <li>• Create professional step-by-step instructions</li>
+                    <li>• Include timing and temperature details</li>
+                    <li>• Add quality checkpoints and plating tips</li>
+                    <li>• Use {item.recipe?.length || 0} ingredients from your recipe</li>
+                  </ul>
+                )}
+                {aiMode === 'enhance' && (
+                  <ul className="text-xs text-gray-700 space-y-1 ml-4">
+                    <li>• Improve clarity and professional language</li>
+                    <li>• Add missing details (temps, times, techniques)</li>
+                    <li>• Better formatting and structure</li>
+                    <li>• Include quality control points</li>
+                  </ul>
+                )}
+                {aiMode === 'add_step' && (
+                  <ul className="text-xs text-gray-700 space-y-1 ml-4">
+                    <li>• Insert new step at the right position</li>
+                    <li>• Match existing formatting style</li>
+                    <li>• Include timing and technique details</li>
+                  </ul>
+                )}
+              </div>
+
+              <div className="flex justify-end gap-3">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowAIModal(false)}
+                  disabled={aiGenerating}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleAIGenerate}
+                  disabled={aiGenerating}
+                  className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700"
+                >
+                  {aiGenerating ? (
+                    <>
+                      <Sparkles className="w-4 h-4 mr-2 animate-spin" />
+                      Generating...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-4 h-4 mr-2" />
+                      {aiMode === 'generate' ? 'Generate Instructions' : aiMode === 'enhance' ? 'Enhance Instructions' : 'Add Step'}
+                    </>
+                  )}
                 </Button>
               </div>
             </div>
