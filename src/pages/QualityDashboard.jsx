@@ -1,4 +1,5 @@
-import React from 'react';
+
+import React, { useEffect } from 'react';
 import { Star, Zap, BarChart3, FileText } from 'lucide-react';
 import DashboardTabsLayout from '../components/DashboardTabsLayout';
 import QuickQualityCheck from './QuickQualityCheck';
@@ -12,6 +13,7 @@ import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import EmptyState from '../components/common/EmptyState';
+import { Button } from '@/components/ui/button'; // Assuming Button is imported if used in EmptyState action
 
 function QualityOverview() {
   const { data: records = [], isLoading } = useQuery({

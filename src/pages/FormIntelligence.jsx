@@ -4,8 +4,18 @@ import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Dialog,
   DialogContent,
@@ -15,28 +25,34 @@ import {
 } from "@/components/ui/dialog";
 import {
   Plus,
-  Edit3,
+  Edit3, // Retained as it's used for handleEdit
   Eye,
-  Lock,
-  Unlock,
+  Lock, // Retained as it's used for active/inactive forms
+  Unlock, // Retained as it's used for active/inactive forms
   Copy,
   Trash2,
-  User,
+  User, // Retained as it's used for grouping forms by position
   Clock,
-  Calendar,
-  AlertCircle,
+  Calendar, // Retained as it's used in stats overview
+  AlertCircle, // Retained as it's used for access restricted message
   CheckCircle,
   Search,
-  Filter,
+  // Filter, // Removed as it's not explicitly used as an icon in the JSX
   Home,
-  ArrowLeft,
+  ArrowLeft, // Retained as it's used for navigation back
   Settings,
+  FileText, // New import from outline
+  Sparkles, // New import from outline
+  Save, // New import from outline
+  BarChart3, // New import from outline
 } from "lucide-react";
 import { format } from "date-fns";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom"; // Retained useNavigate as it's used
 import { createPageUrl } from "@/utils";
 import FormEditor from "../components/FormEditor";
 import { motion } from "framer-motion";
+import LoadingSpinner from "../components/common/LoadingSpinner"; // New import from outline
+import EmptyState from "../components/common/EmptyState"; // New import from outline
 
 export default function FormIntelligence() {
   const queryClient = useQueryClient();
@@ -423,41 +439,50 @@ export default function FormIntelligence() {
                 </div>
               </div>
 
-              <select
+              <Select
                 value={filterTrigger}
-                onChange={(e) => setFilterTrigger(e.target.value)}
-                className="px-3 py-2 border rounded-lg text-sm"
+                onValueChange={setFilterTrigger}
               >
-                <option value="all">All Triggers</option>
-                <option value="opening">Opening</option>
-                <option value="mid_day">Mid-Day</option>
-                <option value="closing">Closing</option>
-                <option value="shift_start">Shift Start</option>
-                <option value="shift_end">Shift End</option>
-                <option value="manual">Manual</option>
-              </select>
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="All Triggers" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Triggers</SelectItem>
+                  <SelectItem value="opening">Opening</SelectItem>
+                  <SelectItem value="mid_day">Mid-Day</SelectItem>
+                  <SelectItem value="closing">Closing</SelectItem>
+                  <SelectItem value="shift_start">Shift Start</SelectItem>
+                  <SelectItem value="shift_end">Shift End</SelectItem>
+                  <SelectItem value="manual">Manual</SelectItem>
+                </SelectContent>
+              </Select>
 
-              <select
+              <Select
                 value={filterPosition}
-                onChange={(e) => setFilterPosition(e.target.value)}
-                className="px-3 py-2 border rounded-lg text-sm"
+                onValueChange={setFilterPosition}
               >
-                <option value="all">All Positions</option>
-                <option value="any">Any Position</option>
-                <option value="manager">Manager</option>
-                <option value="chef">Chef</option>
-                <option value="line_cook">Line Cook</option>
-                <option value="server">Server</option>
-                <option value="bartender">Bartender</option>
-                <option value="cleaner">Cleaner</option>
-                <option value="maintenance">Maintenance</option>
-              </select>
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="All Positions" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Positions</SelectItem>
+                  <SelectItem value="any">Any Position</SelectItem>
+                  <SelectItem value="manager">Manager</SelectItem>
+                  <SelectItem value="chef">Chef</SelectItem>
+                  <SelectItem value="line_cook">Line Cook</SelectItem>
+                  <SelectItem value="server">Server</SelectItem>
+                  <SelectItem value="bartender">Bartender</SelectItem>
+                  <SelectItem value="cleaner">Cleaner</SelectItem>
+                  <SelectItem value="maintenance">Maintenance</SelectItem>
+                </SelectContent>
+              </Select>
 
               <Button
                 variant={viewMode === 'grid' ? 'default' : 'outline'}
                 size="sm"
                 onClick={() => setViewMode(viewMode === 'grid' ? 'list' : 'grid')}
               >
+                {viewMode === 'grid' ? <BarChart3 className="w-4 h-4 mr-2" /> : <FileText className="w-4 h-4 mr-2" />}
                 {viewMode === 'grid' ? 'Grid View' : 'List View'}
               </Button>
             </div>
@@ -478,23 +503,16 @@ export default function FormIntelligence() {
             ))}
           </div>
         ) : Object.entries(formsByPosition).length === 0 ? (
-          <Card>
-            <CardContent className="p-12 text-center">
-              <Settings className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-xl font-semibold text-gray-900 mb-2">No Forms Found</h3>
-              <p className="text-gray-600 mb-6">Get started by creating your first smart form</p>
-              <Button
-                onClick={() => {
-                  setSelectedForm(null);
-                  setShowEditor(true);
-                }}
-                className="bg-[#014D40] hover:bg-[#013830]"
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                Create Form
-              </Button>
-            </CardContent>
-          </Card>
+          <EmptyState
+            icon={Settings}
+            title="No Forms Found"
+            description="Get started by creating your first smart form."
+            buttonText="Create Form"
+            onButtonClick={() => {
+              setSelectedForm(null);
+              setShowEditor(true);
+            }}
+          />
         ) : (
           <div className="space-y-8">
             {Object.entries(formsByPosition).map(([position, positionForms]) => (
@@ -527,9 +545,9 @@ export default function FormIntelligence() {
                                 <div className="flex items-center gap-2 mb-2">
                                   <h3 className="text-lg font-bold text-gray-900">{form.form_name}</h3>
                                   {form.is_active ? (
-                                    <Unlock className="w-4 h-4 text-green-600" title="Editable" />
+                                    <Unlock className="w-4 h-4 text-green-600" title="Active" />
                                   ) : (
-                                    <Lock className="w-4 h-4 text-gray-400" title="Locked" />
+                                    <Lock className="w-4 h-4 text-gray-400" title="Inactive" />
                                   )}
                                 </div>
                                 {form.description && (
@@ -652,19 +670,28 @@ export default function FormIntelligence() {
         <Dialog open={showAiGenerator} onOpenChange={setShowAiGenerator}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>AI Form Generator</DialogTitle>
+              <DialogTitle className="flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-blue-500" /> AI Form Generator
+              </DialogTitle>
             </DialogHeader>
             <div className="py-4 space-y-4">
               <p className="text-gray-700">
                 Describe the form you want to create. The AI will generate a draft for you.
               </p>
-              <Input
-                placeholder="e.g., 'Daily temperature log for kitchen equipment for a line cook'"
-                value={aiPrompt}
-                onChange={(e) => setAiPrompt(e.target.value)}
-              />
+              <div>
+                <Label htmlFor="ai-prompt">Form Description</Label>
+                <Textarea
+                  id="ai-prompt"
+                  placeholder="e.g., 'Daily temperature log for kitchen equipment for a line cook'"
+                  value={aiPrompt}
+                  onChange={(e) => setAiPrompt(e.target.value)}
+                  rows={4}
+                />
+              </div>
               {generateFormMutation.isPending && (
-                <p className="text-sm text-gray-500">Generating form, please wait...</p>
+                <div className="flex items-center gap-2 text-sm text-gray-500">
+                  <LoadingSpinner className="w-4 h-4" /> Generating form, please wait...
+                </div>
               )}
             </div>
             <DialogFooter>

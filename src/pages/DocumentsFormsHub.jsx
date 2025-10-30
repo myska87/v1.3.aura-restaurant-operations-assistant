@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -445,7 +445,7 @@ export default function DocumentsFormsHub() {
 
               <Link to={createPageUrl('SOPDashboard')}>
                 <Card className="hover:shadow-lg transition-shadow cursor-pointer">
-                  <CardContent className="p-6 text-center">
+                  <CardContent className="p-6  text-center">
                     <BookOpen className="w-12 h-12 text-green-600 mx-auto mb-3" />
                     <h3 className="font-semibold text-gray-900 mb-1">SOP Library</h3>
                     <p className="text-sm text-gray-600">Standard procedures</p>

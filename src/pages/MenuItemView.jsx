@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -23,9 +23,13 @@ import SOPStepTimeline from '../components/SOPStepTimeline';
 
 export default function MenuItemView() {
   const [showSOPModal, setShowSOPModal] = useState(false);
+  const [itemId, setItemId] = useState(null);
 
-  const urlParams = new URLSearchParams(window.location.search);
-  const itemId = urlParams.get('id');
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const id = urlParams.get('id');
+    setItemId(id);
+  }, []);
 
   const { data: user } = useQuery({
     queryKey: ['currentUser'],
