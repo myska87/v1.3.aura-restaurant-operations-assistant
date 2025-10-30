@@ -129,6 +129,7 @@ import OwnerControl from './pages/OwnerControl';
 import ComplianceAuditMonitor from './pages/ComplianceAuditMonitor';
 import RolePermissionsCenter from './pages/RolePermissionsCenter';
 import ReportsDashboard from './pages/ReportsDashboard';
+import TrainingAcademy from './pages/TrainingAcademy';
 import Layout from './Layout.jsx';
 
 
@@ -264,6 +265,7 @@ export const PAGES = {
     "ComplianceAuditMonitor": ComplianceAuditMonitor,
     "RolePermissionsCenter": RolePermissionsCenter,
     "ReportsDashboard": ReportsDashboard,
+    "TrainingAcademy": TrainingAcademy,
 }
 
 export const pagesConfig = {
