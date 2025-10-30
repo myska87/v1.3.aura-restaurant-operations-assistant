@@ -30,10 +30,15 @@ import {
   Package,
   Link2,
   Plus,
+  Save,
+  X,
+  Printer,
+  Image as ImageIcon,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import SOPStepTimeline from '../components/SOPStepTimeline';
+import ReactQuill from 'react-quill';
 
 export default function MenuItemView() {
   const queryClient = useQueryClient();
@@ -41,6 +46,9 @@ export default function MenuItemView() {
   const [showLinkSOPDialog, setShowLinkSOPDialog] = useState(false);
   const [selectedSOPId, setSelectedSOPId] = useState('');
   const [itemId, setItemId] = useState(null);
+  const [isEditingInstructions, setIsEditingInstructions] = useState(false);
+  const [editedInstructions, setEditedInstructions] = useState('');
+  const [uploadingInstructionImage, setUploadingInstructionImage] = useState(false);
 
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
@@ -113,6 +121,19 @@ export default function MenuItemView() {
     },
   });
 
+  const updateInstructionsMutation = useMutation({
+    mutationFn: async (instructionsHtml) => {
+      return await base44.entities.MenuItem.update(item.id, {
+        cooking_instructions: instructionsHtml
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['menuItem'] });
+      setIsEditingInstructions(false);
+      alert('✅ Instructions updated successfully!');
+    },
+  });
+
   const handleLinkSOP = () => {
     if (!selectedSOPId) {
       alert('Please select an SOP');
@@ -125,6 +146,167 @@ export default function MenuItemView() {
     if (confirm('Unlink this SOP from the menu item?')) {
       unlinkSOPMutation.mutate(item.id);
     }
+  };
+
+  const handleEditInstructions = () => {
+    setEditedInstructions(item.cooking_instructions || '');
+    setIsEditingInstructions(true);
+  };
+
+  const handleSaveInstructions = () => {
+    updateInstructionsMutation.mutate(editedInstructions);
+  };
+
+  const handleCancelEdit = () => {
+    setIsEditingInstructions(false);
+    setEditedInstructions('');
+  };
+
+  const handleImageUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadingInstructionImage(true);
+    try {
+      const { file_url } = await base44.integrations.Core.UploadFile({ file });
+      
+      // Insert image into editor at cursor position
+      const imageHtml = `<img src="${file_url}" alt="Instruction step" style="max-width: 100%; height: auto; margin: 10px 0; border-radius: 8px;" />`;
+      setEditedInstructions(prev => prev + imageHtml);
+    } catch (error) {
+      console.error('Failed to upload image:', error);
+      alert('Failed to upload image');
+    }
+    setUploadingInstructionImage(false);
+  };
+
+  const handlePrint = () => {
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>${item.name} - Cooking Instructions</title>
+          <style>
+            body {
+              font-family: 'Arial', sans-serif;
+              max-width: 800px;
+              margin: 40px auto;
+              padding: 20px;
+              line-height: 1.6;
+            }
+            h1 {
+              color: #014D40;
+              border-bottom: 3px solid #10B981;
+              padding-bottom: 10px;
+              margin-bottom: 20px;
+            }
+            .header-info {
+              display: grid;
+              grid-template-columns: 1fr 1fr;
+              gap: 20px;
+              margin-bottom: 30px;
+              padding: 15px;
+              background: #f8fafc;
+              border-radius: 8px;
+            }
+            .info-item {
+              margin-bottom: 10px;
+            }
+            .info-label {
+              font-weight: bold;
+              color: #475569;
+              font-size: 14px;
+            }
+            .info-value {
+              color: #0f172a;
+              font-size: 16px;
+            }
+            .instructions {
+              margin-top: 30px;
+            }
+            .instructions h2 {
+              color: #014D40;
+              margin-top: 20px;
+            }
+            img {
+              max-width: 100%;
+              height: auto;
+              margin: 15px 0;
+              border-radius: 8px;
+              box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            }
+            .footer {
+              margin-top: 40px;
+              padding-top: 20px;
+              border-top: 1px solid #e2e8f0;
+              text-align: center;
+              color: #64748b;
+              font-size: 12px;
+            }
+            @media print {
+              body {
+                margin: 20px;
+              }
+              .no-print {
+                display: none;
+              }
+            }
+          </style>
+        </head>
+        <body>
+          <h1>${item.name}</h1>
+          
+          <div class="header-info">
+            <div>
+              <div class="info-item">
+                <div class="info-label">Category</div>
+                <div class="info-value">${item.category_name || 'Uncategorized'}</div>
+              </div>
+              <div class="info-item">
+                <div class="info-label">Prep Time</div>
+                <div class="info-value">${item.prep_time_minutes || 'N/A'} minutes</div>
+              </div>
+            </div>
+            <div>
+              <div class="info-item">
+                <div class="info-label">Sell Price</div>
+                <div class="info-value">£${formatPrice(item.sell_price)}</div>
+              </div>
+              <div class="info-item">
+                <div class="info-label">Food Cost</div>
+                <div class="info-value">£${formatPrice(item.total_cost)}</div>
+              </div>
+            </div>
+          </div>
+
+          ${item.recipe && item.recipe.length > 0 ? `
+            <h2>Ingredients</h2>
+            <ul>
+              ${item.recipe.map(r => `
+                <li><strong>${r.ingredient_name}</strong>: ${safeNumber(r.quantity).toFixed(2)} ${r.unit}</li>
+              `).join('')}
+            </ul>
+          ` : ''}
+
+          <div class="instructions">
+            <h2>Cooking Instructions</h2>
+            ${item.cooking_instructions || '<p>No instructions provided</p>'}
+          </div>
+
+          <div class="footer">
+            <p>AURA Restaurant Operations | Printed: ${new Date().toLocaleString()}</p>
+          </div>
+
+          <script>
+            window.onload = function() {
+              window.print();
+            };
+          </script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
   };
 
   const isManager = user?.role === 'admin' || user?.position === 'manager' || user?.position === 'owner';
@@ -148,6 +330,17 @@ export default function MenuItemView() {
 
   const safeNumber = (val) => parseFloat(val) || 0;
   const formatPrice = (price) => safeNumber(price).toFixed(2);
+
+  const quillModules = {
+    toolbar: [
+      [{ 'header': [1, 2, 3, false] }],
+      ['bold', 'italic', 'underline', 'strike'],
+      [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+      [{ 'color': [] }, { 'background': [] }],
+      ['link'],
+      ['clean']
+    ],
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6 md:p-8">
@@ -373,28 +566,121 @@ export default function MenuItemView() {
           </Card>
         )}
 
-        {item.cooking_instructions && (
-          <Card>
-            <CardHeader>
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
               <CardTitle className="flex items-center gap-2">
                 <Utensils className="w-5 h-5 text-green-600" />
                 Cooking Instructions
               </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="prose max-w-none">
-                <p className="text-gray-700 whitespace-pre-wrap">{item.cooking_instructions}</p>
+              <div className="flex gap-2">
+                {item.cooking_instructions && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handlePrint}
+                  >
+                    <Printer className="w-4 h-4 mr-2" />
+                    Print
+                  </Button>
+                )}
+                {(isManager || isChef) && !isEditingInstructions && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleEditInstructions}
+                  >
+                    <Edit className="w-4 h-4 mr-2" />
+                    Edit
+                  </Button>
+                )}
               </div>
-              {item.prep_time_minutes && (
-                <div className="mt-4 p-3 bg-blue-50 rounded-lg">
-                  <p className="text-sm text-blue-900">
-                    ⏱️ Prep Time: {item.prep_time_minutes} minutes
+            </div>
+          </CardHeader>
+          <CardContent>
+            {isEditingInstructions ? (
+              <div className="space-y-4">
+                <div className="flex gap-2 mb-4">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => document.getElementById('instruction-image-upload').click()}
+                    disabled={uploadingInstructionImage}
+                  >
+                    <ImageIcon className="w-4 h-4 mr-2" />
+                    {uploadingInstructionImage ? 'Uploading...' : 'Add Image'}
+                  </Button>
+                  <input
+                    id="instruction-image-upload"
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageUpload}
+                    className="hidden"
+                  />
+                  <p className="text-xs text-gray-500 self-center">
+                    Add step-by-step photos to your instructions
                   </p>
                 </div>
-              )}
-            </CardContent>
-          </Card>
-        )}
+
+                <ReactQuill
+                  value={editedInstructions}
+                  onChange={setEditedInstructions}
+                  modules={quillModules}
+                  className="bg-white rounded-lg"
+                  style={{ minHeight: '300px' }}
+                />
+
+                <div className="flex justify-end gap-3 pt-4">
+                  <Button
+                    variant="outline"
+                    onClick={handleCancelEdit}
+                  >
+                    <X className="w-4 h-4 mr-2" />
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={handleSaveInstructions}
+                    disabled={updateInstructionsMutation.isPending}
+                    className="bg-green-600 hover:bg-green-700"
+                  >
+                    <Save className="w-4 h-4 mr-2" />
+                    {updateInstructionsMutation.isPending ? 'Saving...' : 'Save Instructions'}
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div>
+                {item.cooking_instructions ? (
+                  <div 
+                    className="prose max-w-none"
+                    dangerouslySetInnerHTML={{ __html: item.cooking_instructions }}
+                  />
+                ) : (
+                  <div className="text-center py-12">
+                    <Utensils className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                    <p className="text-gray-500 mb-4">No cooking instructions added yet</p>
+                    {(isManager || isChef) && (
+                      <Button
+                        onClick={handleEditInstructions}
+                        className="bg-green-600 hover:bg-green-700"
+                      >
+                        <Edit className="w-4 h-4 mr-2" />
+                        Add Instructions
+                      </Button>
+                    )}
+                  </div>
+                )}
+                {item.prep_time_minutes && (
+                  <div className="mt-4 p-3 bg-blue-50 rounded-lg">
+                    <p className="text-sm text-blue-900">
+                      ⏱️ Prep Time: {item.prep_time_minutes} minutes
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         <Dialog open={showSOPModal} onOpenChange={setShowSOPModal}>
           <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
