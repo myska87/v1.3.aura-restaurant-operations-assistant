@@ -7,7 +7,6 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
-import { Input } from '@/components/ui/input';
 import {
   Dialog,
   DialogContent,
@@ -27,7 +26,6 @@ import {
   Award,
   Clock,
   Target,
-  TrendingUp,
   Download,
   ArrowLeft,
   Home,
@@ -35,6 +33,7 @@ import {
   BookOpen,
   MessageCircle,
   Users,
+  Plus,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
@@ -256,6 +255,12 @@ export default function TrainingAcademy() {
   const level2Modules = trainingModules.filter(m => m.level === 2 || ['product_knowledge', 'customer_service'].includes(m.category));
   const level3Modules = trainingModules.filter(m => m.level === 3 || ['compliance', 'equipment_use'].includes(m.category));
 
+  console.log('Training Modules:', trainingModules);
+  console.log('Culture Modules:', cultureModules);
+  console.log('Level 1 Modules:', level1Modules);
+  console.log('Level 2 Modules:', level2Modules);
+  console.log('Level 3 Modules:', level3Modules);
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-purple-50 to-slate-50 p-6 md:p-8">
       <div className="max-w-7xl mx-auto">
@@ -289,13 +294,14 @@ export default function TrainingAcademy() {
           </Link>
         </div>
 
+        {/* Hero Header */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
         >
           <Card className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white border-none shadow-xl mb-8">
             <CardContent className="p-8">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between flex-wrap gap-6">
                 <div>
                   <h1 className="text-4xl font-bold mb-3 flex items-center gap-3">
                     <GraduationCap className="w-12 h-12" />
@@ -321,6 +327,7 @@ export default function TrainingAcademy() {
           </Card>
         </motion.div>
 
+        {/* Stats Cards */}
         <div className="grid md:grid-cols-4 gap-4 mb-8">
           <Card className="border-l-4 border-l-purple-500 hover:shadow-lg transition-shadow">
             <CardContent className="p-6">
@@ -355,6 +362,7 @@ export default function TrainingAcademy() {
           </Card>
         </div>
 
+        {/* Training Levels Tabs */}
         <Tabs defaultValue="culture" className="space-y-6">
           <TabsList className="grid w-full grid-cols-4 h-auto bg-white shadow-sm">
             <TabsTrigger value="culture" className="flex-col gap-2 py-4 data-[state=active]:bg-purple-100">
@@ -402,19 +410,36 @@ export default function TrainingAcademy() {
               </CardContent>
             </Card>
 
-            <div className="grid md:grid-cols-2 gap-4">
-              {cultureModules.map((module, index) => (
-                <ModuleCard
-                  key={module.id}
-                  module={module}
-                  progress={getModuleProgress(module.id)}
-                  isUnlocked={isModuleUnlocked(module)}
-                  isCompleted={getModuleProgress(module.id)?.status === 'completed'}
-                  onStart={() => handleStartModule(module)}
-                  index={index}
-                />
-              ))}
-            </div>
+            {cultureModules.length === 0 ? (
+              <Card className="bg-blue-50 border-blue-200">
+                <CardContent className="p-8 text-center">
+                  <Sparkles className="w-12 h-12 text-blue-600 mx-auto mb-4" />
+                  <h3 className="text-xl font-bold text-gray-900 mb-2">No Culture Modules Yet</h3>
+                  <p className="text-gray-600 mb-4">
+                    Culture training modules will appear here once created by your manager.
+                  </p>
+                  {isManager && (
+                    <p className="text-sm text-blue-700">
+                      💡 Tip: Create training modules in the Staff Dashboard
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="grid md:grid-cols-2 gap-4">
+                {cultureModules.map((module, index) => (
+                  <ModuleCard
+                    key={module.id}
+                    module={module}
+                    progress={getModuleProgress(module.id)}
+                    isUnlocked={isModuleUnlocked(module)}
+                    isCompleted={getModuleProgress(module.id)?.status === 'completed'}
+                    onStart={() => handleStartModule(module)}
+                    index={index}
+                  />
+                ))}
+              </div>
+            )}
           </TabsContent>
 
           <TabsContent value="level1" className="space-y-4">
@@ -440,19 +465,29 @@ export default function TrainingAcademy() {
               </CardContent>
             </Card>
 
-            <div className="grid md:grid-cols-2 gap-4">
-              {level1Modules.map((module, index) => (
-                <ModuleCard
-                  key={module.id}
-                  module={module}
-                  progress={getModuleProgress(module.id)}
-                  isUnlocked={isModuleUnlocked(module)}
-                  isCompleted={getModuleProgress(module.id)?.status === 'completed'}
-                  onStart={() => handleStartModule(module)}
-                  index={index}
-                />
-              ))}
-            </div>
+            {level1Modules.length === 0 ? (
+              <Card className="bg-blue-50 border-blue-200">
+                <CardContent className="p-8 text-center">
+                  <Star className="w-12 h-12 text-blue-600 mx-auto mb-4" />
+                  <h3 className="text-xl font-bold text-gray-900 mb-2">No Level 1 Modules Yet</h3>
+                  <p className="text-gray-600">Foundation training modules will appear here.</p>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="grid md:grid-cols-2 gap-4">
+                {level1Modules.map((module, index) => (
+                  <ModuleCard
+                    key={module.id}
+                    module={module}
+                    progress={getModuleProgress(module.id)}
+                    isUnlocked={isModuleUnlocked(module)}
+                    isCompleted={getModuleProgress(module.id)?.status === 'completed'}
+                    onStart={() => handleStartModule(module)}
+                    index={index}
+                  />
+                ))}
+              </div>
+            )}
           </TabsContent>
 
           <TabsContent value="level2" className="space-y-4">
@@ -478,19 +513,29 @@ export default function TrainingAcademy() {
               </CardContent>
             </Card>
 
-            <div className="grid md:grid-cols-2 gap-4">
-              {level2Modules.map((module, index) => (
-                <ModuleCard
-                  key={module.id}
-                  module={module}
-                  progress={getModuleProgress(module.id)}
-                  isUnlocked={isModuleUnlocked(module)}
-                  isCompleted={getModuleProgress(module.id)?.status === 'completed'}
-                  onStart={() => handleStartModule(module)}
-                  index={index}
-                />
-              ))}
-            </div>
+            {level2Modules.length === 0 ? (
+              <Card className="bg-green-50 border-green-200">
+                <CardContent className="p-8 text-center">
+                  <Target className="w-12 h-12 text-green-600 mx-auto mb-4" />
+                  <h3 className="text-xl font-bold text-gray-900 mb-2">No Level 2 Modules Yet</h3>
+                  <p className="text-gray-600">Advanced training modules will appear here.</p>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="grid md:grid-cols-2 gap-4">
+                {level2Modules.map((module, index) => (
+                  <ModuleCard
+                    key={module.id}
+                    module={module}
+                    progress={getModuleProgress(module.id)}
+                    isUnlocked={isModuleUnlocked(module)}
+                    isCompleted={getModuleProgress(module.id)?.status === 'completed'}
+                    onStart={() => handleStartModule(module)}
+                    index={index}
+                  />
+                ))}
+              </div>
+            )}
           </TabsContent>
 
           <TabsContent value="level3" className="space-y-4">
@@ -516,22 +561,33 @@ export default function TrainingAcademy() {
               </CardContent>
             </Card>
 
-            <div className="grid md:grid-cols-2 gap-4">
-              {level3Modules.map((module, index) => (
-                <ModuleCard
-                  key={module.id}
-                  module={module}
-                  progress={getModuleProgress(module.id)}
-                  isUnlocked={isModuleUnlocked(module)}
-                  isCompleted={getModuleProgress(module.id)?.status === 'completed'}
-                  onStart={() => handleStartModule(module)}
-                  index={index}
-                />
-              ))}
-            </div>
+            {level3Modules.length === 0 ? (
+              <Card className="bg-amber-50 border-amber-200">
+                <CardContent className="p-8 text-center">
+                  <Trophy className="w-12 h-12 text-amber-600 mx-auto mb-4" />
+                  <h3 className="text-xl font-bold text-gray-900 mb-2">No Level 3 Modules Yet</h3>
+                  <p className="text-gray-600">Leadership training modules will appear here.</p>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="grid md:grid-cols-2 gap-4">
+                {level3Modules.map((module, index) => (
+                  <ModuleCard
+                    key={module.id}
+                    module={module}
+                    progress={getModuleProgress(module.id)}
+                    isUnlocked={isModuleUnlocked(module)}
+                    isCompleted={getModuleProgress(module.id)?.status === 'completed'}
+                    onStart={() => handleStartModule(module)}
+                    index={index}
+                  />
+                ))}
+              </div>
+            )}
           </TabsContent>
         </Tabs>
 
+        {/* Certificates Section - Always visible */}
         {myCertificates.length > 0 && (
           <Card className="mt-8 bg-gradient-to-r from-yellow-50 to-amber-50 border-yellow-300 shadow-lg">
             <CardHeader>
@@ -613,11 +669,14 @@ export default function TrainingAcademy() {
                       Training Video
                     </h3>
                     <div className="aspect-video bg-gray-900 rounded-xl overflow-hidden shadow-lg">
-                      <video
-                        src={selectedModule.video_url}
-                        controls
-                        className="w-full h-full"
-                        controlsList="nodownload"
+                      <iframe
+                        width="100%"
+                        height="100%"
+                        src={selectedModule.video_url.replace('watch?v=', 'embed/')}
+                        title={selectedModule.title}
+                        frameBorder="0"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allowFullScreen
                       />
                     </div>
                   </div>
@@ -791,7 +850,7 @@ Example:
           </DialogContent>
         </Dialog>
 
-        {/* Quiz Results */}
+        {/* Quiz Results - Failed */}
         {quizResults && !quizResults.passed && (
           <Dialog open={!!quizResults} onOpenChange={() => setQuizResults(null)}>
             <DialogContent className="max-w-2xl">
