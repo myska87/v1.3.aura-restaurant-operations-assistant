@@ -45,6 +45,8 @@ import {
   RefreshCw,
   Plus, // Added Plus icon
   Pencil, // Added Pencil icon
+  Save, // Added Save icon
+  Trash2, // Added Trash2 icon
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
@@ -175,6 +177,14 @@ export default function TrainingAcademy() {
   const [cultureQuizAnswers, setCultureQuizAnswers] = useState({});
   const [cultureCompleted, setCultureCompleted] = useState(false);
 
+  const [editingQuizIndex, setEditingQuizIndex] = useState(null);
+  const [quizQuestionForm, setQuizQuestionForm] = useState({
+    question: '',
+    options: ['', '', '', ''],
+    correct_answer: 0,
+  });
+
+
   const { data: user } = useQuery({
     queryKey: ['currentUser'],
     queryFn: () => base44.auth.me(),
@@ -250,12 +260,16 @@ export default function TrainingAcademy() {
   });
 
   const createModuleMutation = useMutation({
-    mutationFn: (data) => base44.entities.TrainingModule.create(data),
+    mutationFn: (data) => base44.entities.TrainingModule.create({
+      ...data,
+      is_active: true,
+    }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['trainingModules'] });
       setShowEditDialog(false);
       setEditingModule(null);
       resetModuleForm();
+      alert('✅ Module created successfully!');
     },
   });
 
@@ -266,6 +280,7 @@ export default function TrainingAcademy() {
       setShowEditDialog(false);
       setEditingModule(null);
       resetModuleForm();
+      alert('✅ Module updated successfully!');
     },
   });
 
@@ -273,6 +288,7 @@ export default function TrainingAcademy() {
     mutationFn: (id) => base44.entities.TrainingModule.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['trainingModules'] });
+      alert('✅ Module deleted successfully!');
     },
   });
 
@@ -289,19 +305,25 @@ export default function TrainingAcademy() {
       quiz_questions: [],
       passing_score: 80,
       is_mandatory: true,
-      order_sequence: trainingModules.length > 0 ? Math.max(...trainingModules.map(m => m.order_sequence)) + 1 : 1,
+      order_sequence: (trainingModules?.length || 0) + 1,
       prerequisites: [],
+    });
+    setEditingQuizIndex(null);
+    setQuizQuestionForm({
+      question: '',
+      options: ['', '', '', ''],
+      correct_answer: 0,
     });
   }, [trainingModules]);
 
   const handleEditModule = useCallback((module) => {
     setEditingModule(module);
     setModuleForm({
-      title: module.title,
-      category: module.category,
+      title: module.title || '',
+      category: module.category || 'culture',
       level: module.level || null,
-      description: module.description,
-      content_type: module.content_type,
+      description: module.description || '',
+      content_type: module.content_type || 'video',
       video_url: module.video_url || '',
       content_text: module.content_text || '',
       duration_minutes: module.duration_minutes || 5,
@@ -336,6 +358,42 @@ export default function TrainingAcademy() {
   const handleDeleteModule = (module) => {
     if (confirm(`Delete "${module.title}"? This cannot be undone.`)) {
       deleteModuleMutation.mutate(module.id);
+    }
+  };
+
+  const handleAddQuizQuestion = () => {
+    if (!quizQuestionForm.question.trim() || quizQuestionForm.options.some(o => !o.trim())) {
+      alert('Please fill in all quiz fields');
+      return;
+    }
+
+    const updatedQuestions = [...moduleForm.quiz_questions];
+    if (editingQuizIndex !== null) {
+      updatedQuestions[editingQuizIndex] = quizQuestionForm;
+      setEditingQuizIndex(null);
+    } else {
+      updatedQuestions.push(quizQuestionForm);
+    }
+
+    setModuleForm({ ...moduleForm, quiz_questions: updatedQuestions });
+    setQuizQuestionForm({
+      question: '',
+      options: ['', '', '', ''],
+      correct_answer: 0,
+    });
+  };
+
+  const handleEditQuizQuestion = (index) => {
+    setQuizQuestionForm(moduleForm.quiz_questions[index]);
+    setEditingQuizIndex(index);
+  };
+
+  const handleDeleteQuizQuestion = (index) => {
+    if (confirm('Delete this quiz question?')) {
+      setModuleForm({
+        ...moduleForm,
+        quiz_questions: moduleForm.quiz_questions.filter((_, i) => i !== index),
+      });
     }
   };
 
@@ -1037,7 +1095,6 @@ export default function TrainingAcademy() {
                         isCompleted={getModuleProgress(module.id)?.status === 'completed'}
                         onStart={() => handleStartModule(module)}
                         index={index}
-                        isManager={isManager}
                       />
                     ))}
                   </div>
@@ -1133,7 +1190,6 @@ export default function TrainingAcademy() {
                     isCompleted={getModuleProgress(module.id)?.status === 'completed'}
                     onStart={() => handleStartModule(module)}
                     index={index}
-                    isManager={isManager}
                   />
                 ))}
               </div>
@@ -1182,7 +1238,6 @@ export default function TrainingAcademy() {
                     isCompleted={getModuleProgress(module.id)?.status === 'completed'}
                     onStart={() => handleStartModule(module)}
                     index={index}
-                    isManager={isManager}
                   />
                 ))}
               </div>
@@ -1231,7 +1286,6 @@ export default function TrainingAcademy() {
                     isCompleted={getModuleProgress(module.id)?.status === 'completed'}
                     onStart={() => handleStartModule(module)}
                     index={index}
-                    isManager={isManager}
                   />
                 ))}
               </div>
@@ -1392,141 +1446,320 @@ export default function TrainingAcademy() {
 
         {/* Module Edit Dialog */}
         <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
-          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="max-w-6xl max-h-[95vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle className="text-2xl">
-                {editingModule ? 'Edit Training Module' : 'Create New Training Module'}
+              <DialogTitle className="text-3xl font-bold text-[#014D40]">
+                {editingModule ? '✏️ Edit Training Module' : '➕ Create New Training Module'}
               </DialogTitle>
             </DialogHeader>
-            <div className="space-y-4 mt-4">
-              <div className="grid md:grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm font-semibold mb-2 block">Module Title *</label>
-                  <Input
-                    value={moduleForm.title}
-                    onChange={(e) => setModuleForm({...moduleForm, title: e.target.value})}
-                    placeholder="e.g., The Perfect Karak Chai"
-                  />
-                </div>
+            <div className="space-y-6 mt-6">
+              
+              {/* Basic Info */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Basic Information</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <label className="text-sm font-semibold mb-2 block">Module Title *</label>
+                    <Input
+                      value={moduleForm.title}
+                      onChange={(e) => setModuleForm({...moduleForm, title: e.target.value})}
+                      placeholder="e.g., The Perfect Karak Chai"
+                      className="text-lg"
+                    />
+                  </div>
 
-                <div>
-                  <label className="text-sm font-semibold mb-2 block">Category *</label>
-                  <Select value={moduleForm.category} onValueChange={(v) => setModuleForm({...moduleForm, category: v})}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select Category" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="culture">Culture & Values</SelectItem>
-                      <SelectItem value="onboarding">Onboarding</SelectItem>
-                      <SelectItem value="hygiene">Hygiene & Safety</SelectItem>
-                      <SelectItem value="customer_service">Customer Service</SelectItem>
-                      <SelectItem value="product_knowledge">Product Knowledge</SelectItem>
-                      <SelectItem value="compliance">Compliance</SelectItem>
-                      <SelectItem value="equipment_use">Equipment Use</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
+                  <div className="grid md:grid-cols-3 gap-4">
+                    <div>
+                      <label className="text-sm font-semibold mb-2 block">Category *</label>
+                      <Select value={moduleForm.category} onValueChange={(v) => setModuleForm({...moduleForm, category: v})}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="culture">🌿 Culture & Values</SelectItem>
+                          <SelectItem value="onboarding">👋 Onboarding</SelectItem>
+                          <SelectItem value="hygiene">🧼 Hygiene & Safety</SelectItem>
+                          <SelectItem value="customer_service">😊 Customer Service</SelectItem>
+                          <SelectItem value="product_knowledge">📚 Product Knowledge</SelectItem>
+                          <SelectItem value="compliance">⚖️ Leadership & Compliance</SelectItem>
+                          <SelectItem value="equipment_use">🔧 Equipment Use</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
 
-              <div className="grid md:grid-cols-3 gap-4">
-                <div>
-                  <label className="text-sm font-semibold mb-2 block">Level (optional)</label>
-                  <Select 
-                    value={moduleForm.level?.toString() || 'none'} 
-                    onValueChange={(v) => setModuleForm({...moduleForm, level: v === 'none' ? null : parseInt(v)})}
-                    disabled={['culture', 'onboarding'].includes(moduleForm.category)} // Disable level for culture/onboarding
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select Level" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">N/A (Culture/Onboarding)</SelectItem>
-                      <SelectItem value="1">Level 1 - Foundation</SelectItem>
-                      <SelectItem value="2">Level 2 - Excellence</SelectItem>
-                      <SelectItem value="3">Level 3 - Leadership</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+                    <div>
+                      <label className="text-sm font-semibold mb-2 block">Level</label>
+                      <Select value={moduleForm.level?.toString() || 'none'} onValueChange={(v) => setModuleForm({...moduleForm, level: v === 'none' ? null : parseInt(v)})}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">Culture (no level)</SelectItem>
+                          <SelectItem value="1">Level 1 - Foundation</SelectItem>
+                          <SelectItem value="2">Level 2 - Excellence</SelectItem>
+                          <SelectItem value="3">Level 3 - Leadership</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
 
-                <div>
-                  <label className="text-sm font-semibold mb-2 block">Duration (minutes)</label>
-                  <Input
-                    type="number"
-                    value={moduleForm.duration_minutes}
-                    onChange={(e) => setModuleForm({...moduleForm, duration_minutes: parseInt(e.target.value) || 0})}
-                  />
-                </div>
+                    <div>
+                      <label className="text-sm font-semibold mb-2 block">Duration (min)</label>
+                      <Input
+                        type="number"
+                        value={moduleForm.duration_minutes}
+                        onChange={(e) => setModuleForm({...moduleForm, duration_minutes: parseInt(e.target.value) || 5})}
+                      />
+                    </div>
+                  </div>
 
-                <div>
-                  <label className="text-sm font-semibold mb-2 block">Passing Score (%)</label>
-                  <Input
-                    type="number"
-                    value={moduleForm.passing_score}
-                    onChange={(e) => setModuleForm({...moduleForm, passing_score: parseInt(e.target.value) || 0})}
-                  />
-                </div>
-              </div>
+                  <div>
+                    <label className="text-sm font-semibold mb-2 block">Description *</label>
+                    <Textarea
+                      value={moduleForm.description}
+                      onChange={(e) => setModuleForm({...moduleForm, description: e.target.value})}
+                      placeholder="What will learners gain from this module?"
+                      rows={3}
+                    />
+                  </div>
 
-              <div>
-                <label className="text-sm font-semibold mb-2 block">Description *</label>
-                <Textarea
-                  value={moduleForm.description}
-                  onChange={(e) => setModuleForm({...moduleForm, description: e.target.value})}
-                  placeholder="What will learners gain from this module?"
-                  rows={2}
-                />
-              </div>
+                  <div className="flex items-center gap-6">
+                    <label className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={moduleForm.is_mandatory}
+                        onChange={(e) => setModuleForm({...moduleForm, is_mandatory: e.target.checked})}
+                        className="w-4 h-4"
+                      />
+                      <span className="text-sm font-semibold">Mandatory for all staff</span>
+                    </label>
 
-              <div>
-                <label className="text-sm font-semibold mb-2 block">Video URL (YouTube)</label>
-                <Input
-                  value={moduleForm.video_url}
-                  onChange={(e) => setModuleForm({...moduleForm, video_url: e.target.value})}
-                  placeholder="https://www.youtube.com/watch?v=..."
-                />
-              </div>
-
-              <div>
-                <label className="text-sm font-semibold mb-2 block">Course Material (Text)</label>
-                <Textarea
-                  value={moduleForm.content_text}
-                  onChange={(e) => setModuleForm({...moduleForm, content_text: e.target.value})}
-                  placeholder="Detailed course content, instructions, tips..."
-                  rows={6}
-                />
-              </div>
-
-              <div className="flex items-center gap-4">
-                <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={moduleForm.is_mandatory}
-                    onChange={(e) => setModuleForm({...moduleForm, is_mandatory: e.target.checked})}
-                    className="w-4 h-4"
-                  />
-                  <span className="text-sm font-semibold">Mandatory for all staff</span>
-                </label>
-              </div>
-
-              <Card className="bg-blue-50 border-blue-200">
-                <CardContent className="p-4">
-                  <p className="text-sm text-blue-900">
-                    💡 <strong>Tip:</strong> Add quiz questions after creating the module by editing it. Keep modules short (5-15 min) for better engagement.
-                  </p>
+                    <div className="flex items-center gap-2">
+                      <label className="text-sm font-semibold">Passing Score:</label>
+                      <Input
+                        type="number"
+                        value={moduleForm.passing_score}
+                        onChange={(e) => setModuleForm({...moduleForm, passing_score: parseInt(e.target.value) || 80})}
+                        className="w-20"
+                      />
+                      <span className="text-sm text-gray-600">%</span>
+                    </div>
+                  </div>
                 </CardContent>
               </Card>
 
-              <div className="flex justify-end gap-3 pt-4 border-t">
-                <Button variant="outline" onClick={() => setShowEditDialog(false)}>
-                  Cancel
-                </Button>
-                <Button
-                  onClick={handleSaveModule}
-                  disabled={createModuleMutation.isPending || updateModuleMutation.isPending}
-                  className="bg-emerald-600 hover:bg-emerald-700"
-                >
-                  {editingModule ? 'Update Module' : 'Create Module'}
-                </Button>
+              {/* Video & Content */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Training Content</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <label className="text-sm font-semibold mb-2 block">Content Type</label>
+                    <Select value={moduleForm.content_type} onValueChange={(v) => setModuleForm({...moduleForm, content_type: v})}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="video">🎥 Video</SelectItem>
+                        <SelectItem value="text">📝 Text</SelectItem>
+                        <SelectItem value="mixed">🎬 Video + Text</SelectItem>
+                        <SelectItem value="quiz">❓ Quiz Only</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {(moduleForm.content_type === 'video' || moduleForm.content_type === 'mixed') && (
+                    <div>
+                      <label className="text-sm font-semibold mb-2 block">Video URL (YouTube)</label>
+                      <Input
+                        value={moduleForm.video_url}
+                        onChange={(e) => setModuleForm({...moduleForm, video_url: e.target.value})}
+                        placeholder="https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+                      />
+                      {moduleForm.video_url && (
+                        <div className="mt-3 aspect-video bg-black rounded-lg overflow-hidden">
+                          <iframe
+                            width="100%"
+                            height="100%"
+                            src={moduleForm.video_url.replace('watch?v=', 'embed/')}
+                            frameBorder="0"
+                            allowFullScreen
+                          />
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {(moduleForm.content_type === 'text' || moduleForm.content_type === 'mixed') && (
+                    <div>
+                      <label className="text-sm font-semibold mb-2 block">Course Material (Text)</label>
+                      <Textarea
+                        value={moduleForm.content_text}
+                        onChange={(e) => setModuleForm({...moduleForm, content_text: e.target.value})}
+                        placeholder="Detailed course content, instructions, tips..."
+                        rows={8}
+                        className="font-mono text-sm"
+                      />
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Quiz Questions Builder */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg flex items-center justify-between">
+                    <span>Quiz Questions ({moduleForm.quiz_questions.length})</span>
+                    <Badge className="bg-blue-600">{moduleForm.passing_score}% to pass</Badge>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  
+                  {/* Existing Questions */}
+                  {moduleForm.quiz_questions.length > 0 && (
+                    <div className="space-y-3 mb-6">
+                      {moduleForm.quiz_questions.map((q, idx) => (
+                        <Card key={idx} className="bg-gray-50 border-2 border-gray-200">
+                          <CardContent className="p-4">
+                            <div className="flex items-start justify-between mb-2">
+                              <p className="font-semibold text-gray-900 flex-1">
+                                Q{idx + 1}: {q.question}
+                              </p>
+                              <div className="flex gap-2">
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => handleEditQuizQuestion(idx)}
+                                >
+                                  <Pencil className="w-4 h-4 text-blue-600" />
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => handleDeleteQuizQuestion(idx)}
+                                >
+                                  <Trash2 className="w-4 h-4 text-red-600" />
+                                </Button>
+                              </div>
+                            </div>
+                            <div className="space-y-1 ml-4">
+                              {q.options?.map((opt, optIdx) => (
+                                <p key={optIdx} className={`text-sm ${optIdx === q.correct_answer ? 'text-green-600 font-semibold' : 'text-gray-600'}`}>
+                                  {optIdx === q.correct_answer && '✅ '}{opt}
+                                </p>
+                              ))}
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Add/Edit Quiz Question Form */}
+                  <Card className="bg-blue-50 border-2 border-blue-300">
+                    <CardContent className="p-6 space-y-4">
+                      <h4 className="font-bold text-blue-900">
+                        {editingQuizIndex !== null ? '✏️ Edit Question' : '➕ Add New Question'}
+                      </h4>
+                      
+                      <div>
+                        <label className="text-sm font-semibold mb-2 block">Question</label>
+                        <Input
+                          value={quizQuestionForm.question}
+                          onChange={(e) => setQuizQuestionForm({...quizQuestionForm, question: e.target.value})}
+                          placeholder="What is Chai Patta's mission?"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-sm font-semibold mb-2 block">Answer Options</label>
+                        <div className="space-y-2">
+                          {[0, 1, 2, 3].map((optIdx) => (
+                            <div key={optIdx} className="flex gap-2 items-center">
+                              <input
+                                type="radio"
+                                name="correct-answer"
+                                checked={quizQuestionForm.correct_answer === optIdx}
+                                onChange={() => setQuizQuestionForm({...quizQuestionForm, correct_answer: optIdx})}
+                                className="w-4 h-4"
+                                title="Mark as correct answer"
+                              />
+                              <Input
+                                value={quizQuestionForm.options[optIdx] || ''}
+                                onChange={(e) => {
+                                  const newOptions = [...quizQuestionForm.options];
+                                  newOptions[optIdx] = e.target.value;
+                                  setQuizQuestionForm({...quizQuestionForm, options: newOptions});
+                                }}
+                                placeholder={`Option ${optIdx + 1}`}
+                              />
+                              {quizQuestionForm.correct_answer === optIdx && (
+                                <Badge className="bg-green-600">✓ Correct</Badge>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                        <p className="text-xs text-gray-600 mt-2">💡 Click the radio button to mark the correct answer</p>
+                      </div>
+
+                      <div className="flex gap-2">
+                        {editingQuizIndex !== null && (
+                          <Button
+                            variant="outline"
+                            onClick={() => {
+                              setEditingQuizIndex(null);
+                              setQuizQuestionForm({ question: '', options: ['', '', '', ''], correct_answer: 0 });
+                            }}
+                          >
+                            Cancel Edit
+                          </Button>
+                        )}
+                        <Button
+                          onClick={handleAddQuizQuestion}
+                          className="flex-1 bg-blue-600 hover:bg-blue-700"
+                        >
+                          <Plus className="w-4 h-4 mr-2" />
+                          {editingQuizIndex !== null ? 'Update Question' : 'Add Question'}
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </CardContent>
+              </Card>
+
+              {/* Save/Cancel Actions */}
+              <div className="flex justify-between gap-3 pt-4 border-t">
+                <div>
+                  {editingModule && (
+                    <Button
+                      variant="outline"
+                      onClick={() => handleDeleteModule(editingModule)}
+                      className="border-red-300 text-red-600 hover:bg-red-50"
+                    >
+                      <Trash2 className="w-4 h-4 mr-2" />
+                      Delete Module
+                    </Button>
+                  )}
+                </div>
+                <div className="flex gap-3">
+                  <Button variant="outline" onClick={() => {
+                    setShowEditDialog(false);
+                    setEditingModule(null);
+                    resetModuleForm();
+                  }}>
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={handleSaveModule}
+                    disabled={createModuleMutation.isPending || updateModuleMutation.isPending}
+                    className="bg-gradient-to-r from-[#014D40] to-emerald-600 hover:from-[#013830] hover:to-emerald-700 px-8"
+                  >
+                    <Save className="w-4 h-4 mr-2" />
+                    {editingModule ? 'Update Module' : 'Create Module'}
+                  </Button>
+                </div>
               </div>
             </div>
           </DialogContent>
@@ -1847,8 +2080,12 @@ Example:
   );
 }
 
-function ModuleCard({ module, progress, isUnlocked, isCompleted, onStart, index, isManager }) {
-  // `showMenu` was in the outline but unused. Removing it for cleanliness.
+function ModuleCard({ module, progress, isUnlocked, isCompleted, onStart, index }) {
+  const { data: user } = useQuery({
+    queryKey: ['currentUser'],
+    queryFn: () => base44.auth.me(),
+  });
+  const isManager = user?.role === 'admin' || user?.position === 'manager' || user?.position === 'owner';
 
   return (
     <motion.div
@@ -1863,15 +2100,13 @@ function ModuleCard({ module, progress, isUnlocked, isCompleted, onStart, index,
       } hover:shadow-xl transition-all relative`}>
         
         {isManager && (
-          <div className="absolute top-3 right-3 z-10">
+          <div className="absolute top-3 right-3 z-10 flex gap-2">
             <Button
               size="sm"
               variant="ghost"
-              onClick={(e) => {
-                e.stopPropagation(); // Prevent card click from triggering onStart
-                window.dispatchEvent(new CustomEvent('editModule', { detail: module }))
-              }}
-              className="text-gray-400 hover:text-blue-600"
+              onClick={() => window.dispatchEvent(new CustomEvent('editModule', { detail: module }))}
+              className="bg-white/90 hover:bg-white text-blue-600 hover:text-blue-700 shadow-sm"
+              title="Edit Module"
             >
               <Pencil className="w-4 h-4" />
             </Button>
