@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery } from '@tanstack/react-query';
@@ -23,10 +24,19 @@ import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import { format } from 'date-fns';
 import { motion } from 'framer-motion';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { EmptyState } from '@/components/ui/empty-state'; // Assuming this path for EmptyState
 
 export default function DocumentsFormsHub() {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState('pending');
+  const [selectedDocument, setSelectedDocument] = useState(null);
+  const [showDocumentModal, setShowDocumentModal] = useState(false);
 
   const { data: user } = useQuery({
     queryKey: ['currentUser'],
@@ -126,6 +136,19 @@ export default function DocumentsFormsHub() {
   const filteredPendingSOPs = pendingSOPs.filter(sop =>
     sop.title?.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  const handleDocumentClick = (doc) => {
+    setSelectedDocument(doc);
+    setShowDocumentModal(true);
+  };
+
+  const handleSOPClick = (sop) => {
+    window.location.href = createPageUrl(`SOPViewer?id=${sop.id}`);
+  };
+
+  const handleFormClick = (assignment) => {
+    window.location.href = createPageUrl('FormIntelligence') + `?openForm=${assignment.form_template_id}&assignmentId=${assignment.id}`;
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6 md:p-8">
@@ -237,26 +260,28 @@ export default function DocumentsFormsHub() {
                 </h2>
                 <div className="grid md:grid-cols-2 gap-4">
                   {filteredPendingDocs.map((doc) => (
-                    <Link key={doc.id} to={createPageUrl(`DocumentViewer?id=${doc.id}`)}>
-                      <Card className="hover:shadow-lg transition-shadow border-l-4 border-l-orange-500">
-                        <CardContent className="p-6">
-                          <div className="flex items-start justify-between mb-3">
-                            <div className="flex-1">
-                              <h3 className="font-semibold text-gray-900 mb-1">{doc.title}</h3>
-                              <p className="text-sm text-gray-600 mb-2">{doc.description}</p>
-                              <div className="flex flex-wrap gap-2">
-                                <Badge className="capitalize">{doc.category}</Badge>
-                                <Badge variant="outline">{doc.department}</Badge>
-                                <Badge className="bg-orange-100 text-orange-800">
-                                  <FileSignature className="w-3 h-3 mr-1" />
-                                  Signature Required
-                                </Badge>
-                              </div>
+                    <Card 
+                      key={doc.id} 
+                      className="hover:shadow-lg transition-shadow border-l-4 border-l-orange-500 cursor-pointer"
+                      onClick={() => handleDocumentClick(doc)}
+                    >
+                      <CardContent className="p-6">
+                        <div className="flex items-start justify-between mb-3">
+                          <div className="flex-1">
+                            <h3 className="font-semibold text-gray-900 mb-1">{doc.title}</h3>
+                            <p className="text-sm text-gray-600 mb-2">{doc.description}</p>
+                            <div className="flex flex-wrap gap-2">
+                              <Badge className="capitalize">{doc.category}</Badge>
+                              <Badge variant="outline">{doc.department}</Badge>
+                              <Badge className="bg-orange-100 text-orange-800">
+                                <FileSignature className="w-3 h-3 mr-1" />
+                                Signature Required
+                              </Badge>
                             </div>
                           </div>
-                        </CardContent>
-                      </Card>
-                    </Link>
+                        </div>
+                      </CardContent>
+                    </Card>
                   ))}
                 </div>
               </div>
@@ -271,28 +296,30 @@ export default function DocumentsFormsHub() {
                 </h2>
                 <div className="grid md:grid-cols-2 gap-4">
                   {filteredPendingSOPs.map((sop) => (
-                    <Link key={sop.id} to={createPageUrl(`SOPViewer?id=${sop.id}`)}>
-                      <Card className="hover:shadow-lg transition-shadow border-l-4 border-l-blue-500">
-                        <CardContent className="p-6">
-                          <div className="flex items-start justify-between mb-3">
-                            <div className="flex-1">
-                              <h3 className="font-semibold text-gray-900 mb-1">{sop.title}</h3>
-                              <p className="text-sm text-gray-600 mb-2">{sop.description}</p>
-                              <div className="flex flex-wrap gap-2">
-                                <Badge className="capitalize">{sop.category}</Badge>
-                                {sop.frequency && (
-                                  <Badge variant="outline">{sop.frequency}</Badge>
-                                )}
-                                <Badge className="bg-blue-100 text-blue-800">
-                                  <CheckCircle className="w-3 h-3 mr-1" />
-                                  Sign to Acknowledge
-                                </Badge>
-                              </div>
+                    <Card 
+                      key={sop.id} 
+                      className="hover:shadow-lg transition-shadow border-l-4 border-l-blue-500 cursor-pointer"
+                      onClick={() => handleSOPClick(sop)}
+                    >
+                      <CardContent className="p-6">
+                        <div className="flex items-start justify-between mb-3">
+                          <div className="flex-1">
+                            <h3 className="font-semibold text-gray-900 mb-1">{sop.title}</h3>
+                            <p className="text-sm text-gray-600 mb-2">{sop.description}</p>
+                            <div className="flex flex-wrap gap-2">
+                              <Badge className="capitalize">{sop.category}</Badge>
+                              {sop.frequency && (
+                                <Badge variant="outline">{sop.frequency}</Badge>
+                              )}
+                              <Badge className="bg-blue-100 text-blue-800">
+                                <CheckCircle className="w-3 h-3 mr-1" />
+                                Sign to Acknowledge
+                              </Badge>
                             </div>
                           </div>
-                        </CardContent>
-                      </Card>
-                    </Link>
+                        </div>
+                      </CardContent>
+                    </Card>
                   ))}
                 </div>
               </div>
@@ -307,7 +334,11 @@ export default function DocumentsFormsHub() {
                 </h2>
                 <div className="grid md:grid-cols-2 gap-4">
                   {myAssignedForms.map((assignment) => (
-                    <Card key={assignment.id} className="hover:shadow-lg transition-shadow border-l-4 border-l-green-500">
+                    <Card 
+                      key={assignment.id} 
+                      className="hover:shadow-lg transition-shadow border-l-4 border-l-green-500 cursor-pointer"
+                      onClick={() => handleFormClick(assignment)}
+                    >
                       <CardContent className="p-6">
                         <div className="flex items-start justify-between mb-3">
                           <div className="flex-1">
@@ -330,15 +361,11 @@ export default function DocumentsFormsHub() {
             )}
 
             {totalPending === 0 && (
-              <Card>
-                <CardContent className="p-12 text-center">
-                  <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
-                  <h3 className="text-xl font-bold text-gray-900 mb-2">All Caught Up!</h3>
-                  <p className="text-gray-600">
-                    You have no pending documents, SOPs, or forms to complete
-                  </p>
-                </CardContent>
-              </Card>
+              <EmptyState
+                icon={CheckCircle}
+                title="All Caught Up!"
+                description="You have no pending documents, SOPs, or forms to complete"
+              />
             )}
           </div>
         )}
@@ -477,6 +504,35 @@ export default function DocumentsFormsHub() {
         )}
 
       </div>
+
+      {/* Document Modal */}
+      <Dialog open={showDocumentModal} onOpenChange={setShowDocumentModal}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{selectedDocument?.title}</DialogTitle>
+          </DialogHeader>
+          {selectedDocument && (
+            <div className="py-4">
+              <iframe
+                src={selectedDocument.document_url}
+                className="w-full h-[600px] border rounded-lg"
+                title={selectedDocument.title}
+              />
+              <div className="mt-4 flex gap-3">
+                <Link to={createPageUrl(`DocumentViewer?id=${selectedDocument.id}`)}>
+                  <Button className="bg-blue-600 hover:bg-blue-700">
+                    <Eye className="w-4 h-4 mr-2" />
+                    Full Document Page
+                  </Button>
+                </Link>
+                <Button variant="outline" onClick={() => setShowDocumentModal(false)}>
+                  Close
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

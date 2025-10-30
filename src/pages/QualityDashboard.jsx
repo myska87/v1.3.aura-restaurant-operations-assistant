@@ -10,18 +10,24 @@ import { useQuery } from '@tanstack/react-query';
 import { Badge } from '@/components/ui/badge';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
+import LoadingSpinner from '../components/common/LoadingSpinner';
+import EmptyState from '../components/common/EmptyState';
 
 function QualityOverview() {
-  const { data: records = [] } = useQuery({
+  const { data: records = [], isLoading } = useQuery({
     queryKey: ['qualityRecords'],
     queryFn: () => base44.entities.QualityRecord.list('-created_date', 50),
   });
 
+  if (isLoading) {
+    return <LoadingSpinner message="Loading quality data..." />;
+  }
+
   const avgScore = records.length > 0
-    ? (records.reduce((sum, r) => sum + r.score, 0) / records.length).toFixed(1)
+    ? (records.reduce((sum, r) => sum + (r.score || 0), 0) / records.length).toFixed(1)
     : 0;
 
-  const needsAttention = records.filter(r => r.score < 3).length;
+  const needsAttention = records.filter(r => (r.score || 0) < 3).length;
   const excellent = records.filter(r => r.score === 5).length;
 
   return (
@@ -88,7 +94,16 @@ function QualityOverview() {
         <CardContent className="p-6">
           <h3 className="text-lg font-semibold mb-4">Recent Quality Checks</h3>
           {records.length === 0 ? (
-            <p className="text-gray-500 text-center py-8">No quality checks yet</p>
+            <EmptyState
+              icon={Star}
+              title="No quality checks yet"
+              description="Start performing quality checks to track performance"
+              action={
+                <Link to={createPageUrl('QuickQualityCheck')}>
+                  <Button>Perform First Check</Button>
+                </Link>
+              }
+            />
           ) : (
             <div className="space-y-3">
               {records.slice(0, 5).map((record) => (
@@ -103,11 +118,11 @@ function QualityOverview() {
                     </div>
                     <div className="flex items-center gap-2">
                       <Badge className={
-                        record.score >= 4 ? 'bg-green-100 text-green-800' :
-                        record.score === 3 ? 'bg-yellow-100 text-yellow-800' :
+                        (record.score || 0) >= 4 ? 'bg-green-100 text-green-800' :
+                        (record.score || 0) === 3 ? 'bg-yellow-100 text-yellow-800' :
                         'bg-red-100 text-red-800'
                       }>
-                        {record.score}/5
+                        {record.score || 0}/5
                       </Badge>
                     </div>
                   </CardContent>

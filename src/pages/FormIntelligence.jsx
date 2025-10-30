@@ -110,64 +110,50 @@ export default function FormIntelligence() {
 
   const generateFormMutation = useMutation({
     mutationFn: async (prompt) => {
-      const result = await base44.integrations.Core.InvokeLLM({
-        prompt: `You are a restaurant operations expert. Generate a structured form based on this request: "${prompt}"
-        
-Return a JSON object with this exact structure:
-{
-  "form_name": "Name of the form",
-  "description": "Brief description",
-  "category": "one of: haccp, workflow, equipment, pest, sops, training, suppliers, allergens, chemicals, waste, other",
-  "assigned_position": "one of: manager, chef, line_cook, server, bartender, cleaner, maintenance, any",
-  "fields": [
-    {
-      "field_id": "unique_id",
-      "field_type": "one of: text, number, dropdown, checkbox, yesno, date, photo, signature, rating, textarea",
-      "field_label": "Field label",
-      "field_hint": "Helper text",
-      "options": ["option1", "option2"],
-      "required": true,
-      "order_index": 1
-    }
-  ],
-  "requires_signature": true,
-  "frequency": "one of: daily, weekly, monthly, six_monthly, yearly, custom"
-}
-
-Make the form practical, comprehensive, and compliant with UK food safety regulations where applicable.`,
-        response_json_schema: {
-          type: "object",
-          properties: {
-            form_name: { type: "string" },
-            description: { type: "string" },
-            category: { type: "string" },
-            assigned_position: { type: "string" },
-            fields: {
-              type: "array",
-              items: {
-                type: "object",
-                properties: {
-                  field_id: { type: "string" },
-                  field_type: { type: "string" },
-                  field_label: { type: "string" },
-                  field_hint: { type: "string" },
-                  options: { type: "array", items: { type: "string" } },
-                  required: { type: "boolean" },
-                  order_index: { type: "number" }
+      try {
+        const result = await base44.integrations.Core.InvokeLLM({
+          prompt: `Generate a restaurant hygiene/operations form. Request: "${prompt}". Return valid JSON only with: form_name (string), description (string), category (haccp/workflow/equipment/pest/sops/training/suppliers/allergens/chemicals/waste/other), assigned_position (manager/chef/line_cook/server/bartender/cleaner/maintenance/any), fields (array of objects with field_id, field_type (text/number/dropdown/checkbox/yesno/date/photo/signature/rating/textarea), field_label, field_hint, options (array), required (boolean), order_index (number)), requires_signature (boolean), frequency (daily/weekly/monthly/six_monthly/yearly/custom).`,
+          response_json_schema: {
+            type: "object",
+            properties: {
+              form_name: { type: "string" },
+              description: { type: "string" },
+              category: { type: "string" },
+              assigned_position: { type: "string" },
+              fields: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    field_id: { type: "string" },
+                    field_type: { type: "string" },
+                    field_label: { type: "string" },
+                    field_hint: { type: "string" },
+                    options: { type: "array", items: { type: "string" } },
+                    required: { type: "boolean" },
+                    order_index: { type: "number" }
+                  }
                 }
-              }
-            },
-            requires_signature: { type: "boolean" },
-            frequency: { type: "string" }
+              },
+              requires_signature: { type: "boolean" },
+              frequency: { type: "string" }
+            }
           }
-        }
-      });
+        });
 
-      return result;
+        if (!result || !result.form_name) {
+          throw new Error('Invalid response from AI');
+        }
+
+        return result;
+      } catch (error) {
+        console.error('AI generation error:', error);
+        throw error;
+      }
     },
     onSuccess: (data) => {
       const newFormData = {
-        form_name: data.form_name || '',
+        form_name: data.form_name || 'New Form',
         description: data.description || '',
         category: data.category || 'other',
         assigned_position: data.assigned_position || 'any',
@@ -185,7 +171,8 @@ Make the form practical, comprehensive, and compliant with UK food safety regula
     },
     onError: (error) => {
       console.error('AI generation error:', error);
-      alert('❌ AI generation failed. Please try again or create the form manually.');
+      alert('❌ AI generation failed. Please try creating the form manually instead.');
+      setShowAiGenerator(false);
     }
   });
 

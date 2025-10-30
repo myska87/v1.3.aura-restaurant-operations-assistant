@@ -42,12 +42,13 @@ import { format } from "date-fns";
 import { Link, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { motion } from "framer-motion";
+import { LoadingSpinner } from "@/components/ui/loading-spinner"; // Added LoadingSpinner import
 
 export default function HygieneDashboard() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
-  const { data: user } = useQuery({
+  const { data: user, isLoading: loadingUser } = useQuery({ // Added isLoading: loadingUser
     queryKey: ['currentUser'],
     queryFn: () => base44.auth.me(),
   });
@@ -206,7 +207,7 @@ export default function HygieneDashboard() {
   };
 
   // Calculate stats from records
-  const todayRecords = records.filter(r => {
+  const todayRecords = (records || []).filter(r => {
     const recordDate = new Date(r.created_date);
     const now = new Date();
     return recordDate.toDateString() === now.toDateString();
@@ -215,27 +216,27 @@ export default function HygieneDashboard() {
   // Filter records specific to the current user for gamification
   const myTodayRecords = todayRecords.filter(r => r.recorded_by_email === user?.email);
 
-  const recordsInRange = records.filter(r => r.is_in_range !== false).length;
+  const recordsInRange = (records || []).filter(r => r.is_in_range !== false).length;
   const complianceRate = records.length > 0
     ? Math.round((recordsInRange / records.length) * 100)
     : 100;
 
-  const criticalAlerts = alerts.filter(a => a.severity === 'critical' || a.severity === 'urgent').length;
-  const openAlerts = alerts.filter(a => a.status === 'open').length;
+  const criticalAlerts = (alerts || []).filter(a => a.severity === 'critical' || a.severity === 'urgent').length;
+  const openAlerts = (alerts || []).filter(a => a.status === 'open').length;
 
   // Form-based metrics
   const todayDateOnly = new Date();
   todayDateOnly.setHours(0, 0, 0, 0);
 
-  const todayAssignments = formAssignments.filter(a => {
+  const todayAssignments = (formAssignments || []).filter(a => {
     const dueDate = new Date(a.due_date);
     dueDate.setHours(0, 0, 0, 0);
     return dueDate.getTime() === todayDateOnly.getTime();
   });
 
-  const completedForms = formAssignments.filter(a => a.completion_status === 'completed').length;
-  const pendingForms = formAssignments.filter(a => a.completion_status === 'pending' || a.completion_status === 'in_progress').length;
-  const overdueForms = formAssignments.filter(a => {
+  const completedForms = (formAssignments || []).filter(a => a.completion_status === 'completed').length;
+  const pendingForms = (formAssignments || []).filter(a => a.completion_status === 'pending' || a.completion_status === 'in_progress').length;
+  const overdueForms = (formAssignments || []).filter(a => {
     const dueDate = new Date(a.due_date);
     return a.completion_status !== 'completed' && a.completion_status !== 'archived' && dueDate < new Date();
   }).length;
@@ -317,6 +318,16 @@ export default function HygieneDashboard() {
       unlocked: pendingForms === 0 && formAssignments.length > 0
     },
   ];
+
+  if (loadingUser || loadingRecords) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-emerald-50 p-6 md:p-8">
+        <div className="max-w-7xl mx-auto">
+          <LoadingSpinner message="Loading hygiene dashboard..." />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
