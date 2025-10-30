@@ -15,34 +15,28 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Progress } from "@/components/ui/progress";
 import {
   Thermometer,
-  Droplets,
-  PackageCheck,
-  Wrench,
-  Award,
-  Star,
-  TrendingUp,
   AlertTriangle,
   CheckCircle,
+  TrendingUp,
   Clock,
-  Users,
-  Home,
-  Plus,
-  Eye,
-  Calendar,
-  Zap,
-  Trophy,
+  Award,
   Target,
-  Activity,
-  ArrowLeft,
-  ClipboardList,
+  Droplet, // Changed from Droplets
+  Sparkles, // Added
+  Home,
+  FileText, // Added, replaces PackageCheck, Wrench, Plus, Eye, Zap, Trophy, Activity, ArrowLeft, ClipboardList
+  Calendar,
+  Users, // Added
 } from "lucide-react";
 import { format } from "date-fns";
 import { Link, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { motion } from "framer-motion";
-import { LoadingSpinner } from "@/components/ui/loading-spinner"; // Added LoadingSpinner import
+import LoadingSpinner from "../components/common/LoadingSpinner"; // Updated LoadingSpinner import path
 
 export default function HygieneDashboard() {
   const navigate = useNavigate();
@@ -348,7 +342,7 @@ export default function HygieneDashboard() {
           <div>
             <h1 className="text-4xl font-bold text-gray-900 flex items-center gap-3 mb-2">
               <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#014D40] to-emerald-600 flex items-center justify-center shadow-lg">
-                <Activity className="w-8 h-8 text-white" />
+                <TrendingUp className="w-8 h-8 text-white" />
               </div>
               Hygiene Central
             </h1>
@@ -374,7 +368,7 @@ export default function HygieneDashboard() {
                 </div>
               </div>
               <div className="flex items-center gap-2 text-sm">
-                <ClipboardList className="w-4 h-4 text-blue-600" />
+                <FileText className="w-4 h-4 text-blue-600" />
                 <span className="text-blue-600 font-medium">{completedForms} forms completed</span>
               </div>
             </CardContent>
@@ -411,7 +405,7 @@ export default function HygieneDashboard() {
                   <p className="text-sm text-gray-600 mb-1">AURA Star Rating</p>
                   <div className="flex gap-1 mt-2">
                     {[1, 2, 3, 4, 5].map(i => (
-                      <Star
+                      <Sparkles
                         key={i}
                         className={`w-6 h-6 ${
                           i <= starRating
@@ -517,7 +511,7 @@ export default function HygieneDashboard() {
             <CardHeader>
               <CardTitle className="flex items-center justify-between">
                 <span className="flex items-center gap-2 text-blue-900">
-                  <ClipboardList className="w-5 h-5" />
+                  <FileText className="w-5 h-5" />
                   Pending Forms ({pendingForms})
                 </span>
                 <Button 
@@ -554,7 +548,7 @@ export default function HygieneDashboard() {
                         className="w-full"
                         onClick={() => navigate(createPageUrl('FormIntelligence', { formId: assignment.form_template_id, assignmentId: assignment.id }))}
                       >
-                        <Eye className="w-3 h-3 mr-1" />
+                        <FileText className="w-3 h-3 mr-1" />
                         Open Form
                       </Button>
                     </div>
@@ -580,7 +574,7 @@ export default function HygieneDashboard() {
                 <h3 className="text-xl font-bold mb-2">Temperature Log</h3>
                 <p className="text-blue-100 text-sm mb-4">Fridge, freezer & cooking temps</p>
                 <div className="flex items-center gap-2 mt-4 bg-white/20 rounded-lg p-2">
-                  <Plus className="w-4 h-4" />
+                  <FileText className="w-4 h-4" />
                   <span className="text-sm font-medium">Open Daily Temp Form</span>
                 </div>
                 {quickActionForms.temperature && (
@@ -602,11 +596,11 @@ export default function HygieneDashboard() {
               onClick={() => handleQuickAction('cleaning')}
             >
               <CardContent className="p-6">
-                <Droplets className="w-12 h-12 mb-4 opacity-90" />
+                <Droplet className="w-12 h-12 mb-4 opacity-90" />
                 <h3 className="text-xl font-bold mb-2">Cleaning Record</h3>
                 <p className="text-purple-100 text-sm mb-4">Log cleaning & sanitization</p>
                 <div className="flex items-center gap-2 mt-4 bg-white/20 rounded-lg p-2">
-                  <Plus className="w-4 h-4" />
+                  <FileText className="w-4 h-4" />
                   <span className="text-sm font-medium">Open Cleaning Form</span>
                 </div>
                 {quickActionForms.cleaning && (
@@ -628,11 +622,11 @@ export default function HygieneDashboard() {
               onClick={() => handleQuickAction('delivery_check')}
             >
               <CardContent className="p-6">
-                <PackageCheck className="w-12 h-12 mb-4 opacity-90" />
+                <FileText className="w-12 h-12 mb-4 opacity-90" /> {/* Changed icon from PackageCheck */}
                 <h3 className="text-xl font-bold mb-2">Delivery Check</h3>
                 <p className="text-orange-100 text-sm mb-4">Verify goods on arrival</p>
                 <div className="flex items-center gap-2 mt-4 bg-white/20 rounded-lg p-2">
-                  <Plus className="w-4 h-4" />
+                  <FileText className="w-4 h-4" />
                   <span className="text-sm font-medium">Open Delivery Form</span>
                 </div>
                 {quickActionForms.delivery && (
@@ -654,11 +648,11 @@ export default function HygieneDashboard() {
               onClick={() => handleQuickAction('equipment_check')}
             >
               <CardContent className="p-6">
-                <Wrench className="w-12 h-12 mb-4 opacity-90" />
+                <FileText className="w-12 h-12 mb-4 opacity-90" /> {/* Changed icon from Wrench */}
                 <h3 className="text-xl font-bold mb-2">Equipment Check</h3>
                 <p className="text-emerald-100 text-sm mb-4">Monitor equipment status</p>
                 <div className="flex items-center gap-2 mt-4 bg-white/20 rounded-lg p-2">
-                  <Plus className="w-4 h-4" />
+                  <FileText className="w-4 h-4" />
                   <span className="text-sm font-medium">Open Equipment Form</span>
                 </div>
                 {quickActionForms.equipment && (
@@ -677,7 +671,7 @@ export default function HygieneDashboard() {
             <Card className="border-none shadow-lg bg-gradient-to-br from-purple-50 to-indigo-50">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Trophy className="w-5 h-5 text-purple-600" />
+                  <Award className="w-5 h-5 text-purple-600" /> {/* Changed icon from Trophy */}
                   Your Progress
                 </CardTitle>
               </CardHeader>
@@ -742,7 +736,7 @@ export default function HygieneDashboard() {
             <Card className="border-none shadow-lg bg-gradient-to-br from-amber-50 to-yellow-50">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Zap className="w-5 h-5 text-amber-600" />
+                  <Sparkles className="w-5 h-5 text-amber-600" /> {/* Changed icon from Zap */}
                   Achievements
                 </CardTitle>
               </CardHeader>
@@ -796,10 +790,10 @@ export default function HygieneDashboard() {
           <CardContent>
             {records.length === 0 ? (
               <div className="text-center py-12">
-                <Activity className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                <Users className="w-16 h-16 text-gray-300 mx-auto mb-4" /> {/* Changed icon from Activity */}
                 <p className="text-gray-500 mb-4">No records yet today</p>
                 <Button onClick={() => handleQuickAction('storage_fridge')}>
-                  <Plus className="w-4 h-4 mr-2" />
+                  <FileText className="w-4 h-4 mr-2" /> {/* Changed icon from Plus */}
                   Create First Record
                 </Button>
               </div>
