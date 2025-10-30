@@ -61,6 +61,85 @@ const MOTIVATIONAL_QUOTES = [
   "Small daily improvements lead to stunning results.",
 ];
 
+const CORE_VALUES = [
+  {
+    icon: '🌿',
+    title: 'Warmth',
+    description: 'Every interaction radiates genuine care and hospitality',
+    detail: 'Greet guests with authenticity. Remember names. Make everyone feel like family.',
+    color: 'from-green-400 to-emerald-500'
+  },
+  {
+    icon: '💪',
+    title: 'Discipline',
+    description: 'Excellence through consistency and attention to detail',
+    detail: 'Show up early. Follow SOPs. Never compromise on quality. Raise the standard daily.',
+    color: 'from-blue-400 to-cyan-500'
+  },
+  {
+    icon: '🧭',
+    title: 'Heritage',
+    description: 'Honoring authentic traditions while innovating boldly',
+    detail: 'Respect the roots of Karak Chai. Honor traditional recipes. Innovate with purpose.',
+    color: 'from-amber-400 to-orange-500'
+  },
+  {
+    icon: '🚀',
+    title: 'Growth',
+    description: 'Continuous learning and development for every team member',
+    detail: 'Learn something new every shift. Share knowledge. Train others. Evolve together.',
+    color: 'from-purple-400 to-pink-500'
+  },
+  {
+    icon: '💚',
+    title: 'Respect',
+    description: 'Valuing every person, every role, every contribution',
+    detail: 'Respect colleagues, guests, suppliers, and the planet. Everyone matters.',
+    color: 'from-teal-400 to-green-500'
+  }
+];
+
+const CULTURAL_RITUALS = [
+  {
+    icon: '☀️',
+    title: 'Morning Ritual: Start with a Smile',
+    description: 'Greet each team member with warmth and positive energy to set the tone for the day.',
+    color: 'from-yellow-400 to-orange-400'
+  },
+  {
+    icon: '🎯',
+    title: 'Pre-Service Alignment',
+    description: '5-minute team huddle before service. Set intentions, review goals, celebrate wins.',
+    color: 'from-blue-400 to-indigo-400'
+  },
+  {
+    icon: '🍵',
+    title: 'Chai Break Tradition',
+    description: 'Once a week, sit together for 15 minutes. Share stories, connect as humans.',
+    color: 'from-green-400 to-teal-400'
+  },
+  {
+    icon: '💬',
+    title: 'Feedback Fridays',
+    description: 'Share one kind word + one improvement with a teammate. Growth through care.',
+    color: 'from-purple-400 to-pink-400'
+  },
+  {
+    icon: '⭐',
+    title: 'Craving Fan Wall',
+    description: 'Celebrate customer messages, reviews, and moments that made someone\'s day.',
+    color: 'from-amber-400 to-yellow-400'
+  }
+];
+
+const REFLECTION_PROMPTS = [
+  'What does "Craving Fans" mean to you personally?',
+  'Which Chai Patta value feels most natural to you, and why?',
+  'How will you live one of our values in your next shift?',
+  'Share a moment when you felt the warmth of our team culture.',
+  'What story will you tell through the chai you serve?'
+];
+
 export default function TrainingAcademy() {
   const queryClient = useQueryClient();
   const [selectedModule, setSelectedModule] = useState(null);
@@ -90,6 +169,11 @@ export default function TrainingAcademy() {
     order_sequence: 1,
     prerequisites: [],
   });
+
+  const [cultureReflections, setCultureReflections] = useState({});
+  const [showCultureQuiz, setShowCultureQuiz] = useState(false);
+  const [cultureQuizAnswers, setCultureQuizAnswers] = useState({});
+  const [cultureCompleted, setCultureCompleted] = useState(false);
 
   const { data: user } = useQuery({
     queryKey: ['currentUser'],
@@ -500,6 +584,100 @@ export default function TrainingAcademy() {
   const level2Modules = trainingModules.filter(m => m.level === 2 || m.category === 'product_knowledge');
   const level3Modules = trainingModules.filter(m => m.level === 3 || m.category === 'compliance');
 
+  const CULTURE_QUIZ = [
+    {
+      question: "What is Chai Patta's mission?",
+      options: ["Serve tea fast", "Create Craving Fans", "Sell premium drinks", "Make profit"],
+      correct_answer: 1
+    },
+    {
+      question: "Which value represents our roots and traditions?",
+      options: ["Growth", "Heritage", "Excellence", "Speed"],
+      correct_answer: 1
+    },
+    {
+      question: "What does Discipline mean at Chai Patta?",
+      options: ["Be strict", "Always show up early and prepared", "Punish mistakes", "Work longer"],
+      correct_answer: 1
+    },
+    {
+      question: "What's our morning ritual?",
+      options: ["Huddle silently", "Start with a smile", "Skip briefing", "Clock in fast"],
+      correct_answer: 1
+    },
+    {
+      question: "What makes a guest a 'Craving Fan'?",
+      options: ["Free chai", "Consistent excellence and care", "Promotions", "Fast service"],
+      correct_answer: 1
+    }
+  ];
+
+  const handleCultureQuizSubmit = async () => {
+    let correctCount = 0;
+    CULTURE_QUIZ.forEach((q, index) => {
+      if (cultureQuizAnswers[index] === q.correct_answer) correctCount++;
+    });
+
+    const score = Math.round((correctCount / CULTURE_QUIZ.length) * 100);
+    const passed = score >= 80;
+
+    if (passed) {
+      setCultureCompleted(true);
+      setShowCultureQuiz(false);
+      
+      // Generate certificate
+      const certId = `CERT-CULTURE-${Date.now()}`;
+      await createCertificateMutation.mutateAsync({
+        certificate_id: certId,
+        staff_email: user?.email,
+        staff_name: user?.full_name,
+        certificate_type: 'culture_completion',
+        title: 'Welcome to the Chai Patta Family',
+        description: `Successfully completed Culture & Values training with ${score}% score`,
+        issued_date: new Date().toISOString(),
+        issued_by: 'AURA Training Academy',
+        verification_url: `${window.location.origin}/verify-cert/${certId}`,
+        is_verified: true,
+        points_awarded: 20,
+        badge_earned: 'Culture Champion',
+      });
+
+      // Award points
+      await createRewardMutation.mutateAsync({
+        staff_email: user?.email,
+        staff_name: user?.full_name,
+        reward_type: 'training_completion',
+        points_earned: 20,
+        badge_name: 'Culture Champion',
+        badge_icon: '🌿',
+        reason: 'Completed Culture & Values training',
+        awarded_by: 'AURA Training Academy',
+        awarded_date: new Date().toISOString(),
+        is_public: true,
+        linked_achievement: 'culture_training',
+      });
+
+      // Post to EventHub
+      await createEventMutation.mutateAsync({
+        source_module: 'training',
+        event_type: 'culture_completed',
+        title: `🌿 ${user?.full_name} joined the Chai Patta family!`,
+        message: `${user?.full_name} completed Culture & Values training and earned the "Culture Champion" badge! 🏆`,
+        severity: 'success',
+        recipient_roles: ['manager', 'all'],
+      });
+
+      triggerConfetti();
+      queryClient.invalidateQueries({ queryKey: ['certificates'] });
+      queryClient.invalidateQueries({ queryKey: ['trainingProgress'] }); // Invalidate progress to update general progress bar
+      queryClient.invalidateQueries({ queryKey: ['staffRewards'] }); // Invalidate rewards
+    } else {
+      alert(`You scored ${score}%. You need 80% to pass. Review the content and try again!`);
+      setCultureQuizAnswers({});
+    }
+  };
+
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-amber-50 to-emerald-50 p-6 md:p-8">
       <div className="max-w-7xl mx-auto">
@@ -658,60 +836,259 @@ export default function TrainingAcademy() {
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="culture" className="space-y-4">
-            <Card className="bg-gradient-to-r from-purple-500 to-pink-500 text-white border-none shadow-lg">
-              <CardContent className="p-8">
-                <div className="flex items-start gap-4">
-                  <Heart className="w-16 h-16 flex-shrink-0" />
-                  <div className="flex-1">
-                    <h3 className="text-3xl font-bold mb-3">Culture & Values Training</h3>
-                    <p className="text-purple-100 text-lg mb-2 font-semibold"> {/* Changed mb-4 to mb-2 and added font-semibold */}
-                      "Learn the Heart of Chai Patta"
-                    </p>
-                    <p className="text-purple-50 mb-6">
-                      Understand our mission, embrace our values, and discover what makes us different. 
-                      This is where every journey begins - with purpose and passion.
-                    </p>
-                    <div className="flex items-center gap-4">
-                      <Progress value={getCategoryProgress('culture')} className="flex-1 bg-purple-300 h-3" /> {/* Added h-3 */}
-                      <span className="font-bold text-2xl">{getCategoryProgress('culture')}%</span>
+          <TabsContent value="culture" className="space-y-6">
+            <Card className="bg-gradient-to-r from-[#014D40] via-emerald-600 to-[#E0B037] text-white border-none shadow-2xl overflow-hidden relative">
+              <div className="absolute top-0 right-0 w-96 h-96 bg-white/5 rounded-full -mr-48 -mt-48" />
+              <div className="absolute bottom-0 left-0 w-64 h-64 bg-white/10 rounded-full -ml-32 -mb-32" />
+              <CardContent className="p-12 relative">
+                <div className="text-center">
+                  <h2 className="text-5xl font-bold mb-4">🌿 Culture & Values 🌿</h2>
+                  <p className="text-2xl text-emerald-100 italic mb-4">
+                    "Learn the Heart of Chai Patta"
+                  </p>
+                  <p className="text-lg text-white/90 max-w-3xl mx-auto leading-relaxed">
+                    Understand our mission, embrace our values, and discover what makes us different. 
+                    This is where every journey begins - with purpose and passion.
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Mission & Vision */}
+            <div className="grid md:grid-cols-2 gap-6">
+              <Card className="bg-gradient-to-br from-[#014D40] to-emerald-600 text-white border-none shadow-xl">
+                <CardContent className="p-8">
+                  <div className="text-6xl mb-4 text-center">🎯</div>
+                  <h3 className="text-2xl font-bold mb-4 text-center">Our Mission</h3>
+                  <p className="text-lg text-emerald-100 leading-relaxed italic text-center">
+                    "To serve every cup with a story, inspire every team member with purpose, 
+                    and build a culture of excellence."
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-gradient-to-br from-[#E0B037] to-amber-500 text-white border-none shadow-xl">
+                <CardContent className="p-8">
+                  <div className="text-6xl mb-4 text-center">✨</div>
+                  <h3 className="text-2xl font-bold mb-4 text-center">Our Vision</h3>
+                  <p className="text-lg text-amber-100 leading-relaxed italic text-center">
+                    "To become the most loved chai brand - where every team member thrives 
+                    and every guest becomes a Craving Fan."
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Core Values - Interactive Cards */}
+            <Card className="border-2 border-[#014D40] shadow-xl">
+              <CardHeader>
+                <CardTitle className="text-3xl text-center text-[#014D40]">Our 5 Core Values</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid md:grid-cols-5 gap-4">
+                  {CORE_VALUES.map((value, idx) => (
+                    <motion.div
+                      key={idx}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: idx * 0.1 }}
+                      whileHover={{ scale: 1.05, rotate: 2 }}
+                      className="cursor-pointer"
+                    >
+                      <Card className={`bg-gradient-to-br ${value.color} text-white border-none shadow-lg h-full`}>
+                        <CardContent className="p-6 text-center">
+                          <div className="text-5xl mb-3">{value.icon}</div>
+                          <h4 className="text-xl font-bold mb-2">{value.title}</h4>
+                          <p className="text-sm text-white/90 mb-3">{value.description}</p>
+                          <div className="text-xs text-white/80 italic border-t border-white/30 pt-3">
+                            {value.detail}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </motion.div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Brand Story Video */}
+            <Card className="border-2 border-[#E0B037] shadow-xl">
+              <CardHeader>
+                <CardTitle className="text-2xl text-center flex items-center justify-center gap-2">
+                  <Video className="w-6 h-6 text-[#014D40]" />
+                  The Chai Patta Story — From Spice to Spirit
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-center text-gray-600 italic mb-4">
+                  "Every great journey starts with a story. Here's ours — the blend of tradition, passion, and modern hospitality."
+                </p>
+                <div className="aspect-video bg-black rounded-xl overflow-hidden shadow-2xl">
+                  <iframe
+                    width="100%"
+                    height="100%"
+                    src="https://www.youtube.com/embed/dQw4w9WgXcQ"
+                    title="The Chai Patta Story"
+                    frameBorder="0"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                  />
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Cultural Rituals */}
+            <Card className="border-2 border-purple-400 shadow-xl">
+              <CardHeader>
+                <CardTitle className="text-2xl text-center text-[#014D40]">
+                  🪄 Cultural Rituals - Living Our Values
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid md:grid-cols-2 gap-4">
+                  {CULTURAL_RITUALS.map((ritual, idx) => (
+                    <motion.div
+                      key={idx}
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: idx * 0.1 }}
+                    >
+                      <Card className={`bg-gradient-to-r ${ritual.color} text-white border-none`}>
+                        <CardContent className="p-6">
+                          <div className="flex items-start gap-3">
+                            <div className="text-4xl">{ritual.icon}</div>
+                            <div>
+                              <h4 className="font-bold text-lg mb-2">{ritual.title}</h4>
+                              <p className="text-sm text-white/90">{ritual.description}</p>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </motion.div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Reflection Prompts */}
+            <Card className="border-2 border-purple-500 shadow-xl bg-gradient-to-br from-purple-50 to-pink-50">
+              <CardHeader>
+                <CardTitle className="text-2xl text-center text-purple-900">
+                  🧠 Reflection: Connect with Our Culture
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {REFLECTION_PROMPTS.map((prompt, idx) => (
+                  <div key={idx}>
+                    <label className="text-sm font-semibold text-purple-800 mb-2 block">
+                      {idx + 1}. {prompt}
+                    </label>
+                    <Textarea
+                      value={cultureReflections[idx] || ''}
+                      onChange={(e) => setCultureReflections({...cultureReflections, [idx]: e.target.value})}
+                      placeholder="Share your thoughts..."
+                      rows={2}
+                      className="border-purple-300 focus:border-purple-500"
+                    />
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+
+            {/* Culture Quiz */}
+            {!cultureCompleted && (
+              <Card className="border-2 border-[#E0B037] shadow-xl">
+                <CardContent className="p-8 text-center">
+                  <Trophy className="w-16 h-16 text-[#E0B037] mx-auto mb-4" />
+                  <h3 className="text-2xl font-bold text-gray-900 mb-4">
+                    Ready to Test Your Knowledge?
+                  </h3>
+                  <p className="text-gray-600 mb-6">
+                    Complete the Culture Quiz to earn your "Culture Champion" badge and unlock Level 1 training!
+                  </p>
+                  <Button
+                    onClick={() => setShowCultureQuiz(true)}
+                    className="bg-gradient-to-r from-[#014D40] to-emerald-600 hover:from-[#013830] hover:to-emerald-700 text-white px-8 py-6 text-lg"
+                  >
+                    <Sparkles className="w-5 h-5 mr-2" />
+                    Take Culture Quiz (5 Questions)
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Training Modules */}
+            {cultureModules.length > 0 && (
+              <Card className="shadow-xl">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <BookOpen className="w-6 h-6 text-[#014D40]" />
+                    Culture Training Modules
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid md:grid-cols-2 gap-4">
+                    {cultureModules.map((module, index) => (
+                      <ModuleCard
+                        key={module.id}
+                        module={module}
+                        progress={getModuleProgress(module.id)}
+                        isUnlocked={isModuleUnlocked(module)}
+                        isCompleted={getModuleProgress(module.id)?.status === 'completed'}
+                        onStart={() => handleStartModule(module)}
+                        index={index}
+                        isManager={isManager}
+                      />
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Photo Gallery Placeholders */}
+            <Card className="border-2 border-[#014D40] shadow-xl">
+              <CardHeader>
+                <CardTitle className="text-2xl text-center text-[#014D40]">Our Culture in Action</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid md:grid-cols-3 gap-4">
+                  <div className="aspect-video bg-gradient-to-br from-green-100 to-emerald-200 rounded-xl flex items-center justify-center">
+                    <div className="text-center">
+                      <Users className="w-12 h-12 text-emerald-700 mx-auto mb-2" />
+                      <p className="text-sm font-semibold text-emerald-800">Team at Work</p>
+                    </div>
+                  </div>
+                  <div className="aspect-video bg-gradient-to-br from-amber-100 to-yellow-200 rounded-xl flex items-center justify-center">
+                    <div className="text-center">
+                      <Star className="w-12 h-12 text-amber-700 mx-auto mb-2" />
+                      <p className="text-sm font-semibold text-amber-800">Happy Guests</p>
+                    </div>
+                  </div>
+                  <div className="aspect-video bg-gradient-to-br from-orange-100 to-red-200 rounded-xl flex items-center justify-center">
+                    <div className="text-center">
+                      <Heart className="w-12 h-12 text-orange-700 mx-auto mb-2" />
+                      <p className="text-sm font-semibold text-orange-800">Perfect Chai</p>
                     </div>
                   </div>
                 </div>
               </CardContent>
             </Card>
 
-            {cultureModules.length === 0 ? (
-              <Card className="bg-blue-50 border-blue-200">
-                <CardContent className="p-8 text-center">
-                  <Sparkles className="w-12 h-12 text-blue-600 mx-auto mb-4" />
-                  <h3 className="text-xl font-bold text-gray-900 mb-2">No Culture Modules Yet</h3>
-                  <p className="text-gray-600 mb-4">
-                    Culture training modules will appear here once created by your manager.
+            {/* Motivational Quotes Footer */}
+            <Card className="bg-gradient-to-r from-gray-900 to-slate-800 text-white border-none shadow-xl">
+              <CardContent className="p-8 text-center">
+                <div className="space-y-4">
+                  <p className="text-2xl font-bold italic">
+                    "Raise your standard — not your excuses."
                   </p>
-                  {isManager && (
-                    <p className="text-sm text-blue-700">
-                      💡 Tip: Create training modules in the Staff Dashboard
-                    </p>
-                  )}
-                </CardContent>
-              </Card>
-            ) : (
-              <div className="grid md:grid-cols-2 gap-4">
-                {cultureModules.map((module, index) => (
-                  <ModuleCard
-                    key={module.id}
-                    module={module}
-                    progress={getModuleProgress(module.id)}
-                    isUnlocked={isModuleUnlocked(module)}
-                    isCompleted={getModuleProgress(module.id)?.status === 'completed'}
-                    onStart={() => handleStartModule(module)}
-                    index={index}
-                    isManager={isManager}
-                  />
-                ))}
-              </div>
-            )}
+                  <p className="text-lg text-gray-300">- Tony Robbins</p>
+                  <div className="h-px bg-white/20 my-4" />
+                  <p className="text-xl italic text-emerald-300">
+                    "We don't sell chai — we share energy."
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
           </TabsContent>
 
           <TabsContent value="level1" className="space-y-4">
@@ -1223,6 +1600,78 @@ export default function TrainingAcademy() {
             )}
           </DialogContent>
         </Dialog>
+
+        {/* Culture Quiz Dialog */}
+        <Dialog open={showCultureQuiz} onOpenChange={setShowCultureQuiz}>
+          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="text-2xl flex items-center gap-2">
+                🌿 Culture & Values Quiz
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-6 mt-4">
+              <Card className="bg-gradient-to-r from-[#014D40] to-emerald-600 text-white border-none">
+                <CardContent className="p-6">
+                  <p className="text-lg font-semibold text-center">
+                    Show us you understand the heart of Chai Patta! 
+                  </p>
+                  <p className="text-sm text-emerald-100 text-center mt-2">
+                    Pass with 80% to earn your "Culture Champion" badge 🏆
+                  </p>
+                </CardContent>
+              </Card>
+
+              {CULTURE_QUIZ.map((q, index) => (
+                <Card key={index} className="border-2 border-[#014D40]">
+                  <CardContent className="p-6">
+                    <p className="font-bold text-gray-900 text-lg mb-4">
+                      Question {index + 1}: {q.question}
+                    </p>
+                    <div className="space-y-3">
+                      {q.options.map((option, optIndex) => (
+                        <label
+                          key={optIndex}
+                          className={`flex items-center gap-3 p-4 rounded-lg border-2 cursor-pointer transition-all ${
+                            cultureQuizAnswers[index] === optIndex
+                              ? 'border-emerald-600 bg-emerald-50 shadow-md'
+                              : 'border-gray-200 bg-white hover:border-emerald-300 hover:bg-emerald-50/50'
+                          }`}
+                        >
+                          <input
+                            type="radio"
+                            name={`cq-${index}`}
+                            checked={cultureQuizAnswers[index] === optIndex}
+                            onChange={() => setCultureQuizAnswers({ ...cultureQuizAnswers, [index]: optIndex })}
+                            className="w-5 h-5 text-emerald-600"
+                          />
+                          <span className="text-gray-800 flex-1 font-medium">{option}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+
+              <div className="flex justify-end gap-3 pt-4 border-t">
+                <Button variant="outline" onClick={() => {
+                  setShowCultureQuiz(false);
+                  setCultureQuizAnswers({});
+                }}>
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleCultureQuizSubmit}
+                  disabled={Object.keys(cultureQuizAnswers).length !== CULTURE_QUIZ.length}
+                  className="bg-gradient-to-r from-[#014D40] to-emerald-600 hover:from-[#013830] hover:to-emerald-700"
+                >
+                  <CheckCircle className="w-4 h-4 mr-2" />
+                  Submit Quiz
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
 
         {/* Reflection Dialog */}
         <Dialog open={showReflection} onOpenChange={setShowReflection}>
