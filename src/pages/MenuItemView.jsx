@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+
+import React, { useState, useEffect, useRef } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -49,6 +50,7 @@ export default function MenuItemView() {
   const [isEditingInstructions, setIsEditingInstructions] = useState(false);
   const [editedInstructions, setEditedInstructions] = useState('');
   const [uploadingInstructionImage, setUploadingInstructionImage] = useState(false);
+  const quillRef = useRef(null);
 
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
@@ -170,9 +172,16 @@ export default function MenuItemView() {
     try {
       const { file_url } = await base44.integrations.Core.UploadFile({ file });
       
-      // Insert image into editor at cursor position
-      const imageHtml = `<img src="${file_url}" alt="Instruction step" style="max-width: 100%; height: auto; margin: 10px 0; border-radius: 8px;" />`;
-      setEditedInstructions(prev => prev + imageHtml);
+      // Insert image at current cursor position in Quill editor
+      const quill = quillRef.current?.getEditor();
+      if (quill) {
+        const range = quill.getSelection(true);
+        quill.insertEmbed(range.index, 'image', file_url);
+        quill.setSelection(range.index + 1);
+      }
+      
+      // Clear file input
+      e.target.value = '';
     } catch (error) {
       console.error('Failed to upload image:', error);
       alert('Failed to upload image');
@@ -336,11 +345,23 @@ export default function MenuItemView() {
       [{ 'header': [1, 2, 3, false] }],
       ['bold', 'italic', 'underline', 'strike'],
       [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+      [{ 'indent': '-1'}, { 'indent': '+1' }],
       [{ 'color': [] }, { 'background': [] }],
+      [{ 'align': [] }],
       ['link'],
       ['clean']
     ],
   };
+
+  const quillFormats = [
+    'header',
+    'bold', 'italic', 'underline', 'strike',
+    'list', 'bullet', 'indent',
+    'color', 'background',
+    'align',
+    'link',
+    'image'
+  ];
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6 md:p-8">
@@ -574,7 +595,7 @@ export default function MenuItemView() {
                 Cooking Instructions
               </CardTitle>
               <div className="flex gap-2">
-                {item.cooking_instructions && (
+                {item.cooking_instructions && !isEditingInstructions && (
                   <Button
                     variant="outline"
                     size="sm"
@@ -600,34 +621,112 @@ export default function MenuItemView() {
           <CardContent>
             {isEditingInstructions ? (
               <div className="space-y-4">
-                <div className="flex gap-2 mb-4">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => document.getElementById('instruction-image-upload').click()}
-                    disabled={uploadingInstructionImage}
-                  >
-                    <ImageIcon className="w-4 h-4 mr-2" />
-                    {uploadingInstructionImage ? 'Uploading...' : 'Add Image'}
-                  </Button>
-                  <input
-                    id="instruction-image-upload"
-                    type="file"
-                    accept="image/*"
-                    onChange={handleImageUpload}
-                    className="hidden"
-                  />
-                  <p className="text-xs text-gray-500 self-center">
-                    Add step-by-step photos to your instructions
-                  </p>
+                <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                  <h4 className="font-semibold text-blue-900 mb-3 flex items-center gap-2">
+                    <ImageIcon className="w-5 h-5" />
+                    Add Step-by-Step Photos
+                  </h4>
+                  <div className="space-y-3">
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => document.getElementById('instruction-image-upload').click()}
+                        disabled={uploadingInstructionImage}
+                        className="flex-1"
+                      >
+                        <ImageIcon className="w-4 h-4 mr-2" />
+                        {uploadingInstructionImage ? 'Uploading...' : 'Insert Image at Cursor'}
+                      </Button>
+                      <input
+                        id="instruction-image-upload"
+                        type="file"
+                        accept="image/*"
+                        onChange={handleImageUpload}
+                        className="hidden"
+                        multiple
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        onClick={() => {
+                          const quill = quillRef.current?.getEditor();
+                          if (quill) {
+                            const range = quill.getSelection(true);
+                            quill.insertText(range.index, '\n📝 Step: ', 'bold');
+                            quill.setSelection(range.index + 9);
+                          }
+                        }}
+                        className="px-3 py-2 bg-white hover:bg-gray-50 border rounded-lg text-sm"
+                      >
+                        Add Step Header
+                      </button>
+                      <button
+                        onClick={() => {
+                          const quill = quillRef.current?.getEditor();
+                          if (quill) {
+                            const range = quill.getSelection(true);
+                            quill.insertText(range.index, '\n⚠️ Important: ', { 'bold': true, 'color': '#DC2626' });
+                            quill.setSelection(range.index + 14);
+                          }
+                        }}
+                        className="px-3 py-2 bg-white hover:bg-gray-50 border rounded-lg text-sm"
+                      >
+                        Add Warning
+                      </button>
+                      <button
+                        onClick={() => {
+                          const quill = quillRef.current?.getEditor();
+                          if (quill) {
+                            const range = quill.getSelection(true);
+                            quill.insertText(range.index, '\n💡 Tip: ', { 'italic': true, 'color': '#2563EB' });
+                            quill.setSelection(range.index + 8);
+                          }
+                        }}
+                        className="px-3 py-2 bg-white hover:bg-gray-50 border rounded-lg text-sm"
+                      >
+                        Add Tip
+                      </button>
+                      <button
+                        onClick={() => {
+                          const quill = quillRef.current?.getEditor();
+                          if (quill) {
+                            const range = quill.getSelection(true);
+                            quill.insertText(range.index, '\n⏱️ ', 'bold');
+                            quill.setSelection(range.index + 3);
+                          }
+                        }}
+                        className="px-3 py-2 bg-white hover:bg-gray-50 border rounded-lg text-sm"
+                      >
+                        Add Timer
+                      </button>
+                    </div>
+                    <p className="text-xs text-blue-700">
+                      💡 Click anywhere in the text below, then click "Insert Image" to add a photo at that position
+                    </p>
+                  </div>
                 </div>
 
                 <ReactQuill
+                  ref={quillRef}
                   value={editedInstructions}
                   onChange={setEditedInstructions}
                   modules={quillModules}
+                  formats={quillFormats}
                   className="bg-white rounded-lg"
-                  style={{ minHeight: '300px' }}
+                  style={{ minHeight: '400px' }}
+                  placeholder="Write your cooking instructions here... 
+
+Example format:
+📝 Step 1: Prepare Ingredients
+Heat the pan to medium-high temperature...
+[Insert photo of ingredients here]
+
+📝 Step 2: Cook the Base
+Add oil and aromatics...
+[Insert photo of cooking process]
+
+💡 Tip: Use clear, simple language and add photos for each major step."
                 />
 
                 <div className="flex justify-end gap-3 pt-4">
