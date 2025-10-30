@@ -1,10 +1,22 @@
-
 import React, { useState, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import {
   ArrowLeft,
   Home,
@@ -21,8 +33,6 @@ import {
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import SOPStepTimeline from '../components/SOPStepTimeline';
 
 export default function MenuItemView() {
@@ -158,7 +168,6 @@ export default function MenuItemView() {
           </Link>
         </div>
 
-        {/* Hero Image */}
         <Card className="mb-6 overflow-hidden">
           <div className="h-80 bg-gray-200 relative">
             {item.image_url ? (
@@ -197,7 +206,6 @@ export default function MenuItemView() {
               <p className="text-gray-700 mb-4">{item.description}</p>
             )}
 
-            {/* SOP Linking Section */}
             {linkedSOP ? (
               <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg mb-4">
                 <div className="flex items-center justify-between mb-3">
@@ -274,7 +282,6 @@ export default function MenuItemView() {
           </CardContent>
         </Card>
 
-        {/* Cost Analysis */}
         <div className="grid md:grid-cols-3 gap-6 mb-6">
           <Card className="border-l-4 border-l-green-500">
             <CardContent className="p-6">
@@ -327,7 +334,6 @@ export default function MenuItemView() {
           </Card>
         </div>
 
-        {/* Recipe & Ingredients */}
         {item.recipe && item.recipe.length > 0 && (
           <Card className="mb-6">
             <CardHeader>
@@ -367,7 +373,6 @@ export default function MenuItemView() {
           </Card>
         )}
 
-        {/* Cooking Instructions */}
         {item.cooking_instructions && (
           <Card>
             <CardHeader>
@@ -391,7 +396,6 @@ export default function MenuItemView() {
           </Card>
         )}
 
-        {/* SOP Preview Modal */}
         <Dialog open={showSOPModal} onOpenChange={setShowSOPModal}>
           <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
@@ -408,7 +412,6 @@ export default function MenuItemView() {
           </DialogContent>
         </Dialog>
 
-        {/* Link SOP Dialog */}
         <Dialog open={showLinkSOPDialog} onOpenChange={setShowLinkSOPDialog}>
           <DialogContent className="max-w-md">
             <DialogHeader>
@@ -454,7 +457,7 @@ export default function MenuItemView() {
 
               <div className="bg-blue-50 p-3 rounded-lg">
                 <p className="text-sm text-blue-900">
-                  💡 <strong>Tip:</strong> Link the SOP that describes how to prepare "{item.name}".
+                  💡 <strong>Tip:</strong> Link the SOP that describes how to prepare "{item.name}". 
                   This will help staff follow the correct procedure.
                 </p>
               </div>
