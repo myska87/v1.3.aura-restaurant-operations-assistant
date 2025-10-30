@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -267,7 +266,6 @@ export default function HygieneDashboard() {
           </p>
         </div>
 
-        {/* Critical Alerts Banner */}
         {criticalAlerts > 0 && (
           <Card className="mb-6 border-red-500 bg-red-50">
             <CardContent className="p-4">
@@ -281,12 +279,11 @@ export default function HygieneDashboard() {
                     Review temperature variances or hygiene issues now
                   </p>
                 </div>
-              </CardContent>
-            </Card>
-          </div>
+              </div>
+            </CardContent>
+          </Card>
         )}
 
-        {/* Main Stats Grid */}
         <div className="grid md:grid-cols-4 gap-6 mb-8">
           <Card className="border-l-4 border-l-emerald-500">
             <CardContent className="p-6">
@@ -352,7 +349,6 @@ export default function HygieneDashboard() {
           </Card>
         </div>
 
-        {/* Today's Tasks */}
         <Card className="mb-6">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -387,7 +383,6 @@ export default function HygieneDashboard() {
           </CardContent>
         </Card>
 
-        {/* Quick Actions */}
         <Card className="mb-6">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -429,7 +424,6 @@ export default function HygieneDashboard() {
           </CardContent>
         </Card>
 
-        {/* Achievements */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
