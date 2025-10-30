@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery } from '@tanstack/react-query';
@@ -14,8 +13,8 @@ import {
   X,
   CheckCircle,
   Mic,
-  Clock, // Added Clock import
-  AlertTriangle // Added AlertTriangle import
+  Clock,
+  AlertTriangle
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
@@ -29,7 +28,6 @@ export default function SOPVoiceMode() {
   const recognitionRef = useRef(null);
   const synthRef = useRef(window.speechSynthesis);
 
-  // Get SOP ID from URL
   const urlParams = new URLSearchParams(window.location.search);
   const sopId = urlParams.get('id');
 
@@ -42,7 +40,6 @@ export default function SOPVoiceMode() {
     enabled: !!sopId,
   });
 
-  // Initialize speech recognition
   useEffect(() => {
     if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -71,7 +68,6 @@ export default function SOPVoiceMode() {
     };
   }, []);
 
-  // Start/stop listening
   useEffect(() => {
     if (isPlaying && recognitionRef.current) {
       try {
@@ -112,9 +108,9 @@ export default function SOPVoiceMode() {
   };
 
   const speakCurrentStep = () => {
-    if (!sop || !sop.steps || !sop.steps[currentStep]) return;
+    if (!sop || !sop.procedure_steps || !sop.procedure_steps[currentStep]) return;
     
-    const step = sop.steps[currentStep];
+    const step = sop.procedure_steps[currentStep];
     const text = `Step ${step.step_number}. ${step.title}. ${step.description}. ${
       step.safety_notes ? `Safety note: ${step.safety_notes}` : ''
     }`;
@@ -135,9 +131,9 @@ export default function SOPVoiceMode() {
   };
 
   const handleNext = () => {
-    if (!sop || !sop.steps) return;
+    if (!sop || !sop.procedure_steps) return;
     
-    if (currentStep < sop.steps.length - 1) {
+    if (currentStep < sop.procedure_steps.length - 1) {
       setCurrentStep(currentStep + 1);
       if (isPlaying) {
         setTimeout(() => speakCurrentStep(), 300);
@@ -159,7 +155,7 @@ export default function SOPVoiceMode() {
     newCompleted.add(currentStep);
     setCompletedSteps(newCompleted);
     
-    if (currentStep < sop.steps.length - 1) {
+    if (sop.procedure_steps && currentStep < sop.procedure_steps.length - 1) {
       handleNext();
     } else {
       speakText('All steps completed. Excellent work!');
@@ -175,13 +171,12 @@ export default function SOPVoiceMode() {
     );
   }
 
-  const currentStepData = sop.steps?.[currentStep];
-  const progress = sop.steps ? Math.round((completedSteps.size / sop.steps.length) * 100) : 0;
+  const currentStepData = sop.procedure_steps?.[currentStep];
+  const progress = sop.procedure_steps ? Math.round((completedSteps.size / sop.procedure_steps.length) * 100) : 0;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black text-white p-6">
       <div className="max-w-4xl mx-auto">
-        {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <Link to={createPageUrl(`SOPViewer?id=${sopId}`)}>
             <Button variant="ghost" className="text-white hover:bg-white/10">
@@ -208,10 +203,8 @@ export default function SOPVoiceMode() {
           </div>
         </div>
 
-        {/* Main Content */}
         <Card className="bg-white/5 backdrop-blur-lg border-white/10 mb-8">
           <CardContent className="p-12">
-            {/* Step Number */}
             <div className="text-center mb-8">
               <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-gradient-to-r from-emerald-500 to-teal-500 mb-6">
                 {completedSteps.has(currentStep) ? (
@@ -224,21 +217,20 @@ export default function SOPVoiceMode() {
               </div>
               
               <h2 className="text-4xl md:text-5xl font-bold mb-4 leading-tight">
-                {currentStepData?.title}
+                {currentStepData?.title || 'No step data'}
               </h2>
               
               <p className="text-xl md:text-2xl text-gray-300 leading-relaxed max-w-3xl mx-auto">
-                {currentStepData?.description}
+                {currentStepData?.description || 'Step description not available'}
               </p>
             </div>
 
-            {/* Additional Info */}
-            {(currentStepData?.time_estimate_minutes || currentStepData?.role_responsible || currentStepData?.safety_notes) && (
+            {currentStepData && (currentStepData.time_estimate_minutes || currentStepData.role_responsible || currentStepData.safety_notes) && (
               <div className="grid md:grid-cols-2 gap-6 mt-12">
                 {currentStepData.time_estimate_minutes && (
                   <div className="bg-blue-500/20 rounded-lg p-4 border border-blue-500/30">
                     <p className="text-blue-300 text-sm mb-1 flex items-center gap-2">
-                      <Clock className="w-4 h-4" /> {/* Use Clock icon here */}
+                      <Clock className="w-4 h-4" />
                       Time Estimate
                     </p>
                     <p className="text-2xl font-bold">{currentStepData.time_estimate_minutes} min</p>
@@ -255,7 +247,7 @@ export default function SOPVoiceMode() {
                 {currentStepData.safety_notes && (
                   <div className="md:col-span-2 bg-amber-500/20 rounded-lg p-4 border border-amber-500/30">
                     <p className="text-amber-300 text-sm mb-2 flex items-center gap-2">
-                      <AlertTriangle className="w-4 h-4" /> {/* Use AlertTriangle icon here */}
+                      <AlertTriangle className="w-4 h-4" />
                       Safety Note
                     </p>
                     <p className="text-lg text-amber-100">{currentStepData.safety_notes}</p>
@@ -266,9 +258,7 @@ export default function SOPVoiceMode() {
           </CardContent>
         </Card>
 
-        {/* Controls */}
         <div className="space-y-6">
-          {/* Playback Controls */}
           <div className="flex items-center justify-center gap-4">
             <Button
               onClick={handlePrevious}
@@ -300,7 +290,7 @@ export default function SOPVoiceMode() {
 
             <Button
               onClick={handleNext}
-              disabled={!sop.steps || currentStep === sop.steps.length - 1}
+              disabled={!sop.procedure_steps || currentStep === sop.procedure_steps.length - 1}
               size="lg"
               variant="outline"
               className="w-16 h-16 rounded-full border-white/20 hover:bg-white/10 disabled:opacity-30"
@@ -309,7 +299,6 @@ export default function SOPVoiceMode() {
             </Button>
           </div>
 
-          {/* Action Buttons */}
           <div className="flex items-center justify-center gap-4">
             <Button
               onClick={speakCurrentStep}
@@ -330,7 +319,6 @@ export default function SOPVoiceMode() {
             </Button>
           </div>
 
-          {/* Voice Commands Info */}
           <Card className="bg-white/5 backdrop-blur-lg border-white/10">
             <CardContent className="p-6">
               <h3 className="font-bold mb-3 flex items-center gap-2">
@@ -348,7 +336,6 @@ export default function SOPVoiceMode() {
             </CardContent>
           </Card>
 
-          {/* Progress Bar */}
           <div className="bg-white/10 rounded-full h-3 overflow-hidden">
             <div
               className="h-full bg-gradient-to-r from-emerald-500 to-teal-500 transition-all duration-300"

@@ -1,14 +1,7 @@
-
-/**
- * SOP Step Timeline Component
- * Beautiful step-by-step visualization
- */
-
 import React, { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Checkbox } from '@/components/ui/checkbox';
 import { 
   CheckCircle, 
   Circle, 
@@ -17,10 +10,7 @@ import {
   Wrench,
   AlertTriangle,
   Play,
-  Eye, // Added Eye icon
-  Image as ImageIcon 
 } from 'lucide-react';
-import { motion } from 'framer-motion';
 
 export default function SOPStepTimeline({ steps = [], onStepComplete, readonly = false }) {
   const [completedSteps, setCompletedSteps] = useState(new Set());
@@ -41,7 +31,6 @@ export default function SOPStepTimeline({ steps = [], onStepComplete, readonly =
       onStepComplete(stepIndex, !completedSteps.has(stepIndex));
     }
 
-    // Move to next incomplete step
     if (!completedSteps.has(stepIndex)) {
       const nextStep = steps.findIndex((_, i) => i > stepIndex && !completedSteps.has(i));
       if (nextStep !== -1) {
@@ -54,9 +43,18 @@ export default function SOPStepTimeline({ steps = [], onStepComplete, readonly =
   const completedCount = completedSteps.size;
   const progress = steps.length > 0 ? Math.round((completedCount / steps.length) * 100) : 0;
 
+  if (!steps || steps.length === 0) {
+    return (
+      <Card>
+        <CardContent className="p-12 text-center">
+          <p className="text-gray-500">No procedure steps defined for this SOP</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <div className="space-y-6">
-      {/* Progress Summary */}
       {!readonly && (
         <Card className="bg-gradient-to-r from-[#014D40] to-emerald-600 text-white border-none">
           <CardContent className="p-6">
@@ -81,7 +79,6 @@ export default function SOPStepTimeline({ steps = [], onStepComplete, readonly =
         </Card>
       )}
 
-      {/* Steps Timeline */}
       <div className="space-y-4">
         {steps.map((step, index) => {
           const isCompleted = completedSteps.has(index);
@@ -95,7 +92,6 @@ export default function SOPStepTimeline({ steps = [], onStepComplete, readonly =
                 index < steps.length - 1 ? 'pb-8' : ''
               }`}
             >
-              {/* Vertical line */}
               {index < steps.length - 1 && (
                 <div className="absolute left-[15px] top-8 bottom-0 w-0.5 bg-gray-200">
                   <div
@@ -107,7 +103,6 @@ export default function SOPStepTimeline({ steps = [], onStepComplete, readonly =
                 </div>
               )}
 
-              {/* Step indicator */}
               <div className="absolute left-0 top-0">
                 {isCompleted ? (
                   <div className="w-8 h-8 rounded-full bg-emerald-500 flex items-center justify-center">
@@ -130,7 +125,6 @@ export default function SOPStepTimeline({ steps = [], onStepComplete, readonly =
                 )}
               </div>
 
-              {/* Step content */}
               <Card className={`${
                 isCurrent ? 'border-2 border-[#014D40] shadow-lg' : 'border-gray-200'
               } ${isLocked ? 'opacity-50' : ''}`}>
@@ -168,66 +162,66 @@ export default function SOPStepTimeline({ steps = [], onStepComplete, readonly =
                     )}
                   </div>
 
-                  {/* Additional info */}
-                  <div className="mt-4 pt-4 border-t border-gray-200 space-y-3">
-                    {step.role_responsible && (
-                      <div className="flex items-center gap-2 text-sm text-gray-600">
-                        <User className="w-4 h-4 text-emerald-600" />
-                        <span className="font-medium">Responsible:</span>
-                        <span className="capitalize">{step.role_responsible}</span>
-                      </div>
-                    )}
+                  {(step.role_responsible || step.equipment_needed?.length > 0 || step.safety_notes) && (
+                    <div className="mt-4 pt-4 border-t border-gray-200 space-y-3">
+                      {step.role_responsible && (
+                        <div className="flex items-center gap-2 text-sm text-gray-600">
+                          <User className="w-4 h-4 text-emerald-600" />
+                          <span className="font-medium">Responsible:</span>
+                          <span className="capitalize">{step.role_responsible}</span>
+                        </div>
+                      )}
 
-                    {step.equipment_needed && step.equipment_needed.length > 0 && (
-                      <div className="flex items-start gap-2 text-sm text-gray-600">
-                        <Wrench className="w-4 h-4 text-emerald-600 mt-0.5" />
-                        <div>
-                          <span className="font-medium">Equipment needed:</span>
-                          <div className="flex flex-wrap gap-1 mt-1">
-                            {step.equipment_needed.map((eq, i) => (
-                              <Badge key={i} variant="outline" className="text-xs">
-                                {eq}
-                              </Badge>
-                            ))}
+                      {step.equipment_needed && step.equipment_needed.length > 0 && (
+                        <div className="flex items-start gap-2 text-sm text-gray-600">
+                          <Wrench className="w-4 h-4 text-emerald-600 mt-0.5" />
+                          <div>
+                            <span className="font-medium">Equipment needed:</span>
+                            <div className="flex flex-wrap gap-1 mt-1">
+                              {step.equipment_needed.map((eq, i) => (
+                                <Badge key={i} variant="outline" className="text-xs">
+                                  {eq}
+                                </Badge>
+                              ))}
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    )}
+                      )}
 
-                    {step.safety_notes && (
-                      <div className="flex items-start gap-2 text-sm bg-amber-50 p-3 rounded-lg border border-amber-200">
-                        <AlertTriangle className="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0" />
-                        <div>
-                          <span className="font-medium text-amber-900">Safety Note:</span>
-                          <p className="text-amber-800 mt-1">{step.safety_notes}</p>
+                      {step.safety_notes && (
+                        <div className="flex items-start gap-2 text-sm bg-amber-50 p-3 rounded-lg border border-amber-200">
+                          <AlertTriangle className="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0" />
+                          <div>
+                            <span className="font-medium text-amber-900">Safety Note:</span>
+                            <p className="text-amber-800 mt-1">{step.safety_notes}</p>
+                          </div>
                         </div>
-                      </div>
-                    )}
+                      )}
 
-                    {/* Media */}
-                    {(step.image_url || step.video_url) && (
-                      <div className="grid grid-cols-2 gap-3 mt-3">
-                        {step.image_url && (
-                          <div className="relative h-40 rounded-lg overflow-hidden border border-gray-200">
-                            <img
-                              src={step.image_url}
-                              alt={step.title}
-                              className="w-full h-full object-cover"
-                            />
-                          </div>
-                        )}
-                        {step.video_url && (
-                          <div className="relative h-40 rounded-lg overflow-hidden border border-gray-200 bg-gray-100 flex items-center justify-center">
-                            <video
-                              src={step.video_url}
-                              controls
-                              className="w-full h-full"
-                            />
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
+                      {(step.image_url || step.video_url) && (
+                        <div className="grid grid-cols-2 gap-3 mt-3">
+                          {step.image_url && (
+                            <div className="relative h-40 rounded-lg overflow-hidden border border-gray-200">
+                              <img
+                                src={step.image_url}
+                                alt={step.title}
+                                className="w-full h-full object-cover"
+                              />
+                            </div>
+                          )}
+                          {step.video_url && (
+                            <div className="relative h-40 rounded-lg overflow-hidden border border-gray-200 bg-gray-100 flex items-center justify-center">
+                              <video
+                                src={step.video_url}
+                                controls
+                                className="w-full h-full"
+                              />
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </div>

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -31,7 +30,6 @@ export default function SOPViewer() {
   const [showSignature, setShowSignature] = useState(false);
   const [startTime] = useState(new Date());
 
-  // Get SOP ID from URL
   const urlParams = new URLSearchParams(window.location.search);
   const sopId = urlParams.get('id');
 
@@ -62,7 +60,6 @@ export default function SOPViewer() {
     enabled: !!sopId && !!user?.email,
   });
 
-  // Increment view count on load
   useEffect(() => {
     if (sop && user) {
       const incrementView = async () => {
@@ -80,7 +77,7 @@ export default function SOPViewer() {
 
   const signatureMutation = useMutation({
     mutationFn: async (signatureData) => {
-      const timeSpent = Math.floor((new Date() - startTime) / 60000); // minutes
+      const timeSpent = Math.floor((new Date() - startTime) / 60000);
       
       return await base44.entities.SOPSignatureLog.create({
         sop_id: sop.id,
@@ -98,7 +95,6 @@ export default function SOPViewer() {
       });
     },
     onSuccess: () => {
-      // Update SOP signature count
       base44.entities.SOPDocument.update(sop.id, {
         signature_count: (sop.signature_count || 0) + 1
       });
@@ -157,7 +153,6 @@ export default function SOPViewer() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6 md:p-8">
       <div className="max-w-5xl mx-auto space-y-6">
-        {/* Navigation */}
         <div className="flex gap-3">
           <Link to={createPageUrl("SOPDashboard")}>
             <Button variant="outline" size="sm">
@@ -173,7 +168,6 @@ export default function SOPViewer() {
           </Link>
         </div>
 
-        {/* Hero Section */}
         <Card className="border-none shadow-xl overflow-hidden">
           {sop.hero_image_url && (
             <div className="h-64 bg-gradient-to-br from-gray-900 to-gray-700 relative overflow-hidden">
@@ -193,8 +187,17 @@ export default function SOPViewer() {
             </div>
           )}
 
+          {!sop.hero_image_url && (
+            <CardHeader className="bg-gradient-to-r from-[#014D40] to-emerald-600 text-white">
+              <Badge className="bg-white/20 text-white border-white/30 mb-3 capitalize w-fit">
+                {sop.category}
+              </Badge>
+              <CardTitle className="text-3xl mb-2">{sop.title}</CardTitle>
+              {sop.description && <p className="text-white/90">{sop.description}</p>}
+            </CardHeader>
+          )}
+
           <CardContent className="p-6">
-            {/* Quick Info */}
             <div className="flex flex-wrap gap-3 mb-6">
               {sop.total_time_minutes && (
                 <Badge variant="outline" className="flex items-center gap-1">
@@ -225,7 +228,6 @@ export default function SOPViewer() {
               </Badge>
             </div>
 
-            {/* Action Buttons */}
             <div className="flex flex-wrap gap-3 mb-6">
               <Button
                 onClick={handleVoiceMode}
@@ -262,7 +264,6 @@ export default function SOPViewer() {
               )}
             </div>
 
-            {/* Signature Canvas */}
             {showSignature && (
               <div className="mb-6">
                 <SOPSignatureCanvas
@@ -274,15 +275,92 @@ export default function SOPViewer() {
           </CardContent>
         </Card>
 
-        {/* Steps Timeline */}
-        {sop.steps && sop.steps.length > 0 && (
-          <SOPStepTimeline
-            steps={sop.steps}
-            readonly={!!mySignature}
-          />
+        {sop.objective && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Target className="w-5 h-5 text-blue-600" />
+                Objective
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-gray-700 leading-relaxed">{sop.objective}</p>
+            </CardContent>
+          </Card>
         )}
 
-        {/* Additional Info */}
+        {sop.scope && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <FileText className="w-5 h-5 text-purple-600" />
+                Scope
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-gray-700 leading-relaxed">{sop.scope}</p>
+            </CardContent>
+          </Card>
+        )}
+
+        {sop.procedure_steps && sop.procedure_steps.length > 0 && (
+          <div>
+            <h2 className="text-2xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+              <BookOpen className="w-6 h-6 text-emerald-600" />
+              Procedure Steps
+            </h2>
+            <SOPStepTimeline
+              steps={sop.procedure_steps}
+              readonly={!!mySignature}
+            />
+          </div>
+        )}
+
+        {sop.content_html && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Full Content</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="prose max-w-none" dangerouslySetInnerHTML={{ __html: sop.content_html }} />
+            </CardContent>
+          </Card>
+        )}
+
+        {sop.equipment_required && sop.equipment_required.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Wrench className="w-5 h-5 text-gray-600" />
+                Equipment Required
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-wrap gap-2">
+                {sop.equipment_required.map((item, idx) => (
+                  <Badge key={idx} variant="outline" className="text-sm">
+                    {item}
+                  </Badge>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {sop.quality_standards && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <CheckCircle className="w-5 h-5 text-green-600" />
+                Quality Standards
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-gray-700 leading-relaxed whitespace-pre-wrap">{sop.quality_standards}</p>
+            </CardContent>
+          </Card>
+        )}
+
         <div className="grid md:grid-cols-2 gap-6">
           {sop.safety_notes && (
             <Card className="bg-amber-50 border-amber-200">
@@ -293,7 +371,7 @@ export default function SOPViewer() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-amber-800">{sop.safety_notes}</p>
+                <p className="text-amber-800 whitespace-pre-wrap">{sop.safety_notes}</p>
               </CardContent>
             </Card>
           )}
@@ -306,13 +384,12 @@ export default function SOPViewer() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-blue-800">{sop.hygiene_notes}</p>
+                <p className="text-blue-800 whitespace-pre-wrap">{sop.hygiene_notes}</p>
               </CardContent>
             </Card>
           )}
         </div>
 
-        {/* Review Info */}
         {sop.last_reviewed_date && (
           <Card>
             <CardContent className="p-6">
@@ -335,6 +412,19 @@ export default function SOPViewer() {
                     Every {sop.review_frequency_months} months
                   </p>
                 </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {sop.created_by_name && (
+          <Card className="bg-gray-50">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between text-sm text-gray-600">
+                <span>Created by {sop.created_by_name}</span>
+                {sop.created_date && (
+                  <span>{format(new Date(sop.created_date), 'PPP')}</span>
+                )}
               </div>
             </CardContent>
           </Card>
