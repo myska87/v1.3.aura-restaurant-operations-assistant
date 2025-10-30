@@ -128,6 +128,7 @@ import DocumentsFormsHub from './pages/DocumentsFormsHub';
 import OwnerControl from './pages/OwnerControl';
 import ComplianceAuditMonitor from './pages/ComplianceAuditMonitor';
 import RolePermissionsCenter from './pages/RolePermissionsCenter';
+import ReportsDashboard from './pages/ReportsDashboard';
 import Layout from './Layout.jsx';
 
 
@@ -262,6 +263,7 @@ export const PAGES = {
     "OwnerControl": OwnerControl,
     "ComplianceAuditMonitor": ComplianceAuditMonitor,
     "RolePermissionsCenter": RolePermissionsCenter,
+    "ReportsDashboard": ReportsDashboard,
 }
 
 export const pagesConfig = {

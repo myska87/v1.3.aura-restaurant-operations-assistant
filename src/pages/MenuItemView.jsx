@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -88,12 +89,32 @@ export default function MenuItemView() {
     },
   });
 
+  const unlinkSOPMutation = useMutation({
+    mutationFn: async (menuItemId) => {
+      return await base44.entities.MenuItem.update(menuItemId, {
+        linked_sop_id: null,
+        linked_sop_title: null
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['menuItem'] });
+      queryClient.invalidateQueries({ queryKey: ['menuItemSOP'] });
+      alert('✅ SOP unlinked successfully!');
+    },
+  });
+
   const handleLinkSOP = () => {
     if (!selectedSOPId) {
       alert('Please select an SOP');
       return;
     }
     linkSOPMutation.mutate({ menuItemId: item.id, sopId: selectedSOPId });
+  };
+
+  const handleUnlinkSOP = () => {
+    if (confirm('Unlink this SOP from the menu item?')) {
+      unlinkSOPMutation.mutate(item.id);
+    }
   };
 
   const isManager = user?.role === 'admin' || user?.position === 'manager' || user?.position === 'owner';
@@ -121,7 +142,7 @@ export default function MenuItemView() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6 md:p-8">
       <div className="max-w-5xl mx-auto">
-        
+
         <div className="flex gap-3 mb-6">
           <Link to={createPageUrl('Menu')}>
             <Button variant="outline" size="sm">
@@ -178,55 +199,76 @@ export default function MenuItemView() {
 
             {/* SOP Linking Section */}
             {linkedSOP ? (
-              <div className="flex flex-wrap gap-3 mb-4">
-                <Button
-                  onClick={() => setShowSOPModal(true)}
-                  className="bg-blue-600 hover:bg-blue-700"
-                >
-                  <BookOpen className="w-4 h-4 mr-2" />
-                  View Preparation SOP
-                </Button>
-                <Link to={createPageUrl(`SOPViewer?id=${linkedSOP.id}`)}>
-                  <Button variant="outline">
-                    <Eye className="w-4 h-4 mr-2" />
-                    Full SOP Page
-                  </Button>
-                </Link>
-                {(isManager || isChef) && (
+              <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg mb-4">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <BookOpen className="w-5 h-5 text-blue-600" />
+                    <p className="font-semibold text-blue-900">Linked SOP</p>
+                  </div>
+                  <Badge className="bg-blue-600">{linkedSOP.category}</Badge>
+                </div>
+                <p className="text-blue-800 mb-3">{linkedSOP.title}</p>
+                <div className="flex flex-wrap gap-2">
                   <Button
-                    variant="outline"
-                    onClick={() => setShowLinkSOPDialog(true)}
+                    onClick={() => setShowSOPModal(true)}
+                    size="sm"
+                    className="bg-blue-600 hover:bg-blue-700"
                   >
-                    <Link2 className="w-4 h-4 mr-2" />
-                    Change SOP
+                    <Eye className="w-4 h-4 mr-2" />
+                    View Steps
                   </Button>
-                )}
-              </div>
-            ) : (
-              <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg mb-4">
-                <p className="text-sm text-amber-800 mb-3">
-                  No preparation SOP linked to this dish yet.
-                </p>
-                <div className="flex gap-2">
+                  <Link to={createPageUrl(`SOPViewer?id=${linkedSOP.id}`)}>
+                    <Button size="sm" variant="outline">
+                      <BookOpen className="w-4 h-4 mr-2" />
+                      Full SOP
+                    </Button>
+                  </Link>
                   {(isManager || isChef) && (
                     <>
-                      <Link to={createPageUrl(`SOPBuilder?menuItem=${item.id}&menuItemName=${encodeURIComponent(item.name)}`)}>
-                        <Button size="sm" className="bg-blue-600 hover:bg-blue-700">
-                          <Plus className="w-4 h-4 mr-2" />
-                          Create New SOP
-                        </Button>
-                      </Link>
                       <Button
                         size="sm"
                         variant="outline"
                         onClick={() => setShowLinkSOPDialog(true)}
                       >
                         <Link2 className="w-4 h-4 mr-2" />
-                        Link Existing SOP
+                        Change
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={handleUnlinkSOP}
+                        className="text-red-600 border-red-300 hover:bg-red-50"
+                      >
+                        Unlink
                       </Button>
                     </>
                   )}
                 </div>
+              </div>
+            ) : (
+              <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg mb-4">
+                <p className="text-sm text-amber-800 mb-3 flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4" />
+                  No preparation SOP linked to this dish yet.
+                </p>
+                {(isManager || isChef) && (
+                  <div className="flex gap-2">
+                    <Link to={createPageUrl(`SOPBuilder?menuItem=${item.id}&menuItemName=${encodeURIComponent(item.name)}`)}>
+                      <Button size="sm" className="bg-blue-600 hover:bg-blue-700">
+                        <Plus className="w-4 h-4 mr-2" />
+                        Create New SOP
+                      </Button>
+                    </Link>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setShowLinkSOPDialog(true)}
+                    >
+                      <Link2 className="w-4 h-4 mr-2" />
+                      Link Existing SOP
+                    </Button>
+                  </div>
+                )}
               </div>
             )}
           </CardContent>
@@ -384,7 +426,7 @@ export default function MenuItemView() {
                   <SelectTrigger>
                     <SelectValue placeholder="Choose an SOP..." />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="max-h-[300px]">
                     {allSOPs.length === 0 ? (
                       <div className="p-4 text-center text-gray-500">
                         <p className="mb-2">No SOPs available</p>
@@ -397,10 +439,12 @@ export default function MenuItemView() {
                     ) : (
                       allSOPs.map(sop => (
                         <SelectItem key={sop.id} value={sop.id}>
-                          {sop.title}
-                          {sop.category && (
-                            <span className="text-xs text-gray-500 ml-2">({sop.category})</span>
-                          )}
+                          <div className="flex flex-col">
+                            <span className="font-medium">{sop.title}</span>
+                            {sop.category && (
+                              <span className="text-xs text-gray-500 capitalize">{sop.category}</span>
+                            )}
+                          </div>
                         </SelectItem>
                       ))
                     )}
@@ -410,7 +454,7 @@ export default function MenuItemView() {
 
               <div className="bg-blue-50 p-3 rounded-lg">
                 <p className="text-sm text-blue-900">
-                  💡 <strong>Tip:</strong> Link the SOP that describes how to prepare "{item.name}". 
+                  💡 <strong>Tip:</strong> Link the SOP that describes how to prepare "{item.name}".
                   This will help staff follow the correct procedure.
                 </p>
               </div>
@@ -428,7 +472,7 @@ export default function MenuItemView() {
                 <Link to={createPageUrl(`SOPBuilder?menuItem=${item.id}&menuItemName=${encodeURIComponent(item.name)}`)}>
                   <Button variant="outline">
                     <Plus className="w-4 h-4 mr-2" />
-                    Create New SOP
+                    Create New
                   </Button>
                 </Link>
                 <Button
