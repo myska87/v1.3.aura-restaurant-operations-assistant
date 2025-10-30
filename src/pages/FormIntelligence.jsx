@@ -49,6 +49,8 @@ export default function FormIntelligence() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [formToDelete, setFormToDelete] = useState(null);
   const [viewMode, setViewMode] = useState("grid"); // grid or list
+  const [aiPrompt, setAiPrompt] = useState(""); // New state for AI prompt
+  const [showAiGenerator, setShowAiGenerator] = useState(false); // New state to control AI generator dialog
 
   const { data: user } = useQuery({
     queryKey: ['currentUser'],
@@ -104,6 +106,87 @@ export default function FormIntelligence() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['formTemplates'] });
     },
+  });
+
+  const generateFormMutation = useMutation({
+    mutationFn: async (prompt) => {
+      const result = await base44.integrations.Core.InvokeLLM({
+        prompt: `You are a restaurant operations expert. Generate a structured form based on this request: "${prompt}"
+        
+Return a JSON object with this exact structure:
+{
+  "form_name": "Name of the form",
+  "description": "Brief description",
+  "category": "one of: haccp, workflow, equipment, pest, sops, training, suppliers, allergens, chemicals, waste, other",
+  "assigned_position": "one of: manager, chef, line_cook, server, bartender, cleaner, maintenance, any",
+  "fields": [
+    {
+      "field_id": "unique_id",
+      "field_type": "one of: text, number, dropdown, checkbox, yesno, date, photo, signature, rating, textarea",
+      "field_label": "Field label",
+      "field_hint": "Helper text",
+      "options": ["option1", "option2"],
+      "required": true,
+      "order_index": 1
+    }
+  ],
+  "requires_signature": true,
+  "frequency": "one of: daily, weekly, monthly, six_monthly, yearly, custom"
+}
+
+Make the form practical, comprehensive, and compliant with UK food safety regulations where applicable.`,
+        response_json_schema: {
+          type: "object",
+          properties: {
+            form_name: { type: "string" },
+            description: { type: "string" },
+            category: { type: "string" },
+            assigned_position: { type: "string" },
+            fields: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  field_id: { type: "string" },
+                  field_type: { type: "string" },
+                  field_label: { type: "string" },
+                  field_hint: { type: "string" },
+                  options: { type: "array", items: { type: "string" } },
+                  required: { type: "boolean" },
+                  order_index: { type: "number" }
+                }
+              }
+            },
+            requires_signature: { type: "boolean" },
+            frequency: { type: "string" }
+          }
+        }
+      });
+
+      return result;
+    },
+    onSuccess: (data) => {
+      const newFormData = {
+        form_name: data.form_name || '',
+        description: data.description || '',
+        category: data.category || 'other',
+        assigned_position: data.assigned_position || 'any',
+        fields: data.fields || [],
+        requires_signature: data.requires_signature !== false,
+        frequency: data.frequency || 'daily',
+        trigger_type: 'manual', // Default trigger type for AI generated forms
+        is_active: true,
+      };
+      setSelectedForm(newFormData);
+      setShowEditor(true);
+      setAiPrompt('');
+      setShowAiGenerator(false);
+      alert('✅ Form generated! Review and customize below, then click "Create Form"');
+    },
+    onError: (error) => {
+      console.error('AI generation error:', error);
+      alert('❌ AI generation failed. Please try again or create the form manually.');
+    }
   });
 
   // Check URL params for auto-opening a form
@@ -259,16 +342,27 @@ export default function FormIntelligence() {
             </h1>
             <p className="text-gray-600 mt-2">Smart forms that adapt to positions, shifts & operations</p>
           </div>
-          <Button
-            onClick={() => {
-              setSelectedForm(null);
-              setShowEditor(true);
-            }}
-            className="bg-[#014D40] hover:bg-[#013830]"
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            Create New Form
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              onClick={() => {
+                setShowAiGenerator(true);
+              }}
+              variant="outline"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              AI Generate Form
+            </Button>
+            <Button
+              onClick={() => {
+                setSelectedForm(null);
+                setShowEditor(true);
+              }}
+              className="bg-[#014D40] hover:bg-[#013830]"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Create New Form
+            </Button>
+          </div>
         </div>
 
         {/* Stats Overview */}
@@ -562,6 +656,40 @@ export default function FormIntelligence() {
                 className="bg-red-600 hover:bg-red-700"
               >
                 {deleteFormMutation.isPending ? 'Archiving...' : 'Archive Form'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* AI Generator Dialog */}
+        <Dialog open={showAiGenerator} onOpenChange={setShowAiGenerator}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>AI Form Generator</DialogTitle>
+            </DialogHeader>
+            <div className="py-4 space-y-4">
+              <p className="text-gray-700">
+                Describe the form you want to create. The AI will generate a draft for you.
+              </p>
+              <Input
+                placeholder="e.g., 'Daily temperature log for kitchen equipment for a line cook'"
+                value={aiPrompt}
+                onChange={(e) => setAiPrompt(e.target.value)}
+              />
+              {generateFormMutation.isPending && (
+                <p className="text-sm text-gray-500">Generating form, please wait...</p>
+              )}
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowAiGenerator(false)}>
+                Cancel
+              </Button>
+              <Button
+                onClick={() => generateFormMutation.mutate(aiPrompt)}
+                disabled={generateFormMutation.isPending || !aiPrompt.trim()}
+                className="bg-[#014D40] hover:bg-[#013830]"
+              >
+                {generateFormMutation.isPending ? 'Generating...' : 'Generate Form'}
               </Button>
             </DialogFooter>
           </DialogContent>
