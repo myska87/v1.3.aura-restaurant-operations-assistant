@@ -1,67 +1,54 @@
-import { useState } from "react";
-import { base44 } from "@/api/base44Client";
-import { useQuery } from "@tanstack/react-query";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Badge } from "@/components/ui/badge";
+import React, { useState, useEffect } from 'react';
+import { base44 } from '@/api/base44Client';
+import { useQuery } from '@tanstack/react-query';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 import {
-  Search,
-  FileDown,
   ArrowLeft,
-  ShieldAlert,
-  Eye,
-  FileSpreadsheet,
-  FileText,
+  Home,
+  Printer,
   AlertTriangle,
   CheckCircle,
-  Info
-} from "lucide-react";
-import { Link } from "react-router-dom";
-import { createPageUrl } from "@/utils";
-import { format } from "date-fns";
-import { motion, AnimatePresence } from "framer-motion";
+  Search,
+  RefreshCw,
+  Sparkles,
+  Download,
+} from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { createPageUrl } from '@/utils';
+import LoadingSpinner from '../components/common/LoadingSpinner';
 
-// Allergen icons
-const allergenIcons = {
-  milk: "🥛",
-  nuts: "🥜",
-  gluten: "🌾",
-  soy: "🌱",
-  egg: "🥚",
-  fish: "🐟",
-  shellfish: "🦐",
-  sesame: "◉",
-  celery: "🥬",
-  mustard: "🌼",
-  sulphites: "🍷",
-  lupin: "🫘"
-};
-
-const riskColors = {
-  none: "bg-emerald-100 text-emerald-800 border-emerald-300",
-  low: "bg-blue-100 text-blue-800 border-blue-300",
-  medium: "bg-amber-100 text-amber-800 border-amber-300",
-  high: "bg-red-100 text-red-800 border-red-300"
-};
+const ALLERGEN_LIST = [
+  { key: 'milk', label: 'Milk', icon: '🥛', color: 'blue' },
+  { key: 'egg', label: 'Eggs', icon: '🥚', color: 'yellow' },
+  { key: 'fish', label: 'Fish', icon: '🐟', color: 'cyan' },
+  { key: 'shellfish', label: 'Shellfish', icon: '🦐', color: 'orange' },
+  { key: 'nuts', label: 'Tree Nuts', icon: '🌰', color: 'amber' },
+  { key: 'peanuts', label: 'Peanuts', icon: '🥜', color: 'brown' },
+  { key: 'gluten', label: 'Gluten', icon: '🌾', color: 'yellow' },
+  { key: 'soy', label: 'Soy', icon: '🫘', color: 'green' },
+  { key: 'sesame', label: 'Sesame', icon: '⚫', color: 'gray' },
+  { key: 'celery', label: 'Celery', icon: '🥬', color: 'green' },
+  { key: 'mustard', label: 'Mustard', icon: '🟡', color: 'yellow' },
+  { key: 'sulphites', label: 'Sulphites', icon: '🍷', color: 'purple' },
+  { key: 'lupin', label: 'Lupin', icon: '🌼', color: 'pink' },
+];
 
 export default function AllergyTable() {
-  const [searchQuery, setSearchQuery] = useState("");
-  const [filterCategory, setFilterCategory] = useState("all");
-  const [filterRisk, setFilterRisk] = useState("all");
-  const [selectedRecord, setSelectedRecord] = useState(null);
-  const [showDetailModal, setShowDetailModal] = useState(false);
+  const [allergenMatrix, setAllergenMatrix] = useState([]);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [isGenerating, setIsGenerating] = useState(false);
 
-  const { data: user } = useQuery({
-    queryKey: ['currentUser'],
-    queryFn: () => base44.auth.me(),
+  const { data: menuItems = [], isLoading: loadingMenu } = useQuery({
+    queryKey: ['menuItems'],
+    queryFn: () => base44.entities.MenuItem.list(),
   });
 
-  const { data: allergyRecords = [], isLoading } = useQuery({
-    queryKey: ['allergyRecords'],
-    queryFn: () => base44.entities.AllergyRecord.list('-last_synced'),
+  const { data: ingredients = [], isLoading: loadingIngredients } = useQuery({
+    queryKey: ['ingredients'],
+    queryFn: () => base44.entities.Ingredient.list(),
   });
 
   const { data: categories = [] } = useQuery({
@@ -69,422 +56,553 @@ export default function AllergyTable() {
     queryFn: () => base44.entities.MenuCategory.list(),
   });
 
-  const { data: suppliers = [] } = useQuery({
-    queryKey: ['suppliers'],
-    queryFn: () => base44.entities.Supplier.list(),
-  });
+  useEffect(() => {
+    if (menuItems.length > 0 && ingredients.length > 0) {
+      generateAllergenMatrix();
+    }
+  }, [menuItems, ingredients]);
 
-  const handleExportCSV = () => {
-    const headers = ['Item Name', 'Category', 'Allergens', 'Risk Level', 'Last Updated'];
-    const rows = filteredRecords.map(record => [
-      record.menu_item_name,
-      record.category,
-      record.allergens_detected.join(', '),
-      record.risk_level,
-      record.last_synced ? format(new Date(record.last_synced), 'dd/MM/yyyy HH:mm') : 'Never'
-    ]);
+  const generateAllergenMatrix = () => {
+    const matrix = menuItems.map(menuItem => {
+      const allergens = new Set();
+      const ingredientSources = [];
 
-    const csvContent = [
-      headers.join(','),
-      ...rows.map(row => row.join(','))
-    ].join('\n');
+      // Get allergens from recipe ingredients
+      if (menuItem.recipe && Array.isArray(menuItem.recipe)) {
+        menuItem.recipe.forEach(recipeItem => {
+          const ingredient = ingredients.find(ing => ing.id === recipeItem.ingredient_id);
+          if (ingredient && ingredient.allergen_tags && Array.isArray(ingredient.allergen_tags)) {
+            ingredient.allergen_tags.forEach(allergen => {
+              allergens.add(allergen.toLowerCase());
+              
+              const existing = ingredientSources.find(s => s.allergen === allergen.toLowerCase());
+              if (existing) {
+                existing.ingredients.push(ingredient.name);
+              } else {
+                ingredientSources.push({
+                  allergen: allergen.toLowerCase(),
+                  ingredients: [ingredient.name]
+                });
+              }
+            });
+          }
+        });
+      }
 
-    const blob = new Blob([csvContent], { type: 'text/csv' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `allergy-table-${format(new Date(), 'yyyy-MM-dd')}.csv`;
-    a.click();
-    alert('✅ CSV exported successfully!');
+      return {
+        menuItemId: menuItem.id,
+        menuItemName: menuItem.name,
+        category: menuItem.category_name || 'Uncategorized',
+        allergens: Array.from(allergens),
+        ingredientSources: ingredientSources,
+        sellPrice: menuItem.sell_price,
+      };
+    });
+
+    setAllergenMatrix(matrix);
   };
 
-  const handleExportPDF = async () => {
-    const content = `
-AURA ONE PRO - ALLERGY INFORMATION TABLE
-Generated: ${format(new Date(), 'dd MMMM yyyy HH:mm')}
-Generated by: ${user?.full_name} (${user?.email})
-===============================================
+  const handleAIEnhancement = async () => {
+    setIsGenerating(true);
+    try {
+      // Use AI to detect allergens from descriptions for items without full recipe data
+      for (const item of menuItems.slice(0, 5)) { // Limit to 5 per run to avoid timeouts
+        if (!item.recipe || item.recipe.length === 0) {
+          const response = await base44.integrations.Core.InvokeLLM({
+            prompt: `Analyze this menu item and identify potential allergens:
 
-${filteredRecords.map(record => `
-${record.menu_item_name} (${record.category})
-Allergens: ${record.allergens_detected.map(a => `${allergenIcons[a]} ${a}`).join(', ') || 'None detected'}
-Risk Level: ${record.risk_level.toUpperCase()}
-Last Synced: ${record.last_synced ? format(new Date(record.last_synced), 'dd/MM/yyyy HH:mm') : 'Never'}
+Item: ${item.name}
+Description: ${item.description || 'No description'}
+Category: ${item.category_name || 'Unknown'}
 
-Ingredient Sources:
-${record.ingredient_sources?.map(src => `  - ${src.ingredient_name}: ${src.allergens.map(a => `${allergenIcons[a]} ${a}`).join(', ')}`).join('\n') || '  No ingredient data'}
----
-`).join('\n')}
+Based on typical restaurant recipes, what allergens might this dish contain?
+Return a list of allergen keys from: milk, egg, fish, shellfish, nuts, peanuts, gluten, soy, sesame, celery, mustard, sulphites, lupin
 
-===============================================
-This document is auto-generated and reflects current menu allergen information.
-For compliance purposes, verify with kitchen staff before service.
+Only include allergens that are very likely to be in this dish.`,
+            response_json_schema: {
+              type: "object",
+              properties: {
+                allergens: { type: "array", items: { type: "string" } }
+              }
+            }
+          });
 
-Compliance Officer Signature: _________________________
-Date: _____________________________
-Verification Stamp: _______________________________
-    `.trim();
-
-    const blob = new Blob([content], { type: 'text/plain' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `allergy-table-${format(new Date(), 'yyyy-MM-dd')}.txt`;
-    a.click();
-
-    alert('✅ Allergy table exported! For PDF format, please print this file to PDF.');
+          if (response.allergens && response.allergens.length > 0) {
+            await base44.entities.MenuItem.update(item.id, {
+              allergen_tags: response.allergens
+            });
+          }
+        }
+      }
+      
+      // Refresh data
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['menuItems'] }),
+      ]);
+      
+      alert('✅ AI allergen detection completed! Matrix updated.');
+    } catch (error) {
+      console.error('AI enhancement failed:', error);
+      alert('AI enhancement failed. Using manual data only.');
+    }
+    setIsGenerating(false);
   };
 
-  const handleViewDetails = (record) => {
-    setSelectedRecord(record);
-    setShowDetailModal(true);
+  const handlePrint = () => {
+    const printWindow = window.open('', '_blank');
+    const allergensInUse = ALLERGEN_LIST.filter(allergen => 
+      allergenMatrix.some(item => item.allergens.includes(allergen.key))
+    );
+
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Allergen Matrix - AURA Restaurant</title>
+          <style>
+            @media print {
+              @page {
+                size: landscape;
+                margin: 15mm;
+              }
+            }
+            body {
+              font-family: 'Arial', sans-serif;
+              margin: 0;
+              padding: 20px;
+              background: white;
+            }
+            .header {
+              text-align: center;
+              margin-bottom: 30px;
+              border-bottom: 3px solid #014D40;
+              padding-bottom: 15px;
+            }
+            .header h1 {
+              color: #014D40;
+              margin: 0 0 5px 0;
+              font-size: 28px;
+            }
+            .header p {
+              color: #64748b;
+              margin: 0;
+              font-size: 14px;
+            }
+            .allergen-table {
+              width: 100%;
+              border-collapse: collapse;
+              font-size: 11px;
+            }
+            .allergen-table th {
+              background: #014D40;
+              color: white;
+              padding: 12px 8px;
+              text-align: center;
+              font-weight: bold;
+              border: 1px solid #0a3830;
+            }
+            .allergen-table th.item-name {
+              text-align: left;
+              min-width: 200px;
+            }
+            .allergen-table td {
+              border: 1px solid #e2e8f0;
+              padding: 8px;
+              text-align: center;
+            }
+            .allergen-table tr:nth-child(even) {
+              background: #f8fafc;
+            }
+            .allergen-table tr:hover {
+              background: #f1f5f9;
+            }
+            .present {
+              color: #DC2626;
+              font-size: 20px;
+              font-weight: bold;
+            }
+            .category {
+              background: #10B981;
+              color: white;
+              padding: 2px 8px;
+              border-radius: 4px;
+              font-size: 9px;
+              margin-left: 8px;
+            }
+            .legend {
+              margin-top: 20px;
+              padding: 15px;
+              background: #f8fafc;
+              border-radius: 8px;
+            }
+            .legend-item {
+              display: inline-block;
+              margin-right: 20px;
+              font-size: 12px;
+              color: #475569;
+            }
+            .footer {
+              margin-top: 30px;
+              text-align: center;
+              color: #94a3b8;
+              font-size: 11px;
+              border-top: 1px solid #e2e8f0;
+              padding-top: 15px;
+            }
+            .warning {
+              background: #FEF3C7;
+              border: 2px solid #F59E0B;
+              padding: 15px;
+              border-radius: 8px;
+              margin-bottom: 20px;
+            }
+            .warning h3 {
+              color: #92400E;
+              margin: 0 0 8px 0;
+              font-size: 14px;
+            }
+            .warning p {
+              color: #78350F;
+              margin: 0;
+              font-size: 12px;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1>🍽️ Allergen Matrix</h1>
+            <p>Complete allergen guide for all menu items</p>
+            <p style="font-size: 12px; margin-top: 5px;">Generated: ${new Date().toLocaleString()}</p>
+          </div>
+
+          <div class="warning">
+            <h3>⚠️ Important Notice</h3>
+            <p>This matrix is based on standard recipes. Always verify with kitchen staff about cross-contamination risks and preparation methods. Inform customers that traces of allergens may be present due to shared equipment.</p>
+          </div>
+
+          <table class="allergen-table">
+            <thead>
+              <tr>
+                <th class="item-name">Menu Item</th>
+                ${allergensInUse.map(allergen => `
+                  <th>${allergen.icon}<br/>${allergen.label}</th>
+                `).join('')}
+              </tr>
+            </thead>
+            <tbody>
+              ${allergenMatrix.map(item => `
+                <tr>
+                  <td style="text-align: left; font-weight: bold;">
+                    ${item.menuItemName}
+                    <span class="category">${item.category}</span>
+                  </td>
+                  ${allergensInUse.map(allergen => `
+                    <td>
+                      ${item.allergens.includes(allergen.key) ? '<span class="present">✓</span>' : '-'}
+                    </td>
+                  `).join('')}
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+
+          <div class="legend">
+            <strong>Legend:</strong><br/>
+            <div style="margin-top: 8px;">
+              <span class="legend-item"><span class="present">✓</span> = Allergen Present</span>
+              <span class="legend-item">- = Not Present</span>
+            </div>
+          </div>
+
+          <div class="footer">
+            <p><strong>AURA Restaurant Operations</strong></p>
+            <p>For customer safety, always confirm with kitchen staff before serving</p>
+          </div>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
   };
 
-  // Filter records
-  const filteredRecords = allergyRecords.filter(record => {
-    const matchesSearch = record.menu_item_name.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCategory = filterCategory === "all" || record.category === filterCategory;
-    const matchesRisk = filterRisk === "all" || record.risk_level === filterRisk;
+  const handleDownloadCSV = () => {
+    const allergensInUse = ALLERGEN_LIST.filter(allergen => 
+      allergenMatrix.some(item => item.allergens.includes(allergen.key))
+    );
+
+    let csv = 'Menu Item,Category,' + allergensInUse.map(a => a.label).join(',') + '\n';
     
-    return matchesSearch && matchesCategory && matchesRisk;
-  });
+    allergenMatrix.forEach(item => {
+      csv += `"${item.menuItemName}","${item.category}",`;
+      csv += allergensInUse.map(allergen => 
+        item.allergens.includes(allergen.key) ? 'YES' : 'NO'
+      ).join(',');
+      csv += '\n';
+    });
 
-  // Sort by risk level (high first)
-  const sortedRecords = [...filteredRecords].sort((a, b) => {
-    const riskOrder = { high: 0, medium: 1, low: 2, none: 3 };
-    return riskOrder[a.risk_level] - riskOrder[b.risk_level];
-  });
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `allergen-matrix-${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+  };
+
+  if (loadingMenu || loadingIngredients) {
+    return <LoadingSpinner message="Generating allergen matrix..." />;
+  }
+
+  const filteredMatrix = searchTerm 
+    ? allergenMatrix.filter(item => 
+        item.menuItemName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        item.category.toLowerCase().includes(searchTerm.toLowerCase())
+      )
+    : allergenMatrix;
+
+  const allergensInUse = ALLERGEN_LIST.filter(allergen => 
+    allergenMatrix.some(item => item.allergens.includes(allergen.key))
+  );
+
+  const totalAllergenItems = allergenMatrix.filter(item => item.allergens.length > 0).length;
+  const allergenFreeItems = allergenMatrix.filter(item => item.allergens.length === 0).length;
+
+  const groupedByCategory = categories.map(cat => ({
+    category: cat.name,
+    items: filteredMatrix.filter(item => item.category === cat.name)
+  })).filter(group => group.items.length > 0);
+
+  const uncategorized = filteredMatrix.filter(item => item.category === 'Uncategorized');
+  if (uncategorized.length > 0) {
+    groupedByCategory.push({ category: 'Uncategorized', items: uncategorized });
+  }
 
   return (
     <div className="p-6 md:p-8 bg-gradient-to-br from-slate-50 to-slate-100 min-h-screen">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="flex justify-between items-start mb-8">
+      <div className="max-w-[1800px] mx-auto">
+        
+        <div className="flex gap-3 mb-6">
+          <Link to={createPageUrl('Menu')}>
+            <Button variant="outline" size="sm">
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back to Menu
+            </Button>
+          </Link>
+          <Link to={createPageUrl('Dashboard')}>
+            <Button variant="outline" size="sm">
+              <Home className="w-4 h-4 mr-2" />
+              Dashboard
+            </Button>
+          </Link>
+        </div>
+
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
           <div>
-            <div className="flex items-center gap-3 mb-2">
-              <div className="p-3 bg-gradient-to-br from-amber-500 to-amber-600 rounded-xl">
-                <ShieldAlert className="w-8 h-8 text-white" />
-              </div>
-              <div>
-                <h1 className="text-4xl font-bold text-gray-900" style={{ fontFamily: 'Poppins, Inter, sans-serif' }}>
-                  Allergy Information Table ⚠️
-                </h1>
-                <p className="text-gray-600 text-lg">Auto-generated allergen tracking for menu compliance</p>
-              </div>
-            </div>
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">Smart Allergen Matrix</h1>
+            <p className="text-gray-600">Auto-generated from menu recipes and ingredients</p>
           </div>
           <div className="flex gap-3">
-            <Link to={createPageUrl("Menu")}>
-              <Button variant="outline" size="sm" className="border-emerald-600 text-emerald-700 hover:bg-emerald-50">
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Back to Menu
-              </Button>
-            </Link>
-            <Button variant="outline" size="sm" onClick={handleExportCSV} className="border-blue-600 text-blue-700 hover:bg-blue-50">
-              <FileSpreadsheet className="w-4 h-4 mr-2" />
+            <Button
+              variant="outline"
+              onClick={generateAllergenMatrix}
+              className="bg-blue-50"
+            >
+              <RefreshCw className="w-4 h-4 mr-2" />
+              Refresh
+            </Button>
+            <Button
+              variant="outline"
+              onClick={handleDownloadCSV}
+              className="bg-green-50"
+            >
+              <Download className="w-4 h-4 mr-2" />
               Export CSV
             </Button>
-            <Button variant="outline" size="sm" onClick={handleExportPDF} className="border-purple-600 text-purple-700 hover:bg-purple-50">
-              <FileText className="w-4 h-4 mr-2" />
-              Export PDF
+            <Button
+              onClick={handlePrint}
+              className="bg-emerald-600 hover:bg-emerald-700"
+            >
+              <Printer className="w-4 h-4 mr-2" />
+              Print Matrix
             </Button>
           </div>
         </div>
 
-        {/* Info Banner */}
-        <Card className="mb-6 border-amber-200 bg-amber-50">
-          <CardContent className="p-4">
+        <div className="grid md:grid-cols-4 gap-4 mb-6">
+          <Card className="border-l-4 border-l-blue-500">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600">Total Menu Items</p>
+                  <p className="text-3xl font-bold text-blue-600">{allergenMatrix.length}</p>
+                </div>
+                <AlertTriangle className="w-10 h-10 text-blue-500" />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-l-4 border-l-orange-500">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600">Contains Allergens</p>
+                  <p className="text-3xl font-bold text-orange-600">{totalAllergenItems}</p>
+                </div>
+                <AlertTriangle className="w-10 h-10 text-orange-500" />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-l-4 border-l-green-500">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600">Allergen-Free</p>
+                  <p className="text-3xl font-bold text-green-600">{allergenFreeItems}</p>
+                </div>
+                <CheckCircle className="w-10 h-10 text-green-500" />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-l-4 border-l-purple-500">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600">Allergens Tracked</p>
+                  <p className="text-3xl font-bold text-purple-600">{allergensInUse.length}</p>
+                </div>
+                <Sparkles className="w-10 h-10 text-purple-500" />
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        <Card className="bg-amber-50 border-amber-300 mb-6">
+          <CardContent className="p-6">
             <div className="flex items-start gap-3">
-              <Info className="w-5 h-5 text-amber-600 mt-0.5" />
+              <AlertTriangle className="w-6 h-6 text-amber-600 flex-shrink-0 mt-1" />
               <div>
-                <p className="font-semibold text-amber-900">Automatic Allergen Tracking</p>
-                <p className="text-sm text-amber-800 mt-1">
-                  This table is automatically updated when menu items or ingredients change. All data is timestamped and audit-logged for compliance.
+                <h3 className="font-bold text-amber-900 mb-2">⚠️ Important Safety Notice</h3>
+                <p className="text-sm text-amber-800">
+                  This matrix is automatically generated from recipe data. Always verify with kitchen staff about cross-contamination risks, 
+                  shared equipment, and preparation methods. Inform customers that traces of allergens may be present.
                 </p>
               </div>
             </div>
           </CardContent>
         </Card>
 
-        {/* Stats */}
-        <div className="grid md:grid-cols-4 gap-4 mb-6">
-          <Card className="bg-gradient-to-br from-gray-700 to-gray-800 text-white border-none shadow-lg">
-            <CardContent className="p-4">
-              <div className="text-2xl font-bold">{allergyRecords.length}</div>
-              <div className="text-sm text-gray-300">Total Items</div>
-            </CardContent>
-          </Card>
-          <Card className="bg-gradient-to-br from-red-500 to-red-600 text-white border-none shadow-lg">
-            <CardContent className="p-4">
-              <div className="text-2xl font-bold">
-                {allergyRecords.filter(r => r.risk_level === 'high').length}
+        <Card>
+          <CardHeader>
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+              <CardTitle>Allergen Matrix Table</CardTitle>
+              <div className="relative w-full md:w-64">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <Input
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder="Search menu items..."
+                  className="pl-10"
+                />
               </div>
-              <div className="text-sm text-red-100">High Risk</div>
-            </CardContent>
-          </Card>
-          <Card className="bg-gradient-to-br from-amber-500 to-amber-600 text-white border-none shadow-lg">
-            <CardContent className="p-4">
-              <div className="text-2xl font-bold">
-                {allergyRecords.filter(r => r.risk_level === 'medium').length}
+            </div>
+          </CardHeader>
+          <CardContent>
+            {allergensInUse.length === 0 ? (
+              <div className="text-center py-12">
+                <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
+                <h3 className="text-xl font-bold text-gray-900 mb-2">No Allergens Detected</h3>
+                <p className="text-gray-600">
+                  Great! No allergens found in menu items, or ingredients need allergen tags configured.
+                </p>
               </div>
-              <div className="text-sm text-amber-100">Medium Risk</div>
-            </CardContent>
-          </Card>
-          <Card className="bg-gradient-to-br from-emerald-500 to-emerald-600 text-white border-none shadow-lg">
-            <CardContent className="p-4">
-              <div className="text-2xl font-bold">
-                {allergyRecords.filter(r => r.allergens_detected.length === 0).length}
-              </div>
-              <div className="text-sm text-emerald-100">Allergen Free</div>
-            </CardContent>
-          </Card>
-        </div>
+            ) : (
+              <div className="space-y-6">
+                {groupedByCategory.map(group => (
+                  <div key={group.category}>
+                    <div className="flex items-center gap-3 mb-3 pb-2 border-b-2 border-gray-200">
+                      <Badge className="bg-emerald-600 text-white text-sm px-3 py-1">
+                        {group.category}
+                      </Badge>
+                      <span className="text-sm text-gray-500">{group.items.length} items</span>
+                    </div>
 
-        {/* Filters */}
-        <Card className="bg-white border-none shadow-sm mb-6">
-          <CardContent className="p-4">
-            <div className="flex flex-wrap gap-4">
-              <div className="flex-1 min-w-[200px]">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                  <Input
-                    placeholder="Search items..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-10 border-gray-300 focus:border-emerald-500 focus:ring-emerald-500"
-                  />
-                </div>
+                    <div className="overflow-x-auto">
+                      <table className="w-full border-collapse">
+                        <thead>
+                          <tr className="bg-gray-50">
+                            <th className="text-left p-3 font-semibold text-gray-900 border sticky left-0 bg-gray-50 z-10 min-w-[250px]">
+                              Menu Item
+                            </th>
+                            {allergensInUse.map(allergen => (
+                              <th key={allergen.key} className="p-3 text-center border min-w-[80px]">
+                                <div className="flex flex-col items-center">
+                                  <span className="text-2xl mb-1">{allergen.icon}</span>
+                                  <span className="text-xs font-semibold text-gray-700">{allergen.label}</span>
+                                </div>
+                              </th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {group.items.map(item => (
+                            <tr key={item.menuItemId} className="hover:bg-gray-50 transition-colors">
+                              <td className="p-3 border font-medium text-gray-900 sticky left-0 bg-white z-10">
+                                <div className="flex items-center justify-between">
+                                  <span>{item.menuItemName}</span>
+                                  <span className="text-sm text-gray-500">£{formatPrice(item.sellPrice)}</span>
+                                </div>
+                              </td>
+                              {allergensInUse.map(allergen => {
+                                const hasAllergen = item.allergens.includes(allergen.key);
+                                const source = item.ingredientSources.find(s => s.allergen === allergen.key);
+                                
+                                return (
+                                  <td 
+                                    key={allergen.key} 
+                                    className={`p-3 border text-center ${hasAllergen ? 'bg-red-50' : ''}`}
+                                    title={hasAllergen && source ? `From: ${source.ingredients.join(', ')}` : ''}
+                                  >
+                                    {hasAllergen ? (
+                                      <div className="flex flex-col items-center">
+                                        <CheckCircle className="w-6 h-6 text-red-600" />
+                                        {source && (
+                                          <span className="text-xs text-gray-600 mt-1">
+                                            {source.ingredients.length} source{source.ingredients.length > 1 ? 's' : ''}
+                                          </span>
+                                        )}
+                                      </div>
+                                    ) : (
+                                      <span className="text-gray-300 text-xl">-</span>
+                                    )}
+                                  </td>
+                                );
+                              })}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                ))}
               </div>
-              <Select value={filterCategory} onValueChange={setFilterCategory}>
-                <SelectTrigger className="w-48 border-gray-300">
-                  <SelectValue placeholder="All Categories" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Categories</SelectItem>
-                  {categories.map(cat => (
-                    <SelectItem key={cat.id} value={cat.name}>{cat.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Select value={filterRisk} onValueChange={setFilterRisk}>
-                <SelectTrigger className="w-48 border-gray-300">
-                  <SelectValue placeholder="Risk Level" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Risk Levels</SelectItem>
-                  <SelectItem value="high">🔴 High Risk</SelectItem>
-                  <SelectItem value="medium">🟡 Medium Risk</SelectItem>
-                  <SelectItem value="low">🔵 Low Risk</SelectItem>
-                  <SelectItem value="none">🟢 No Allergens</SelectItem>
-                </SelectContent>
-              </Select>
+            )}
+
+            <div className="mt-6 p-4 bg-blue-50 rounded-lg">
+              <h4 className="font-semibold text-blue-900 mb-2">📊 How This Works</h4>
+              <ul className="text-sm text-blue-800 space-y-1">
+                <li>• <strong>Automatic:</strong> Matrix is generated from your menu recipes and ingredient data</li>
+                <li>• <strong>Real-time:</strong> Updates automatically when you change recipes or ingredients</li>
+                <li>• <strong>Traceable:</strong> Hover over checkmarks to see which ingredients contain allergens</li>
+                <li>• <strong>Printable:</strong> Professional format for kitchen display and customer reference</li>
+              </ul>
             </div>
           </CardContent>
         </Card>
-
-        {/* Table */}
-        <Card className="bg-white border-none shadow-lg">
-          <CardContent className="p-0">
-            {isLoading ? (
-              <div className="text-center py-12">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-amber-600 mx-auto"></div>
-                <p className="mt-4 text-gray-600">Loading allergy data...</p>
-              </div>
-            ) : sortedRecords.length === 0 ? (
-              <div className="text-center py-12">
-                <AlertTriangle className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                <p className="text-gray-500">No allergy records found</p>
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead className="bg-gradient-to-r from-emerald-50 to-amber-50 border-b-2 border-emerald-200">
-                    <tr>
-                      <th className="text-left p-4 font-bold text-gray-800" style={{ fontFamily: 'Poppins, sans-serif' }}>
-                        Item Name
-                      </th>
-                      <th className="text-left p-4 font-bold text-gray-800">Category</th>
-                      <th className="text-left p-4 font-bold text-gray-800">Allergens</th>
-                      <th className="text-left p-4 font-bold text-gray-800">Risk Level</th>
-                      <th className="text-left p-4 font-bold text-gray-800">Last Updated</th>
-                      <th className="text-left p-4 font-bold text-gray-800">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <AnimatePresence>
-                      {sortedRecords.map((record, index) => (
-                        <motion.tr
-                          key={record.id}
-                          initial={{ opacity: 0, x: -20 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          exit={{ opacity: 0, x: 20 }}
-                          transition={{ delay: index * 0.03 }}
-                          className={`border-b hover:bg-gray-50 transition-colors ${
-                            index % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'
-                          }`}
-                        >
-                          <td className="p-4">
-                            <div className="font-semibold text-gray-900">{record.menu_item_name}</div>
-                          </td>
-                          <td className="p-4">
-                            <Badge variant="outline" className="border-emerald-300 text-emerald-800 bg-emerald-50">
-                              {record.category}
-                            </Badge>
-                          </td>
-                          <td className="p-4">
-                            {record.allergens_detected.length > 0 ? (
-                              <div className="flex flex-wrap gap-1.5">
-                                {record.allergens_detected.map(allergen => (
-                                  <Badge 
-                                    key={allergen} 
-                                    variant="outline" 
-                                    className="text-xs border-amber-300 text-amber-900 bg-amber-50"
-                                  >
-                                    {allergenIcons[allergen]} {allergen}
-                                  </Badge>
-                                ))}
-                              </div>
-                            ) : (
-                              <span className="text-gray-400 text-sm flex items-center gap-1">
-                                <CheckCircle className="w-4 h-4 text-emerald-500" />
-                                None detected
-                              </span>
-                            )}
-                          </td>
-                          <td className="p-4">
-                            <Badge className={`${riskColors[record.risk_level]} border font-semibold`}>
-                              {record.risk_level.toUpperCase()}
-                            </Badge>
-                          </td>
-                          <td className="p-4 text-sm text-gray-600">
-                            {record.last_synced ? format(new Date(record.last_synced), 'dd/MM/yyyy HH:mm') : 'Never'}
-                          </td>
-                          <td className="p-4">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleViewDetails(record)}
-                              className="border-blue-600 text-blue-700 hover:bg-blue-50"
-                            >
-                              <Eye className="w-4 h-4 mr-1" />
-                              Details
-                            </Button>
-                          </td>
-                        </motion.tr>
-                      ))}
-                    </AnimatePresence>
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Detail Modal */}
-        <Dialog open={showDetailModal} onOpenChange={setShowDetailModal}>
-          <DialogContent className="max-w-2xl">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2 text-2xl" style={{ fontFamily: 'Poppins, sans-serif' }}>
-                <ShieldAlert className="w-6 h-6 text-amber-600" />
-                Allergen Details: {selectedRecord?.menu_item_name}
-              </DialogTitle>
-            </DialogHeader>
-
-            {selectedRecord && (
-              <div className="space-y-6 mt-4">
-                <div>
-                  <h3 className="font-bold text-gray-900 mb-2" style={{ fontFamily: 'Poppins, sans-serif' }}>
-                    Category
-                  </h3>
-                  <Badge variant="outline" className="border-emerald-300 text-emerald-800 bg-emerald-50">
-                    {selectedRecord.category}
-                  </Badge>
-                </div>
-
-                <div>
-                  <h3 className="font-bold text-gray-900 mb-2">Risk Level</h3>
-                  <Badge className={`${riskColors[selectedRecord.risk_level]} border text-lg px-4 py-2`}>
-                    {selectedRecord.risk_level.toUpperCase()}
-                  </Badge>
-                </div>
-
-                <div>
-                  <h3 className="font-bold text-gray-900 mb-2">Allergens Detected</h3>
-                  {selectedRecord.allergens_detected.length > 0 ? (
-                    <div className="flex flex-wrap gap-2">
-                      {selectedRecord.allergens_detected.map(allergen => (
-                        <Badge 
-                          key={allergen} 
-                          variant="outline" 
-                          className="text-base py-2 px-3 border-amber-300 text-amber-900 bg-amber-50"
-                          style={{ borderColor: '#E0B037' }}
-                        >
-                          {allergenIcons[allergen]} {allergen}
-                        </Badge>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-gray-500 flex items-center gap-2">
-                      <CheckCircle className="w-5 h-5 text-emerald-500" />
-                      No allergens detected
-                    </p>
-                  )}
-                </div>
-
-                {selectedRecord.ingredient_sources && selectedRecord.ingredient_sources.length > 0 && (
-                  <div>
-                    <h3 className="font-bold text-gray-900 mb-3">Ingredient Sources</h3>
-                    <div className="space-y-2">
-                      {selectedRecord.ingredient_sources.map((source, index) => {
-                        const supplier = suppliers.find(s => 
-                          s.id === suppliers.find(sup => sup.name === source.supplier_name)?.id
-                        );
-
-                        return (
-                          <div key={index} className="p-3 bg-gray-50 rounded-lg border border-gray-200">
-                            <p className="font-semibold text-gray-900">{source.ingredient_name}</p>
-                            <p className="text-sm text-amber-800 mt-1">
-                              Contains: {source.allergens.map(a => `${allergenIcons[a]} ${a}`).join(', ')}
-                            </p>
-                            {supplier && (
-                              <p className="text-xs text-gray-500 mt-1">
-                                Supplier: {supplier.name} • {supplier.email}
-                              </p>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-
-                <div>
-                  <h3 className="font-bold text-gray-900 mb-2">Last Synced</h3>
-                  <p className="text-gray-600">
-                    {selectedRecord.last_synced ? format(new Date(selectedRecord.last_synced), 'PPpp') : 'Never'}
-                  </p>
-                </div>
-
-                {selectedRecord.auto_generated && (
-                  <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
-                    <p className="text-sm text-blue-800">
-                      ℹ️ This record was automatically generated from ingredient data and synced with the menu system.
-                    </p>
-                  </div>
-                )}
-
-                {selectedRecord.verified_by && (
-                  <div className="p-3 bg-emerald-50 rounded-lg border border-emerald-200">
-                    <p className="text-sm text-emerald-800">
-                      ✅ Verified by: {selectedRecord.verified_by} on {format(new Date(selectedRecord.verified_at), 'PPpp')}
-                    </p>
-                  </div>
-                )}
-              </div>
-            )}
-          </DialogContent>
-        </Dialog>
       </div>
     </div>
   );
 }
+
+const formatPrice = (price) => {
+  return (parseFloat(price) || 0).toFixed(2);
+};
