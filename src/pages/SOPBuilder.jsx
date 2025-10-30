@@ -42,6 +42,8 @@ export default function SOPBuilder() {
 
   const urlParams = new URLSearchParams(window.location.search);
   const sopId = urlParams.get('id');
+  const menuItemId = urlParams.get('menuItem');
+  const menuItemName = urlParams.get('menuItemName');
 
   const { data: user } = useQuery({
     queryKey: ['currentUser'],
@@ -108,8 +110,17 @@ export default function SOPBuilder() {
         review_frequency_months: editingSOP.review_frequency_months || 6,
         quality_standards: editingSOP.quality_standards || '', // Added for AI generation
       });
+    } else if (menuItemName) {
+      // Pre-fill title if creating from menu item
+      setFormData(prev => ({
+        ...prev,
+        title: `How to Prepare ${decodeURIComponent(menuItemName)}`,
+        category: 'recipe',
+        objective: `Ensure consistent quality and presentation of ${decodeURIComponent(menuItemName)}`,
+        scope: 'Kitchen staff - chefs and line cooks',
+      }));
     }
-  }, [editingSOP]);
+  }, [editingSOP, menuItemName]);
 
   const saveSopMutation = useMutation({
     mutationFn: async (data) => {
@@ -121,6 +132,15 @@ export default function SOPBuilder() {
     },
     onSuccess: async (savedSOP) => {
       queryClient.invalidateQueries({ queryKey: ['sops'] });
+      
+      // If created from menu item, auto-link it
+      if (menuItemId && !editingSOP) {
+        await base44.entities.MenuItem.update(menuItemId, {
+          linked_sop_id: savedSOP.id,
+          linked_sop_title: savedSOP.title
+        });
+        queryClient.invalidateQueries({ queryKey: ['menuItem', menuItemId] }); // Invalidate specific menu item
+      }
       
       if (!editingSOP) {
         await base44.entities.ActivityLog.create({
@@ -138,7 +158,12 @@ export default function SOPBuilder() {
       }
       
       alert(editingSOP ? '✅ SOP Updated Successfully!' : '✅ SOP Created Successfully!');
-      navigate(createPageUrl('SOPDashboard'));
+      
+      if (menuItemId) {
+        navigate(createPageUrl(`MenuItemView?id=${menuItemId}`));
+      } else {
+        navigate(createPageUrl('SOPDashboard'));
+      }
     },
     onError: (error) => {
       alert(`❌ Save failed: ${error.message}`);

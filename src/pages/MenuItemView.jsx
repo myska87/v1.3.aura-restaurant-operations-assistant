@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -15,14 +15,20 @@ import {
   Eye,
   Edit,
   Package,
+  Link2,
+  Plus,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import SOPStepTimeline from '../components/SOPStepTimeline';
 
 export default function MenuItemView() {
+  const queryClient = useQueryClient();
   const [showSOPModal, setShowSOPModal] = useState(false);
+  const [showLinkSOPDialog, setShowLinkSOPDialog] = useState(false);
+  const [selectedSOPId, setSelectedSOPId] = useState('');
   const [itemId, setItemId] = useState(null);
 
   useEffect(() => {
@@ -55,10 +61,40 @@ export default function MenuItemView() {
     enabled: !!item?.linked_sop_id,
   });
 
+  const { data: allSOPs = [] } = useQuery({
+    queryKey: ['allSOPs'],
+    queryFn: () => base44.entities.SOPDocument.list(),
+  });
+
   const { data: ingredients = [] } = useQuery({
     queryKey: ['ingredients'],
     queryFn: () => base44.entities.Ingredient.list(),
   });
+
+  const linkSOPMutation = useMutation({
+    mutationFn: async ({ menuItemId, sopId }) => {
+      const selectedSOP = allSOPs.find(s => s.id === sopId);
+      return await base44.entities.MenuItem.update(menuItemId, {
+        linked_sop_id: sopId,
+        linked_sop_title: selectedSOP?.title || ''
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['menuItem'] });
+      queryClient.invalidateQueries({ queryKey: ['menuItemSOP'] });
+      setShowLinkSOPDialog(false);
+      setSelectedSOPId('');
+      alert('✅ SOP linked successfully!');
+    },
+  });
+
+  const handleLinkSOP = () => {
+    if (!selectedSOPId) {
+      alert('Please select an SOP');
+      return;
+    }
+    linkSOPMutation.mutate({ menuItemId: item.id, sopId: selectedSOPId });
+  };
 
   const isManager = user?.role === 'admin' || user?.position === 'manager' || user?.position === 'owner';
   const isChef = user?.position === 'chef' || user?.position === 'sous_chef';
@@ -128,7 +164,7 @@ export default function MenuItemView() {
                 <Badge variant="outline">{item.category_name || 'Uncategorized'}</Badge>
               </div>
               {(isManager || isChef) && (
-                <Link to={createPageUrl(`MenuManagement?edit=${item.id}`)}>
+                <Link to={createPageUrl(`MenuManagement`)}>
                   <Button variant="outline">
                     <Edit className="w-4 h-4 mr-2" />
                     Edit
@@ -140,9 +176,9 @@ export default function MenuItemView() {
               <p className="text-gray-700 mb-4">{item.description}</p>
             )}
 
-            {/* SOP Button */}
+            {/* SOP Linking Section */}
             {linkedSOP ? (
-              <div className="flex gap-3 mb-4">
+              <div className="flex flex-wrap gap-3 mb-4">
                 <Button
                   onClick={() => setShowSOPModal(true)}
                   className="bg-blue-600 hover:bg-blue-700"
@@ -156,18 +192,41 @@ export default function MenuItemView() {
                     Full SOP Page
                   </Button>
                 </Link>
+                {(isManager || isChef) && (
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowLinkSOPDialog(true)}
+                  >
+                    <Link2 className="w-4 h-4 mr-2" />
+                    Change SOP
+                  </Button>
+                )}
               </div>
-            ) : (isManager || isChef) && (
+            ) : (
               <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg mb-4">
-                <p className="text-sm text-amber-800 mb-2">
+                <p className="text-sm text-amber-800 mb-3">
                   No preparation SOP linked to this dish yet.
                 </p>
-                <Link to={createPageUrl('SOPBuilder')}>
-                  <Button size="sm" variant="outline">
-                    <BookOpen className="w-4 h-4 mr-2" />
-                    Create SOP
-                  </Button>
-                </Link>
+                <div className="flex gap-2">
+                  {(isManager || isChef) && (
+                    <>
+                      <Link to={createPageUrl(`SOPBuilder?menuItem=${item.id}&menuItemName=${encodeURIComponent(item.name)}`)}>
+                        <Button size="sm" className="bg-blue-600 hover:bg-blue-700">
+                          <Plus className="w-4 h-4 mr-2" />
+                          Create New SOP
+                        </Button>
+                      </Link>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setShowLinkSOPDialog(true)}
+                      >
+                        <Link2 className="w-4 h-4 mr-2" />
+                        Link Existing SOP
+                      </Button>
+                    </>
+                  )}
+                </div>
               </div>
             )}
           </CardContent>
@@ -290,7 +349,7 @@ export default function MenuItemView() {
           </Card>
         )}
 
-        {/* SOP Modal */}
+        {/* SOP Preview Modal */}
         <Dialog open={showSOPModal} onOpenChange={setShowSOPModal}>
           <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
@@ -299,11 +358,89 @@ export default function MenuItemView() {
                 Preparation SOP: {linkedSOP?.title}
               </DialogTitle>
             </DialogHeader>
-            {linkedSOP && linkedSOP.steps && (
+            {linkedSOP && linkedSOP.procedure_steps && (
               <div className="py-4">
-                <SOPStepTimeline steps={linkedSOP.steps} readonly={true} />
+                <SOPStepTimeline steps={linkedSOP.procedure_steps} readonly={true} />
               </div>
             )}
+          </DialogContent>
+        </Dialog>
+
+        {/* Link SOP Dialog */}
+        <Dialog open={showLinkSOPDialog} onOpenChange={setShowLinkSOPDialog}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Link2 className="w-5 h-5 text-blue-600" />
+                Link SOP to Menu Item
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 mt-4">
+              <div>
+                <label className="text-sm font-medium text-gray-700 mb-2 block">
+                  Select SOP Document
+                </label>
+                <Select value={selectedSOPId} onValueChange={setSelectedSOPId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Choose an SOP..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {allSOPs.length === 0 ? (
+                      <div className="p-4 text-center text-gray-500">
+                        <p className="mb-2">No SOPs available</p>
+                        <Link to={createPageUrl('SOPBuilder')}>
+                          <Button size="sm" variant="outline">
+                            Create SOP First
+                          </Button>
+                        </Link>
+                      </div>
+                    ) : (
+                      allSOPs.map(sop => (
+                        <SelectItem key={sop.id} value={sop.id}>
+                          {sop.title}
+                          {sop.category && (
+                            <span className="text-xs text-gray-500 ml-2">({sop.category})</span>
+                          )}
+                        </SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="bg-blue-50 p-3 rounded-lg">
+                <p className="text-sm text-blue-900">
+                  💡 <strong>Tip:</strong> Link the SOP that describes how to prepare "{item.name}". 
+                  This will help staff follow the correct procedure.
+                </p>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-4">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setShowLinkSOPDialog(false);
+                    setSelectedSOPId('');
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Link to={createPageUrl(`SOPBuilder?menuItem=${item.id}&menuItemName=${encodeURIComponent(item.name)}`)}>
+                  <Button variant="outline">
+                    <Plus className="w-4 h-4 mr-2" />
+                    Create New SOP
+                  </Button>
+                </Link>
+                <Button
+                  onClick={handleLinkSOP}
+                  disabled={!selectedSOPId || linkSOPMutation.isPending}
+                  className="bg-blue-600 hover:bg-blue-700"
+                >
+                  <Link2 className="w-4 h-4 mr-2" />
+                  {linkSOPMutation.isPending ? 'Linking...' : 'Link SOP'}
+                </Button>
+              </div>
+            </div>
           </DialogContent>
         </Dialog>
       </div>
