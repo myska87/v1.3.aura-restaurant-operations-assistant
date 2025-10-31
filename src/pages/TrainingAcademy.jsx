@@ -52,7 +52,8 @@ import {
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import { format, formatDistanceToNow } from 'date-fns';
-import { motion } from 'framer-motion';
+
+import AITrainingPostCreator from '../components/AITrainingPostCreator';
 
 // New Motivational Quotes Array
 const MOTIVATIONAL_QUOTES = [
@@ -98,7 +99,7 @@ const CORE_VALUES = [
     title: 'Respect',
     description: 'Valuing every person, every role, every contribution',
     detail: 'Respect colleagues, guests, suppliers, and the planet. Everyone matters.',
-    color: 'from-teal-400 to-green-500'
+    color: 'from-teal-440 to-green-500'
   }
 ];
 
@@ -187,6 +188,7 @@ export default function TrainingAcademy() {
   });
 
   const [showPostForm, setShowPostForm] = useState(false);
+  const [showAICreator, setShowAICreator] = useState(false); // New state for AI Creator
   const [uploadingMedia, setUploadingMedia] = useState(false);
   const [postFormData, setPostFormData] = useState({
     title: '',
@@ -914,28 +916,28 @@ export default function TrainingAcademy() {
 
         {/* Training Levels Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-5 h-auto bg-white shadow-md rounded-xl p-1"> {/* Updated grid-cols-4 to grid-cols-5 */}
-            <TabsTrigger value="overview" className="flex-col gap-2 py-4 rounded-lg data-[state=active]:bg-gradient-to-br data-[state=active]:from-pink-100 data-[state=active]:to-rose-100"> {/* Added new tab trigger */}
+          <TabsList className="grid w-full grid-cols-5 h-auto bg-white shadow-md rounded-xl p-1">
+            <TabsTrigger value="overview" className="flex-col gap-2 py-4 rounded-lg data-[state=active]:bg-gradient-to-br data-[state=active]:from-pink-100 data-[state=active]:to-rose-100">
               <Sparkles className="w-5 h-5" />
               <span className="font-semibold">Overview</span>
               <span className="text-xs text-gray-500">Your Journey</span>
             </TabsTrigger>
-            <TabsTrigger value="culture" className="flex-col gap-2 py-4 rounded-lg data-[state=active]:bg-gradient-to-br data-[state=active]:from-purple-100 data-[state=active]:to-pink-100"> {/* Added rounded-lg and gradient for active state */}
+            <TabsTrigger value="culture" className="flex-col gap-2 py-4 rounded-lg data-[state=active]:bg-gradient-to-br data-[state=active]:from-purple-100 data-[state=active]:to-pink-100">
               <Heart className="w-5 h-5" />
               <span className="font-semibold">Culture & Values</span>
               <span className="text-xs text-gray-500">Start Here</span>
             </TabsTrigger>
-            <TabsTrigger value="level1" className="flex-col gap-2 py-4 rounded-lg data-[state=active]:bg-gradient-to-br data-[state=active]:from-blue-100 data-[state=active]:to-cyan-100"> {/* Added rounded-lg and gradient for active state */}
+            <TabsTrigger value="level1" className="flex-col gap-2 py-4 rounded-lg data-[state=active]:bg-gradient-to-br data-[state=active]:from-blue-100 data-[state=active]:to-cyan-100">
               <Star className="w-5 h-5" />
               <span className="font-semibold">Level 1</span>
               <span className="text-xs text-gray-500">Foundation</span>
             </TabsTrigger>
-            <TabsTrigger value="level2" className="flex-col gap-2 py-4 rounded-lg data-[state=active]:bg-gradient-to-br data-[state=active]:from-green-100 data-[state=active]:to-emerald-100"> {/* Added rounded-lg and gradient for active state */}
+            <TabsTrigger value="level2" className="flex-col gap-2 py-4 rounded-lg data-[state=active]:bg-gradient-to-br data-[state=active]:from-green-100 data-[state=active]:to-emerald-100">
               <Target className="w-5 h-5" />
               <span className="font-semibold">Level 2</span>
               <span className="text-xs text-gray-500">Excellence</span>
             </TabsTrigger>
-            <TabsTrigger value="level3" className="flex-col gap-2 py-4 rounded-lg data-[state=active]:bg-gradient-to-br data-[state=active]:from-amber-100 data-[state=active]:to-orange-100"> {/* Added rounded-lg and gradient for active state */}
+            <TabsTrigger value="level3" className="flex-col gap-2 py-4 rounded-lg data-[state=active]:bg-gradient-to-br data-[state=active]:from-amber-100 data-[state=active]:to-orange-100">
               <Trophy className="w-5 h-5" />
               <span className="font-semibold">Level 3</span>
               <span className="text-xs text-gray-500">Leadership</span>
@@ -948,27 +950,27 @@ export default function TrainingAcademy() {
               initial={{ opacity: 0, y: -20 }}
               animate={{ opacity: 1, y: 0 }}
             >
-              <Card className="bg-gradient-to-r from-[#014D40] to-emerald-600 text-white border-none shadow-xl mb-8 overflow-hidden relative"> {/* Updated background and added overflow/relative */}
+              <Card className="bg-gradient-to-r from-[#014D40] to-emerald-600 text-white border-none shadow-xl mb-8 overflow-hidden relative">
                 {/* Decorative circles */}
                 <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -mr-32 -mt-32" />
                 <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/5 rounded-full -ml-24 -mb-24" />
-                <CardContent className="p-8 relative"> {/* Added relative */}
+                <CardContent className="p-8 relative">
                   <div className="flex items-center justify-between flex-wrap gap-6">
                     <div>
                       <h1 className="text-4xl font-bold mb-3 flex items-center gap-3">
                         <GraduationCap className="w-12 h-12" />
                         Training Academy
                       </h1>
-                      <p className="text-xl text-emerald-100 mb-2"> {/* Updated text color */}
+                      <p className="text-xl text-emerald-100 mb-2">
                         Welcome back, {user?.full_name?.split(' ')[0]}! 🌟
                       </p>
-                      <p className="text-emerald-200 italic"> {/* Updated text color and added italic */}
-                        "{randomQuote}" {/* Display random quote */}
+                      <p className="text-emerald-200 italic">
+                        "{randomQuote}"
                       </p>
                     </div>
-                    <div className="text-center bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20"> {/* Added border */}
+                    <div className="text-center bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20">
                       <div className="text-6xl font-bold mb-2">{totalProgress}%</div>
-                      <p className="text-emerald-200">Overall Progress</p> {/* Updated text color */}
+                      <p className="text-emerald-200">Overall Progress</p>
                       <div className="mt-3 flex items-center justify-center gap-2">
                         <Award className="w-5 h-5 text-yellow-300" />
                         <span className="text-yellow-300 font-semibold">{myCertificates.length} Certificates</span>
@@ -981,39 +983,39 @@ export default function TrainingAcademy() {
 
             {/* Stats Cards */}
             <div className="grid md:grid-cols-4 gap-4 mb-8">
-              <Card className="border-l-4 border-l-purple-500 hover:shadow-lg transition-shadow bg-gradient-to-br from-white to-purple-50"> {/* Added gradient bg */}
+              <Card className="border-l-4 border-l-purple-500 hover:shadow-lg transition-shadow bg-gradient-to-br from-white to-purple-50">
                 <CardContent className="p-6">
                   <Heart className="w-8 h-8 text-purple-600 mb-2" />
                   <p className="text-3xl font-bold text-purple-600">{getCategoryProgress('culture')}%</p>
-                  <p className="text-sm text-gray-600 font-medium">Culture Mastery</p> {/* Added font-medium */}
-                  <p className="text-xs text-gray-500 mt-1">{cultureModules.length} modules</p> {/* Added module count */}
+                  <p className="text-sm text-gray-600 font-medium">Culture Mastery</p>
+                  <p className="text-xs text-gray-500 mt-1">{cultureModules.length} modules</p>
                 </CardContent>
               </Card>
 
-              <Card className="border-l-4 border-l-blue-500 hover:shadow-lg transition-shadow bg-gradient-to-br from-white to-blue-50"> {/* Added gradient bg */}
+              <Card className="border-l-4 border-l-blue-500 hover:shadow-lg transition-shadow bg-gradient-to-br from-white to-blue-50">
                 <CardContent className="p-6">
                   <Star className="w-8 h-8 text-blue-600 mb-2" />
                   <p className="text-3xl font-bold text-blue-600">{getCategoryProgress(1)}%</p>
-                  <p className="text-sm text-gray-600 font-medium">Level 1 - Foundation</p> {/* Added font-medium */}
-                  <p className="text-xs text-gray-500 mt-1">{level1Modules.length} modules</p> {/* Added module count */}
+                  <p className="text-sm text-gray-600 font-medium">Level 1 - Foundation</p>
+                  <p className="text-xs text-gray-500 mt-1">{level1Modules.length} modules</p>
                 </CardContent>
               </Card>
 
-              <Card className="border-l-4 border-l-green-500 hover:shadow-lg transition-shadow bg-gradient-to-br from-white to-green-50"> {/* Added gradient bg */}
+              <Card className="border-l-4 border-l-green-500 hover:shadow-lg transition-shadow bg-gradient-to-br from-white to-green-50">
                 <CardContent className="p-6">
                   <Target className="w-8 h-8 text-green-600 mb-2" />
                   <p className="text-3xl font-bold text-green-600">{getCategoryProgress(2)}%</p>
-                  <p className="text-sm text-gray-600 font-medium">Level 2 - Excellence</p> {/* Added font-medium */}
-                  <p className="text-xs text-gray-500 mt-1">{level2Modules.length} modules</p> {/* Added module count */}
+                  <p className="text-sm text-gray-600 font-medium">Level 2 - Excellence</p>
+                  <p className="text-xs text-gray-500 mt-1">{level2Modules.length} modules</p>
                 </CardContent>
               </Card>
 
-              <Card className="border-l-4 border-l-amber-500 hover:shadow-lg transition-shadow bg-gradient-to-br from-white to-amber-50"> {/* Added gradient bg */}
+              <Card className="border-l-4 border-l-amber-500 hover:shadow-lg transition-shadow bg-gradient-to-br from-white to-amber-50">
                 <CardContent className="p-6">
                   <Trophy className="w-8 h-8 text-amber-600 mb-2" />
                   <p className="text-3xl font-bold text-amber-600">{getCategoryProgress(3)}%</p>
-                  <p className="text-sm text-gray-600 font-medium">Level 3 - Mastery</p> {/* Added font-medium */}
-                  <p className="text-xs text-gray-500 mt-1">{level3Modules.length} modules</p> {/* Added module count */}
+                  <p className="text-sm text-gray-600 font-medium">Level 3 - Mastery</p>
+                  <p className="text-xs text-gray-500 mt-1">{level3Modules.length} modules</p>
                 </CardContent>
               </Card>
             </div>
@@ -1027,6 +1029,30 @@ export default function TrainingAcademy() {
                 <p className="text-amber-100 font-semibold">— Tony Robbins</p>
               </CardContent>
             </Card>
+
+            {/* AI Training Creator (Managers Only) */}
+            {isManager && (
+              <div className="mb-6">
+                {showAICreator ? (
+                  <AITrainingPostCreator 
+                    userEmail={user?.email}
+                    userName={user?.full_name}
+                    onPostCreated={() => {
+                      setShowAICreator(false);
+                      queryClient.invalidateQueries({ queryKey: ['trainingPosts'] }); // Invalidate posts to show the new one
+                    }}
+                  />
+                ) : (
+                  <Button
+                    onClick={() => setShowAICreator(true)}
+                    className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 py-6 text-lg"
+                  >
+                    <Sparkles className="w-6 h-6 mr-3" />
+                    Create Training Post with AI
+                  </Button>
+                )}
+              </div>
+            )}
 
             {/* Inspiration & Learning Posts */}
             <Card className="shadow-lg border-2 border-emerald-200">
@@ -1043,7 +1069,7 @@ export default function TrainingAcademy() {
                       size="sm"
                     >
                       <Plus className="w-4 h-4 mr-2" />
-                      Create Post
+                      Manual Post
                     </Button>
                   )}
                 </div>
@@ -1196,7 +1222,7 @@ export default function TrainingAcademy() {
 
             {/* Certificates Section - Always visible */}
             {myCertificates.length > 0 && (
-              <Card className="mt-8 bg-gradient-to-r from-yellow-50 to-amber-50 border-2 border-yellow-300 shadow-xl"> {/* Updated border and shadow */}
+              <Card className="mt-8 bg-gradient-to-r from-yellow-50 to-amber-50 border-2 border-yellow-300 shadow-xl">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2 text-2xl">
                     <Award className="w-7 h-7 text-yellow-600" />
@@ -1211,20 +1237,20 @@ export default function TrainingAcademy() {
                         initial={{ opacity: 0, scale: 0.9 }}
                         animate={{ opacity: 1, scale: 1 }}
                       >
-                        <Card className="border-2 border-yellow-400 hover:shadow-xl transition-shadow bg-gradient-to-br from-white to-yellow-50"> {/* Added gradient bg */}
+                        <Card className="border-2 border-yellow-400 hover:shadow-xl transition-shadow bg-gradient-to-br from-white to-yellow-50">
                           <CardContent className="p-6 text-center">
                             <Trophy className="w-12 h-12 text-yellow-600 mx-auto mb-3" />
                             <h4 className="font-semibold text-gray-900 mb-2">{cert.title}</h4>
                             <p className="text-xs text-gray-600 mb-1">{cert.description}</p>
                             <p className="text-xs text-gray-500 mb-3">
-                              Issued: {format(new Date(cert.issued_date), 'MMM d, yyyy')} {/* Changed text */}
+                              Issued: {format(new Date(cert.issued_date), 'MMM d, yyyy')}
                             </p>
                             {cert.points_awarded > 0 && (
-                              <Badge className="bg-green-100 text-green-800 mb-2"> {/* Changed mb-3 to mb-2 */}
-                                +{cert.points_awarded} XP {/* Changed text */}
+                              <Badge className="bg-green-100 text-green-800 mb-2">
+                                +{cert.points_awarded} XP
                               </Badge>
                             )}
-                            {cert.badge_earned && ( // Conditionally render badge_earned
+                            {cert.badge_earned && (
                               <Badge className="bg-purple-100 text-purple-800 mb-3 block">
                                 {cert.badge_earned}
                               </Badge>
@@ -1504,7 +1530,7 @@ export default function TrainingAcademy() {
                   <Star className="w-16 h-16 flex-shrink-0" />
                   <div className="flex-1">
                     <h3 className="text-3xl font-bold mb-3">Level 1: Foundation Training</h3>
-                    <p className="text-blue-100 text-lg mb-2 font-semibold"> {/* Changed mb-4 to mb-2 and added font-semibold */}
+                    <p className="text-blue-100 text-lg mb-2 font-semibold">
                       "Master the Essentials"
                     </p>
                     <p className="text-blue-50 mb-6">
@@ -1512,7 +1538,7 @@ export default function TrainingAcademy() {
                       These are the non-negotiables for every team member.
                     </p>
                     <div className="flex items-center gap-4">
-                      <Progress value={getCategoryProgress(1)} className="flex-1 bg-blue-300 h-3" /> {/* Added h-3 */}
+                      <Progress value={getCategoryProgress(1)} className="flex-1 bg-blue-300 h-3" />
                       <span className="font-bold text-2xl">{getCategoryProgress(1)}%</span>
                     </div>
                   </div>
@@ -1552,7 +1578,7 @@ export default function TrainingAcademy() {
                   <Target className="w-16 h-16 flex-shrink-0" />
                   <div className="flex-1">
                     <h3 className="text-3xl font-bold mb-3">Level 2: Excellence in Action</h3>
-                    <p className="text-green-100 text-lg mb-2 font-semibold"> {/* Changed mb-4 to mb-2 and added font-semibold */}
+                    <p className="text-green-100 text-lg mb-2 font-semibold">
                       "Serve with Precision & Pride"
                     </p>
                     <p className="text-green-50 mb-6">
@@ -1560,7 +1586,7 @@ export default function TrainingAcademy() {
                       This is where good becomes great.
                     </p>
                     <div className="flex items-center gap-4">
-                      <Progress value={getCategoryProgress(2)} className="flex-1 bg-green-300 h-3" /> {/* Added h-3 */}
+                      <Progress value={getCategoryProgress(2)} className="flex-1 bg-green-300 h-3" />
                       <span className="font-bold text-2xl">{getCategoryProgress(2)}%</span>
                     </div>
                   </div>
@@ -1600,7 +1626,7 @@ export default function TrainingAcademy() {
                   <Trophy className="w-16 h-16 flex-shrink-0" />
                   <div className="flex-1">
                     <h3 className="text-3xl font-bold mb-3">Level 3: Leadership & Growth</h3>
-                    <p className="text-amber-100 text-lg mb-2 font-semibold"> {/* Changed mb-4 to mb-2 and added font-semibold */}
+                    <p className="text-amber-100 text-lg mb-2 font-semibold">
                       "Lead → Inspire → Grow"
                     </p>
                     <p className="text-amber-50 mb-6">
@@ -1608,7 +1634,7 @@ export default function TrainingAcademy() {
                       Become a mentor who creates more Craving Fans - both customers and team members.
                     </p>
                     <div className="flex items-center gap-4">
-                      <Progress value={getCategoryProgress(3)} className="flex-1 bg-amber-300 h-3" /> {/* Added h-3 */}
+                      <Progress value={getCategoryProgress(3)} className="flex-1 bg-amber-300 h-3" />
                       <span className="font-bold text-2xl">{getCategoryProgress(3)}%</span>
                     </div>
                   </div>
@@ -1647,7 +1673,7 @@ export default function TrainingAcademy() {
           <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle className="text-2xl flex items-center gap-2">
-                <GraduationCap className="w-6 h-6 text-[#014D40]" /> {/* Updated text color */}
+                <GraduationCap className="w-6 h-6 text-[#014D40]" />
                 {selectedModule?.title}
               </DialogTitle>
             </DialogHeader>
@@ -1660,17 +1686,17 @@ export default function TrainingAcademy() {
                       {selectedModule.duration_minutes} minutes
                     </Badge>
                   )}
-                  <Badge className="bg-purple-100 text-purple-800 capitalize"> {/* Added capitalize */}
+                  <Badge className="bg-purple-100 text-purple-800 capitalize">
                     {selectedModule.category?.replace('_', ' ')}
                   </Badge>
                   {selectedModule.level && (
-                    <Badge className="bg-[#014D40] text-white"> {/* Updated background and text color */}
+                    <Badge className="bg-[#014D40] text-white">
                       Level {selectedModule.level}
                     </Badge>
                   )}
                 </div>
 
-                <Card className="bg-gradient-to-r from-green-50 to-emerald-50 border-green-200"> {/* Added Card wrapper and new styles */}
+                <Card className="bg-gradient-to-r from-green-50 to-emerald-50 border-green-200">
                   <CardContent className="p-4">
                     <p className="text-gray-800 text-lg leading-relaxed">{selectedModule.description}</p>
                   </CardContent>
@@ -1699,10 +1725,10 @@ export default function TrainingAcademy() {
                 {selectedModule.content_text && (
                   <div>
                     <h3 className="font-semibold text-lg mb-3 flex items-center gap-2">
-                      <FileText className="w-5 h-5 text-[#014D40]" /> {/* Updated text color */}
+                      <FileText className="w-5 h-5 text-[#014D40]" />
                       Course Material
                     </h3>
-                    <Card className="bg-gradient-to-br from-gray-50 to-white border-gray-200"> {/* Updated Card styles */}
+                    <Card className="bg-gradient-to-br from-gray-50 to-white border-gray-200">
                       <CardContent className="p-6">
                         <div className="whitespace-pre-wrap text-gray-800 leading-relaxed">
                           {selectedModule.content_text}
@@ -1716,14 +1742,14 @@ export default function TrainingAcademy() {
                   <div>
                     <h3 className="font-semibold text-lg mb-3 flex items-center gap-2">
                       <BookOpen className="w-5 h-5 text-green-600" />
-                      Related Procedures {/* Changed text */}
+                      Related Procedures
                     </h3>
                     <div className="flex flex-wrap gap-2">
                       {selectedModule.linked_sop_ids.map(sopId => (
                         <Link key={sopId} to={createPageUrl(`SOPViewer?id=${sopId}`)}>
-                          <Button variant="outline" size="sm" className="bg-green-50"> {/* Added bg-green-50 */}
+                          <Button variant="outline" size="sm" className="bg-green-50">
                             <BookOpen className="w-4 h-4 mr-2" />
-                            View SOP for this Recipe {/* Changed text */}
+                            View SOP for this Recipe
                           </Button>
                         </Link>
                       ))}
@@ -1734,7 +1760,7 @@ export default function TrainingAcademy() {
                 {selectedModule.quiz_questions?.length > 0 && (
                   <Button
                     onClick={() => setShowQuiz(true)}
-                    className="w-full bg-gradient-to-r from-[#014D40] to-emerald-600 hover:from-[#013830] hover:to-emerald-700 py-6 text-lg shadow-lg" // Updated colors and added shadow
+                    className="w-full bg-gradient-to-r from-[#014D40] to-emerald-600 hover:from-[#013830] hover:to-emerald-700 py-6 text-lg shadow-lg"
                   >
                     <Sparkles className="w-5 h-5 mr-2" />
                     Take Knowledge Check ({selectedModule.quiz_questions.length} questions)
@@ -2307,48 +2333,48 @@ Example:
           <DialogContent className="max-w-md">
             <DialogHeader>
               <DialogTitle className="text-2xl flex items-center gap-2">
-                <RefreshCw className="w-6 h-6 text-orange-600" /> {/* Changed icon to RefreshCw */}
+                <RefreshCw className="w-6 h-6 text-orange-600" />
                 Reset Training Progress?
               </DialogTitle>
             </DialogHeader>
             <div className="space-y-4 mt-4">
-              <Card className="bg-blue-50 border-blue-300 border-2"> {/* Added border-2 */}
+              <Card className="bg-blue-50 border-blue-300 border-2">
                 <CardContent className="p-4">
-                  <p className="text-sm text-blue-900 font-bold mb-2"> {/* Added font-bold and mb-2 */}
+                  <p className="text-sm text-blue-900 font-bold mb-2">
                     ✅ What will be SAVED:
                   </p>
                   <ul className="text-sm text-blue-800 space-y-1">
-                    <li>• <strong>All {myCertificates.length} certificates</strong> you earned</li> {/* Updated text with count and strong */}
-                    <li>• Your performance points and XP</li> {/* Added XP */}
+                    <li>• <strong>All {myCertificates.length} certificates</strong> you earned</li>
+                    <li>• Your performance points and XP</li>
                     <li>• Your badges and achievements</li>
-                    <li>• Historical completion records</li> {/* New item */}
+                    <li>• Historical completion records</li>
                   </ul>
                 </CardContent>
               </Card>
 
-              <Card className="bg-orange-50 border-orange-300 border-2"> {/* Added border-2 */}
+              <Card className="bg-orange-50 border-orange-300 border-2">
                 <CardContent className="p-4">
-                  <p className="text-sm text-orange-900 font-bold mb-2"> {/* Added font-bold and mb-2 */}
+                  <p className="text-sm text-orange-900 font-bold mb-2">
                     🔄 What will be RESET:
                   </p>
                   <ul className="text-sm text-orange-800 space-y-1">
                     <li>• Module completion status</li>
-                    <li>• Quiz scores (retake for improvement)</li> {/* Added context */}
+                    <li>• Quiz scores (retake for improvement)</li>
                     <li>• Progress percentages</li>
-                    <li>• Reflection notes</li> {/* New item */}
+                    <li>• Reflection notes</li>
                   </ul>
                 </CardContent>
               </Card>
 
-              <Card className="bg-gradient-to-r from-purple-100 to-pink-100 border-purple-300"> {/* Updated card styles */}
+              <Card className="bg-gradient-to-r from-purple-100 to-pink-100 border-purple-300">
                 <CardContent className="p-4 text-center">
-                  <p className="text-sm text-purple-900 font-semibold"> {/* Added font-semibold */}
-                    💡 Perfect for refreshing knowledge, improving scores, or retraining! {/* Updated text */}
+                  <p className="text-sm text-purple-900 font-semibold">
+                    💡 Perfect for refreshing knowledge, improving scores, or retraining!
                   </p>
                 </CardContent>
               </Card>
 
-              <div className="flex justify-end gap-3 pt-4 border-t"> {/* Added border-t and pt-4 */}
+              <div className="flex justify-end gap-3 pt-4 border-t">
                 <Button
                   variant="outline"
                   onClick={() => setShowResetDialog(false)}
@@ -2358,17 +2384,17 @@ Example:
                 <Button
                   onClick={confirmReset}
                   disabled={resetProgressMutation.isPending}
-                  className="bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white shadow-lg" // Updated colors and added shadow
+                  className="bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white shadow-lg"
                 >
                   {resetProgressMutation.isPending ? (
                     <>
-                      <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> {/* Spinner for pending state */}
+                      <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
                       Resetting...
                     </>
                   ) : (
                     <>
-                      <CheckCircle className="w-4 h-4 mr-2" /> {/* CheckCircle for ready state */}
-                      Yes, Reset & Start Fresh {/* Changed text */}
+                      <CheckCircle className="w-4 h-4 mr-2" />
+                      Yes, Reset & Start Fresh
                     </>
                   )}
                 </Button>
@@ -2573,9 +2599,9 @@ function ModuleCard({ module, progress, isUnlocked, isCompleted, onStart, index 
       transition={{ delay: index * 0.1 }}
     >
       <Card className={`${
-        isCompleted ? 'border-green-500 border-2 bg-gradient-to-br from-green-50 to-emerald-50' : // Updated styles for completed
-        !isUnlocked ? 'border-gray-300 bg-gray-50/50 opacity-75' : // Updated styles for unlocked
-        'bg-white border-2 border-blue-200' // Updated border-2
+        isCompleted ? 'border-green-500 border-2 bg-gradient-to-br from-green-50 to-emerald-50' :
+        !isUnlocked ? 'border-gray-300 bg-gray-50/50 opacity-75' :
+        'bg-white border-2 border-blue-200'
       } hover:shadow-xl transition-all relative`}>
         
         {isManager && (
@@ -2596,8 +2622,8 @@ function ModuleCard({ module, progress, isUnlocked, isCompleted, onStart, index 
           <div className="flex items-start gap-4">
             <div className={`w-14 h-14 rounded-xl flex items-center justify-center flex-shrink-0 shadow-lg ${
               isCompleted ? 'bg-gradient-to-br from-green-500 to-green-600' :
-              !isUnlocked ? 'bg-gray-400' : // Updated background color for locked
-              'bg-gradient-to-br from-[#014D40] to-emerald-600' // Updated background color
+              !isUnlocked ? 'bg-gray-400' :
+              'bg-gradient-to-br from-[#014D40] to-emerald-600'
             }`}>
               {isCompleted ? (
                 <CheckCircle className="w-7 h-7 text-white" />
@@ -2624,7 +2650,7 @@ function ModuleCard({ module, progress, isUnlocked, isCompleted, onStart, index 
                     {module.content_type.replace('_', ' ')}
                   </Badge>
                 )}
-                {module.is_mandatory && ( // New mandatory badge
+                {module.is_mandatory && (
                   <Badge className="bg-red-100 text-red-800 text-xs">
                     Mandatory
                   </Badge>
@@ -2639,7 +2665,7 @@ function ModuleCard({ module, progress, isUnlocked, isCompleted, onStart, index 
               {isUnlocked && !isCompleted && (
                 <Button
                   onClick={onStart}
-                  className="w-full bg-gradient-to-r from-[#014D40] to-emerald-600 hover:from-[#013830] hover:to-emerald-700 shadow-md" // Updated colors and added shadow
+                  className="w-full bg-gradient-to-r from-[#014D40] to-emerald-600 hover:from-[#013830] hover:to-emerald-700 shadow-md"
                 >
                   <Play className="w-4 h-4 mr-2" />
                   {progress?.status === 'in_progress' ? 'Continue Learning' : 'Start Module'}
@@ -2647,14 +2673,14 @@ function ModuleCard({ module, progress, isUnlocked, isCompleted, onStart, index 
               )}
 
               {isCompleted && progress?.completed_at && (
-                <div className="flex items-center gap-2 text-sm text-green-700 bg-green-50 px-3 py-2 rounded-lg font-medium border border-green-200"> {/* Added border */}
+                <div className="flex items-center gap-2 text-sm text-green-700 bg-green-50 px-3 py-2 rounded-lg font-medium border border-green-200">
                   <CheckCircle className="w-4 h-4" />
                   Completed {format(new Date(progress.completed_at), 'MMM d, yyyy')}
                 </div>
               )}
 
               {!isUnlocked && (
-                <div className="flex items-center gap-2 text-sm text-gray-500 bg-gray-100 px-3 py-2 rounded-lg border border-gray-200"> {/* Added border */}
+                <div className="flex items-center gap-2 text-sm text-gray-500 bg-gray-100 px-3 py-2 rounded-lg border border-gray-200">
                   <Lock className="w-4 h-4" />
                   Complete prerequisites to unlock
                 </div>
