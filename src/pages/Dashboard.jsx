@@ -112,7 +112,7 @@ export default function Dashboard() {
       <div className="max-w-7xl mx-auto">
 
         {/* Welcome Header */}
-        <div className="mb-8">
+        <div className="mb-8 animate-fade-in">
           <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-2">
             Welcome back, {user?.full_name || 'User'}! 👋
           </h1>
@@ -123,56 +123,60 @@ export default function Dashboard() {
 
         {/* Active Shift Banner */}
         {activeShift && (
-          <Card className="mb-6 bg-gradient-to-r from-emerald-500 to-teal-600 text-white border-none shadow-lg">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="flex items-center gap-2 mb-2">
-                    <Clock className="w-5 h-5" />
-                    <span className="font-semibold text-lg">Currently Clocked In</span>
+          <div className="mb-6 animate-card-in card-hover">
+            <Card className="bg-gradient-to-r from-emerald-500 to-teal-600 text-white border-none shadow-lg">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="flex items-center gap-2 mb-2">
+                      <Clock className="w-5 h-5" />
+                      <span className="font-semibold text-lg">Currently Clocked In</span>
+                    </div>
+                    <p className="text-emerald-50">
+                      {activeShift.role} • {activeShift.start_time} - {activeShift.end_time}
+                    </p>
                   </div>
-                  <p className="text-emerald-50">
-                    {activeShift.role} • {activeShift.start_time} - {activeShift.end_time}
-                  </p>
+                  <Link to={createPageUrl('ClockInOut')}>
+                    <Button variant="secondary" size="lg">
+                      Clock Out
+                    </Button>
+                  </Link>
                 </div>
-                <Link to={createPageUrl('ClockInOut')}>
-                  <Button variant="secondary" size="lg">
-                    Clock Out
-                  </Button>
-                </Link>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          </div>
         )}
 
         {/* Today's Shift (if not clocked in yet) */}
         {!activeShift && todayShift && (
-          <Card className="mb-6 bg-gradient-to-r from-blue-500 to-blue-600 text-white border-none shadow-lg">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="flex items-center gap-2 mb-2">
-                    <Calendar className="w-5 h-5" />
-                    <span className="font-semibold text-lg">Your Shift Today</span>
+          <div className="mb-6 animate-card-in card-hover">
+            <Card className="bg-gradient-to-r from-blue-500 to-blue-600 text-white border-none shadow-lg">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="flex items-center gap-2 mb-2">
+                      <Calendar className="w-5 h-5" />
+                      <span className="font-semibold text-lg">Your Shift Today</span>
+                    </div>
+                    <p className="text-blue-50">
+                      {todayShift.role} • {todayShift.start_time} - {todayShift.end_time}
+                    </p>
                   </div>
-                  <p className="text-blue-50">
-                    {todayShift.role} • {todayShift.start_time} - {todayShift.end_time}
-                  </p>
+                  <Link to={createPageUrl('ClockInOut')}>
+                    <Button variant="secondary" size="lg">
+                      Clock In
+                    </Button>
+                  </Link>
                 </div>
-                <Link to={createPageUrl('ClockInOut')}>
-                  <Button variant="secondary" size="lg">
-                    Clock In
-                  </Button>
-                </Link>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          </div>
         )}
 
         {/* AI Tools Quick Access - Managers Only */}
         {isManager && (
-          <div className="mb-6"> {/* Changed px-6 pb-4 to mb-6 for consistent spacing */}
-            <Card className="bg-gradient-to-r from-purple-500 to-pink-600 border-none shadow-xl">
+          <div className="mb-6 animate-card-in"> {/* Changed px-6 pb-4 to mb-6 for consistent spacing */}
+            <Card className="bg-gradient-to-r from-purple-500 to-pink-600 border-none shadow-xl card-hover">
               <CardContent className="p-6">
                 <h3 className="text-white text-lg font-bold mb-4 flex items-center gap-2">
                   <Sparkles className="w-5 h-5" />
@@ -208,7 +212,7 @@ export default function Dashboard() {
           
           {/* My Tasks - Everyone */}
           <Link to={createPageUrl('MyTasks')}>
-            <Card className="bg-white border-none shadow-sm hover:shadow-lg transition-all cursor-pointer">
+            <Card className="bg-white border-none shadow-sm hover:shadow-lg transition-all cursor-pointer card-hover">
               <CardHeader className="pb-3">
                 <CardTitle className="text-sm font-medium text-gray-600 flex items-center gap-2">
                   <CheckCircle className="w-4 h-4 text-blue-600" />
@@ -226,7 +230,7 @@ export default function Dashboard() {
 
           {/* My Forms - Everyone */}
           <Link to={createPageUrl('FormLibrary')}>
-            <Card className="bg-white border-none shadow-sm hover:shadow-lg transition-all cursor-pointer">
+            <Card className="bg-white border-none shadow-sm hover:shadow-lg transition-all cursor-pointer card-hover">
               <CardHeader className="pb-3">
                 <CardTitle className="text-sm font-medium text-gray-600 flex items-center gap-2">
                   <FileText className="w-4 h-4 text-purple-600" />
@@ -244,7 +248,7 @@ export default function Dashboard() {
 
           {/* My Shifts - Everyone */}
           <Link to={createPageUrl('MyShifts')}>
-            <Card className="bg-white border-none shadow-sm hover:shadow-lg transition-all cursor-pointer">
+            <Card className="bg-white border-none shadow-sm hover:shadow-lg transition-all cursor-pointer card-hover">
               <CardHeader className="pb-3">
                 <CardTitle className="text-sm font-medium text-gray-600 flex items-center gap-2">
                   <Calendar className="w-4 h-4 text-emerald-600" />
@@ -263,7 +267,7 @@ export default function Dashboard() {
           {/* Manager: Staff on Duty - ONLY FOR MANAGERS */}
           {isManager && (
             <Link to={createPageUrl('StaffRota')}>
-              <Card className="bg-white border-none shadow-sm hover:shadow-lg transition-all cursor-pointer">
+              <Card className="bg-white border-none shadow-sm hover:shadow-lg transition-all cursor-pointer card-hover">
                 <CardHeader className="pb-3">
                   <CardTitle className="text-sm font-medium text-gray-600 flex items-center gap-2">
                     <Users className="w-4 h-4 text-amber-600" />
@@ -283,7 +287,7 @@ export default function Dashboard() {
           {/* Manager: Low Stock */}
           {isManager && (
             <Link to={createPageUrl('InventoryDashboard')}>
-              <Card className="bg-white border-none shadow-sm hover:shadow-lg transition-all cursor-pointer">
+              <Card className="bg-white border-none shadow-sm hover:shadow-lg transition-all cursor-pointer card-hover">
                 <CardHeader className="pb-3">
                   <CardTitle className="text-sm font-medium text-gray-600 flex items-center gap-2">
                     <Package className="w-4 h-4 text-red-600" />
@@ -302,7 +306,7 @@ export default function Dashboard() {
         </div>
 
         {/* Role-Specific Quick Actions */}
-        <Card className="bg-white border-none shadow-sm mb-8">
+        <Card className="bg-white border-none shadow-sm mb-8 card-hover">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Zap className="w-5 h-5 text-blue-600" />
@@ -421,7 +425,7 @@ export default function Dashboard() {
 
         {/* My Priorities Today */}
         {(myTasks.length > 0 || myForms.length > 0) && (
-          <Card className="bg-white border-none shadow-sm mb-8">
+          <Card className="bg-white border-none shadow-sm mb-8 card-hover">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <AlertTriangle className="w-5 h-5 text-amber-600" />
@@ -432,7 +436,7 @@ export default function Dashboard() {
               <div className="space-y-3">
                 {/* Tasks */}
                 {myTasks.slice(0, 3).map((task) => (
-                  <div key={task.id} className="flex items-center justify-between p-3 bg-blue-50 rounded-lg border border-blue-200">
+                  <div key={task.id} className="flex items-center justify-between p-3 bg-blue-50 rounded-lg border border-blue-200 hover:shadow-md transition-all">
                     <div className="flex items-center gap-3">
                       <CheckCircle className="w-5 h-5 text-blue-600" />
                       <div>
@@ -446,7 +450,7 @@ export default function Dashboard() {
 
                 {/* Forms */}
                 {myForms.slice(0, 3).map((form) => (
-                  <div key={form.id} className="flex items-center justify-between p-3 bg-purple-50 rounded-lg border border-purple-200">
+                  <div key={form.id} className="flex items-center justify-between p-3 bg-purple-50 rounded-lg border border-purple-200 hover:shadow-md transition-all">
                     <div className="flex items-center gap-3">
                       <FileText className="w-5 h-5 text-purple-600" />
                       <div>
@@ -475,7 +479,7 @@ export default function Dashboard() {
         )}
 
         {/* Recent Activity Feed */}
-        <Card className="bg-white border-none shadow-sm">
+        <Card className="bg-white border-none shadow-sm card-hover">
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="flex items-center gap-2">
               <Activity className="w-5 h-5 text-blue-600" />
@@ -492,7 +496,7 @@ export default function Dashboard() {
             ) : (
               <div className="space-y-3">
                 {recentActivities.map((activity) => (
-                  <div key={activity.id} className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg border border-gray-200 hover:shadow-md transition-shadow">
+                  <div key={activity.id} className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg border border-gray-200 hover:shadow-md transition-all">
                     <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
                       <Activity className="w-4 h-4 text-blue-600" />
                     </div>
