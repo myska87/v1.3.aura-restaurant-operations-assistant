@@ -127,6 +127,7 @@ function VoiceSearch({ onClose, navigate }) {
       'chat': 'TeamChat',
       'inventory': 'InventoryDashboard',
       'stock': 'InventoryDashboard',
+      'asset manager': 'AssetManager', // Added for voice search
       'menu': 'Menu',
       'quality': 'QualityDashboard',
       'sop': 'SOPDashboardHub',
@@ -228,6 +229,7 @@ const getRoleNavigation = (user, impersonatedRole = null) => {
       { title: "Staff", url: createPageUrl("StaffDashboard"), icon: Users },
       { title: "Training Academy", url: createPageUrl("TrainingAcademy"), icon: GraduationCap },
       { title: "Inventory", url: createPageUrl("InventoryDashboard"), icon: Package },
+      { title: "Asset Manager", url: createPageUrl("AssetManager"), icon: Settings }, // ADDED
       { title: "Quality Control", url: createPageUrl("QualityControl"), icon: Star },
       { title: "AI Scheduler", url: createPageUrl("AIRotaGenerator"), icon: Sparkles }, // Changed order, added AI Scheduler
       { title: "Reports", url: createPageUrl("Reports"), icon: BarChart3 },
@@ -299,6 +301,7 @@ const ALL_PAGES = [
   { name: "Clock In/Out", url: createPageUrl("ClockInOut"), keywords: "attendance time tracking", category: "Staff" },
   { name: "AI Rota Generator", url: createPageUrl("AIRotaGenerator"), keywords: "ai schedule automation smart rota scheduler", category: "AI Tools" }, // Category changed, keywords updated
   { name: "Inventory Hub", url: createPageUrl("InventoryDashboard"), keywords: "stock supplies ordering", category: "Inventory" },
+  { name: "Asset Manager", url: createPageUrl("AssetManager"), keywords: "equipment maintenance service tracking assets", category: "Inventory" }, // ADDED
   { name: "SOP Hub", url: createPageUrl("SOPDashboardHub"), keywords: "procedures training guides", category: "SOPs" },
   { name: "Quality Control", url: createPageUrl("QualityControl"), keywords: "quality inspections audits scores eho", category: "Quality" }, // Keywords updated
   { name: "Quality & Audit Hub", url: createPageUrl("QualityAuditHub"), keywords: "quality checks audits standards detailed", category: "Quality" }, // Keywords updated

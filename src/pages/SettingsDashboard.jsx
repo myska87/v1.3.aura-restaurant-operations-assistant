@@ -1,10 +1,11 @@
 import React from 'react';
-import { Settings, Users, Database, Shield, Lock } from 'lucide-react';
+import { Settings, Users, Database, Shield, Lock, Package } from 'lucide-react';
 import DashboardTabsLayout from '../components/DashboardTabsLayout';
 import UserManagement from './UserManagement';
 import DataManagement from './DataManagement';
 import SystemProtection from './SystemProtection';
 import RolePermissionsCenter from './RolePermissionsCenter';
+import AssetManager from './AssetManager';
 
 export default function SettingsDashboard() {
   const tabs = [
@@ -19,6 +20,12 @@ export default function SettingsDashboard() {
       label: 'Role Permissions',
       icon: Lock,
       component: <RolePermissionsCenter />,
+    },
+    {
+      value: 'assets',
+      label: 'Asset Manager',
+      icon: Package,
+      component: <AssetManager />,
     },
     {
       value: 'data',
@@ -41,7 +48,7 @@ export default function SettingsDashboard() {
       icon={Settings}
       tabs={tabs}
       defaultTab="users"
-      helpText="Manage users, permissions, data, and system security settings."
+      helpText="Manage users, permissions, assets, data, and system security settings."
     />
   );
 }
