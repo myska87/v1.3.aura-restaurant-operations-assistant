@@ -38,7 +38,7 @@ import {
   Sparkles,
   Calendar,
   Home,
-  Loader2 // Added Loader2 for loading state
+  Loader2
 } from 'lucide-react';
 import { format, formatDistanceToNow } from 'date-fns';
 import { Link, useNavigate } from 'react-router-dom';
@@ -80,32 +80,36 @@ export default function MeetingDashboard() {
     },
     onSuccess: async () => { // Modified: newMeeting parameter removed
       queryClient.invalidateQueries({ queryKey: ['meetingRecordings'] }); // Updated query key
-      setShowRecorderDialog(false);
-      // Processing initiation is moved to handleRecordingComplete
+      // Processing initiation is moved to handleRecordingComplete, so dialog closing is handled there too.
     },
   });
 
   const handleRecordingComplete = async ({ audio_url, audio_duration }) => {
-    const meetingData = {
-      title: `Team Meeting - ${format(new Date(), 'MMM d, yyyy h:mm a')}`,
-      meeting_type: 'team_briefing',
-      audio_url,
-      audio_duration,
-      meeting_date: new Date().toISOString(),
-      created_by: user?.email,
-      created_by_name: user?.full_name,
-      status: 'processing',
-      processing_progress: 0,
-      department: user?.department || 'general'
-    };
-
-    const newMeeting = await createMeetingMutation.mutateAsync(meetingData); // Modified: Store the result
-
-    // Start processing immediately
     try {
+      const meetingData = {
+        title: `Team Meeting - ${format(new Date(), 'MMM d, yyyy h:mm a')}`,
+        meeting_type: 'team_briefing',
+        audio_url,
+        audio_duration,
+        meeting_date: new Date().toISOString(),
+        created_by: user?.email,
+        created_by_name: user?.full_name,
+        status: 'processing',
+        processing_progress: 0,
+        department: user?.department || 'general'
+      };
+
+      const newMeeting = await createMeetingMutation.mutateAsync(meetingData); // Modified: Store the result
+
+      // Start processing immediately
       await MeetingTranscriptionProcessor.processMeeting(newMeeting.id);
+      
+      // Stay on dashboard after upload
+      setShowRecorderDialog(false);
+      
     } catch (error) {
-      console.error('Processing error:', error);
+      console.error('Recording error:', error);
+      alert('❌ Failed to save recording. Please try again.');
     }
   };
 
