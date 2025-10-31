@@ -47,10 +47,11 @@ import {
   Pencil, // Added Pencil icon
   Save, // Added Save icon
   Trash2, // Added Trash2 icon
+  Upload, Image as ImageIcon, Check, Eye, X, Pin
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
-import { format } from 'date-fns';
+import { format, formatDistanceToNow } from 'date-fns';
 import { motion } from 'framer-motion';
 
 // New Motivational Quotes Array
@@ -144,6 +145,7 @@ const REFLECTION_PROMPTS = [
 
 export default function TrainingAcademy() {
   const queryClient = useQueryClient();
+  const [activeTab, setActiveTab] = useState('overview');
   const [selectedModule, setSelectedModule] = useState(null);
   const [showQuiz, setShowQuiz] = useState(false);
   const [quizAnswers, setQuizAnswers] = useState({});
@@ -184,6 +186,18 @@ export default function TrainingAcademy() {
     correct_answer: 0,
   });
 
+  const [showPostForm, setShowPostForm] = useState(false);
+  const [uploadingMedia, setUploadingMedia] = useState(false);
+  const [postFormData, setPostFormData] = useState({
+    title: '',
+    content: '',
+    post_type: 'inspiration',
+    category: 'culture',
+    photo_urls: [],
+    video_url: '',
+    requires_acknowledgment: true,
+  });
+
 
   const { data: user } = useQuery({
     queryKey: ['currentUser'],
@@ -207,6 +221,11 @@ export default function TrainingAcademy() {
     queryKey: ['certificates', user?.email],
     queryFn: () => base44.entities.Certificate.filter({ staff_email: user?.email }),
     enabled: !!user?.email,
+  });
+
+  const { data: trainingPosts = [] } = useQuery({
+    queryKey: ['trainingPosts'],
+    queryFn: () => base44.entities.TrainingPost.list('-created_date'),
   });
 
   const updateProgressMutation = useMutation({
@@ -292,6 +311,46 @@ export default function TrainingAcademy() {
     },
   });
 
+  const createPostMutation = useMutation({
+    mutationFn: (data) => base44.entities.TrainingPost.create(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['trainingPosts'] });
+      setShowPostForm(false);
+      resetPostForm();
+      alert('✅ Post created successfully!');
+    },
+  });
+
+  const acknowledgePostMutation = useMutation({
+    mutationFn: async ({ postId, currentAcknowledgments }) => {
+      const newAcknowledgment = {
+        staff_email: user.email,
+        staff_name: user.full_name,
+        acknowledged_at: new Date().toISOString(),
+      };
+
+      const updatedAcknowledgments = [...(currentAcknowledgments || []), newAcknowledgment];
+
+      await base44.entities.TrainingPost.update(postId, {
+        acknowledged_by: updatedAcknowledgments,
+        total_acknowledgments: updatedAcknowledgments.length,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['trainingPosts'] });
+    },
+  });
+
+  const likePostMutation = useMutation({
+    mutationFn: ({ postId, currentLikes }) => 
+      base44.entities.TrainingPost.update(postId, {
+        likes_count: currentLikes + 1,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['trainingPosts'] });
+    },
+  });
+
   const resetModuleForm = useCallback(() => {
     setModuleForm({
       title: '',
@@ -315,6 +374,18 @@ export default function TrainingAcademy() {
       correct_answer: 0,
     });
   }, [trainingModules]);
+
+  const resetPostForm = () => {
+    setPostFormData({
+      title: '',
+      content: '',
+      post_type: 'inspiration',
+      category: 'culture',
+      photo_urls: [],
+      video_url: '',
+      requires_acknowledgment: true,
+    });
+  };
 
   const handleEditModule = useCallback((module) => {
     setEditingModule(module);
@@ -396,6 +467,53 @@ export default function TrainingAcademy() {
       });
     }
   };
+
+  const handlePhotoUpload = async (e) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+
+    setUploadingMedia(true);
+    const uploadedUrls = [];
+
+    for (const file of files) {
+      const { file_url } = await base44.integrations.Core.UploadFile({ file });
+      uploadedUrls.push(file_url);
+    }
+
+    setPostFormData(prev => ({
+      ...prev,
+      photo_urls: [...prev.photo_urls, ...uploadedUrls]
+    }));
+    setUploadingMedia(false);
+  };
+
+  const handleVideoUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadingMedia(true);
+    const { file_url } = await base44.integrations.Core.UploadFile({ file });
+    setPostFormData(prev => ({
+      ...prev,
+      video_url: file_url
+    }));
+    setUploadingMedia(false);
+  };
+
+  const handleCreatePost = (e) => {
+    e.preventDefault();
+    createPostMutation.mutate({
+      ...postFormData,
+      author_email: user?.email,
+      author_name: user?.full_name,
+      media_type: postFormData.photo_urls.length > 0 && postFormData.video_url ? 'both' : postFormData.photo_urls.length > 0 ? 'photo' : postFormData.video_url ? 'video' : 'none',
+    });
+  };
+
+  const hasAcknowledged = (post) => {
+    return post.acknowledged_by?.some(ack => ack.staff_email === user?.email);
+  };
+
 
   useEffect(() => {
     const handleEditRequest = (event) => {
@@ -794,84 +912,14 @@ export default function TrainingAcademy() {
           </Button>
         </div>
 
-        {/* Hero Header */}
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-        >
-          <Card className="bg-gradient-to-r from-[#014D40] to-emerald-600 text-white border-none shadow-xl mb-8 overflow-hidden relative"> {/* Updated background and added overflow/relative */}
-            {/* Decorative circles */}
-            <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -mr-32 -mt-32" />
-            <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/5 rounded-full -ml-24 -mb-24" />
-            <CardContent className="p-8 relative"> {/* Added relative */}
-              <div className="flex items-center justify-between flex-wrap gap-6">
-                <div>
-                  <h1 className="text-4xl font-bold mb-3 flex items-center gap-3">
-                    <GraduationCap className="w-12 h-12" />
-                    Training Academy
-                  </h1>
-                  <p className="text-xl text-emerald-100 mb-2"> {/* Updated text color */}
-                    Welcome back, {user?.full_name?.split(' ')[0]}! 🌟
-                  </p>
-                  <p className="text-emerald-200 italic"> {/* Updated text color and added italic */}
-                    "{randomQuote}" {/* Display random quote */}
-                  </p>
-                </div>
-                <div className="text-center bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20"> {/* Added border */}
-                  <div className="text-6xl font-bold mb-2">{totalProgress}%</div>
-                  <p className="text-emerald-200">Overall Progress</p> {/* Updated text color */}
-                  <div className="mt-3 flex items-center justify-center gap-2">
-                    <Award className="w-5 h-5 text-yellow-300" />
-                    <span className="text-yellow-300 font-semibold">{myCertificates.length} Certificates</span>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </motion.div>
-
-        {/* Stats Cards */}
-        <div className="grid md:grid-cols-4 gap-4 mb-8">
-          <Card className="border-l-4 border-l-purple-500 hover:shadow-lg transition-shadow bg-gradient-to-br from-white to-purple-50"> {/* Added gradient bg */}
-            <CardContent className="p-6">
-              <Heart className="w-8 h-8 text-purple-600 mb-2" />
-              <p className="text-3xl font-bold text-purple-600">{getCategoryProgress('culture')}%</p>
-              <p className="text-sm text-gray-600 font-medium">Culture Mastery</p> {/* Added font-medium */}
-              <p className="text-xs text-gray-500 mt-1">{cultureModules.length} modules</p> {/* Added module count */}
-            </CardContent>
-          </Card>
-
-          <Card className="border-l-4 border-l-blue-500 hover:shadow-lg transition-shadow bg-gradient-to-br from-white to-blue-50"> {/* Added gradient bg */}
-            <CardContent className="p-6">
-              <Star className="w-8 h-8 text-blue-600 mb-2" />
-              <p className="text-3xl font-bold text-blue-600">{getCategoryProgress(1)}%</p>
-              <p className="text-sm text-gray-600 font-medium">Level 1 - Foundation</p> {/* Added font-medium */}
-              <p className="text-xs text-gray-500 mt-1">{level1Modules.length} modules</p> {/* Added module count */}
-            </CardContent>
-          </Card>
-
-          <Card className="border-l-4 border-l-green-500 hover:shadow-lg transition-shadow bg-gradient-to-br from-white to-green-50"> {/* Added gradient bg */}
-            <CardContent className="p-6">
-              <Target className="w-8 h-8 text-green-600 mb-2" />
-              <p className="text-3xl font-bold text-green-600">{getCategoryProgress(2)}%</p>
-              <p className="text-sm text-gray-600 font-medium">Level 2 - Excellence</p> {/* Added font-medium */}
-              <p className="text-xs text-gray-500 mt-1">{level2Modules.length} modules</p> {/* Added module count */}
-            </CardContent>
-          </Card>
-
-          <Card className="border-l-4 border-l-amber-500 hover:shadow-lg transition-shadow bg-gradient-to-br from-white to-amber-50"> {/* Added gradient bg */}
-            <CardContent className="p-6">
-              <Trophy className="w-8 h-8 text-amber-600 mb-2" />
-              <p className="text-3xl font-bold text-amber-600">{getCategoryProgress(3)}%</p>
-              <p className="text-sm text-gray-600 font-medium">Level 3 - Mastery</p> {/* Added font-medium */}
-              <p className="text-xs text-gray-500 mt-1">{level3Modules.length} modules</p> {/* Added module count */}
-            </CardContent>
-          </Card>
-        </div>
-
         {/* Training Levels Tabs */}
-        <Tabs defaultValue="culture" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4 h-auto bg-white shadow-md rounded-xl p-1"> {/* Updated shadow and added rounded-xl, p-1 */}
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+          <TabsList className="grid w-full grid-cols-5 h-auto bg-white shadow-md rounded-xl p-1"> {/* Updated grid-cols-4 to grid-cols-5 */}
+            <TabsTrigger value="overview" className="flex-col gap-2 py-4 rounded-lg data-[state=active]:bg-gradient-to-br data-[state=active]:from-pink-100 data-[state=active]:to-rose-100"> {/* Added new tab trigger */}
+              <Sparkles className="w-5 h-5" />
+              <span className="font-semibold">Overview</span>
+              <span className="text-xs text-gray-500">Your Journey</span>
+            </TabsTrigger>
             <TabsTrigger value="culture" className="flex-col gap-2 py-4 rounded-lg data-[state=active]:bg-gradient-to-br data-[state=active]:from-purple-100 data-[state=active]:to-pink-100"> {/* Added rounded-lg and gradient for active state */}
               <Heart className="w-5 h-5" />
               <span className="font-semibold">Culture & Values</span>
@@ -893,6 +941,307 @@ export default function TrainingAcademy() {
               <span className="text-xs text-gray-500">Leadership</span>
             </TabsTrigger>
           </TabsList>
+
+          <TabsContent value="overview">
+            {/* Hero Header */}
+            <motion.div
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+            >
+              <Card className="bg-gradient-to-r from-[#014D40] to-emerald-600 text-white border-none shadow-xl mb-8 overflow-hidden relative"> {/* Updated background and added overflow/relative */}
+                {/* Decorative circles */}
+                <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -mr-32 -mt-32" />
+                <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/5 rounded-full -ml-24 -mb-24" />
+                <CardContent className="p-8 relative"> {/* Added relative */}
+                  <div className="flex items-center justify-between flex-wrap gap-6">
+                    <div>
+                      <h1 className="text-4xl font-bold mb-3 flex items-center gap-3">
+                        <GraduationCap className="w-12 h-12" />
+                        Training Academy
+                      </h1>
+                      <p className="text-xl text-emerald-100 mb-2"> {/* Updated text color */}
+                        Welcome back, {user?.full_name?.split(' ')[0]}! 🌟
+                      </p>
+                      <p className="text-emerald-200 italic"> {/* Updated text color and added italic */}
+                        "{randomQuote}" {/* Display random quote */}
+                      </p>
+                    </div>
+                    <div className="text-center bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20"> {/* Added border */}
+                      <div className="text-6xl font-bold mb-2">{totalProgress}%</div>
+                      <p className="text-emerald-200">Overall Progress</p> {/* Updated text color */}
+                      <div className="mt-3 flex items-center justify-center gap-2">
+                        <Award className="w-5 h-5 text-yellow-300" />
+                        <span className="text-yellow-300 font-semibold">{myCertificates.length} Certificates</span>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+
+            {/* Stats Cards */}
+            <div className="grid md:grid-cols-4 gap-4 mb-8">
+              <Card className="border-l-4 border-l-purple-500 hover:shadow-lg transition-shadow bg-gradient-to-br from-white to-purple-50"> {/* Added gradient bg */}
+                <CardContent className="p-6">
+                  <Heart className="w-8 h-8 text-purple-600 mb-2" />
+                  <p className="text-3xl font-bold text-purple-600">{getCategoryProgress('culture')}%</p>
+                  <p className="text-sm text-gray-600 font-medium">Culture Mastery</p> {/* Added font-medium */}
+                  <p className="text-xs text-gray-500 mt-1">{cultureModules.length} modules</p> {/* Added module count */}
+                </CardContent>
+              </Card>
+
+              <Card className="border-l-4 border-l-blue-500 hover:shadow-lg transition-shadow bg-gradient-to-br from-white to-blue-50"> {/* Added gradient bg */}
+                <CardContent className="p-6">
+                  <Star className="w-8 h-8 text-blue-600 mb-2" />
+                  <p className="text-3xl font-bold text-blue-600">{getCategoryProgress(1)}%</p>
+                  <p className="text-sm text-gray-600 font-medium">Level 1 - Foundation</p> {/* Added font-medium */}
+                  <p className="text-xs text-gray-500 mt-1">{level1Modules.length} modules</p> {/* Added module count */}
+                </CardContent>
+              </Card>
+
+              <Card className="border-l-4 border-l-green-500 hover:shadow-lg transition-shadow bg-gradient-to-br from-white to-green-50"> {/* Added gradient bg */}
+                <CardContent className="p-6">
+                  <Target className="w-8 h-8 text-green-600 mb-2" />
+                  <p className="text-3xl font-bold text-green-600">{getCategoryProgress(2)}%</p>
+                  <p className="text-sm text-gray-600 font-medium">Level 2 - Excellence</p> {/* Added font-medium */}
+                  <p className="text-xs text-gray-500 mt-1">{level2Modules.length} modules</p> {/* Added module count */}
+                </CardContent>
+              </Card>
+
+              <Card className="border-l-4 border-l-amber-500 hover:shadow-lg transition-shadow bg-gradient-to-br from-white to-amber-50"> {/* Added gradient bg */}
+                <CardContent className="p-6">
+                  <Trophy className="w-8 h-8 text-amber-600 mb-2" />
+                  <p className="text-3xl font-bold text-amber-600">{getCategoryProgress(3)}%</p>
+                  <p className="text-sm text-gray-600 font-medium">Level 3 - Mastery</p> {/* Added font-medium */}
+                  <p className="text-xs text-gray-500 mt-1">{level3Modules.length} modules</p> {/* Added module count */}
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Quote of the Day */}
+            <Card className="bg-gradient-to-r from-amber-500 to-orange-600 text-white border-none shadow-2xl">
+              <CardContent className="p-8 text-center">
+                <p className="text-2xl md:text-3xl font-serif italic mb-4">
+                  "The only limit to your impact is your imagination and commitment."
+                </p>
+                <p className="text-amber-100 font-semibold">— Tony Robbins</p>
+              </CardContent>
+            </Card>
+
+            {/* Inspiration & Learning Posts */}
+            <Card className="shadow-lg border-2 border-emerald-200">
+              <CardHeader className="bg-gradient-to-r from-emerald-600 to-teal-600 text-white">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-2xl flex items-center gap-3">
+                    <GraduationCap className="w-7 h-7" />
+                    Learning & Inspiration Feed
+                  </CardTitle>
+                  {isManager && (
+                    <Button
+                      onClick={() => setShowPostForm(true)}
+                      variant="secondary"
+                      size="sm"
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      Create Post
+                    </Button>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent className="p-6">
+                {trainingPosts.length === 0 ? (
+                  <div className="text-center py-12">
+                    <GraduationCap className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                    <p className="text-gray-500">No posts yet. Share knowledge and inspiration!</p>
+                    {isManager && (
+                      <Button
+                        onClick={() => setShowPostForm(true)}
+                        className="mt-4 bg-emerald-600 hover:bg-emerald-700"
+                      >
+                        <Plus className="w-4 h-4 mr-2" />
+                        Create First Post
+                      </Button>
+                    )}
+                  </div>
+                ) : (
+                  <div className="space-y-6">
+                    {trainingPosts.map((post) => {
+                      const acknowledged = hasAcknowledged(post);
+                      
+                      return (
+                        <Card key={post.id} className={`border-2 ${post.is_featured ? 'border-amber-400 shadow-xl' : 'border-gray-200'}`}>
+                          <CardContent className="p-6">
+                            {post.is_featured && (
+                              <div className="mb-3">
+                                <Badge className="bg-amber-500">
+                                  <Pin className="w-3 h-3 mr-1" />
+                                  Featured Post
+                                </Badge>
+                              </div>
+                            )}
+
+                            {/* Post Header */}
+                            <div className="flex items-start justify-between mb-4">
+                              <div>
+                                <h3 className="text-2xl font-bold text-gray-900 mb-2">{post.title}</h3>
+                                <div className="flex gap-2">
+                                  <Badge className="bg-emerald-100 text-emerald-800">
+                                    {post.post_type.replace('_', ' ')}
+                                  </Badge>
+                                  <Badge variant="outline">
+                                    {post.category}
+                                  </Badge>
+                                </div>
+                              </div>
+                              <div className="text-right text-sm text-gray-500">
+                                <p className="font-semibold">{post.author_name}</p>
+                                <p>{formatDistanceToNow(new Date(post.created_date), { addSuffix: true })}</p>
+                              </div>
+                            </div>
+
+                            {/* Post Content */}
+                            <div className="mb-4 text-gray-700 leading-relaxed whitespace-pre-wrap">
+                              {post.content}
+                            </div>
+
+                            {/* Photos */}
+                            {post.photo_urls && post.photo_urls.length > 0 && (
+                              <div className="mb-4 grid grid-cols-2 md:grid-cols-3 gap-3">
+                                {post.photo_urls.map((url, idx) => (
+                                  <img
+                                    key={idx}
+                                    src={url}
+                                    alt={`Post image ${idx + 1}`}
+                                    className="w-full h-48 object-cover rounded-lg shadow-md cursor-pointer hover:opacity-90 transition-opacity"
+                                    onClick={() => window.open(url, '_blank')}
+                                  />
+                                ))}
+                              </div>
+                            )}
+
+                            {/* Video */}
+                            {post.video_url && (
+                              <div className="mb-4">
+                                {post.video_url.includes('youtube.com') || post.video_url.includes('youtu.be') ? (
+                                  <iframe
+                                    className="w-full h-64 md:h-96 rounded-lg shadow-lg"
+                                    src={post.video_url.replace('watch?v=', 'embed/')}
+                                    frameBorder="0"
+                                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                    allowFullScreen
+                                  />
+                                ) : (
+                                  <video
+                                    controls
+                                    className="w-full rounded-lg shadow-lg"
+                                    src={post.video_url}
+                                  />
+                                )}
+                              </div>
+                            )}
+
+                            {/* Action Bar */}
+                            <div className="flex items-center justify-between pt-4 border-t border-gray-200">
+                              <div className="flex items-center gap-4">
+                                <button
+                                  onClick={() => likePostMutation.mutate({ postId: post.id, currentLikes: post.likes_count || 0 })}
+                                  className="flex items-center gap-2 text-gray-600 hover:text-red-500 transition-colors"
+                                >
+                                  <Heart className="w-5 h-5" />
+                                  <span className="text-sm font-medium">{post.likes_count || 0}</span>
+                                </button>
+                                
+                                <div className="flex items-center gap-2 text-gray-600">
+                                  <Eye className="w-5 h-5" />
+                                  <span className="text-sm">{post.view_count || 0} views</span>
+                                </div>
+
+                                {post.requires_acknowledgment && (
+                                  <div className="flex items-center gap-2 text-gray-600">
+                                    <Check className="w-5 h-5" />
+                                    <span className="text-sm">{post.total_acknowledgments || 0} acknowledged</span>
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Acknowledgment Button */}
+                              {post.requires_acknowledgment && (
+                                acknowledged ? (
+                                  <Badge className="bg-green-600 text-white px-4 py-2">
+                                    <Check className="w-4 h-4 mr-2" />
+                                    You've acknowledged this
+                                  </Badge>
+                                ) : (
+                                  <Button
+                                    onClick={() => acknowledgePostMutation.mutate({
+                                      postId: post.id,
+                                      currentAcknowledgments: post.acknowledged_by || []
+                                    })}
+                                    className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700"
+                                  >
+                                    <Check className="w-4 h-4 mr-2" />
+                                    I've Read & Understood
+                                  </Button>
+                                )
+                              )}
+                            </div>
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Certificates Section - Always visible */}
+            {myCertificates.length > 0 && (
+              <Card className="mt-8 bg-gradient-to-r from-yellow-50 to-amber-50 border-2 border-yellow-300 shadow-xl"> {/* Updated border and shadow */}
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-2xl">
+                    <Award className="w-7 h-7 text-yellow-600" />
+                    Your Achievements ({myCertificates.length} Certificates)
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid md:grid-cols-3 gap-4">
+                    {myCertificates.map(cert => (
+                      <motion.div
+                        key={cert.id}
+                        initial={{ opacity: 0, scale: 0.9 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                      >
+                        <Card className="border-2 border-yellow-400 hover:shadow-xl transition-shadow bg-gradient-to-br from-white to-yellow-50"> {/* Added gradient bg */}
+                          <CardContent className="p-6 text-center">
+                            <Trophy className="w-12 h-12 text-yellow-600 mx-auto mb-3" />
+                            <h4 className="font-semibold text-gray-900 mb-2">{cert.title}</h4>
+                            <p className="text-xs text-gray-600 mb-1">{cert.description}</p>
+                            <p className="text-xs text-gray-500 mb-3">
+                              Issued: {format(new Date(cert.issued_date), 'MMM d, yyyy')} {/* Changed text */}
+                            </p>
+                            {cert.points_awarded > 0 && (
+                              <Badge className="bg-green-100 text-green-800 mb-2"> {/* Changed mb-3 to mb-2 */}
+                                +{cert.points_awarded} XP {/* Changed text */}
+                              </Badge>
+                            )}
+                            {cert.badge_earned && ( // Conditionally render badge_earned
+                              <Badge className="bg-purple-100 text-purple-800 mb-3 block">
+                                {cert.badge_earned}
+                              </Badge>
+                            )}
+                            <Button size="sm" variant="outline" className="w-full">
+                              <Download className="w-4 h-4 mr-2" />
+                              Download PDF
+                            </Button>
+                          </CardContent>
+                        </Card>
+                      </motion.div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </TabsContent>
 
           <TabsContent value="culture" className="space-y-6">
             <Card className="bg-gradient-to-r from-[#014D40] via-emerald-600 to-[#E0B037] text-white border-none shadow-2xl overflow-hidden relative">
@@ -1292,54 +1641,6 @@ export default function TrainingAcademy() {
             )}
           </TabsContent>
         </Tabs>
-
-        {/* Certificates Section - Always visible */}
-        {myCertificates.length > 0 && (
-          <Card className="mt-8 bg-gradient-to-r from-yellow-50 to-amber-50 border-2 border-yellow-300 shadow-xl"> {/* Updated border and shadow */}
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-2xl">
-                <Award className="w-7 h-7 text-yellow-600" />
-                Your Achievements ({myCertificates.length} Certificates)
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid md:grid-cols-3 gap-4">
-                {myCertificates.map(cert => (
-                  <motion.div
-                    key={cert.id}
-                    initial={{ opacity: 0, scale: 0.9 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                  >
-                    <Card className="border-2 border-yellow-400 hover:shadow-xl transition-shadow bg-gradient-to-br from-white to-yellow-50"> {/* Added gradient bg */}
-                      <CardContent className="p-6 text-center">
-                        <Trophy className="w-12 h-12 text-yellow-600 mx-auto mb-3" />
-                        <h4 className="font-semibold text-gray-900 mb-2">{cert.title}</h4>
-                        <p className="text-xs text-gray-600 mb-1">{cert.description}</p>
-                        <p className="text-xs text-gray-500 mb-3">
-                          Issued: {format(new Date(cert.issued_date), 'MMM d, yyyy')} {/* Changed text */}
-                        </p>
-                        {cert.points_awarded > 0 && (
-                          <Badge className="bg-green-100 text-green-800 mb-2"> {/* Changed mb-3 to mb-2 */}
-                            +{cert.points_awarded} XP {/* Changed text */}
-                          </Badge>
-                        )}
-                        {cert.badge_earned && ( // Conditionally render badge_earned
-                          <Badge className="bg-purple-100 text-purple-800 mb-3 block">
-                            {cert.badge_earned}
-                          </Badge>
-                        )}
-                        <Button size="sm" variant="outline" className="w-full">
-                          <Download className="w-4 h-4 mr-2" />
-                          Download PDF
-                        </Button>
-                      </CardContent>
-                    </Card>
-                  </motion.div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        )}
 
         {/* Module Detail Dialog */}
         <Dialog open={!!selectedModule} onOpenChange={() => setSelectedModule(null)}>
@@ -2073,6 +2374,184 @@ Example:
                 </Button>
               </div>
             </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Create Post Dialog */}
+        <Dialog open={showPostForm} onOpenChange={setShowPostForm}>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="text-2xl flex items-center gap-2">
+                <Plus className="w-6 h-6 text-emerald-600" />
+                Create Inspiration Post
+              </DialogTitle>
+            </DialogHeader>
+            
+            <form onSubmit={handleCreatePost} className="space-y-6 mt-4">
+              <div>
+                <label className="text-sm font-semibold text-gray-700 mb-2 block">Post Title *</label>
+                <Input
+                  value={postFormData.title}
+                  onChange={(e) => setPostFormData({ ...postFormData, title: e.target.value })}
+                  placeholder="e.g., 5 Keys to Amazing Customer Service"
+                  required
+                  className="text-lg"
+                />
+              </div>
+
+              <div>
+                <label className="text-sm font-semibold text-gray-700 mb-2 block">Content *</label>
+                <Textarea
+                  value={postFormData.content}
+                  onChange={(e) => setPostFormData({ ...postFormData, content: e.target.value })}
+                  placeholder="Share knowledge, inspiration, or important information..."
+                  rows={8}
+                  required
+                />
+              </div>
+
+              <div className="grid md:grid-cols-3 gap-4">
+                <div>
+                  <label className="text-sm font-semibold text-gray-700 mb-2 block">Post Type</label>
+                  <Select value={postFormData.post_type} onValueChange={(v) => setPostFormData({ ...postFormData, post_type: v })}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="inspiration">✨ Inspiration</SelectItem>
+                      <SelectItem value="training_tip">💡 Training Tip</SelectItem>
+                      <SelectItem value="success_story">🏆 Success Story</SelectItem>
+                      <SelectItem value="announcement">📢 Announcement</SelectItem>
+                      <SelectItem value="knowledge_share">📚 Knowledge Share</SelectItem>
+                      <SelectItem value="best_practice">⭐ Best Practice</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <label className="text-sm font-semibold text-gray-700 mb-2 block">Category</label>
+                  <Select value={postFormData.category} onValueChange={(v) => setPostFormData({ ...postFormData, category: v })}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="leadership">Leadership</SelectItem>
+                      <SelectItem value="customer_service">Customer Service</SelectItem>
+                      <SelectItem value="food_safety">Food Safety</SelectItem>
+                      <SelectItem value="teamwork">Teamwork</SelectItem>
+                      <SelectItem value="innovation">Innovation</SelectItem>
+                      <SelectItem value="excellence">Excellence</SelectItem>
+                      <SelectItem value="culture">Culture</SelectItem>
+                      <SelectItem value="skills">Skills</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <label className="text-sm font-semibold text-gray-700 mb-2 block">Acknowledgment</label>
+                  <Select 
+                    value={postFormData.requires_acknowledgment.toString()} 
+                    onValueChange={(v) => setPostFormData({ ...postFormData, requires_acknowledgment: v === 'true' })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="true">✅ Required</SelectItem>
+                      <SelectItem value="false">❌ Optional</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              {/* Photo Upload */}
+              <div>
+                <label className="text-sm font-semibold text-gray-700 mb-2 block">Photos (Optional)</label>
+                <div className="flex gap-3 items-center mb-3">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => document.getElementById('post-photo-upload').click()}
+                    disabled={uploadingMedia}
+                  >
+                    <ImageIcon className="w-4 h-4 mr-2" />
+                    {uploadingMedia ? 'Uploading...' : 'Upload Photos'}
+                  </Button>
+                  <input
+                    id="post-photo-upload"
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    onChange={handlePhotoUpload}
+                    className="hidden"
+                  />
+                  {postFormData.photo_urls.length > 0 && (
+                    <span className="text-sm text-gray-600">{postFormData.photo_urls.length} photo(s) added</span>
+                  )}
+                </div>
+                
+                {postFormData.photo_urls.length > 0 && (
+                  <div className="grid grid-cols-3 gap-2">
+                    {postFormData.photo_urls.map((url, idx) => (
+                      <div key={idx} className="relative group">
+                        <img src={url} alt={`Upload ${idx + 1}`} className="w-full h-24 object-cover rounded" />
+                        <button
+                          type="button"
+                          onClick={() => setPostFormData(prev => ({
+                            ...prev,
+                            photo_urls: prev.photo_urls.filter((_, i) => i !== idx)
+                          }))}
+                          className="absolute top-1 right-1 p-1 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Video Upload/Link */}
+              <div>
+                <label className="text-sm font-semibold text-gray-700 mb-2 block">Video (Optional)</label>
+                <div className="flex gap-3 items-center mb-3">
+                  <Input
+                    value={postFormData.video_url}
+                    onChange={(e) => setPostFormData({ ...postFormData, video_url: e.target.value })}
+                    placeholder="YouTube URL or upload video..."
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => document.getElementById('post-video-upload').click()}
+                    disabled={uploadingMedia}
+                  >
+                    <Video className="w-4 h-4 mr-2" />
+                    Upload
+                  </Button>
+                  <input
+                    id="post-video-upload"
+                    type="file"
+                    accept="video/*"
+                    onChange={handleVideoUpload}
+                    className="hidden"
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-4 border-t">
+                <Button type="button" variant="outline" onClick={() => { setShowPostForm(false); resetPostForm();}}>
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={createPostMutation.isPending || uploadingMedia}
+                  className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700"
+                >
+                  {createPostMutation.isPending ? 'Creating...' : 'Create Post'}
+                </Button>
+              </div>
+            </form>
           </DialogContent>
         </Dialog>
       </div>
