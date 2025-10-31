@@ -4,9 +4,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Clock, CheckCircle, MapPin, Calendar, User, TrendingUp, AlertCircle, LogOut, LogIn, ArrowLeft, Home } from "lucide-react";
+import { Clock, CheckCircle, MapPin, Calendar, User, TrendingUp, AlertCircle, LogOut, LogIn, ArrowLeft, Home, Trophy } from "lucide-react";
 import { format, formatDistanceToNow, differenceInMinutes, differenceInHours, parseISO } from "date-fns";
-import confetti from 'canvas-confetti';
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 
@@ -266,12 +265,6 @@ export default function ClockInOut() {
       });
 
       if (thisWeekRecords.length >= 5 && thisWeekRecords.every(r => r.status === 'on_time')) {
-        confetti({
-          particleCount: 100,
-          spread: 70,
-          origin: { y: 0.6 }
-        });
-
         await base44.entities.Notification.create({
           user_email: user.email,
           user_name: user.full_name,
@@ -279,7 +272,7 @@ export default function ClockInOut() {
           title: '🏆 Perfect Attendance This Week!',
           message: 'You showed up on time every single day. Keep up the amazing work!',
           link_module: 'MyAttendance',
-          priority: 'normal',
+          priority: 'high',
           sender_name: 'AURA System',
         });
       }
