@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -25,50 +25,41 @@ import {
   GraduationCap,
   BookOpen,
   Award,
-  Video,
-  FileText,
   CheckCircle,
   Clock,
   Target,
-  TrendingUp,
   Star,
-  Users,
   Sparkles,
   Plus,
   Search,
-  Filter,
-  Upload,
   Camera,
   Megaphone,
   ThumbsUp,
-  MessageCircle,
   Send,
   Loader2,
   Play,
-  AlertCircle,
-  BarChart,
-  Edit,
   Heart,
   Wand2,
+  TrendingUp,
+  Zap,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
+import { motion } from 'framer-motion';
 
 const POST_TYPE_ICONS = {
   inspiration: { icon: Sparkles, color: 'text-purple-600', bg: 'bg-purple-100' },
   training_tip: { icon: BookOpen, color: 'text-blue-600', bg: 'bg-blue-100' },
   success_story: { icon: Award, color: 'text-amber-600', bg: 'bg-amber-100' },
   announcement: { icon: Megaphone, color: 'text-red-600', bg: 'bg-red-100' },
-  knowledge_share: { icon: MessageCircle, color: 'text-green-600', bg: 'bg-green-100' },
+  knowledge_share: { icon: Sparkles, color: 'text-green-600', bg: 'bg-green-100' },
   best_practice: { icon: Star, color: 'text-pink-600', bg: 'bg-pink-100' },
 };
 
 export default function TrainingAcademy() {
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState('overview');
-  
-  // Posts state
   const [showCreatePost, setShowCreatePost] = useState(false);
   const [showAIModuleBuilder, setShowAIModuleBuilder] = useState(false);
   const [aiModulePrompt, setAIModulePrompt] = useState('');
@@ -78,22 +69,19 @@ export default function TrainingAcademy() {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState('all');
   const [filterCategory, setFilterCategory] = useState('all');
+  const [selectedModule, setSelectedModule] = useState(null);
+  const [showModuleViewer, setShowModuleViewer] = useState(false);
+  
   const [newPost, setNewPost] = useState({
     title: '',
     content: '',
     post_type: 'inspiration',
     category: 'culture',
-    media_type: 'none',
     photo_urls: [],
     video_url: '',
     requires_acknowledgment: true,
     is_featured: false,
   });
-
-  // Training modules state
-  const [showCreateModule, setShowCreateModule] = useState(false);
-  const [selectedModule, setSelectedModule] = useState(null);
-  const [showModuleViewer, setShowModuleViewer] = useState(false);
 
   const { data: user } = useQuery({
     queryKey: ['currentUser'],
@@ -106,7 +94,7 @@ export default function TrainingAcademy() {
     queryKey: ['trainingPosts'],
     queryFn: async () => {
       const posts = await base44.entities.TrainingPost.list('-created_date');
-      console.log('📚 Loaded posts:', posts.length, posts);
+      console.log('📚 Loaded training posts:', posts);
       return posts;
     },
   });
@@ -118,48 +106,37 @@ export default function TrainingAcademy() {
 
   const { data: myProgress = [] } = useQuery({
     queryKey: ['myTrainingProgress', user?.email],
-    queryFn: () => base44.entities.TrainingRecord.filter(
-      { staff_email: user?.email },
-      '-created_date'
-    ),
+    queryFn: () => base44.entities.TrainingRecord.filter({ staff_email: user?.email }, '-created_date'),
     enabled: !!user?.email,
   });
 
   const { data: certificates = [] } = useQuery({
     queryKey: ['myCertificates', user?.email],
-    queryFn: () => base44.entities.Certificate.filter(
-      { staff_email: user?.email },
-      '-issued_date'
-    ),
+    queryFn: () => base44.entities.Certificate.filter({ staff_email: user?.email }, '-issued_date'),
     enabled: !!user?.email,
   });
 
   const createPostMutation = useMutation({
     mutationFn: async (postData) => {
       console.log('🚀 Creating post:', postData);
-      const result = await base44.entities.TrainingPost.create(postData);
-      console.log('✅ Post created with ID:', result.id);
-      return result;
+      return await base44.entities.TrainingPost.create(postData);
     },
-    onSuccess: async (newPost) => {
-      console.log('✨ Post saved successfully, refreshing list...');
+    onSuccess: async () => {
+      console.log('✅ Post created successfully!');
       await refetchPosts();
       queryClient.invalidateQueries({ queryKey: ['trainingPosts'] });
-      
       setShowCreatePost(false);
       setNewPost({
         title: '',
         content: '',
         post_type: 'inspiration',
         category: 'culture',
-        media_type: 'none',
         photo_urls: [],
         video_url: '',
         requires_acknowledgment: true,
         is_featured: false,
       });
-      
-      alert(`✅ Post "${newPost.title}" published successfully!`);
+      alert('✅ Post published successfully!');
     },
   });
 
@@ -184,25 +161,32 @@ export default function TrainingAcademy() {
   const generateModuleMutation = useMutation({
     mutationFn: async (prompt) => {
       const result = await base44.integrations.Core.InvokeLLM({
-        prompt: `You are an expert at creating restaurant training modules. Create a comprehensive training module based on: "${prompt}". 
+        prompt: `You are an expert at creating restaurant training modules. Create a comprehensive, professional training module based on this request: "${prompt}". 
 
-Include:
-- Clear title and description
-- Category (hygiene/customer_service/product_knowledge/safety/equipment_use/onboarding/compliance)
-- Content type (video/text/quiz/mixed)
-- Detailed text content with step-by-step instructions
-- 5-7 quiz questions with 4 multiple choice options each
-- Duration in minutes
-- Whether it's mandatory
+Create a detailed module with:
+- Clear, engaging title
+- Comprehensive description (2-3 sentences)
+- Category: hygiene, customer_service, product_knowledge, safety, equipment_use, onboarding, or compliance
+- Content type: text, video, quiz, or mixed
+- Detailed step-by-step content (at least 500 words, formatted in HTML with headers, lists, and emphasis)
+- 5-7 challenging quiz questions with 4 options each
+- Realistic duration estimate (15-45 minutes)
+- Whether it should be mandatory
 
-Return valid JSON only.`,
+Return ONLY valid JSON.`,
         response_json_schema: {
           type: "object",
           properties: {
             title: { type: "string" },
             description: { type: "string" },
-            category: { type: "string" },
-            content_type: { type: "string" },
+            category: { 
+              type: "string",
+              enum: ["hygiene", "customer_service", "product_knowledge", "safety", "equipment_use", "onboarding", "compliance"]
+            },
+            content_type: { 
+              type: "string",
+              enum: ["video", "text", "quiz", "mixed"]
+            },
             content_text: { type: "string" },
             duration_minutes: { type: "number" },
             is_mandatory: { type: "boolean" },
@@ -212,8 +196,17 @@ Return valid JSON only.`,
                 type: "object",
                 properties: {
                   question: { type: "string" },
-                  options: { type: "array", items: { type: "string" } },
-                  correct_answer: { type: "number" }
+                  options: { 
+                    type: "array", 
+                    items: { type: "string" },
+                    minItems: 4,
+                    maxItems: 4
+                  },
+                  correct_answer: { 
+                    type: "number",
+                    minimum: 0,
+                    maximum: 3
+                  }
                 }
               }
             }
@@ -237,6 +230,10 @@ Return valid JSON only.`,
       setAIModulePrompt('');
       alert(`✅ Training module "${aiData.title}" created successfully!`);
     },
+    onError: (error) => {
+      console.error('AI module generation failed:', error);
+      alert('❌ Failed to generate module. Please try again or create manually.');
+    },
   });
 
   const handlePhotoUpload = async (e) => {
@@ -249,10 +246,8 @@ Return valid JSON only.`,
       setNewPost(prev => ({
         ...prev,
         photo_urls: [...prev.photo_urls, file_url],
-        media_type: prev.video_url ? 'both' : 'photo',
       }));
     } catch (error) {
-      console.error('Photo upload failed:', error);
       alert('Failed to upload photo');
     }
     setUploadingPhoto(false);
@@ -267,14 +262,14 @@ Return valid JSON only.`,
     setCreatingPost(true);
     
     const postData = {
-      title: newPost.title,
-      content: newPost.content,
+      title: newPost.title.trim(),
+      content: newPost.content.trim(),
       post_type: newPost.post_type,
       category: newPost.category,
       author_email: user?.email,
       author_name: user?.full_name,
-      media_type: newPost.photo_urls.length > 0 ? (newPost.video_url ? 'both' : 'photo') : (newPost.video_url ? 'video' : 'none'),
-      photo_urls: newPost.photo_urls || [],
+      media_type: newPost.photo_urls.length > 0 ? 'photo' : (newPost.video_url ? 'video' : 'none'),
+      photo_urls: newPost.photo_urls,
       video_url: newPost.video_url || '',
       requires_acknowledgment: newPost.requires_acknowledgment,
       is_featured: newPost.is_featured,
@@ -286,34 +281,22 @@ Return valid JSON only.`,
       tags: [],
     };
 
-    console.log('📤 Submitting post data:', postData);
-    
-    try {
-      await createPostMutation.mutateAsync(postData);
-    } catch (error) {
-      console.error('Error creating post:', error);
-      alert('Failed to create post: ' + error.message);
-    }
-    
+    console.log('📤 Creating post:', postData);
+    await createPostMutation.mutateAsync(postData);
     setCreatingPost(false);
   };
 
   const handleGenerateModule = async () => {
     if (!aiModulePrompt.trim()) {
-      alert('Please describe the training module');
+      alert('⚠️ Please describe the training module');
       return;
     }
 
     setGeneratingModule(true);
-    try {
-      await generateModuleMutation.mutateAsync(aiModulePrompt);
-    } catch (error) {
-      alert('Failed to generate module. Please try creating manually.');
-    }
+    await generateModuleMutation.mutateAsync(aiModulePrompt);
     setGeneratingModule(false);
   };
 
-  // Filter posts
   const filteredPosts = trainingPosts.filter(post => {
     if (!post?.is_active) return false;
     
@@ -327,51 +310,73 @@ Return valid JSON only.`,
     return matchesSearch && matchesType && matchesCategory;
   });
 
-  console.log('🎯 Showing', filteredPosts.length, 'out of', trainingPosts.length, 'total posts');
-
   const completedModules = myProgress.filter(p => p.status === 'completed').length;
   const inProgressModules = myProgress.filter(p => p.status === 'in_progress').length;
-  const averageScore = myProgress.length > 0
-    ? Math.round(myProgress.reduce((sum, p) => sum + (p.quiz_score || 0), 0) / myProgress.length)
-    : 0;
+  const totalXP = myProgress.reduce((sum, p) => sum + (p.quiz_score || 0), 0);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-pink-50 to-blue-50 p-6 md:p-8">
-      <div className="max-w-7xl mx-auto">
-        
-        <div className="mb-8">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-3">
-              <div className="w-14 h-14 bg-gradient-to-br from-purple-600 to-pink-600 rounded-xl flex items-center justify-center shadow-lg">
-                <GraduationCap className="w-8 h-8 text-white" />
-              </div>
-              <div>
-                <h1 className="text-4xl font-bold text-gray-900">Training Academy</h1>
-                <p className="text-gray-600">Learn, grow, and achieve excellence</p>
-              </div>
+    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-pink-50 to-blue-50">
+      {/* Hero Banner */}
+      <motion.div
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="bg-gradient-to-r from-purple-600 via-pink-600 to-purple-700 text-white py-16 px-6 mb-8"
+      >
+        <div className="max-w-7xl mx-auto text-center">
+          <motion.div
+            initial={{ scale: 0.9 }}
+            animate={{ scale: 1 }}
+            transition={{ duration: 0.5 }}
+            className="inline-block mb-6"
+          >
+            <div className="w-24 h-24 bg-white/20 backdrop-blur-lg rounded-full flex items-center justify-center mx-auto">
+              <GraduationCap className="w-14 h-14" />
             </div>
-
-            {isManager && (
-              <div className="flex gap-3">
-                <Button
-                  onClick={() => setShowCreatePost(true)}
-                  className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
-                >
-                  <Plus className="w-4 h-4 mr-2" />
-                  Create Post
-                </Button>
-                <Button
-                  onClick={() => setShowAIModuleBuilder(true)}
-                  variant="outline"
-                  className="border-purple-300 hover:bg-purple-50"
-                >
-                  <Wand2 className="w-4 h-4 mr-2" />
-                  AI Module Builder
-                </Button>
-              </div>
-            )}
+          </motion.div>
+          
+          <h1 className="text-5xl md:text-6xl font-bold mb-4">
+            We Create Craving Fans — Not Customers
+          </h1>
+          <p className="text-2xl opacity-90 mb-8">Your journey to excellence starts here</p>
+          
+          <div className="flex justify-center gap-4 flex-wrap">
+            <Button size="lg" className="bg-white text-purple-700 hover:bg-gray-100">
+              <Play className="w-5 h-5 mr-2" />
+              Continue Learning
+            </Button>
+            <Button size="lg" variant="outline" className="border-white text-white hover:bg-white/20">
+              <Award className="w-5 h-5 mr-2" />
+              My Certificates
+            </Button>
+            <Button size="lg" variant="outline" className="border-white text-white hover:bg-white/20">
+              <Sparkles className="w-5 h-5 mr-2" />
+              AI Mentor
+            </Button>
           </div>
         </div>
+      </motion.div>
+
+      <div className="max-w-7xl mx-auto px-6 pb-12">
+        {/* Action Buttons */}
+        {isManager && (
+          <div className="flex justify-end gap-3 mb-6">
+            <Button
+              onClick={() => setShowCreatePost(true)}
+              className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Create Post
+            </Button>
+            <Button
+              onClick={() => setShowAIModuleBuilder(true)}
+              variant="outline"
+              className="border-purple-300 hover:bg-purple-50"
+            >
+              <Wand2 className="w-4 h-4 mr-2" />
+              AI Module Builder
+            </Button>
+          </div>
+        )}
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <TabsList className="bg-white p-1 rounded-xl shadow-md border-2 border-purple-100">
@@ -407,49 +412,51 @@ Return valid JSON only.`,
 
           {/* OVERVIEW & POSTS TAB */}
           <TabsContent value="overview" className="space-y-6">
-            {/* Stats Overview */}
-            <div className="grid md:grid-cols-4 gap-4">
-              <Card className="bg-gradient-to-br from-purple-500 to-purple-600 text-white border-none">
-                <CardContent className="p-6">
-                  <BookOpen className="w-8 h-8 mb-2 opacity-80" />
-                  <p className="text-2xl font-bold">{trainingModules.length}</p>
-                  <p className="text-sm opacity-90">Training Modules</p>
-                </CardContent>
-              </Card>
+            {/* XP Progress Card */}
+            <Card className="bg-gradient-to-r from-purple-600 to-pink-600 text-white border-none shadow-2xl">
+              <CardContent className="p-8">
+                <div className="grid md:grid-cols-4 gap-6">
+                  <div className="text-center">
+                    <div className="w-24 h-24 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-3">
+                      <BookOpen className="w-12 h-12" />
+                    </div>
+                    <p className="text-3xl font-bold">{trainingModules.length}</p>
+                    <p className="text-sm opacity-90">Available Modules</p>
+                  </div>
 
-              <Card className="bg-gradient-to-br from-green-500 to-green-600 text-white border-none">
-                <CardContent className="p-6">
-                  <CheckCircle className="w-8 h-8 mb-2 opacity-80" />
-                  <p className="text-2xl font-bold">{completedModules}</p>
-                  <p className="text-sm opacity-90">Completed</p>
-                </CardContent>
-              </Card>
+                  <div className="text-center">
+                    <div className="w-24 h-24 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-3">
+                      <CheckCircle className="w-12 h-12" />
+                    </div>
+                    <p className="text-3xl font-bold">{completedModules}</p>
+                    <p className="text-sm opacity-90">Completed</p>
+                  </div>
 
-              <Card className="bg-gradient-to-br from-blue-500 to-blue-600 text-white border-none">
-                <CardContent className="p-6">
-                  <Clock className="w-8 h-8 mb-2 opacity-80" />
-                  <p className="text-2xl font-bold">{inProgressModules}</p>
-                  <p className="text-sm opacity-90">In Progress</p>
-                </CardContent>
-              </Card>
+                  <div className="text-center">
+                    <div className="w-24 h-24 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-3">
+                      <Clock className="w-12 h-12" />
+                    </div>
+                    <p className="text-3xl font-bold">{inProgressModules}</p>
+                    <p className="text-sm opacity-90">In Progress</p>
+                  </div>
 
-              <Card className="bg-gradient-to-br from-amber-500 to-amber-600 text-white border-none">
-                <CardContent className="p-6">
-                  <Award className="w-8 h-8 mb-2 opacity-80" />
-                  <p className="text-2xl font-bold">{certificates.length}</p>
-                  <p className="text-sm opacity-90">Certificates</p>
-                </CardContent>
-              </Card>
-            </div>
+                  <div className="text-center">
+                    <div className="w-24 h-24 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-3">
+                      <Zap className="w-12 h-12" />
+                    </div>
+                    <p className="text-3xl font-bold">{totalXP}</p>
+                    <p className="text-sm opacity-90">Total XP Points</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
 
-            {/* Posts Section */}
+            {/* Training Posts Section */}
             <div>
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-                  <Megaphone className="w-6 h-6 text-purple-600" />
-                  Training Posts ({trainingPosts.length})
-                </h2>
-              </div>
+              <h2 className="text-2xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+                <Megaphone className="w-6 h-6 text-purple-600" />
+                Training Feed ({trainingPosts.length})
+              </h2>
 
               {/* Post Filters */}
               <Card className="bg-white shadow-md mb-4">
@@ -475,7 +482,7 @@ Return valid JSON only.`,
                         <SelectItem value="training_tip">📚 Training Tips</SelectItem>
                         <SelectItem value="success_story">🏆 Success Stories</SelectItem>
                         <SelectItem value="announcement">📢 Announcements</SelectItem>
-                        <SelectItem value="knowledge_share">🧠 Knowledge Share</SelectItem>
+                        <SelectItem value="knowledge_share">✨ Knowledge Share</SelectItem>
                         <SelectItem value="best_practice">⭐ Best Practices</SelectItem>
                       </SelectContent>
                     </Select>
@@ -500,21 +507,17 @@ Return valid JSON only.`,
                 </CardContent>
               </Card>
 
-              {/* Posts Feed */}
+              {/* Posts List */}
               <div className="space-y-4">
                 {filteredPosts.length === 0 ? (
                   <Card>
                     <CardContent className="p-12 text-center">
                       <Megaphone className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                      <p className="text-gray-600 font-medium">No posts to display</p>
-                      <p className="text-sm text-gray-500 mt-2">
-                        Total posts in system: {trainingPosts.length}
+                      <p className="text-gray-600 font-medium">
+                        {trainingPosts.length === 0 ? 'No training posts yet' : 'No posts match your filters'}
                       </p>
-                      {isManager && (
-                        <Button
-                          onClick={() => setShowCreatePost(true)}
-                          className="mt-4 bg-purple-600"
-                        >
+                      {isManager && trainingPosts.length === 0 && (
+                        <Button onClick={() => setShowCreatePost(true)} className="mt-4 bg-purple-600">
                           <Plus className="w-4 h-4 mr-2" />
                           Create Your First Post
                         </Button>
@@ -528,99 +531,102 @@ Return valid JSON only.`,
                     const Icon = postTypeIcon.icon;
 
                     return (
-                      <Card key={post.id} className={`bg-white border-2 shadow-lg hover:shadow-xl transition-all ${post.is_featured ? 'border-amber-400 bg-gradient-to-r from-amber-50 to-yellow-50' : 'border-gray-200'}`}>
-                        {post.is_featured && (
-                          <div className="bg-gradient-to-r from-amber-500 to-yellow-600 text-white px-4 py-2 flex items-center gap-2">
-                            <Star className="w-4 h-4 fill-current" />
-                            <span className="font-bold">Featured Post</span>
-                          </div>
-                        )}
-                        
-                        <CardContent className="p-6">
-                          <div className="flex items-start gap-4">
-                            <div className={`p-3 ${postTypeIcon.bg} rounded-lg flex-shrink-0`}>
-                              <Icon className={`w-6 h-6 ${postTypeIcon.color}`} />
+                      <motion.div
+                        key={post.id}
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.3 }}
+                      >
+                        <Card className={`bg-white border-2 shadow-lg hover:shadow-2xl transition-all duration-300 ${post.is_featured ? 'border-[#D4AF37] bg-gradient-to-r from-amber-50 to-yellow-50' : 'border-gray-200'}`}>
+                          {post.is_featured && (
+                            <div className="bg-gradient-to-r from-[#D4AF37] to-yellow-600 text-white px-4 py-2 flex items-center gap-2">
+                              <Star className="w-4 h-4 fill-current" />
+                              <span className="font-bold">Featured Post</span>
                             </div>
-                            <div className="flex-1">
-                              <div className="flex items-start justify-between mb-3">
-                                <div>
-                                  <h3 className="text-xl font-bold text-gray-900 mb-1">{post.title}</h3>
-                                  <div className="flex items-center gap-2 text-sm text-gray-600">
-                                    <span>{post.author_name}</span>
-                                    <span>•</span>
-                                    <span>{format(new Date(post.created_date), 'MMM d, yyyy')}</span>
-                                  </div>
-                                </div>
-                                <div className="flex flex-wrap gap-2">
-                                  <Badge className={postTypeIcon.bg + ' ' + postTypeIcon.color}>
-                                    {post.post_type.replace('_', ' ')}
-                                  </Badge>
-                                  <Badge variant="outline" className="capitalize">
-                                    {post.category.replace('_', ' ')}
-                                  </Badge>
-                                </div>
+                          )}
+                          
+                          <CardContent className="p-6">
+                            <div className="flex items-start gap-4">
+                              <div className={`p-3 ${postTypeIcon.bg} rounded-xl flex-shrink-0`}>
+                                <Icon className={`w-6 h-6 ${postTypeIcon.color}`} />
                               </div>
-                              
-                              <p className="text-gray-700 whitespace-pre-wrap mb-4 leading-relaxed">{post.content}</p>
-
-                              {post.photo_urls && post.photo_urls.length > 0 && (
-                                <div className="flex gap-2 mb-4 flex-wrap">
-                                  {post.photo_urls.map((url, idx) => (
-                                    <img
-                                      key={idx}
-                                      src={url}
-                                      alt="Post media"
-                                      className="h-48 object-cover rounded-lg border border-gray-200"
-                                    />
-                                  ))}
-                                </div>
-                              )}
-
-                              {post.video_url && (
-                                <div className="mb-4">
-                                  <video
-                                    src={post.video_url}
-                                    controls
-                                    className="w-full rounded-lg"
-                                  />
-                                </div>
-                              )}
-
-                              <div className="flex items-center justify-between pt-4 border-t border-gray-200">
-                                <div className="flex items-center gap-4 text-sm text-gray-600">
-                                  <div className="flex items-center gap-1">
-                                    <ThumbsUp className="w-4 h-4" />
-                                    {post.likes_count || 0}
+                              <div className="flex-1">
+                                <div className="flex items-start justify-between mb-3">
+                                  <div>
+                                    <h3 className="text-xl font-bold text-gray-900 mb-1">{post.title}</h3>
+                                    <div className="flex items-center gap-2 text-sm text-gray-600">
+                                      <span>{post.author_name}</span>
+                                      <span>•</span>
+                                      <span>{format(new Date(post.created_date), 'MMM d, yyyy')}</span>
+                                    </div>
                                   </div>
-                                  <div className="flex items-center gap-1">
-                                    <CheckCircle className="w-4 h-4" />
-                                    {post.total_acknowledgments || 0} read
+                                  <div className="flex flex-wrap gap-2">
+                                    <Badge className={postTypeIcon.bg + ' ' + postTypeIcon.color}>
+                                      {post.post_type.replace('_', ' ')}
+                                    </Badge>
+                                    <Badge variant="outline" className="capitalize">
+                                      {post.category.replace('_', ' ')}
+                                    </Badge>
                                   </div>
                                 </div>
+                                
+                                <p className="text-gray-700 whitespace-pre-wrap mb-4 leading-relaxed">{post.content}</p>
 
-                                {post.requires_acknowledgment && !hasAcknowledged && (
-                                  <Button
-                                    onClick={() => acknowledgePostMutation.mutate({ postId: post.id, post })}
-                                    disabled={acknowledgePostMutation.isPending}
-                                    size="sm"
-                                    className="bg-emerald-600 hover:bg-emerald-700"
-                                  >
-                                    <CheckCircle className="w-4 h-4 mr-2" />
-                                    I've Read This
-                                  </Button>
+                                {post.photo_urls && post.photo_urls.length > 0 && (
+                                  <div className="flex gap-2 mb-4 flex-wrap">
+                                    {post.photo_urls.map((url, idx) => (
+                                      <img
+                                        key={idx}
+                                        src={url}
+                                        alt="Post"
+                                        className="h-48 object-cover rounded-lg border-2 border-gray-200 hover:scale-105 transition-transform"
+                                      />
+                                    ))}
+                                  </div>
                                 )}
 
-                                {hasAcknowledged && (
-                                  <Badge className="bg-green-100 text-green-800">
-                                    <CheckCircle className="w-3 h-3 mr-1" />
-                                    Acknowledged
-                                  </Badge>
+                                {post.video_url && (
+                                  <div className="mb-4">
+                                    <video src={post.video_url} controls className="w-full rounded-xl" />
+                                  </div>
                                 )}
+
+                                <div className="flex items-center justify-between pt-4 border-t-2 border-gray-200">
+                                  <div className="flex items-center gap-4 text-sm text-gray-600">
+                                    <button className="flex items-center gap-1 hover:text-purple-600 transition-colors">
+                                      <ThumbsUp className="w-4 h-4" />
+                                      {post.likes_count || 0}
+                                    </button>
+                                    <div className="flex items-center gap-1">
+                                      <CheckCircle className="w-4 h-4" />
+                                      {post.total_acknowledgments || 0} read
+                                    </div>
+                                  </div>
+
+                                  {post.requires_acknowledgment && !hasAcknowledged && (
+                                    <Button
+                                      onClick={() => acknowledgePostMutation.mutate({ postId: post.id, post })}
+                                      disabled={acknowledgePostMutation.isPending}
+                                      size="sm"
+                                      className="bg-emerald-600 hover:bg-emerald-700"
+                                    >
+                                      <CheckCircle className="w-4 h-4 mr-2" />
+                                      I've Read This
+                                    </Button>
+                                  )}
+
+                                  {hasAcknowledged && (
+                                    <Badge className="bg-green-100 text-green-800">
+                                      <CheckCircle className="w-3 h-3 mr-1" />
+                                      Acknowledged
+                                    </Badge>
+                                  )}
+                                </div>
                               </div>
                             </div>
-                          </div>
-                        </CardContent>
-                      </Card>
+                          </CardContent>
+                        </Card>
+                      </motion.div>
                     );
                   })
                 )}
@@ -630,109 +636,100 @@ Return valid JSON only.`,
 
           {/* VALUES TAB */}
           <TabsContent value="values">
-            <div className="space-y-6">
-              <Card className="bg-gradient-to-r from-orange-500 to-red-600 text-white border-none shadow-xl">
-                <CardContent className="p-8 text-center">
-                  <Heart className="w-16 h-16 mx-auto mb-4 opacity-90" />
-                  <h2 className="text-3xl font-bold mb-4">Our Culture & Values</h2>
-                  <p className="text-xl opacity-90">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="space-y-6"
+            >
+              <Card className="bg-gradient-to-r from-orange-500 to-red-600 text-white border-none shadow-2xl">
+                <CardContent className="p-12 text-center">
+                  <Heart className="w-20 h-20 mx-auto mb-6 animate-pulse" />
+                  <h2 className="text-4xl font-bold mb-4">Our Culture & Values</h2>
+                  <p className="text-2xl opacity-90 mb-8">
                     Everything that makes us who we are
                   </p>
+                  <Link to={createPageUrl('CultureBuilding')}>
+                    <Button size="lg" className="bg-white text-orange-700 hover:bg-gray-100">
+                      <Heart className="w-5 h-5 mr-2" />
+                      Explore Our Values & Culture
+                    </Button>
+                  </Link>
                 </CardContent>
               </Card>
-
-              <div className="text-center py-8">
-                <Link to={createPageUrl('CultureBuilding')}>
-                  <Button size="lg" className="bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700">
-                    <Heart className="w-5 h-5 mr-2" />
-                    Explore Our Values & Culture
-                  </Button>
-                </Link>
-                <p className="text-sm text-gray-600 mt-3">
-                  View mission statements, company values, and culture content
-                </p>
-              </div>
-            </div>
+            </motion.div>
           </TabsContent>
 
           {/* TRAINING MODULES TAB */}
           <TabsContent value="modules">
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {trainingModules.map((module) => {
+              {trainingModules.map((module, index) => {
                 const progress = myProgress.find(p => p.module_id === module.id);
                 const statusColor = progress?.status === 'completed' ? 'bg-green-100 text-green-800' :
                                    progress?.status === 'in_progress' ? 'bg-blue-100 text-blue-800' :
                                    'bg-gray-100 text-gray-800';
 
                 return (
-                  <Card key={module.id} className="bg-white border-none shadow-lg hover:shadow-xl transition-all">
-                    <CardContent className="p-6">
-                      <div className="flex items-center justify-between mb-3">
-                        <Badge className={statusColor}>
-                          {progress?.status || 'Not Started'}
-                        </Badge>
-                        {module.is_mandatory && (
-                          <Badge variant="outline" className="border-red-500 text-red-700">
-                            Required
+                  <motion.div
+                    key={module.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: index * 0.1 }}
+                  >
+                    <Card className="bg-white border-none shadow-lg hover:shadow-2xl transition-all duration-300 hover:-translate-y-1">
+                      <CardContent className="p-6">
+                        <div className="flex items-center justify-between mb-3">
+                          <Badge className={statusColor}>
+                            {progress?.status?.replace('_', ' ') || 'Not Started'}
                           </Badge>
-                        )}
-                      </div>
-
-                      <h3 className="text-lg font-bold text-gray-900 mb-2">{module.title}</h3>
-                      <p className="text-sm text-gray-600 mb-4 line-clamp-2">{module.description}</p>
-
-                      <div className="flex items-center gap-4 text-sm text-gray-600 mb-4">
-                        <div className="flex items-center gap-1">
-                          <Clock className="w-4 h-4" />
-                          {module.duration_minutes} min
+                          {module.is_mandatory && (
+                            <Badge variant="outline" className="border-red-500 text-red-700">
+                              Required
+                            </Badge>
+                          )}
                         </div>
-                        {progress?.quiz_score && (
+
+                        <h3 className="text-lg font-bold text-gray-900 mb-2">{module.title}</h3>
+                        <p className="text-sm text-gray-600 mb-4 line-clamp-2">{module.description}</p>
+
+                        <div className="flex items-center gap-4 text-sm text-gray-600 mb-4">
                           <div className="flex items-center gap-1">
-                            <Award className="w-4 h-4" />
-                            {progress.quiz_score}%
+                            <Clock className="w-4 h-4" />
+                            {module.duration_minutes} min
                           </div>
-                        )}
-                      </div>
+                          {progress?.quiz_score && (
+                            <div className="flex items-center gap-1">
+                              <Award className="w-4 h-4 text-amber-600" />
+                              {progress.quiz_score}% score
+                            </div>
+                          )}
+                        </div>
 
-                      {progress && progress.status !== 'completed' && (
-                        <Progress value={(progress.quiz_attempts || 0) * 20} className="mb-4" />
-                      )}
-
-                      <Button
-                        onClick={() => {
-                          setSelectedModule(module);
-                          setShowModuleViewer(true);
-                        }}
-                        className="w-full bg-gradient-to-r from-blue-600 to-indigo-600"
-                      >
-                        {progress?.status === 'completed' ? (
-                          <>
-                            <Eye className="w-4 h-4 mr-2" />
-                            Review Module
-                          </>
-                        ) : progress?.status === 'in_progress' ? (
-                          <>
-                            <Play className="w-4 h-4 mr-2" />
-                            Continue
-                          </>
-                        ) : (
-                          <>
-                            <Play className="w-4 h-4 mr-2" />
-                            Start Training
-                          </>
+                        {progress && progress.status !== 'completed' && (
+                          <Progress value={(progress.quiz_attempts || 0) * 20} className="mb-4" />
                         )}
-                      </Button>
-                    </CardContent>
-                  </Card>
+
+                        <Button
+                          onClick={() => {
+                            setSelectedModule(module);
+                            setShowModuleViewer(true);
+                          }}
+                          className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
+                        >
+                          <Play className="w-4 h-4 mr-2" />
+                          {progress?.status === 'completed' ? 'Review' : progress?.status === 'in_progress' ? 'Continue' : 'Start'}
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  </motion.div>
                 );
               })}
 
               {trainingModules.length === 0 && (
-                <div className="col-span-full text-center py-12">
-                  <BookOpen className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                  <p className="text-gray-600 font-medium">No training modules yet</p>
+                <div className="col-span-full text-center py-16">
+                  <BookOpen className="w-20 h-20 text-gray-300 mx-auto mb-4" />
+                  <p className="text-gray-600 font-medium text-lg">No training modules yet</p>
                   {isManager && (
-                    <Button onClick={() => setShowAIModuleBuilder(true)} className="mt-4">
+                    <Button onClick={() => setShowAIModuleBuilder(true)} className="mt-4 bg-purple-600">
                       <Wand2 className="w-4 h-4 mr-2" />
                       Create Module with AI
                     </Button>
@@ -745,31 +742,30 @@ Return valid JSON only.`,
           {/* CERTIFICATES TAB */}
           <TabsContent value="certificates">
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {certificates.map((cert) => (
-                <Card key={cert.id} className="bg-gradient-to-br from-amber-50 to-yellow-50 border-2 border-amber-300">
-                  <CardContent className="p-6 text-center">
-                    <Award className="w-16 h-16 text-amber-600 mx-auto mb-4" />
-                    <h3 className="text-lg font-bold text-gray-900 mb-2">{cert.title}</h3>
-                    <p className="text-sm text-gray-600 mb-4">{cert.description}</p>
-                    <Badge className="bg-amber-600 text-white mb-4">
-                      {format(new Date(cert.issued_date), 'MMM d, yyyy')}
-                    </Badge>
-                    {cert.certificate_url && (
-                      <Button variant="outline" className="w-full" asChild>
-                        <a href={cert.certificate_url} target="_blank" rel="noopener noreferrer">
-                          <FileText className="w-4 h-4 mr-2" />
-                          View Certificate
-                        </a>
-                      </Button>
-                    )}
-                  </CardContent>
-                </Card>
+              {certificates.map((cert, index) => (
+                <motion.div
+                  key={cert.id}
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: index * 0.1 }}
+                >
+                  <Card className="bg-gradient-to-br from-amber-50 to-yellow-50 border-2 border-[#D4AF37] shadow-lg hover:shadow-2xl transition-all">
+                    <CardContent className="p-8 text-center">
+                      <Award className="w-20 h-20 text-[#D4AF37] mx-auto mb-4" />
+                      <h3 className="text-xl font-bold text-gray-900 mb-2">{cert.title}</h3>
+                      <p className="text-sm text-gray-600 mb-4">{cert.description}</p>
+                      <Badge className="bg-[#D4AF37] text-white mb-4 text-base px-4 py-1">
+                        {format(new Date(cert.issued_date), 'MMM d, yyyy')}
+                      </Badge>
+                    </CardContent>
+                  </Card>
+                </motion.div>
               ))}
 
               {certificates.length === 0 && (
-                <div className="col-span-full text-center py-12">
-                  <Award className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                  <p className="text-gray-600 font-medium">No certificates yet</p>
+                <div className="col-span-full text-center py-16">
+                  <Award className="w-20 h-20 text-gray-300 mx-auto mb-4" />
+                  <p className="text-gray-600 font-medium text-lg">No certificates yet</p>
                   <p className="text-sm text-gray-500 mt-2">Complete training modules to earn certificates!</p>
                 </div>
               )}
@@ -820,7 +816,7 @@ Return valid JSON only.`,
                     <SelectItem value="training_tip">📚 Training Tip</SelectItem>
                     <SelectItem value="success_story">🏆 Success Story</SelectItem>
                     <SelectItem value="announcement">📢 Announcement</SelectItem>
-                    <SelectItem value="knowledge_share">🧠 Knowledge Share</SelectItem>
+                    <SelectItem value="knowledge_share">✨ Knowledge Share</SelectItem>
                     <SelectItem value="best_practice">⭐ Best Practice</SelectItem>
                   </SelectContent>
                 </Select>
@@ -849,24 +845,22 @@ Return valid JSON only.`,
             <div className="space-y-3">
               <label className="text-sm font-medium">Media (Optional)</label>
               
-              <div className="flex gap-3">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => document.getElementById('post-photo-upload').click()}
-                  disabled={uploadingPhoto}
-                >
-                  <Camera className="w-4 h-4 mr-2" />
-                  {uploadingPhoto ? 'Uploading...' : 'Add Photos'}
-                </Button>
-                <input
-                  id="post-photo-upload"
-                  type="file"
-                  accept="image/*"
-                  onChange={handlePhotoUpload}
-                  className="hidden"
-                />
-              </div>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => document.getElementById('post-photo-upload').click()}
+                disabled={uploadingPhoto}
+              >
+                <Camera className="w-4 h-4 mr-2" />
+                {uploadingPhoto ? 'Uploading...' : 'Add Photos'}
+              </Button>
+              <input
+                id="post-photo-upload"
+                type="file"
+                accept="image/*"
+                onChange={handlePhotoUpload}
+                className="hidden"
+              />
 
               {newPost.photo_urls.length > 0 && (
                 <div className="flex gap-2 flex-wrap">
@@ -888,7 +882,7 @@ Return valid JSON only.`,
               )}
 
               <div className="space-y-2">
-                <label className="text-sm font-medium">Video URL (Optional)</label>
+                <label className="text-sm font-medium">Video URL</label>
                 <Input
                   value={newPost.video_url}
                   onChange={(e) => setNewPost({ ...newPost, video_url: e.target.value })}
@@ -907,7 +901,7 @@ Return valid JSON only.`,
                   className="w-4 h-4"
                 />
                 <label htmlFor="requires_ack" className="text-sm text-gray-700">
-                  Require staff to acknowledge they've read this post
+                  Require staff acknowledgment
                 </label>
               </div>
 
@@ -920,36 +914,19 @@ Return valid JSON only.`,
                   className="w-4 h-4"
                 />
                 <label htmlFor="is_featured" className="text-sm text-gray-700">
-                  Feature this post (appears with gold banner at top)
+                  Feature this post (gold banner)
                 </label>
               </div>
             </div>
 
             <div className="flex justify-end gap-3 pt-4 border-t">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => {
-                  setShowCreatePost(false);
-                  setNewPost({
-                    title: '',
-                    content: '',
-                    post_type: 'inspiration',
-                    category: 'culture',
-                    media_type: 'none',
-                    photo_urls: [],
-                    video_url: '',
-                    requires_acknowledgment: true,
-                    is_featured: false,
-                  });
-                }}
-              >
+              <Button variant="outline" onClick={() => setShowCreatePost(false)}>
                 Cancel
               </Button>
               <Button
                 onClick={handleCreatePost}
                 disabled={creatingPost || !newPost.title?.trim() || !newPost.content?.trim()}
-                className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
+                className="bg-gradient-to-r from-purple-600 to-pink-600"
               >
                 {creatingPost ? (
                   <>
@@ -968,7 +945,7 @@ Return valid JSON only.`,
         </DialogContent>
       </Dialog>
 
-      {/* AI MODULE BUILDER DIALOG */}
+      {/* AI MODULE BUILDER */}
       <Dialog open={showAIModuleBuilder} onOpenChange={setShowAIModuleBuilder}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
@@ -980,7 +957,7 @@ Return valid JSON only.`,
 
           <div className="space-y-4 mt-4">
             <p className="text-gray-700">
-              Describe the training module you want to create, and AI will generate a complete module with content and quiz questions.
+              Describe the training module you want, and AI will generate complete content with quiz questions.
             </p>
 
             <div className="space-y-2">
@@ -988,22 +965,24 @@ Return valid JSON only.`,
               <Textarea
                 value={aiModulePrompt}
                 onChange={(e) => setAIModulePrompt(e.target.value)}
-                placeholder="e.g., 'Create a food safety training module about proper handwashing techniques, including when to wash hands, proper soap usage, and drying methods. Include temperature checks and cross-contamination prevention.'"
+                placeholder="e.g., 'Create a comprehensive food safety module covering proper handwashing, temperature control, cross-contamination prevention, and safe food storage practices. Include real-world examples for restaurant staff.'"
                 rows={6}
               />
             </div>
 
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <p className="text-sm text-blue-900">
-                💡 <strong>Tip:</strong> Be specific! Include:
-              </p>
-              <ul className="text-sm text-blue-800 mt-2 space-y-1 ml-5 list-disc">
-                <li>Topic and objectives</li>
-                <li>Key points to cover</li>
-                <li>Target audience (chefs, servers, all staff)</li>
-                <li>Any specific procedures or standards</li>
-              </ul>
-            </div>
+            <Card className="bg-blue-50 border-2 border-blue-200">
+              <CardContent className="p-4">
+                <p className="text-sm text-blue-900 mb-2">
+                  💡 <strong>Tips for best results:</strong>
+                </p>
+                <ul className="text-sm text-blue-800 space-y-1 ml-5 list-disc">
+                  <li>Be specific about topics to cover</li>
+                  <li>Mention target audience (chefs, servers, all staff)</li>
+                  <li>Include any standards or procedures to follow</li>
+                  <li>Specify if you want practical examples</li>
+                </ul>
+              </CardContent>
+            </Card>
 
             <div className="flex justify-end gap-3 pt-4 border-t">
               <Button
@@ -1038,16 +1017,19 @@ Return valid JSON only.`,
         </DialogContent>
       </Dialog>
 
-      {/* Module Viewer Dialog - placeholder for now */}
+      {/* Module Viewer */}
       {showModuleViewer && selectedModule && (
         <Dialog open={showModuleViewer} onOpenChange={setShowModuleViewer}>
           <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>{selectedModule.title}</DialogTitle>
+              <DialogTitle className="text-2xl">{selectedModule.title}</DialogTitle>
             </DialogHeader>
-            <div className="mt-4">
-              <p className="text-gray-700 mb-4">{selectedModule.description}</p>
-              <div className="prose max-w-none" dangerouslySetInnerHTML={{ __html: selectedModule.content_text }} />
+            <div className="mt-4 space-y-4">
+              <p className="text-gray-700 text-lg">{selectedModule.description}</p>
+              <div 
+                className="prose max-w-none" 
+                dangerouslySetInnerHTML={{ __html: selectedModule.content_text }} 
+              />
             </div>
           </DialogContent>
         </Dialog>
