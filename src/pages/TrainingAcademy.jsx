@@ -47,7 +47,11 @@ import {
   Pencil, // Added Pencil icon
   Save, // Added Save icon
   Trash2, // Added Trash2 icon
-  Upload, Image as ImageIcon, Check, Eye, X, Pin, Wand2 // Added Wand2 icon
+  Upload, Image as ImageIcon, Check, Eye, X, Pin, Wand2, // Added Wand2 icon
+  Megaphone, // Added Megaphone for posts tab
+  Loader2, // Added for loading states
+  Send, // Added for sending posts
+  Lightbulb // Added for POST_TYPE_ICONS
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
@@ -143,6 +147,44 @@ const REFLECTION_PROMPTS = [
   'What story will you tell through the chai you serve?'
 ];
 
+const CULTURE_QUIZ = [
+  {
+    question: "What is Chai Patta's mission?",
+    options: ["Serve tea fast", "Create Craving Fans", "Sell premium drinks", "Make profit"],
+    correct_answer: 1
+  },
+  {
+    question: "Which value represents our roots and traditions?",
+    options: ["Growth", "Heritage", "Excellence", "Speed"],
+    correct_answer: 1
+  },
+  {
+    question: "What does Discipline mean at Chai Patta?",
+    options: ["Be strict", "Always show up early and prepared", "Punish mistakes", "Work longer"],
+    correct_answer: 1
+  },
+  {
+    question: "What's our morning ritual?",
+    options: ["Huddle silently", "Start with a smile", "Skip briefing", "Clock in fast"],
+    correct_answer: 1
+  },
+  {
+    question: "What makes a guest a 'Craving Fan'?",
+    options: ["Free chai", "Consistent excellence and care", "Promotions", "Fast service"],
+    correct_answer: 1
+  }
+];
+
+const POST_TYPE_ICONS = {
+  inspiration: { icon: Sparkles, color: 'text-yellow-600' },
+  training_tip: { icon: Lightbulb, color: 'text-blue-600' },
+  success_story: { icon: Trophy, color: 'text-green-600' },
+  announcement: { icon: Megaphone, color: 'text-red-600' },
+  knowledge_share: { icon: BookOpen, color: 'text-purple-600' },
+  best_practice: { icon: Star, color: 'text-orange-600' },
+};
+
+
 export default function TrainingAcademy() {
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState('overview');
@@ -191,6 +233,7 @@ export default function TrainingAcademy() {
   const [aiPrompt, setAiPrompt] = useState('');
   const [generatingAI, setGeneratingAI] = useState(false);
   const [uploadingMedia, setUploadingMedia] = useState(false);
+  const [creatingPost, setCreatingPost] = useState(false); // Added for outline change
   const [postFormData, setPostFormData] = useState({
     title: '',
     content: '',
@@ -533,14 +576,38 @@ export default function TrainingAcademy() {
     setUploadingMedia(false);
   };
 
-  const handleCreatePost = (e) => {
+  const handleCreatePost = async (e) => {
     e.preventDefault();
-    createPostMutation.mutate({
-      ...postFormData,
-      author_email: user?.email,
-      author_name: user?.full_name,
-      media_type: postFormData.photo_urls.length > 0 && postFormData.video_url ? 'both' : postFormData.photo_urls.length > 0 ? 'photo' : postFormData.video_url ? 'video' : 'none',
-    });
+    if (!postFormData.title || !postFormData.content) {
+      alert('⚠️ Please fill in title and content');
+      return;
+    }
+
+    try {
+      setCreatingPost(true);
+      
+      const postData = {
+        ...postFormData,
+        author_email: user?.email,
+        author_name: user?.full_name,
+        is_active: true,
+        total_acknowledgments: 0,
+        view_count: 0,
+        likes_count: 0,
+        acknowledged_by: [],
+        media_type: postFormData.photo_urls.length > 0 && postFormData.video_url ? 'both' : postFormData.photo_urls.length > 0 ? 'photo' : postFormData.video_url ? 'video' : 'none',
+      };
+
+      await createPostMutation.mutateAsync(postData);
+      
+      // Success handled by mutation onSuccess
+      
+    } catch (error) {
+      console.error('Error creating post:', error);
+      alert('❌ Failed to create post. Please try again.');
+    } finally {
+      setCreatingPost(false);
+    }
   };
 
   const hasAcknowledged = (post) => {
@@ -855,33 +922,6 @@ Tone: Warm, professional, motivational, aligned with excellence and teamwork cul
   const level2Modules = trainingModules.filter(m => m.level === 2 || m.category === 'product_knowledge');
   const level3Modules = trainingModules.filter(m => m.level === 3 || m.category === 'compliance');
 
-  const CULTURE_QUIZ = [
-    {
-      question: "What is Chai Patta's mission?",
-      options: ["Serve tea fast", "Create Craving Fans", "Sell premium drinks", "Make profit"],
-      correct_answer: 1
-    },
-    {
-      question: "Which value represents our roots and traditions?",
-      options: ["Growth", "Heritage", "Excellence", "Speed"],
-      correct_answer: 1
-    },
-    {
-      question: "What does Discipline mean at Chai Patta?",
-      options: ["Be strict", "Always show up early and prepared", "Punish mistakes", "Work longer"],
-      correct_answer: 1
-    },
-    {
-      question: "What's our morning ritual?",
-      options: ["Huddle silently", "Start with a smile", "Skip briefing", "Clock in fast"],
-      correct_answer: 1
-    },
-    {
-      question: "What makes a guest a 'Craving Fan'?",
-      options: ["Free chai", "Consistent excellence and care", "Promotions", "Fast service"],
-      correct_answer: 1
-    }
-  ];
 
   const handleCultureQuizSubmit = async () => {
     let correctCount = 0;
@@ -950,7 +990,7 @@ Tone: Warm, professional, motivational, aligned with excellence and teamwork cul
 
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-amber-50 to-emerald-50 p-6 md:p-8">
+    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-pink-50 to-blue-50 p-6 md:p-8">
       <div className="max-w-7xl mx-auto">
         
         <div className="flex gap-3 mb-6 flex-wrap items-center">
@@ -1009,127 +1049,49 @@ Tone: Warm, professional, motivational, aligned with excellence and teamwork cul
 
         {/* Training Levels Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-5 h-auto bg-white shadow-md rounded-xl p-1"> {/* Updated grid-cols-4 to grid-cols-5 */}
-            <TabsTrigger value="overview" className="flex-col gap-2 py-4 rounded-lg data-[state=active]:bg-gradient-to-br data-[state=active]:from-pink-100 data-[state=active]:to-rose-100"> {/* Added new tab trigger */}
+          <TabsList className="grid w-full grid-cols-6 h-auto bg-white shadow-md rounded-xl p-1"> {/* Updated grid-cols-5 to grid-cols-6 */}
+            <TabsTrigger
+              value="posts"
+              className="flex-col gap-2 py-4 rounded-lg data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-600 data-[state=active]:to-pink-600 data-[state=active]:text-white"
+            >
+              <Megaphone className="w-5 h-5" />
+              <span className="font-semibold">Posts</span>
+              <span className="text-xs text-gray-500">Updates</span>
+            </TabsTrigger>
+            <TabsTrigger value="overview" className="flex-col gap-2 py-4 rounded-lg data-[state=active]:bg-gradient-to-br data-[state=active]:from-pink-100 data-[state=active]:to-rose-100">
               <Sparkles className="w-5 h-5" />
               <span className="font-semibold">Overview</span>
               <span className="text-xs text-gray-500">Your Journey</span>
             </TabsTrigger>
-            <TabsTrigger value="culture" className="flex-col gap-2 py-4 rounded-lg data-[state=active]:bg-gradient-to-br data-[state=active]:from-purple-100 data-[state=active]:to-pink-100"> {/* Added rounded-lg and gradient for active state */}
+            <TabsTrigger value="culture" className="flex-col gap-2 py-4 rounded-lg data-[state=active]:bg-gradient-to-br data-[state=active]:from-purple-100 data-[state=active]:to-pink-100">
               <Heart className="w-5 h-5" />
               <span className="font-semibold">Culture & Values</span>
               <span className="text-xs text-gray-500">Start Here</span>
             </TabsTrigger>
-            <TabsTrigger value="level1" className="flex-col gap-2 py-4 rounded-lg data-[state=active]:bg-gradient-to-br data-[state=active]:from-blue-100 data-[state=active]:to-cyan-100"> {/* Added rounded-lg and gradient for active state */}
+            <TabsTrigger value="level1" className="flex-col gap-2 py-4 rounded-lg data-[state=active]:bg-gradient-to-br data-[state=active]:from-blue-100 data-[state=active]:to-cyan-100">
               <Star className="w-5 h-5" />
               <span className="font-semibold">Level 1</span>
               <span className="text-xs text-gray-500">Foundation</span>
             </TabsTrigger>
-            <TabsTrigger value="level2" className="flex-col gap-2 py-4 rounded-lg data-[state=active]:bg-gradient-to-br data-[state=active]:from-green-100 data-[state=active]:to-emerald-100"> {/* Added rounded-lg and gradient for active state */}
+            <TabsTrigger value="level2" className="flex-col gap-2 py-4 rounded-lg data-[state=active]:bg-gradient-to-br data-[state=active]:from-green-100 data-[state=active]:to-emerald-100">
               <Target className="w-5 h-5" />
               <span className="font-semibold">Level 2</span>
               <span className="text-xs text-gray-500">Excellence</span>
             </TabsTrigger>
-            <TabsTrigger value="level3" className="flex-col gap-2 py-4 rounded-lg data-[state=active]:bg-gradient-to-br data-[state=active]:from-amber-100 data-[state=active]:to-orange-100"> {/* Added rounded-lg and gradient for active state */}
+            <TabsTrigger value="level3" className="flex-col gap-2 py-4 rounded-lg data-[state=active]:bg-gradient-to-br data-[state=active]:from-amber-100 data-[state=active]:to-orange-100">
               <Trophy className="w-5 h-5" />
               <span className="font-semibold">Level 3</span>
               <span className="text-xs text-gray-500">Leadership</span>
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="overview">
-            {/* Hero Header */}
-            <motion.div
-              initial={{ opacity: 0, y: -20 }}
-              animate={{ opacity: 1, y: 0 }}
-            >
-              <Card className="bg-gradient-to-r from-[#014D40] to-emerald-600 text-white border-none shadow-xl mb-8 overflow-hidden relative"> {/* Updated background and added overflow/relative */}
-                {/* Decorative circles */}
-                <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -mr-32 -mt-32" />
-                <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/5 rounded-full -ml-24 -mb-24" />
-                <CardContent className="p-8 relative"> {/* Added relative */}
-                  <div className="flex items-center justify-between flex-wrap gap-6">
-                    <div>
-                      <h1 className="text-4xl font-bold mb-3 flex items-center gap-3">
-                        <GraduationCap className="w-12 h-12" />
-                        Training Academy
-                      </h1>
-                      <p className="text-xl text-emerald-100 mb-2"> {/* Updated text color */}
-                        Welcome back, {user?.full_name?.split(' ')[0]}! 🌟
-                      </p>
-                      <p className="text-emerald-200 italic"> {/* Updated text color and added italic */}
-                        "{randomQuote}" {/* Display random quote */}
-                      </p>
-                    </div>
-                    <div className="text-center bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20"> {/* Added border */}
-                      <div className="text-6xl font-bold mb-2">{totalProgress}%</div>
-                      <p className="text-emerald-200">Overall Progress</p> {/* Updated text color */}
-                      <div className="mt-3 flex items-center justify-center gap-2">
-                        <Award className="w-5 h-5 text-yellow-300" />
-                        <span className="text-yellow-300 font-semibold">{myCertificates.length} Certificates</span>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </motion.div>
-
-            {/* Stats Cards */}
-            <div className="grid md:grid-cols-4 gap-4 mb-8">
-              <Card className="border-l-4 border-l-purple-500 hover:shadow-lg transition-shadow bg-gradient-to-br from-white to-purple-50"> {/* Added gradient bg */}
-                <CardContent className="p-6">
-                  <Heart className="w-8 h-8 text-purple-600 mb-2" />
-                  <p className="text-3xl font-bold text-purple-600">{getCategoryProgress('culture')}%</p>
-                  <p className="text-sm text-gray-600 font-medium">Culture Mastery</p> {/* Added font-medium */}
-                  <p className="text-xs text-gray-500 mt-1">{cultureModules.length} modules</p> {/* Added module count */}
-                </CardContent>
-              </Card>
-
-              <Card className="border-l-4 border-l-blue-500 hover:shadow-lg transition-shadow bg-gradient-to-br from-white to-blue-50"> {/* Added gradient bg */}
-                <CardContent className="p-6">
-                  <Star className="w-8 h-8 text-blue-600 mb-2" />
-                  <p className="text-3xl font-bold text-blue-600">{getCategoryProgress(1)}%</p>
-                  <p className="text-sm text-gray-600 font-medium">Level 1 - Foundation</p> {/* Added font-medium */}
-                  <p className="text-xs text-gray-500 mt-1">{level1Modules.length} modules</p> {/* Added module count */}
-                </CardContent>
-              </Card>
-
-              <Card className="border-l-4 border-l-green-500 hover:shadow-lg transition-shadow bg-gradient-to-br from-white to-green-50"> {/* Added gradient bg */}
-                <CardContent className="p-6">
-                  <Target className="w-8 h-8 text-green-600 mb-2" />
-                  <p className="text-3xl font-bold text-green-600">{getCategoryProgress(2)}%</p>
-                  <p className="text-sm text-gray-600 font-medium">Level 2 - Excellence</p> {/* Added font-medium */}
-                  <p className="text-xs text-gray-500 mt-1">{level2Modules.length} modules</p> {/* Added module count */}
-                </CardContent>
-              </Card>
-
-              <Card className="border-l-4 border-l-amber-500 hover:shadow-lg transition-shadow bg-gradient-to-br from-white to-amber-50"> {/* Added gradient bg */}
-                <CardContent className="p-6">
-                  <Trophy className="w-8 h-8 text-amber-600 mb-2" />
-                  <p className="text-3xl font-bold text-amber-600">{getCategoryProgress(3)}%</p>
-                  <p className="text-sm text-gray-600 font-medium">Level 3 - Mastery</p> {/* Added font-medium */}
-                  <p className="text-xs text-gray-500 mt-1">{level3Modules.length} modules</p> {/* Added module count */}
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Quote of the Day */}
-            <Card className="bg-gradient-to-r from-amber-500 to-orange-600 text-white border-none shadow-2xl">
-              <CardContent className="p-8 text-center">
-                <p className="text-2xl md:text-3xl font-serif italic mb-4">
-                  "The only limit to your impact is your imagination and commitment."
-                </p>
-                <p className="text-amber-100 font-semibold">— Tony Robbins</p>
-              </CardContent>
-            </Card>
-
-            {/* Inspiration & Learning Posts */}
-            <Card className="shadow-lg border-2 border-emerald-200">
-              <CardHeader className="bg-gradient-to-r from-emerald-600 to-teal-600 text-white">
+          <TabsContent value="posts">
+            <Card className="shadow-lg border-2 border-purple-200">
+              <CardHeader className="bg-gradient-to-r from-purple-600 to-pink-600 text-white">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-2xl flex items-center gap-3">
-                    <GraduationCap className="w-7 h-7" />
-                    Learning & Inspiration Feed
+                    <Megaphone className="w-7 h-7" />
+                    Training Posts ({trainingPosts.length})
                   </CardTitle>
                   {isManager && (
                     <div className="flex gap-2">
@@ -1137,7 +1099,7 @@ Tone: Warm, professional, motivational, aligned with excellence and teamwork cul
                         onClick={() => setShowAIHelper(true)}
                         variant="secondary"
                         size="sm"
-                        className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white border-none"
+                        className="bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-600 hover:to-emerald-600 text-white border-none"
                       >
                         <Sparkles className="w-4 h-4 mr-2" />
                         Create with AI
@@ -1195,44 +1157,48 @@ Tone: Warm, professional, motivational, aligned with excellence and teamwork cul
                   </Select>
                   {postsLoading && <span className="text-sm text-gray-500 flex items-center"><RefreshCw className="w-4 h-4 mr-1 animate-spin" /> Loading posts...</span>}
                 </div>
-                {filteredPosts.length === 0 ? (
-                  <div className="text-center py-12">
-                    <GraduationCap className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                    <p className="text-gray-500">No posts yet. Share knowledge and inspiration!</p>
-                    {isManager && (
-                      <Button
-                        onClick={() => setShowPostForm(true)}
-                        className="mt-4 bg-emerald-600 hover:bg-emerald-700"
-                      >
-                        <Plus className="w-4 h-4 mr-2" />
-                        Create First Post
-                      </Button>
-                    )}
-                  </div>
+                {postsLoading ? (
+                  <Card>
+                    <CardContent className="p-12 text-center">
+                      <Loader2 className="w-12 h-12 text-purple-600 animate-spin mx-auto mb-4" />
+                      <p className="text-gray-600">Loading posts...</p>
+                    </CardContent>
+                  </Card>
+                ) : filteredPosts.length === 0 ? (
+                  <Card>
+                    <CardContent className="p-12 text-center">
+                      <Megaphone className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                      <p className="text-gray-600 font-medium">No posts yet</p>
+                      <p className="text-sm text-gray-500 mt-2">
+                        {isManager ? 'Create your first training post!' : 'Check back soon for updates from management'}
+                      </p>
+                    </CardContent>
+                  </Card>
                 ) : (
                   <div className="space-y-6">
                     {filteredPosts.map((post) => {
                       const acknowledged = hasAcknowledged(post);
-                      
-                      return (
-                        <Card key={post.id} className={`border-2 ${post.is_featured ? 'border-amber-400 shadow-xl' : 'border-gray-200'}`}>
-                          <CardContent className="p-6">
-                            {post.is_featured && (
-                              <div className="mb-3">
-                                <Badge className="bg-amber-500">
-                                  <Pin className="w-3 h-3 mr-1" />
-                                  Featured Post
-                                </Badge>
-                              </div>
-                            )}
+                      const postTypeIcon = POST_TYPE_ICONS[post.post_type] || POST_TYPE_ICONS.inspiration;
+                      const Icon = postTypeIcon.icon;
 
+                      return (
+                        <Card key={post.id} className={`bg-white border-2 shadow-lg hover:shadow-xl transition-all ${post.is_featured ? 'border-amber-400 bg-gradient-to-r from-amber-50 to-yellow-50' : 'border-gray-200'}`}>
+                          {post.is_featured && (
+                            <div className="bg-gradient-to-r from-amber-500 to-yellow-600 text-white px-4 py-2 flex items-center gap-2">
+                              <Star className="w-4 h-4 fill-current" />
+                              <span className="font-bold">Featured Post</span>
+                            </div>
+                          )}
+                          
+                          <CardContent className="p-6">
                             {/* Post Header */}
                             <div className="flex items-start justify-between mb-4">
                               <div>
                                 <h3 className="text-2xl font-bold text-gray-900 mb-2">{post.title}</h3>
                                 <div className="flex gap-2">
-                                  <Badge className="bg-emerald-100 text-emerald-800">
-                                    {post.post_type.replace('_', ' ')}
+                                  <Badge className={`flex items-center gap-1 ${postTypeIcon.color} bg-white border-2 border-gray-200`}>
+                                    <Icon className="w-4 h-4" />
+                                    <span className="capitalize">{post.post_type?.replace('_', ' ')}</span>
                                   </Badge>
                                   <Badge variant="outline">
                                     {post.category}
@@ -1339,10 +1305,97 @@ Tone: Warm, professional, motivational, aligned with excellence and teamwork cul
                 )}
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="overview">
+            {/* Hero Header */}
+            <motion.div
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+            >
+              <Card className="bg-gradient-to-r from-[#014D40] to-emerald-600 text-white border-none shadow-xl mb-8 overflow-hidden relative">
+                {/* Decorative circles */}
+                <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -mr-32 -mt-32" />
+                <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/5 rounded-full -ml-24 -mb-24" />
+                <CardContent className="p-8 relative">
+                  <div className="flex items-center justify-between flex-wrap gap-6">
+                    <div>
+                      <h1 className="text-4xl font-bold mb-3 flex items-center gap-3">
+                        <GraduationCap className="w-12 h-12" />
+                        Training Academy
+                      </h1>
+                      <p className="text-xl text-emerald-100 mb-2">
+                        Welcome back, {user?.full_name?.split(' ')[0]}! 🌟
+                      </p>
+                      <p className="text-emerald-200 italic">
+                        "{randomQuote}"
+                      </p>
+                    </div>
+                    <div className="text-center bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20">
+                      <div className="text-6xl font-bold mb-2">{totalProgress}%</div>
+                      <p className="text-emerald-200">Overall Progress</p>
+                      <div className="mt-3 flex items-center justify-center gap-2">
+                        <Award className="w-5 h-5 text-yellow-300" />
+                        <span className="text-yellow-300 font-semibold">{myCertificates.length} Certificates</span>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+
+            {/* Stats Cards */}
+            <div className="grid md:grid-cols-4 gap-4 mb-8">
+              <Card className="border-l-4 border-l-purple-500 hover:shadow-lg transition-shadow bg-gradient-to-br from-white to-purple-50">
+                <CardContent className="p-6">
+                  <Heart className="w-8 h-8 text-purple-600 mb-2" />
+                  <p className="text-3xl font-bold text-purple-600">{getCategoryProgress('culture')}%</p>
+                  <p className="text-sm text-gray-600 font-medium">Culture Mastery</p>
+                  <p className="text-xs text-gray-500 mt-1">{cultureModules.length} modules</p>
+                </CardContent>
+              </Card>
+
+              <Card className="border-l-4 border-l-blue-500 hover:shadow-lg transition-shadow bg-gradient-to-br from-white to-blue-50">
+                <CardContent className="p-6">
+                  <Star className="w-8 h-8 text-blue-600 mb-2" />
+                  <p className="text-3xl font-bold text-blue-600">{getCategoryProgress(1)}%</p>
+                  <p className="text-sm text-gray-600 font-medium">Level 1 - Foundation</p>
+                  <p className="text-xs text-gray-500 mt-1">{level1Modules.length} modules</p>
+                </CardContent>
+              </Card>
+
+              <Card className="border-l-4 border-l-green-500 hover:shadow-lg transition-shadow bg-gradient-to-br from-white to-green-50">
+                <CardContent className="p-6">
+                  <Target className="w-8 h-8 text-green-600 mb-2" />
+                  <p className="text-3xl font-bold text-green-600">{getCategoryProgress(2)}%</p>
+                  <p className="text-sm text-gray-600 font-medium">Level 2 - Excellence</p>
+                  <p className="text-xs text-gray-500 mt-1">{level2Modules.length} modules</p>
+                </CardContent>
+              </Card>
+
+              <Card className="border-l-4 border-l-amber-500 hover:shadow-lg transition-shadow bg-gradient-to-br from-white to-amber-50">
+                <CardContent className="p-6">
+                  <Trophy className="w-8 h-8 text-amber-600 mb-2" />
+                  <p className="text-3xl font-bold text-amber-600">{getCategoryProgress(3)}%</p>
+                  <p className="text-sm text-gray-600 font-medium">Level 3 - Mastery</p>
+                  <p className="text-xs text-gray-500 mt-1">{level3Modules.length} modules</p>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Quote of the Day */}
+            <Card className="bg-gradient-to-r from-amber-500 to-orange-600 text-white border-none shadow-2xl">
+              <CardContent className="p-8 text-center">
+                <p className="text-2xl md:text-3xl font-serif italic mb-4">
+                  "The only limit to your impact is your imagination and commitment."
+                </p>
+                <p className="text-amber-100 font-semibold">— Tony Robbins</p>
+              </CardContent>
+            </Card>
 
             {/* Certificates Section - Always visible */}
             {myCertificates.length > 0 && (
-              <Card className="mt-8 bg-gradient-to-r from-yellow-50 to-amber-50 border-2 border-yellow-300 shadow-xl"> {/* Updated border and shadow */}
+              <Card className="mt-8 bg-gradient-to-r from-yellow-50 to-amber-50 border-2 border-yellow-300 shadow-xl">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2 text-2xl">
                     <Award className="w-7 h-7 text-yellow-600" />
@@ -1357,17 +1410,17 @@ Tone: Warm, professional, motivational, aligned with excellence and teamwork cul
                         initial={{ opacity: 0, scale: 0.9 }}
                         animate={{ opacity: 1, scale: 1 }}
                       >
-                        <Card className="border-2 border-yellow-400 hover:shadow-xl transition-shadow bg-gradient-to-br from-white to-yellow-50"> {/* Added gradient bg */}
+                        <Card className="border-2 border-yellow-400 hover:shadow-xl transition-shadow bg-gradient-to-br from-white to-yellow-50">
                           <CardContent className="p-6 text-center">
                             <Trophy className="w-12 h-12 text-yellow-600 mx-auto mb-3" />
                             <h4 className="font-semibold text-gray-900 mb-2">{cert.title}</h4>
                             <p className="text-xs text-gray-600 mb-1">{cert.description}</p>
                             <p className="text-xs text-gray-500 mb-3">
-                              Issued: {format(new Date(cert.issued_date), 'MMM d, yyyy')} {/* Changed text */}
+                              Issued: {format(new Date(cert.issued_date), 'MMM d, yyyy')}
                             </p>
                             {cert.points_awarded > 0 && (
-                              <Badge className="bg-green-100 text-green-800 mb-2"> {/* Changed mb-3 to mb-2 */}
-                                +{cert.points_awarded} XP {/* Changed text */}
+                              <Badge className="bg-green-100 text-green-800 mb-2">
+                                +{cert.points_awarded} XP
                               </Badge>
                             )}
                             {cert.badge_earned && ( // Conditionally render badge_earned
@@ -1650,7 +1703,7 @@ Tone: Warm, professional, motivational, aligned with excellence and teamwork cul
                   <Star className="w-16 h-16 flex-shrink-0" />
                   <div className="flex-1">
                     <h3 className="text-3xl font-bold mb-3">Level 1: Foundation Training</h3>
-                    <p className="text-blue-100 text-lg mb-2 font-semibold"> {/* Changed mb-4 to mb-2 and added font-semibold */}
+                    <p className="text-blue-100 text-lg mb-2 font-semibold">
                       "Master the Essentials"
                     </p>
                     <p className="text-blue-50 mb-6">
@@ -1658,7 +1711,7 @@ Tone: Warm, professional, motivational, aligned with excellence and teamwork cul
                       These are the non-negotiables for every team member.
                     </p>
                     <div className="flex items-center gap-4">
-                      <Progress value={getCategoryProgress(1)} className="flex-1 bg-blue-300 h-3" /> {/* Added h-3 */}
+                      <Progress value={getCategoryProgress(1)} className="flex-1 bg-blue-300 h-3" />
                       <span className="font-bold text-2xl">{getCategoryProgress(1)}%</span>
                     </div>
                   </div>
@@ -1698,7 +1751,7 @@ Tone: Warm, professional, motivational, aligned with excellence and teamwork cul
                   <Target className="w-16 h-16 flex-shrink-0" />
                   <div className="flex-1">
                     <h3 className="text-3xl font-bold mb-3">Level 2: Excellence in Action</h3>
-                    <p className="text-green-100 text-lg mb-2 font-semibold"> {/* Changed mb-4 to mb-2 and added font-semibold */}
+                    <p className="text-green-100 text-lg mb-2 font-semibold">
                       "Serve with Precision & Pride"
                     </p>
                     <p className="text-green-50 mb-6">
@@ -1706,7 +1759,7 @@ Tone: Warm, professional, motivational, aligned with excellence and teamwork cul
                       This is where good becomes great.
                     </p>
                     <div className="flex items-center gap-4">
-                      <Progress value={getCategoryProgress(2)} className="flex-1 bg-green-300 h-3" /> {/* Added h-3 */}
+                      <Progress value={getCategoryProgress(2)} className="flex-1 bg-green-300 h-3" />
                       <span className="font-bold text-2xl">{getCategoryProgress(2)}%</span>
                     </div>
                   </div>
@@ -1746,7 +1799,7 @@ Tone: Warm, professional, motivational, aligned with excellence and teamwork cul
                   <Trophy className="w-16 h-16 flex-shrink-0" />
                   <div className="flex-1">
                     <h3 className="text-3xl font-bold mb-3">Level 3: Leadership & Growth</h3>
-                    <p className="text-amber-100 text-lg mb-2 font-semibold"> {/* Changed mb-4 to mb-2 and added font-semibold */}
+                    <p className="text-amber-100 text-lg mb-2 font-semibold">
                       "Lead → Inspire → Grow"
                     </p>
                     <p className="text-amber-50 mb-6">
@@ -1754,7 +1807,7 @@ Tone: Warm, professional, motivational, aligned with excellence and teamwork cul
                       Become a mentor who creates more Craving Fans - both customers and team members.
                     </p>
                     <div className="flex items-center gap-4">
-                      <Progress value={getCategoryProgress(3)} className="flex-1 bg-amber-300 h-3" /> {/* Added h-3 */}
+                      <Progress value={getCategoryProgress(3)} className="flex-1 bg-amber-300 h-3" />
                       <span className="font-bold text-2xl">{getCategoryProgress(3)}%</span>
                     </div>
                   </div>
@@ -1793,7 +1846,7 @@ Tone: Warm, professional, motivational, aligned with excellence and teamwork cul
           <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle className="text-2xl flex items-center gap-2">
-                <GraduationCap className="w-6 h-6 text-[#014D40]" /> {/* Updated text color */}
+                <GraduationCap className="w-6 h-6 text-[#014D40]" />
                 {selectedModule?.title}
               </DialogTitle>
             </DialogHeader>
@@ -1806,17 +1859,17 @@ Tone: Warm, professional, motivational, aligned with excellence and teamwork cul
                       {selectedModule.duration_minutes} minutes
                     </Badge>
                   )}
-                  <Badge className="bg-purple-100 text-purple-800 capitalize"> {/* Added capitalize */}
+                  <Badge className="bg-purple-100 text-purple-800 capitalize">
                     {selectedModule.category?.replace('_', ' ')}
                   </Badge>
                   {selectedModule.level && (
-                    <Badge className="bg-[#014D40] text-white"> {/* Updated background and text color */}
+                    <Badge className="bg-[#014D40] text-white">
                       Level {selectedModule.level}
                     </Badge>
                   )}
                 </div>
 
-                <Card className="bg-gradient-to-r from-green-50 to-emerald-50 border-green-200"> {/* Added Card wrapper and new styles */}
+                <Card className="bg-gradient-to-r from-green-50 to-emerald-50 border-green-200">
                   <CardContent className="p-4">
                     <p className="text-gray-800 text-lg leading-relaxed">{selectedModule.description}</p>
                   </CardContent>
@@ -1845,10 +1898,10 @@ Tone: Warm, professional, motivational, aligned with excellence and teamwork cul
                 {selectedModule.content_text && (
                   <div>
                     <h3 className="font-semibold text-lg mb-3 flex items-center gap-2">
-                      <FileText className="w-5 h-5 text-[#014D40]" /> {/* Updated text color */}
+                      <FileText className="w-5 h-5 text-[#014D40]" />
                       Course Material
                     </h3>
-                    <Card className="bg-gradient-to-br from-gray-50 to-white border-gray-200"> {/* Updated Card styles */}
+                    <Card className="bg-gradient-to-br from-gray-50 to-white border-gray-200">
                       <CardContent className="p-6">
                         <div className="whitespace-pre-wrap text-gray-800 leading-relaxed">
                           {selectedModule.content_text}
@@ -1862,14 +1915,14 @@ Tone: Warm, professional, motivational, aligned with excellence and teamwork cul
                   <div>
                     <h3 className="font-semibold text-lg mb-3 flex items-center gap-2">
                       <BookOpen className="w-5 h-5 text-green-600" />
-                      Related Procedures {/* Changed text */}
+                      Related Procedures
                     </h3>
                     <div className="flex flex-wrap gap-2">
                       {selectedModule.linked_sop_ids.map(sopId => (
                         <Link key={sopId} to={createPageUrl(`SOPViewer?id=${sopId}`)}>
-                          <Button variant="outline" size="sm" className="bg-green-50"> {/* Added bg-green-50 */}
+                          <Button variant="outline" size="sm" className="bg-green-50">
                             <BookOpen className="w-4 h-4 mr-2" />
-                            View SOP for this Recipe {/* Changed text */}
+                            View SOP for this Recipe
                           </Button>
                         </Link>
                       ))}
@@ -1880,7 +1933,7 @@ Tone: Warm, professional, motivational, aligned with excellence and teamwork cul
                 {selectedModule.quiz_questions?.length > 0 && (
                   <Button
                     onClick={() => setShowQuiz(true)}
-                    className="w-full bg-gradient-to-r from-[#014D40] to-emerald-600 hover:from-[#013830] hover:to-emerald-700 py-6 text-lg shadow-lg" // Updated colors and added shadow
+                    className="w-full bg-gradient-to-r from-[#014D40] to-emerald-600 hover:from-[#013830] hover:to-emerald-700 py-6 text-lg shadow-lg"
                   >
                     <Sparkles className="w-5 h-5 mr-2" />
                     Take Knowledge Check ({selectedModule.quiz_questions.length} questions)
@@ -2453,48 +2506,48 @@ Example:
           <DialogContent className="max-w-md">
             <DialogHeader>
               <DialogTitle className="text-2xl flex items-center gap-2">
-                <RefreshCw className="w-6 h-6 text-orange-600" /> {/* Changed icon to RefreshCw */}
+                <RefreshCw className="w-6 h-6 text-orange-600" />
                 Reset Training Progress?
               </DialogTitle>
             </DialogHeader>
             <div className="space-y-4 mt-4">
-              <Card className="bg-blue-50 border-blue-300 border-2"> {/* Added border-2 */}
+              <Card className="bg-blue-50 border-blue-300 border-2">
                 <CardContent className="p-4">
-                  <p className="text-sm text-blue-900 font-bold mb-2"> {/* Added font-bold and mb-2 */}
+                  <p className="text-sm text-blue-900 font-bold mb-2">
                     ✅ What will be SAVED:
                   </p>
                   <ul className="text-sm text-blue-800 space-y-1">
-                    <li>• <strong>All {myCertificates.length} certificates</strong> you earned</li> {/* Updated text with count and strong */}
-                    <li>• Your performance points and XP</li> {/* Added XP */}
+                    <li>• <strong>All {myCertificates.length} certificates</strong> you earned</li>
+                    <li>• Your performance points and XP</li>
                     <li>• Your badges and achievements</li>
-                    <li>• Historical completion records</li> {/* New item */}
+                    <li>• Historical completion records</li>
                   </ul>
                 </CardContent>
               </Card>
 
-              <Card className="bg-orange-50 border-orange-300 border-2"> {/* Added border-2 */}
+              <Card className="bg-orange-50 border-orange-300 border-2">
                 <CardContent className="p-4">
-                  <p className="text-sm text-orange-900 font-bold mb-2"> {/* Added font-bold and mb-2 */}
+                  <p className="text-sm text-orange-900 font-bold mb-2">
                     🔄 What will be RESET:
                   </p>
                   <ul className="text-sm text-orange-800 space-y-1">
                     <li>• Module completion status</li>
-                    <li>• Quiz scores (retake for improvement)</li> {/* Added context */}
+                    <li>• Quiz scores (retake for improvement)</li>
                     <li>• Progress percentages</li>
-                    <li>• Reflection notes</li> {/* New item */}
+                    <li>• Reflection notes</li>
                   </ul>
                 </CardContent>
               </Card>
 
-              <Card className="bg-gradient-to-r from-purple-100 to-pink-100 border-purple-300"> {/* Updated card styles */}
+              <Card className="bg-gradient-to-r from-purple-100 to-pink-100 border-purple-300">
                 <CardContent className="p-4 text-center">
-                  <p className="text-sm text-purple-900 font-semibold"> {/* Added font-semibold */}
-                    💡 Perfect for refreshing knowledge, improving scores, or retraining! {/* Updated text */}
+                  <p className="text-sm text-purple-900 font-semibold">
+                    💡 Perfect for refreshing knowledge, improving scores, or retraining!
                   </p>
                 </CardContent>
               </Card>
 
-              <div className="flex justify-end gap-3 pt-4 border-t"> {/* Added border-t and pt-4 */}
+              <div className="flex justify-end gap-3 pt-4 border-t">
                 <Button
                   variant="outline"
                   onClick={() => setShowResetDialog(false)}
@@ -2504,17 +2557,17 @@ Example:
                 <Button
                   onClick={confirmReset}
                   disabled={resetProgressMutation.isPending}
-                  className="bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white shadow-lg" // Updated colors and added shadow
+                  className="bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white shadow-lg"
                 >
                   {resetProgressMutation.isPending ? (
                     <>
-                      <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> {/* Spinner for pending state */}
+                      <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
                       Resetting...
                     </>
                   ) : (
                     <>
-                      <CheckCircle className="w-4 h-4 mr-2" /> {/* CheckCircle for ready state */}
-                      Yes, Reset & Start Fresh {/* Changed text */}
+                      <CheckCircle className="w-4 h-4 mr-2" />
+                      Yes, Reset & Start Fresh
                     </>
                   )}
                 </Button>
@@ -2523,13 +2576,13 @@ Example:
           </DialogContent>
         </Dialog>
 
-        {/* Create Post Dialog */}
+        {/* CREATE POST DIALOG */}
         <Dialog open={showPostForm} onOpenChange={setShowPostForm}>
           <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle className="text-2xl flex items-center gap-2">
-                <Plus className="w-6 h-6 text-emerald-600" />
-                Create Inspiration Post
+              <DialogTitle className="flex items-center gap-2">
+                <Sparkles className="w-6 h-6 text-purple-600" />
+                Create Training Post
               </DialogTitle>
             </DialogHeader>
             
@@ -2691,10 +2744,20 @@ Example:
                 </Button>
                 <Button
                   type="submit"
-                  disabled={createPostMutation.isPending || uploadingMedia}
+                  disabled={creatingPost || uploadingMedia}
                   className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700"
                 >
-                  {createPostMutation.isPending ? 'Creating...' : 'Create Post'}
+                  {creatingPost ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Publishing...
+                    </>
+                  ) : (
+                    <>
+                      <Send className="w-4 h-4 mr-2" />
+                      Publish Post
+                    </>
+                  )}
                 </Button>
               </div>
             </form>
@@ -2769,9 +2832,9 @@ function ModuleCard({ module, progress, isUnlocked, isCompleted, onStart, index 
       transition={{ delay: index * 0.1 }}
     >
       <Card className={`${
-        isCompleted ? 'border-green-500 border-2 bg-gradient-to-br from-green-50 to-emerald-50' : // Updated styles for completed
-        !isUnlocked ? 'border-gray-300 bg-gray-50/50 opacity-75' : // Updated styles for unlocked
-        'bg-white border-2 border-blue-200' // Updated border-2
+        isCompleted ? 'border-green-500 border-2 bg-gradient-to-br from-green-50 to-emerald-50' :
+        !isUnlocked ? 'border-gray-300 bg-gray-50/50 opacity-75' :
+        'bg-white border-2 border-blue-200'
       } hover:shadow-xl transition-all relative`}>
         
         {isManager && (
@@ -2792,8 +2855,8 @@ function ModuleCard({ module, progress, isUnlocked, isCompleted, onStart, index 
           <div className="flex items-start gap-4">
             <div className={`w-14 h-14 rounded-xl flex items-center justify-center flex-shrink-0 shadow-lg ${
               isCompleted ? 'bg-gradient-to-br from-green-500 to-green-600' :
-              !isUnlocked ? 'bg-gray-400' : // Updated background color for locked
-              'bg-gradient-to-br from-[#014D40] to-emerald-600' // Updated background color
+              !isUnlocked ? 'bg-gray-400' :
+              'bg-gradient-to-br from-[#014D40] to-emerald-600'
             }`}>
               {isCompleted ? (
                 <CheckCircle className="w-7 h-7 text-white" />
@@ -2820,7 +2883,7 @@ function ModuleCard({ module, progress, isUnlocked, isCompleted, onStart, index 
                     {module.content_type.replace('_', ' ')}
                   </Badge>
                 )}
-                {module.is_mandatory && ( // New mandatory badge
+                {module.is_mandatory && (
                   <Badge className="bg-red-100 text-red-800 text-xs">
                     Mandatory
                   </Badge>
@@ -2835,7 +2898,7 @@ function ModuleCard({ module, progress, isUnlocked, isCompleted, onStart, index 
               {isUnlocked && !isCompleted && (
                 <Button
                   onClick={onStart}
-                  className="w-full bg-gradient-to-r from-[#014D40] to-emerald-600 hover:from-[#013830] hover:to-emerald-700 shadow-md" // Updated colors and added shadow
+                  className="w-full bg-gradient-to-r from-[#014D40] to-emerald-600 hover:from-[#013830] hover:to-emerald-700 shadow-md"
                 >
                   <Play className="w-4 h-4 mr-2" />
                   {progress?.status === 'in_progress' ? 'Continue Learning' : 'Start Module'}
@@ -2843,14 +2906,14 @@ function ModuleCard({ module, progress, isUnlocked, isCompleted, onStart, index 
               )}
 
               {isCompleted && progress?.completed_at && (
-                <div className="flex items-center gap-2 text-sm text-green-700 bg-green-50 px-3 py-2 rounded-lg font-medium border border-green-200"> {/* Added border */}
+                <div className="flex items-center gap-2 text-sm text-green-700 bg-green-50 px-3 py-2 rounded-lg font-medium border border-green-200">
                   <CheckCircle className="w-4 h-4" />
                   Completed {format(new Date(progress.completed_at), 'MMM d, yyyy')}
                 </div>
               )}
 
               {!isUnlocked && (
-                <div className="flex items-center gap-2 text-sm text-gray-500 bg-gray-100 px-3 py-2 rounded-lg border border-gray-200"> {/* Added border */}
+                <div className="flex items-center gap-2 text-sm text-gray-500 bg-gray-100 px-3 py-2 rounded-lg border border-gray-200">
                   <Lock className="w-4 h-4" />
                   Complete prerequisites to unlock
                 </div>
