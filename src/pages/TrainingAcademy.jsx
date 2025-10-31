@@ -276,10 +276,13 @@ export default function TrainingAcademy() {
     enabled: !!user?.email,
   });
 
-  const { data: trainingPosts = [], isLoading: postsLoading } = useQuery({
+  const { data: trainingPosts = [], isLoading: postsLoading, refetch: refetchPosts } = useQuery({
     queryKey: ['trainingPosts'],
-    queryFn: () => base44.entities.TrainingPost.list('-created_date'),
-    refetchInterval: 5000, // Auto-refresh every 5 seconds
+    queryFn: async () => {
+      const posts = await base44.entities.TrainingPost.list('-created_date');
+      console.log('📚 Loaded training posts:', posts);
+      return posts;
+    },
   });
 
   const updateProgressMutation = useMutation({
@@ -366,18 +369,34 @@ export default function TrainingAcademy() {
   });
 
   const createPostMutation = useMutation({
-    mutationFn: async (postData) => { // Made async
-      return await base44.entities.TrainingPost.create({ // Await the API call and return its result
-        ...postData,
-        is_active: true, // Ensure posts are active by default
+    mutationFn: async (postData) => {
+      console.log('Creating post with data:', postData);
+      const createdPost = await base44.entities.TrainingPost.create(postData);
+      console.log('✅ Post created:', createdPost);
+      return createdPost;
+    },
+    onSuccess: async (newPost) => {
+      console.log('Post created successfully, refreshing...');
+      await queryClient.invalidateQueries({ queryKey: ['trainingPosts'] });
+      await refetchPosts(); // Force immediate refetch
+      setShowPostForm(false);
+      setPostFormData({
+        title: '',
+        content: '',
+        post_type: 'inspiration',
+        category: 'culture',
+        photo_urls: [],
+        video_url: '',
+        requires_acknowledgment: true,
+        is_featured: false,
+        is_active: true,
       });
+      alert(`✅ Post "${newPost?.title}" created successfully!`);
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['trainingPosts'] });
-      setShowPostForm(false); // Use existing setShowPostForm
-      resetPostForm(); // Use existing resetPostForm
-      alert('✅ Post created successfully!');
-    },
+    onError: (error) => {
+      console.error('Failed to create post:', error);
+      alert('❌ Failed to create post: ' + error.message);
+    }
   });
 
   const acknowledgePostMutation = useMutation({
@@ -411,19 +430,28 @@ export default function TrainingAcademy() {
   });
 
   // Filter posts based on new state variables
-  const filteredPosts = trainingPosts.filter(post => {
-    if (!post) return false;
+  const filteredPosts = React.useMemo(() => {
+    console.log('🔍 Total posts:', trainingPosts?.length || 0);
     
-    const matchesSearch = !searchQuery || 
-      post.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      post.content?.toLowerCase().includes(searchQuery.toLowerCase());
+    if (!trainingPosts || trainingPosts.length === 0) return [];
     
-    const matchesType = filterType === 'all' || post.post_type === filterType;
-    const matchesCategory = filterCategory === 'all' || post.category === filterCategory;
-    
-    // Only show active posts in the feed
-    return matchesSearch && matchesType && matchesCategory && post.is_active;
-  });
+    return trainingPosts.filter(post => {
+      if (!post || !post.is_active) return false;
+      
+      const matchesSearch = !searchQuery || 
+        post.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        post.content?.toLowerCase().includes(searchQuery.toLowerCase());
+      
+      const matchesType = filterType === 'all' || post.post_type === filterType;
+      const matchesCategory = filterCategory === 'all' || post.category === filterCategory;
+      
+      const matches = matchesSearch && matchesType && matchesCategory;
+      
+      return matches;
+    });
+  }, [trainingPosts, searchQuery, filterType, filterCategory]);
+
+  console.log('✅ Filtered posts:', filteredPosts?.length || 0);
 
   const resetModuleForm = useCallback(() => {
     setModuleForm({
@@ -578,33 +606,40 @@ export default function TrainingAcademy() {
 
   const handleCreatePost = async (e) => {
     e.preventDefault();
-    if (!postFormData.title || !postFormData.content) {
+    if (!postFormData.title?.trim() || !postFormData.content?.trim()) {
       alert('⚠️ Please fill in title and content');
       return;
     }
 
+    setCreatingPost(true);
+    
     try {
-      setCreatingPost(true);
-      
       const postData = {
-        ...postFormData,
+        title: postFormData.title,
+        content: postFormData.content,
+        post_type: postFormData.post_type,
+        category: postFormData.category,
         author_email: user?.email,
         author_name: user?.full_name,
+        media_type: postFormData.photo_urls.length > 0 && postFormData.video_url ? 'both' : postFormData.photo_urls.length > 0 ? 'photo' : postFormData.video_url ? 'video' : 'none',
+        photo_urls: postFormData.photo_urls || [],
+        video_url: postFormData.video_url || '',
+        requires_acknowledgment: postFormData.requires_acknowledgment !== false,
+        is_featured: postFormData.is_featured || false,
         is_active: true,
         total_acknowledgments: 0,
         view_count: 0,
         likes_count: 0,
         acknowledged_by: [],
-        media_type: postFormData.photo_urls.length > 0 && postFormData.video_url ? 'both' : postFormData.photo_urls.length > 0 ? 'photo' : postFormData.video_url ? 'video' : 'none',
+        tags: [],
       };
 
+      console.log('📤 Creating post:', postData);
       await createPostMutation.mutateAsync(postData);
       
-      // Success handled by mutation onSuccess
-      
     } catch (error) {
-      console.error('Error creating post:', error);
-      alert('❌ Failed to create post. Please try again.');
+      console.error('Error in handleCreatePost:', error);
+      // The mutation's onError will display an alert.
     } finally {
       setCreatingPost(false);
     }
