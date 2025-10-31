@@ -53,7 +53,6 @@ import DocumentManagement from './pages/DocumentManagement';
 import DataManagement from './pages/DataManagement';
 import BackupSettings from './pages/BackupSettings';
 import NotFound from './pages/NotFound';
-import Menu from './pages/Menu';
 import AllergyTable from './pages/AllergyTable';
 import PrivacyCenter from './pages/PrivacyCenter';
 import ComplianceDashboard from './pages/ComplianceDashboard';
@@ -138,6 +137,7 @@ import QualityAuditHub from './pages/QualityAuditHub';
 import QualityControl from './pages/QualityControl';
 import MeetingDetail from './pages/MeetingDetail';
 import AssetManager from './pages/AssetManager';
+import Menu from './pages/Menu';
 import Layout from './Layout.jsx';
 
 
@@ -197,7 +197,6 @@ export const PAGES = {
     "DataManagement": DataManagement,
     "BackupSettings": BackupSettings,
     "NotFound": NotFound,
-    "Menu": Menu,
     "AllergyTable": AllergyTable,
     "PrivacyCenter": PrivacyCenter,
     "ComplianceDashboard": ComplianceDashboard,
@@ -282,6 +281,7 @@ export const PAGES = {
     "QualityControl": QualityControl,
     "MeetingDetail": MeetingDetail,
     "AssetManager": AssetManager,
+    "Menu": Menu,
 }
 
 export const pagesConfig = {
