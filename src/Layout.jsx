@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -25,7 +24,8 @@ import {
   Moon,
   Sun,
   GraduationCap,
-  Sparkles, // Added Sparkles import for AI Scheduler
+  Sparkles,
+  Wrench,
 } from "lucide-react";
 import {
   CommandDialog,
@@ -127,7 +127,8 @@ function VoiceSearch({ onClose, navigate }) {
       'chat': 'TeamChat',
       'inventory': 'InventoryDashboard',
       'stock': 'InventoryDashboard',
-      'asset manager': 'AssetManager', // Added for voice search
+      'asset manager': 'AssetManager',
+      'assets': 'AssetManager',
       'menu': 'Menu',
       'quality': 'QualityDashboard',
       'sop': 'SOPDashboardHub',
@@ -138,13 +139,13 @@ function VoiceSearch({ onClose, navigate }) {
       'staff': 'StaffDashboard',
       'hygiene': 'HygieneDashboard',
       'settings': 'SettingsDashboard',
-      'training': 'TrainingAcademy', // Added for voice search
-      'academy': 'TrainingAcademy', // Added for voice search
-      'quality audit': 'QualityAuditHub', // Added for voice search
-      'quality control': 'QualityControl', // Added for voice search
-      'ai rota': 'AIRotaGenerator', // Added for voice search
-      'ai scheduler': 'AIRotaGenerator', // Added for voice search
-      'ai meeting': 'MeetingDashboard', // Added for voice search
+      'training': 'TrainingAcademy',
+      'academy': 'TrainingAcademy',
+      'quality audit': 'QualityAuditHub',
+      'quality control': 'QualityControl',
+      'ai rota': 'AIRotaGenerator',
+      'ai scheduler': 'AIRotaGenerator',
+      'ai meeting': 'MeetingDashboard',
     };
 
     for (const [keyword, page] of Object.entries(navMap)) {
@@ -229,9 +230,9 @@ const getRoleNavigation = (user, impersonatedRole = null) => {
       { title: "Staff", url: createPageUrl("StaffDashboard"), icon: Users },
       { title: "Training Academy", url: createPageUrl("TrainingAcademy"), icon: GraduationCap },
       { title: "Inventory", url: createPageUrl("InventoryDashboard"), icon: Package },
-      { title: "Asset Manager", url: createPageUrl("AssetManager"), icon: Settings }, // ADDED
+      { title: "Asset Manager", url: createPageUrl("AssetManager"), icon: Wrench },
       { title: "Quality Control", url: createPageUrl("QualityControl"), icon: Star },
-      { title: "AI Scheduler", url: createPageUrl("AIRotaGenerator"), icon: Sparkles }, // Changed order, added AI Scheduler
+      { title: "AI Scheduler", url: createPageUrl("AIRotaGenerator"), icon: Sparkles },
       { title: "Reports", url: createPageUrl("Reports"), icon: BarChart3 },
       { title: "Settings", url: createPageUrl("SettingsDashboard"), icon: Settings },
     ];
@@ -299,16 +300,16 @@ const ALL_PAGES = [
   { name: "My Shifts", url: createPageUrl("MyShifts"), keywords: "schedule rota roster", category: "Staff" },
   { name: "Staff Rota", url: createPageUrl("StaffRota"), keywords: "schedule weekly planning", category: "Staff" },
   { name: "Clock In/Out", url: createPageUrl("ClockInOut"), keywords: "attendance time tracking", category: "Staff" },
-  { name: "AI Rota Generator", url: createPageUrl("AIRotaGenerator"), keywords: "ai schedule automation smart rota scheduler", category: "AI Tools" }, // Category changed, keywords updated
+  { name: "AI Rota Generator", url: createPageUrl("AIRotaGenerator"), keywords: "ai schedule automation smart rota scheduler", category: "AI Tools" },
   { name: "Inventory Hub", url: createPageUrl("InventoryDashboard"), keywords: "stock supplies ordering", category: "Inventory" },
-  { name: "Asset Manager", url: createPageUrl("AssetManager"), keywords: "equipment maintenance service tracking assets", category: "Inventory" }, // ADDED
+  { name: "Asset Manager", url: createPageUrl("AssetManager"), keywords: "equipment maintenance service tracking assets", category: "Inventory" },
   { name: "SOP Hub", url: createPageUrl("SOPDashboardHub"), keywords: "procedures training guides", category: "SOPs" },
-  { name: "Quality Control", url: createPageUrl("QualityControl"), keywords: "quality inspections audits scores eho", category: "Quality" }, // Keywords updated
-  { name: "Quality & Audit Hub", url: createPageUrl("QualityAuditHub"), keywords: "quality checks audits standards detailed", category: "Quality" }, // Keywords updated
+  { name: "Quality Control", url: createPageUrl("QualityControl"), keywords: "quality inspections audits scores eho", category: "Quality" },
+  { name: "Quality & Audit Hub", url: createPageUrl("QualityAuditHub"), keywords: "quality checks audits standards detailed", category: "Quality" },
   { name: "Hygiene Central", url: createPageUrl("HygieneDashboard"), keywords: "cleanliness temperature safety", category: "Hygiene" },
   { name: "Form Intelligence", url: createPageUrl("FormIntelligence"), keywords: "checklists forms compliance", category: "Forms" },
   { name: "Team Chat", url: createPageUrl("TeamChat"), keywords: "messages communication", category: "Communication" },
-  { name: "AI Meeting Minutes", url: createPageUrl("MeetingDashboard"), keywords: "meetings transcription ai notes recording", category: "AI Tools" }, // Category changed, keywords updated
+  { name: "AI Meeting Minutes", url: createPageUrl("MeetingDashboard"), keywords: "meetings transcription ai notes recording", category: "AI Tools" },
   { name: "Announcements", url: createPageUrl("Announcements"), keywords: "news updates notices", category: "Communication" },
   { name: "Training Academy", url: createPageUrl("TrainingAcademy"), keywords: "education courses learning development academy", category: "Training" },
   { name: "Reports", url: createPageUrl("Reports"), keywords: "analytics statistics data", category: "Reports" },
@@ -602,7 +603,6 @@ export default function Layout({ children }) {
                 </button>
                 <h1 className="text-xl font-bold text-gray-900 dark:text-white">AURA</h1>
 
-                {/* Mobile Notification Bell */}
                 <div className="ml-auto flex items-center gap-2">
                   <NotificationBell />
                   <button
@@ -631,7 +631,6 @@ export default function Layout({ children }) {
               </div>
             </header>
 
-            {/* Desktop Top Bar with Notification */}
             <div className="hidden lg:flex items-center justify-end gap-3 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-3">
               <NotificationBell />
               <button
