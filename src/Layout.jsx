@@ -39,7 +39,8 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
+}
+ from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 
 import AgentInitializer from './components/aurabrain/AgentInitializer';
@@ -48,6 +49,7 @@ import DataIntegrityChecker from './components/DataIntegrityChecker';
 import GlobalErrorHandler from './components/GlobalErrorHandler';
 import SystemHealthCheck from './components/SystemHealthCheck';
 import ProtectionModeIndicator from './components/ProtectionModeIndicator';
+import NotificationBell from './components/NotificationBell';
 
 function VoiceSearch({ onClose, navigate }) {
   const [isListening, setIsListening] = useState(false);
@@ -582,30 +584,62 @@ export default function Layout({ children }) {
                   <MenuIcon className="w-5 h-5 text-gray-600 dark:text-gray-300" />
                 </button>
                 <h1 className="text-xl font-bold text-gray-900 dark:text-white">AURA</h1>
-                <button
-                  onClick={() => setSearchOpen(true)}
-                  className="ml-auto hover:bg-gray-100 dark:hover:bg-gray-700 p-2 rounded-lg transition-colors"
-                >
-                  <Search className="w-5 h-5 text-gray-600 dark:text-gray-300" />
-                </button>
-                <button
-                  onClick={() => setVoiceSearchOpen(true)}
-                  className="hover:bg-gray-100 dark:hover:bg-gray-700 p-2 rounded-lg transition-colors"
-                >
-                  <Mic className="w-5 h-5 text-purple-600 dark:text-purple-400" />
-                </button>
-                <button
-                  onClick={toggleDarkMode}
-                  className="hover:bg-gray-100 dark:hover:bg-gray-700 p-2 rounded-lg transition-colors"
-                >
-                  {isDarkMode ? (
-                    <Sun className="w-5 h-5 text-yellow-500" />
-                  ) : (
-                    <Moon className="w-5 h-5 text-gray-600" />
-                  )}
-                </button>
+                
+                {/* Mobile Notification Bell */}
+                <div className="ml-auto flex items-center gap-2">
+                  <NotificationBell />
+                  <button
+                    onClick={() => setSearchOpen(true)}
+                    className="hover:bg-gray-100 dark:hover:bg-gray-700 p-2 rounded-lg transition-colors"
+                  >
+                    <Search className="w-5 h-5 text-gray-600 dark:text-gray-300" />
+                  </button>
+                  <button
+                    onClick={() => setVoiceSearchOpen(true)}
+                    className="hover:bg-gray-100 dark:hover:bg-gray-700 p-2 rounded-lg transition-colors"
+                  >
+                    <Mic className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                  </button>
+                  <button
+                    onClick={toggleDarkMode}
+                    className="hover:bg-gray-100 dark:hover:bg-gray-700 p-2 rounded-lg transition-colors"
+                  >
+                    {isDarkMode ? (
+                      <Sun className="w-5 h-5 text-yellow-500" />
+                    ) : (
+                      <Moon className="w-5 h-5 text-gray-600" />
+                    )}
+                  </button>
+                </div>
               </div>
             </header>
+
+            {/* Desktop Top Bar with Notification */}
+            <div className="hidden lg:flex items-center justify-end gap-3 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-3">
+              <NotificationBell />
+              <button
+                onClick={() => setSearchOpen(true)}
+                className="hover:bg-gray-100 dark:hover:bg-gray-700 p-2 rounded-lg transition-colors"
+              >
+                <Search className="w-5 h-5 text-gray-600 dark:text-gray-300" />
+              </button>
+              <button
+                onClick={() => setVoiceSearchOpen(true)}
+                className="hover:bg-gray-100 dark:hover:bg-gray-700 p-2 rounded-lg transition-colors"
+              >
+                <Mic className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+              </button>
+              <button
+                onClick={toggleDarkMode}
+                className="hover:bg-gray-100 dark:hover:bg-gray-700 p-2 rounded-lg transition-colors"
+              >
+                {isDarkMode ? (
+                  <Sun className="w-5 h-5 text-yellow-500" />
+                ) : (
+                  <Moon className="w-5 h-5 text-gray-600" />
+                )}
+              </button>
+            </div>
 
             <div className="flex-1 overflow-auto bg-gray-50 dark:bg-gray-900">{children}</div>
           </main>

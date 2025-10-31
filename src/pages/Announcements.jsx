@@ -1,43 +1,39 @@
-import React, { useState } from "react";
-import { base44 } from "@/api/base44Client";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import React, { useState } from 'react';
+import { base44 } from '@/api/base44Client';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Badge } from '@/components/ui/badge';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import { Megaphone, Plus, Pin, Calendar, ArrowLeft, Home, ThumbsUp, Heart, Smile } from "lucide-react";
-import { format } from "date-fns";
-import { Link } from "react-router-dom";
-import { createPageUrl } from "@/utils";
-import { motion, AnimatePresence } from "framer-motion";
+} from '@/components/ui/select';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Megaphone, Plus, Pin, AlertCircle, Calendar, User, ArrowLeft, Home, Bell } from 'lucide-react';
+import { formatDistanceToNow } from 'date-fns';
+import { Link } from 'react-router-dom';
+import { createPageUrl } from '@/utils';
 
 export default function Announcements() {
   const queryClient = useQueryClient();
-  const [showCreateDialog, setShowCreateDialog] = useState(false);
-  const [filterDepartment, setFilterDepartment] = useState("all");
-  const [filterPriority, setFilterPriority] = useState("all");
-
-  const [newAnnouncement, setNewAnnouncement] = useState({
-    title: "",
-    content: "",
-    priority: "info",
-    department: "all",
-    expire_date: "",
-    attachment_url: "",
+  const [showForm, setShowForm] = useState(false);
+  const [formData, setFormData] = useState({
+    title: '',
+    content: '',
+    priority: 'info',
+    department: 'all',
+    is_pinned: false,
+    target_audience: 'all',
   });
 
   const { data: user } = useQuery({
@@ -45,88 +41,117 @@ export default function Announcements() {
     queryFn: () => base44.auth.me(),
   });
 
+  const isManager = user?.role === 'admin' || user?.position === 'manager' || user?.position === 'owner';
+
   const { data: announcements = [] } = useQuery({
     queryKey: ['announcements'],
     queryFn: () => base44.entities.Announcement.list('-created_date'),
   });
 
+  const { data: allUsers = [] } = useQuery({
+    queryKey: ['allUsers'],
+    queryFn: () => base44.entities.User.list(),
+    enabled: isManager,
+  });
+
   const createAnnouncementMutation = useMutation({
-    mutationFn: (data) => base44.entities.Announcement.create(data),
+    mutationFn: async (data) => {
+      const announcement = await base44.entities.Announcement.create(data);
+      
+      // Create notifications for all relevant users
+      const targetUsers = formData.target_audience === 'all' 
+        ? allUsers 
+        : allUsers.filter(u => {
+            if (formData.target_audience === 'managers') return u.position === 'manager' || u.position === 'owner';
+            if (formData.target_audience === 'kitchen') return ['chef', 'sous_chef', 'line_cook'].includes(u.position);
+            if (formData.target_audience === 'front_of_house') return ['server', 'bartender', 'host'].includes(u.position);
+            if (formData.target_audience === 'bar') return u.position === 'bartender';
+            return true;
+          });
+
+      for (const targetUser of targetUsers) {
+        await base44.entities.Notification.create({
+          user_email: targetUser.email,
+          user_name: targetUser.full_name,
+          type: 'announcement',
+          title: data.title,
+          message: data.content.substring(0, 200),
+          link_module: 'Announcements',
+          priority: data.priority === 'urgent' ? 'high' : 'normal',
+          sender_email: user?.email,
+          sender_name: user?.full_name,
+          target_audience: formData.target_audience,
+        });
+      }
+
+      return announcement;
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['announcements'] });
-      setShowCreateDialog(false);
-      setNewAnnouncement({
-        title: "",
-        content: "",
-        priority: "info",
-        department: "all",
-        expire_date: "",
-        attachment_url: "",
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+      setShowForm(false);
+      setFormData({
+        title: '',
+        content: '',
+        priority: 'info',
+        department: 'all',
+        is_pinned: false,
+        target_audience: 'all',
       });
+      alert('✅ Announcement posted and notifications sent!');
     },
   });
 
-  const togglePinMutation = useMutation({
-    mutationFn: ({ id, isPinned }) => 
-      base44.entities.Announcement.update(id, { is_pinned: !isPinned }),
+  const updatePinMutation = useMutation({
+    mutationFn: ({ id, is_pinned }) => base44.entities.Announcement.update(id, { is_pinned }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['announcements'] });
     },
   });
 
-  const handleCreateAnnouncement = async () => {
-    await createAnnouncementMutation.mutateAsync({
-      ...newAnnouncement,
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    createAnnouncementMutation.mutate({
+      ...formData,
       created_by_email: user?.email,
       created_by_name: user?.full_name,
-      read_by: [],
-      reactions: {},
     });
   };
-
-  const filteredAnnouncements = announcements.filter(announcement => {
-    const deptMatch = filterDepartment === 'all' || announcement.department === filterDepartment;
-    const priorityMatch = filterPriority === 'all' || announcement.priority === filterPriority;
-    return deptMatch && priorityMatch && announcement.is_active;
-  });
-
-  const pinnedAnnouncements = filteredAnnouncements.filter(a => a.is_pinned);
-  const regularAnnouncements = filteredAnnouncements.filter(a => !a.is_pinned);
 
   const getPriorityColor = (priority) => {
     switch (priority) {
       case 'urgent':
-        return 'bg-red-100 text-red-800 border-red-200';
+        return 'border-red-500 bg-red-50';
       case 'celebration':
-        return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+        return 'border-yellow-500 bg-yellow-50';
       default:
-        return 'bg-blue-100 text-blue-800 border-blue-200';
+        return 'border-blue-500 bg-blue-50';
     }
   };
 
-  const getPriorityIcon = (priority) => {
+  const getPriorityBadge = (priority) => {
     switch (priority) {
       case 'urgent':
-        return '🚨';
+        return <Badge className="bg-red-600">🚨 Urgent</Badge>;
       case 'celebration':
-        return '🎉';
+        return <Badge className="bg-yellow-600">🎉 Celebration</Badge>;
       default:
-        return 'ℹ️';
+        return <Badge className="bg-blue-600">ℹ️ Info</Badge>;
     }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6 md:p-8">
-      <div className="max-w-7xl mx-auto">
-        {/* Back Buttons */}
+    <div className="p-6 md:p-8 bg-gray-50 dark:bg-gray-900 min-h-screen">
+      <div className="max-w-5xl mx-auto">
+        
         <div className="flex gap-3 mb-6">
-          <Link to={createPageUrl("CommunicationFeedback")}>
+          <Link to={createPageUrl('CommunicationFeedback')}>
             <Button variant="outline" size="sm">
               <ArrowLeft className="w-4 h-4 mr-2" />
-              Back
+              Communication Hub
             </Button>
           </Link>
-          <Link to={createPageUrl("Dashboard")}>
+          <Link to={createPageUrl('Dashboard')}>
             <Button variant="outline" size="sm">
               <Home className="w-4 h-4 mr-2" />
               Dashboard
@@ -134,134 +159,129 @@ export default function Announcements() {
           </Link>
         </div>
 
-        {/* Header */}
-        <div className="flex justify-between items-start mb-8">
+        <div className="flex justify-between items-center mb-8">
           <div>
-            <div className="flex items-center gap-3 mb-2">
-              <Megaphone className="w-10 h-10 text-purple-600" />
-              <h1 className="text-4xl font-bold text-gray-900">Announcements</h1>
-            </div>
-            <p className="text-gray-600">Company updates, celebrations, and important news</p>
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2 flex items-center gap-3">
+              <Megaphone className="w-8 h-8 text-[#014D40]" />
+              Team Announcements
+            </h1>
+            <p className="text-gray-600 dark:text-gray-400">Company-wide updates and important news</p>
           </div>
-          {user?.role === 'admin' && (
-            <Button onClick={() => setShowCreateDialog(true)} className="bg-purple-600 hover:bg-purple-700">
+          {isManager && (
+            <Button
+              onClick={() => setShowForm(true)}
+              className="bg-gradient-to-r from-[#014D40] to-emerald-600 hover:from-[#013830] hover:to-emerald-700"
+            >
               <Plus className="w-4 h-4 mr-2" />
-              New Announcement
+              Post Announcement
             </Button>
           )}
         </div>
 
-        {/* Filters */}
-        <Card className="mb-6">
-          <CardContent className="p-4">
-            <div className="flex gap-4">
-              <Select value={filterDepartment} onValueChange={setFilterDepartment}>
-                <SelectTrigger className="w-48">
-                  <SelectValue placeholder="All Departments" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Departments</SelectItem>
-                  <SelectItem value="front_of_house">Front of House</SelectItem>
-                  <SelectItem value="kitchen">Kitchen</SelectItem>
-                  <SelectItem value="management">Management</SelectItem>
-                </SelectContent>
-              </Select>
-
-              <Select value={filterPriority} onValueChange={setFilterPriority}>
-                <SelectTrigger className="w-48">
-                  <SelectValue placeholder="All Priorities" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Priorities</SelectItem>
-                  <SelectItem value="info">Info</SelectItem>
-                  <SelectItem value="urgent">Urgent</SelectItem>
-                  <SelectItem value="celebration">Celebration</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Pinned Announcements */}
-        {pinnedAnnouncements.length > 0 && (
-          <div className="mb-8">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
-              <Pin className="w-5 h-5 text-yellow-600" />
-              Pinned Announcements
-            </h2>
-            <div className="space-y-4">
-              {pinnedAnnouncements.map((announcement) => (
-                <AnnouncementCard
-                  key={announcement.id}
-                  announcement={announcement}
-                  user={user}
-                  onTogglePin={togglePinMutation.mutate}
-                  getPriorityColor={getPriorityColor}
-                  getPriorityIcon={getPriorityIcon}
-                />
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Regular Announcements */}
+        {/* Announcements Feed */}
         <div className="space-y-4">
-          <AnimatePresence>
-            {regularAnnouncements.map((announcement) => (
-              <AnnouncementCard
+          {announcements.length === 0 ? (
+            <Card className="bg-white dark:bg-gray-800">
+              <CardContent className="p-12 text-center">
+                <Megaphone className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                <p className="text-gray-500">No announcements yet</p>
+              </CardContent>
+            </Card>
+          ) : (
+            announcements.map((announcement) => (
+              <Card
                 key={announcement.id}
-                announcement={announcement}
-                user={user}
-                onTogglePin={togglePinMutation.mutate}
-                getPriorityColor={getPriorityColor}
-                getPriorityIcon={getPriorityIcon}
-              />
-            ))}
-          </AnimatePresence>
+                className={`border-l-4 ${getPriorityColor(announcement.priority)} dark:bg-gray-800`}
+              >
+                <CardContent className="p-6">
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3 mb-2">
+                        {announcement.is_pinned && (
+                          <Pin className="w-5 h-5 text-[#014D40]" />
+                        )}
+                        <h3 className="text-xl font-bold text-gray-900 dark:text-white">
+                          {announcement.title}
+                        </h3>
+                        {getPriorityBadge(announcement.priority)}
+                      </div>
+                      <p className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap leading-relaxed">
+                        {announcement.content}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-4 border-t border-gray-200 dark:border-gray-700">
+                    <div className="flex items-center gap-4 text-sm text-gray-600 dark:text-gray-400">
+                      <span className="flex items-center gap-2">
+                        <User className="w-4 h-4" />
+                        {announcement.created_by_name}
+                      </span>
+                      <span className="flex items-center gap-2">
+                        <Calendar className="w-4 h-4" />
+                        {formatDistanceToNow(new Date(announcement.created_date), { addSuffix: true })}
+                      </span>
+                      {announcement.department !== 'all' && (
+                        <Badge variant="outline">{announcement.department}</Badge>
+                      )}
+                    </div>
+
+                    {isManager && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => updatePinMutation.mutate({
+                          id: announcement.id,
+                          is_pinned: !announcement.is_pinned,
+                        })}
+                        className={announcement.is_pinned ? 'text-[#014D40]' : 'text-gray-400'}
+                      >
+                        <Pin className="w-4 h-4" />
+                      </Button>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            ))
+          )}
         </div>
 
-        {filteredAnnouncements.length === 0 && (
-          <Card>
-            <CardContent className="p-12 text-center">
-              <Megaphone className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-500">No announcements found</p>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Create Dialog */}
-        <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-          <DialogContent className="max-w-2xl">
+        {/* Post Announcement Dialog */}
+        <Dialog open={showForm} onOpenChange={setShowForm}>
+          <DialogContent className="max-w-3xl">
             <DialogHeader>
-              <DialogTitle>Create New Announcement</DialogTitle>
+              <DialogTitle className="text-2xl flex items-center gap-2">
+                <Megaphone className="w-6 h-6 text-[#014D40]" />
+                Post Team Announcement
+              </DialogTitle>
             </DialogHeader>
-            <div className="space-y-4 mt-4">
+            <form onSubmit={handleSubmit} className="space-y-4 mt-4">
               <div>
-                <label className="text-sm font-medium mb-2 block">Title</label>
+                <label className="text-sm font-semibold mb-2 block">Title *</label>
                 <Input
-                  value={newAnnouncement.title}
-                  onChange={(e) => setNewAnnouncement({ ...newAnnouncement, title: e.target.value })}
-                  placeholder="Announcement title..."
+                  value={formData.title}
+                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                  placeholder="e.g., New Menu Launch This Friday!"
+                  required
+                  className="text-lg"
                 />
               </div>
 
               <div>
-                <label className="text-sm font-medium mb-2 block">Content</label>
+                <label className="text-sm font-semibold mb-2 block">Message *</label>
                 <Textarea
-                  value={newAnnouncement.content}
-                  onChange={(e) => setNewAnnouncement({ ...newAnnouncement, content: e.target.value })}
-                  placeholder="Write your announcement..."
+                  value={formData.content}
+                  onChange={(e) => setFormData({ ...formData, content: e.target.value })}
+                  placeholder="Share your announcement with the team..."
                   rows={6}
+                  required
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid md:grid-cols-3 gap-4">
                 <div>
-                  <label className="text-sm font-medium mb-2 block">Priority</label>
-                  <Select
-                    value={newAnnouncement.priority}
-                    onValueChange={(value) => setNewAnnouncement({ ...newAnnouncement, priority: value })}
-                  >
+                  <label className="text-sm font-semibold mb-2 block">Priority</label>
+                  <Select value={formData.priority} onValueChange={(v) => setFormData({ ...formData, priority: v })}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
@@ -274,103 +294,78 @@ export default function Announcements() {
                 </div>
 
                 <div>
-                  <label className="text-sm font-medium mb-2 block">Department</label>
-                  <Select
-                    value={newAnnouncement.department}
-                    onValueChange={(value) => setNewAnnouncement({ ...newAnnouncement, department: value })}
-                  >
+                  <label className="text-sm font-semibold mb-2 block">Department</label>
+                  <Select value={formData.department} onValueChange={(v) => setFormData({ ...formData, department: v })}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">All Staff</SelectItem>
-                      <SelectItem value="front_of_house">Front of House</SelectItem>
+                      <SelectItem value="all">All Departments</SelectItem>
                       <SelectItem value="kitchen">Kitchen</SelectItem>
+                      <SelectItem value="front_of_house">Front of House</SelectItem>
+                      <SelectItem value="bar">Bar</SelectItem>
                       <SelectItem value="management">Management</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <label className="text-sm font-semibold mb-2 block">Send To</label>
+                  <Select value={formData.target_audience} onValueChange={(v) => setFormData({ ...formData, target_audience: v })}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">🌍 Everyone</SelectItem>
+                      <SelectItem value="managers">👔 Managers Only</SelectItem>
+                      <SelectItem value="kitchen">👨‍🍳 Kitchen Staff</SelectItem>
+                      <SelectItem value="front_of_house">👥 Front of House</SelectItem>
+                      <SelectItem value="bar">🍹 Bar Team</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
               </div>
 
-              <div>
-                <label className="text-sm font-medium mb-2 block">Expiry Date (Optional)</label>
-                <Input
-                  type="date"
-                  value={newAnnouncement.expire_date}
-                  onChange={(e) => setNewAnnouncement({ ...newAnnouncement, expire_date: e.target.value })}
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={formData.is_pinned}
+                  onChange={(e) => setFormData({ ...formData, is_pinned: e.target.checked })}
+                  className="w-4 h-4"
+                  id="pin-announcement"
                 />
+                <label htmlFor="pin-announcement" className="text-sm font-semibold flex items-center gap-2">
+                  <Pin className="w-4 h-4" />
+                  Pin to top of feed
+                </label>
               </div>
 
-              <div className="flex justify-end gap-3 pt-4">
-                <Button variant="outline" onClick={() => setShowCreateDialog(false)}>
+              <Card className="bg-blue-50 border-blue-200 dark:bg-blue-900/20">
+                <CardContent className="p-4">
+                  <p className="text-sm text-blue-900 dark:text-blue-100">
+                    <Bell className="w-4 h-4 inline mr-2" />
+                    <strong>Notifications:</strong> All selected staff will receive a bell notification instantly.
+                  </p>
+                </CardContent>
+              </Card>
+
+              <div className="flex justify-end gap-3 pt-4 border-t">
+                <Button type="button" variant="outline" onClick={() => setShowForm(false)}>
                   Cancel
                 </Button>
                 <Button
-                  onClick={handleCreateAnnouncement}
-                  disabled={!newAnnouncement.title || !newAnnouncement.content}
-                  className="bg-purple-600 hover:bg-purple-700"
+                  type="submit"
+                  disabled={createAnnouncementMutation.isPending}
+                  className="bg-gradient-to-r from-[#014D40] to-emerald-600 hover:from-[#013830] hover:to-emerald-700"
                 >
-                  Post Announcement
+                  <Megaphone className="w-4 h-4 mr-2" />
+                  {createAnnouncementMutation.isPending ? 'Posting...' : 'Post Announcement'}
                 </Button>
               </div>
-            </div>
+            </form>
           </DialogContent>
         </Dialog>
       </div>
     </div>
-  );
-}
-
-function AnnouncementCard({ announcement, user, onTogglePin, getPriorityColor, getPriorityIcon }) {
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -20 }}
-    >
-      <Card className="bg-white border-none shadow-sm hover:shadow-md transition-shadow">
-        <CardContent className="p-6">
-          <div className="flex justify-between items-start mb-4">
-            <div className="flex items-start gap-3 flex-1">
-              <span className="text-3xl">{getPriorityIcon(announcement.priority)}</span>
-              <div className="flex-1">
-                <div className="flex items-center gap-3 mb-2">
-                  <h3 className="text-xl font-bold text-gray-900">{announcement.title}</h3>
-                  <Badge className={getPriorityColor(announcement.priority)}>
-                    {announcement.priority}
-                  </Badge>
-                  {announcement.is_pinned && (
-                    <Pin className="w-4 h-4 text-yellow-600" />
-                  )}
-                </div>
-                <p className="text-gray-700 whitespace-pre-wrap leading-relaxed">
-                  {announcement.content}
-                </p>
-                <div className="flex items-center gap-4 mt-4 text-sm text-gray-500">
-                  <span>By {announcement.created_by_name}</span>
-                  <span>•</span>
-                  <span>{format(new Date(announcement.created_date), 'PPP')}</span>
-                  {announcement.department !== 'all' && (
-                    <>
-                      <span>•</span>
-                      <Badge variant="outline">{announcement.department}</Badge>
-                    </>
-                  )}
-                </div>
-              </div>
-            </div>
-            {user?.role === 'admin' && (
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => onTogglePin({ id: announcement.id, isPinned: announcement.is_pinned })}
-              >
-                <Pin className={`w-4 h-4 ${announcement.is_pinned ? 'text-yellow-600 fill-yellow-600' : 'text-gray-400'}`} />
-              </Button>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-    </motion.div>
   );
 }
