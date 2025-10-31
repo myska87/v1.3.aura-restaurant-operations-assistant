@@ -65,7 +65,7 @@ export default function MeetingDashboard() {
   const { data: meetings = [], isLoading } = useQuery({
     queryKey: ['meetingRecordings'],
     queryFn: () => base44.entities.MeetingRecording.list('-meeting_date'),
-    // refetchInterval: 10000, // Refresh every 10 seconds for processing updates - removed as per outline
+    refetchInterval: 10000, // Refresh every 10 seconds for processing updates
   });
 
   const { data: allActions = [] } = useQuery({
@@ -78,16 +78,10 @@ export default function MeetingDashboard() {
     mutationFn: async (meetingData) => {
       return await base44.entities.MeetingRecording.create(meetingData);
     },
-    onSuccess: async (newMeeting) => {
+    onSuccess: async () => { // Modified: newMeeting parameter removed
       queryClient.invalidateQueries({ queryKey: ['meetingRecordings'] }); // Updated query key
       setShowRecorderDialog(false);
-
-      // Start processing
-      try {
-        await MeetingTranscriptionProcessor.processMeeting(newMeeting.id);
-      } catch (error) {
-        console.error('Processing error:', error);
-      }
+      // Processing initiation is moved to handleRecordingComplete
     },
   });
 
@@ -105,7 +99,14 @@ export default function MeetingDashboard() {
       department: user?.department || 'general'
     };
 
-    await createMeetingMutation.mutateAsync(meetingData);
+    const newMeeting = await createMeetingMutation.mutateAsync(meetingData); // Modified: Store the result
+
+    // Start processing immediately
+    try {
+      await MeetingTranscriptionProcessor.processMeeting(newMeeting.id);
+    } catch (error) {
+      console.error('Processing error:', error);
+    }
   };
 
   // Filter meetings
@@ -178,8 +179,11 @@ export default function MeetingDashboard() {
     };
 
     return (
-      <Card key={meeting.id} className="bg-white border-none shadow-sm hover:shadow-lg transition-all cursor-pointer"
-            onClick={() => navigate(createPageUrl(`MeetingDetail?id=${meeting.id}`))}>
+      <Card 
+        key={meeting.id} 
+        className="bg-white border-none shadow-sm hover:shadow-lg transition-all cursor-pointer"
+        onClick={() => navigate(createPageUrl(`MeetingDetail?id=${meeting.id}`))}
+      >
         <CardContent className="p-6">
           <div className="flex items-start justify-between gap-4">
             <div className="flex-1">
