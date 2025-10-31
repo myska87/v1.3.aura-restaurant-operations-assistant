@@ -1,88 +1,61 @@
-
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, TrendingUp, Award, Target, MessageCircle, CheckCircle, Clock, ArrowLeft, Home } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { ArrowLeft, Home, TrendingUp, Target, Calendar, User, Star, Sparkles, MessageCircle, CheckCircle, Award } from "lucide-react";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { format } from "date-fns";
-import { motion } from "framer-motion";
 
 export default function MyCoaching() {
+  const [searchTerm, setSearchTerm] = useState("");
+
   const { data: user } = useQuery({
     queryKey: ['currentUser'],
     queryFn: () => base44.auth.me(),
   });
 
-  // This query is for fetching ONLY completed sessions for the user, as per the outline's instruction
-  // for the 'mySessions' variable. The original 'mySessions' variable was thus modified.
-  const { data: mySessions = [], isLoading: isLoadingMyCompletedSessions } = useQuery({
-    queryKey: ['myCoachingSessions_completed', user?.email], // Updated query key for uniqueness and clarity
-    queryFn: async () => { // Kept async because base44.entities.CoachingSession.filter is an async function
-      if (!user?.email) return []; // Re-added safety guard as it's good practice and aligns with original structure
-      return await base44.entities.CoachingSession.filter(
-        { staff_email: user.email, status: 'completed' }, // Applied the status filter as per the outline
-        '-session_date' // Removed the '20' limit as per the outline's snippet
-      );
-    },
+  // Only fetch sessions for this user
+  const { data: mySessions = [], isLoading } = useQuery({
+    queryKey: ['myCoachingSessions', user?.email],
+    queryFn: () => base44.entities.CoachingSession.filter(
+      { staff_email: user?.email, status: 'completed' },
+      '-session_date'
+    ),
     enabled: !!user?.email,
   });
 
-  // A new query to fetch ALL sessions for the user. This is crucial to preserve
-  // the 'Total Sessions' count, 'Pending' sessions count, 'Next Session' logic,
-  // and the main list of all sessions in the UI, which would be broken if 'mySessions'
-  // alone only contained completed sessions.
-  const { data: allUserCoachingSessions = [], isLoading: isLoadingAllCoachingSessions } = useQuery({
-    queryKey: ['allUserCoachingSessions', user?.email], // Unique query key to differentiate from the completed sessions query
-    queryFn: async () => {
-      if (!user?.email) return [];
-      return await base44.entities.CoachingSession.filter({
-        staff_email: user.email
-      }, '-session_date', 20); // Kept original filtering and limit for 'all' sessions as it was before
-    },
-    enabled: !!user?.email,
-  });
+  const filteredSessions = mySessions.filter(session =>
+    session.period?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    session.manager_name?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
-  const { data: myBadges = [] } = useQuery({
-    queryKey: ['myCoachingBadges', user?.email],
-    queryFn: async () => {
-      if (!user?.email) return [];
-      return await base44.entities.CoachingBadge.filter({
-        staff_email: user.email
-      }, '-date_awarded', 50);
-    },
-    enabled: !!user?.email,
-  });
-
-  // These calculations for stats and the next session are now based on 'allUserCoachingSessions'
-  // to maintain the original functionality that relied on having all sessions available.
-  const completedSessions = allUserCoachingSessions.filter(s => s.status === 'completed');
-  const pendingSessions = allUserCoachingSessions.filter(s => s.status === 'self_reflection_pending' || s.status === 'scheduled');
-  const nextSession = pendingSessions[0];
-
-  const statusColors = {
-    'scheduled': 'bg-blue-100 text-blue-800',
-    'self_reflection_pending': 'bg-amber-100 text-amber-800',
-    'manager_review_pending': 'bg-purple-100 text-purple-800',
-    'completed': 'bg-green-100 text-green-800',
-    'cancelled': 'bg-gray-100 text-gray-800',
+  const calculateAverageScore = () => {
+    if (mySessions.length === 0) return 0;
+    const total = mySessions.reduce((sum, s) => sum + (s.overall_score || 0), 0);
+    return (total / mySessions.length).toFixed(1);
   };
 
+  const totalGoals = mySessions.reduce((sum, s) => sum + (s.goals_set?.length || 0), 0);
+  const completedGoals = mySessions.reduce((sum, s) => 
+    sum + (s.goals_set?.filter(g => g.status === 'achieved').length || 0), 0
+  );
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6 md:p-8">
+    <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-50 p-6 md:p-8">
       <div className="max-w-7xl mx-auto">
-        {/* Back Buttons */}
+        
         <div className="flex gap-3 mb-6">
-          <Link to={createPageUrl("PerformanceGrowth")}>
+          <Link to={createPageUrl('StaffDashboard')}>
             <Button variant="outline" size="sm">
               <ArrowLeft className="w-4 h-4 mr-2" />
-              Back
+              Staff Hub
             </Button>
           </Link>
-          <Link to={createPageUrl("Dashboard")}>
+          <Link to={createPageUrl('Dashboard')}>
             <Button variant="outline" size="sm">
               <Home className="w-4 h-4 mr-2" />
               Dashboard
@@ -90,223 +63,242 @@ export default function MyCoaching() {
           </Link>
         </div>
 
-        {/* Header */}
         <div className="mb-8">
           <h1 className="text-4xl font-bold text-gray-900 mb-2 flex items-center gap-3">
-            <TrendingUp className="w-10 h-10 text-green-600" />
+            <Sparkles className="w-10 h-10 text-purple-600" />
             My Coaching Journey
           </h1>
-          <p className="text-lg text-gray-600">
-            Track your growth, goals, and achievements
+          <p className="text-gray-600 text-lg">
+            Track your growth, goals, and development feedback
           </p>
         </div>
 
-        {/* Stats Grid */}
-        <div className="grid md:grid-cols-4 gap-6 mb-8">
-          <Card>
+        {/* Stats Overview */}
+        <div className="grid md:grid-cols-4 gap-4 mb-8">
+          <Card className="border-none shadow-lg bg-gradient-to-br from-purple-500 to-purple-600 text-white">
             <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-600 mb-1">Total Sessions</p>
-                  <p className="text-3xl font-bold text-gray-900">{allUserCoachingSessions.length}</p> {/* Updated to use allUserCoachingSessions */}
-                </div>
-                <Calendar className="w-8 h-8 text-blue-500" />
-              </div>
+              <Star className="w-8 h-8 mb-2 opacity-80" />
+              <p className="text-sm opacity-90">Average Score</p>
+              <p className="text-4xl font-bold">{calculateAverageScore()}/10</p>
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="border-none shadow-lg">
             <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-600 mb-1">Completed</p>
-                  {/* This now uses 'completedSessions' derived from 'allUserCoachingSessions' */}
-                  <p className="text-3xl font-bold text-green-600">{completedSessions.length}</p>
-                </div>
-                <CheckCircle className="w-8 h-8 text-green-500" />
-              </div>
+              <MessageCircle className="w-8 h-8 mb-2 text-blue-600" />
+              <p className="text-sm text-gray-600">Total Sessions</p>
+              <p className="text-4xl font-bold text-gray-900">{mySessions.length}</p>
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="border-none shadow-lg">
             <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-600 mb-1">Badges Earned</p>
-                  <p className="text-3xl font-bold text-yellow-600">{myBadges.length}</p>
-                </div>
-                <Award className="w-8 h-8 text-yellow-500" />
-              </div>
+              <Target className="w-8 h-8 mb-2 text-green-600" />
+              <p className="text-sm text-gray-600">Goals Set</p>
+              <p className="text-4xl font-bold text-gray-900">{totalGoals}</p>
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="border-none shadow-lg">
             <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-600 mb-1">Pending</p>
-                  <p className="text-3xl font-bold text-amber-600">{pendingSessions.length}</p>
-                </div>
-                <Clock className="w-8 h-8 text-amber-500" />
-              </div>
+              <Award className="w-8 h-8 mb-2 text-amber-600" />
+              <p className="text-sm text-gray-600">Goals Achieved</p>
+              <p className="text-4xl font-bold text-gray-900">{completedGoals}</p>
             </CardContent>
           </Card>
         </div>
 
-        {/* Next Session Alert */}
-        {nextSession && (
-          <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-          >
-            <Card className="bg-gradient-to-r from-green-50 to-emerald-50 border-green-200 mb-8">
-              <CardContent className="p-6">
-                <div className="flex items-start gap-4">
-                  <div className="p-3 bg-green-100 rounded-lg">
-                    <Calendar className="w-6 h-6 text-green-600" />
-                  </div>
-                  <div className="flex-1">
-                    <h3 className="font-semibold text-green-900 mb-1">📅 Next Coaching Session</h3>
-                    <p className="text-sm text-green-700 mb-3">
-                      {format(new Date(nextSession.session_date), 'EEEE, MMMM d, yyyy')} with {nextSession.manager_name}
-                    </p>
-                    {nextSession.status === 'self_reflection_pending' && (
-                      <Link to={createPageUrl('SelfReflection') + `?session=${nextSession.id}`}>
-                        <Button className="bg-green-600 hover:bg-green-700">
-                          <MessageCircle className="w-4 h-4 mr-2" />
-                          Complete Self-Reflection
-                        </Button>
-                      </Link>
-                    )}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </motion.div>
-        )}
+        {/* Search */}
+        <Card className="mb-6 shadow-lg">
+          <CardContent className="p-4">
+            <Input
+              placeholder="Search by period or manager..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full"
+            />
+          </CardContent>
+        </Card>
 
-        <div className="grid lg:grid-cols-3 gap-8">
-          {/* Sessions History */}
-          <div className="lg:col-span-2">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Calendar className="w-5 h-5" />
-                  Coaching Sessions
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {isLoadingAllCoachingSessions ? ( // Using loading state for all sessions
-                  <div className="text-center py-8 text-gray-500">Loading sessions...</div>
-                ) : allUserCoachingSessions.length === 0 ? ( // Updated to use allUserCoachingSessions
-                  <div className="text-center py-12">
-                    <Calendar className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                    <p className="text-gray-500 mb-4">No coaching sessions yet</p>
-                    <p className="text-sm text-gray-400">Your manager will schedule your first session soon</p>
+        {/* Sessions List */}
+        {isLoading ? (
+          <Card>
+            <CardContent className="p-12 text-center">
+              <div className="animate-pulse">
+                <Sparkles className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                <p className="text-gray-500">Loading your coaching sessions...</p>
+              </div>
+            </CardContent>
+          </Card>
+        ) : filteredSessions.length === 0 ? (
+          <Card>
+            <CardContent className="p-12 text-center">
+              <Sparkles className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+              <p className="text-gray-500 text-lg mb-2">No coaching sessions yet</p>
+              <p className="text-gray-400 text-sm">
+                Your manager will schedule coaching sessions to support your growth
+              </p>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="space-y-6">
+            {filteredSessions.map((session) => (
+              <Card key={session.id} className="shadow-lg hover:shadow-xl transition-shadow border-2 border-purple-100">
+                <CardHeader className="bg-gradient-to-r from-purple-50 to-pink-50">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <CardTitle className="text-2xl mb-2">{session.period}</CardTitle>
+                      <div className="flex gap-2">
+                        <Badge className="bg-purple-100 text-purple-800">
+                          <User className="w-3 h-3 mr-1" />
+                          Coach: {session.manager_name}
+                        </Badge>
+                        <Badge variant="outline">
+                          <Calendar className="w-3 h-3 mr-1" />
+                          {format(new Date(session.session_date), 'MMM d, yyyy')}
+                        </Badge>
+                      </div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-sm text-gray-600 mb-1">Overall Score</div>
+                      <div className="flex items-center gap-2">
+                        <Star className="w-5 h-5 fill-amber-400 text-amber-400" />
+                        <span className="text-3xl font-bold text-gray-900">{session.overall_score}/10</span>
+                      </div>
+                    </div>
                   </div>
-                ) : (
-                  <div className="space-y-4">
-                    {allUserCoachingSessions.map((session) => ( {/* Updated to map over allUserCoachingSessions */}
-                      <Card key={session.id} className="border-2 border-gray-100 hover:border-gray-200 transition-colors">
-                        <CardContent className="p-4">
-                          <div className="flex items-start justify-between">
-                            <div className="flex-1">
-                              <div className="flex items-center gap-3 mb-2">
-                                <h4 className="font-semibold text-gray-900">{session.period}</h4>
-                                <Badge className={statusColors[session.status] || 'bg-gray-100 text-gray-800'}>
-                                  {session.status.replace(/_/g, ' ')}
+                </CardHeader>
+
+                <CardContent className="p-6 space-y-6">
+                  
+                  {/* Self-Reflection */}
+                  {session.self_reflection && (
+                    <div>
+                      <h3 className="text-lg font-bold text-gray-900 mb-3 flex items-center gap-2">
+                        <MessageCircle className="w-5 h-5 text-blue-600" />
+                        My Self-Reflection
+                      </h3>
+                      <div className="space-y-3 bg-blue-50 rounded-lg p-4">
+                        {session.self_reflection.what_went_well && (
+                          <div>
+                            <p className="text-sm font-semibold text-blue-900">🌟 What went well:</p>
+                            <p className="text-gray-700">{session.self_reflection.what_went_well}</p>
+                          </div>
+                        )}
+                        {session.self_reflection.challenges_faced && (
+                          <div>
+                            <p className="text-sm font-semibold text-blue-900">🤔 Challenges:</p>
+                            <p className="text-gray-700">{session.self_reflection.challenges_faced}</p>
+                          </div>
+                        )}
+                        {session.self_reflection.areas_for_improvement && (
+                          <div>
+                            <p className="text-sm font-semibold text-blue-900">📈 Areas for improvement:</p>
+                            <p className="text-gray-700">{session.self_reflection.areas_for_improvement}</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Manager Feedback */}
+                  {session.manager_feedback && (
+                    <div>
+                      <h3 className="text-lg font-bold text-gray-900 mb-3 flex items-center gap-2">
+                        <TrendingUp className="w-5 h-5 text-green-600" />
+                        Manager Feedback
+                      </h3>
+                      <div className="space-y-3 bg-green-50 rounded-lg p-4">
+                        {session.manager_feedback.strengths_observed && (
+                          <div>
+                            <p className="text-sm font-semibold text-green-900">✨ Your Strengths:</p>
+                            <p className="text-gray-700">{session.manager_feedback.strengths_observed}</p>
+                          </div>
+                        )}
+                        {session.manager_feedback.areas_to_develop && (
+                          <div>
+                            <p className="text-sm font-semibold text-green-900">📚 Development Areas:</p>
+                            <p className="text-gray-700">{session.manager_feedback.areas_to_develop}</p>
+                          </div>
+                        )}
+                        {session.manager_feedback.action_items && session.manager_feedback.action_items.length > 0 && (
+                          <div>
+                            <p className="text-sm font-semibold text-green-900 mb-2">📋 Action Items:</p>
+                            <ul className="space-y-1">
+                              {session.manager_feedback.action_items.map((item, idx) => (
+                                <li key={idx} className="flex items-start gap-2 text-gray-700">
+                                  <CheckCircle className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
+                                  <span>{item}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Goals Set */}
+                  {session.goals_set && session.goals_set.length > 0 && (
+                    <div>
+                      <h3 className="text-lg font-bold text-gray-900 mb-3 flex items-center gap-2">
+                        <Target className="w-5 h-5 text-amber-600" />
+                        My Goals
+                      </h3>
+                      <div className="space-y-3">
+                        {session.goals_set.map((goal, idx) => (
+                          <Card key={idx} className="border-2 border-amber-200 bg-amber-50">
+                            <CardContent className="p-4">
+                              <div className="flex items-start justify-between mb-2">
+                                <p className="font-semibold text-gray-900 flex-1">{goal.goal}</p>
+                                <Badge className={
+                                  goal.status === 'achieved' ? 'bg-green-600' :
+                                  goal.status === 'in_progress' ? 'bg-blue-600' :
+                                  'bg-gray-600'
+                                }>
+                                  {goal.status || 'not started'}
                                 </Badge>
                               </div>
-                              <p className="text-sm text-gray-600 mb-2">
-                                📅 {format(new Date(session.session_date), 'MMM d, yyyy')} • 
-                                👔 {session.manager_name}
-                              </p>
-                              {session.overall_score && (
-                                <div className="flex items-center gap-2 mt-2">
-                                  <span className="text-sm text-gray-600">Score:</span>
-                                  <span className="font-bold text-green-600">{session.overall_score}/10</span>
-                                </div>
+                              {goal.deadline && (
+                                <p className="text-sm text-gray-600 flex items-center gap-1">
+                                  <Calendar className="w-3 h-3" />
+                                  Due: {format(new Date(goal.deadline), 'MMM d, yyyy')}
+                                </p>
                               )}
-                            </div>
-                            {session.status === 'self_reflection_pending' && (
-                              <Link to={createPageUrl('SelfReflection') + `?session=${session.id}`}>
-                                <Button size="sm" className="bg-amber-600 hover:bg-amber-700">
-                                  Complete
-                                </Button>
-                              </Link>
-                            )}
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Badges & Achievements */}
-          <div>
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Award className="w-5 h-5 text-yellow-500" />
-                  My Badges
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {myBadges.length === 0 ? (
-                  <div className="text-center py-8">
-                    <Award className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                    <p className="text-sm text-gray-500">No badges earned yet</p>
-                    <p className="text-xs text-gray-400 mt-1">Keep up the great work!</p>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {myBadges.map((badge) => (
-                      <div key={badge.id} className="p-4 bg-gradient-to-r from-yellow-50 to-amber-50 rounded-lg border-2 border-yellow-200">
-                        <div className="flex items-center gap-3">
-                          <div className="text-3xl">{badge.badge_icon}</div>
-                          <div className="flex-1">
-                            <h4 className="font-semibold text-gray-900">{badge.badge_name}</h4>
-                            <p className="text-xs text-gray-600">{badge.description}</p>
-                            <p className="text-xs text-gray-500 mt-1">
-                              {format(new Date(badge.date_awarded), 'MMM d, yyyy')}
-                            </p>
-                          </div>
-                        </div>
+                              {goal.measurement && (
+                                <p className="text-sm text-gray-600 mt-1">
+                                  📊 Success measure: {goal.measurement}
+                                </p>
+                              )}
+                            </CardContent>
+                          </Card>
+                        ))}
                       </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+                    </div>
+                  )}
 
-            {/* Quick Links */}
-            <Card className="mt-6">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Target className="w-5 h-5" />
-                  Quick Actions
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <Link to={createPageUrl('GrowthTracker')}>
-                  <Button variant="outline" className="w-full justify-start">
-                    <TrendingUp className="w-4 h-4 mr-2" />
-                    View Growth Tracker
-                  </Button>
-                </Link>
-                <Link to={createPageUrl('CoachingAchievements')}>
-                  <Button variant="outline" className="w-full justify-start">
-                    <Award className="w-4 h-4 mr-2" />
-                    All Achievements
-                  </Button>
-                </Link>
-              </CardContent>
-            </Card>
+                  {/* Session Notes */}
+                  {session.session_notes && (
+                    <div className="border-t pt-4">
+                      <p className="text-sm font-semibold text-gray-700 mb-2">Additional Notes:</p>
+                      <p className="text-gray-600 text-sm">{session.session_notes}</p>
+                    </div>
+                  )}
+
+                  {/* Follow-up */}
+                  {session.follow_up_date && (
+                    <div className="border-t pt-4">
+                      <p className="text-sm text-gray-600 flex items-center gap-2">
+                        <Calendar className="w-4 h-4 text-purple-600" />
+                        Follow-up scheduled: {format(new Date(session.follow_up_date), 'MMMM d, yyyy')}
+                      </p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            ))}
           </div>
-        </div>
+        )}
       </div>
     </div>
   );
