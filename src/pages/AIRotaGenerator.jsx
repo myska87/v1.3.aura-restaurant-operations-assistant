@@ -56,6 +56,7 @@ export default function AIRotaGenerator() {
   const [previewShifts, setPreviewShifts] = useState([]);
   const [autoApprove, setAutoApprove] = useState(false);
   const [showLLMGenerator, setShowLLMGenerator] = useState(false); // Controls the new LLM dialog
+  const [currentGeneratedLog, setCurrentGeneratedLog] = useState(null); // Stores the AIScheduleLog entry after generation
 
   // Keeping some original state variables as they might be relevant for other parts of the UI
   // or if the component had a dual mode (old engine + new LLM).
@@ -83,6 +84,90 @@ export default function AIRotaGenerator() {
     queryFn: () => base44.entities.StaffAvailability.list(), // Fetch all staff availabilities
   });
 
+  const { data: currentUser, isLoading: isLoadingCurrentUser } = useQuery({
+    queryKey: ['currentUser'],
+    queryFn: () => base44.auth.me(),
+    staleTime: Infinity, // User data typically doesn't change often
+  });
+
+  // --- Function to approve and save currently previewed shifts ---
+  // This function now also updates the AIScheduleLog status and creates an ActivityLog entry.
+  const approveAndSave = async () => {
+    if (previewShifts.length === 0 || !currentGeneratedLog) {
+      alert('⚠️ No shifts to save or no generated schedule log found.');
+      return;
+    }
+
+    setGenerating(true); // Reusing generating state for saving process feedback
+
+    try {
+      // 1. Update the AIScheduleLog status to 'approved'
+      await base44.entities.AIScheduleLog.update(currentGeneratedLog.id, {
+        status: 'approved',
+        approved_by: currentUser?.email,
+        approved_by_name: currentUser?.full_name,
+        approved_at: new Date().toISOString(),
+      });
+
+      // 2. Create the actual Shift entities
+      for (const shift of previewShifts) {
+        await base44.entities.Shift.create({
+          staff_email: shift.staff_email,
+          staff_name: shift.staff_name,
+          role: shift.role,
+          department: shift.department,
+          shift_date: shift.shift_date,
+          shift_type: shift.shift_type,
+          start_time: shift.start_time,
+          end_time: shift.end_time,
+          status: 'scheduled',
+          // Use the reasoning provided by LLM, or a generic AI-generated message
+          notes: `AI Generated: ${shift.reasoning || 'No specific reasoning provided.'}`,
+        });
+
+        // 3. Notify the staff member about their new shift
+        await base44.entities.Notification.create({
+          user_email: shift.staff_email,
+          user_name: shift.staff_name,
+          type: 'shift_reminder',
+          title: '📅 New Shift Scheduled',
+          message: `You've been scheduled for ${shift.shift_type} shift on ${format(new Date(shift.shift_date), 'MMM d, yyyy')} from ${shift.start_time} to ${shift.end_time}.`,
+          link_module: 'MyShifts',
+          priority: 'normal',
+        });
+      }
+
+      // 4. Create Activity Log
+      await base44.entities.ActivityLog.create({
+        activity_type: 'other',
+        title: 'AI Schedule Approved & Published',
+        description: `Approved and published ${previewShifts.length} shifts for ${format(new Date(currentGeneratedLog.week_start_date), 'MMM d')} - ${format(new Date(currentGeneratedLog.week_end_date), 'MMM d')} (Log ID: ${currentGeneratedLog.id})`,
+        user_email: currentUser?.email,
+        user_name: currentUser?.full_name,
+        icon: 'calendar',
+        color: 'purple',
+      });
+
+      alert(`✅ Successfully created ${previewShifts.length} shifts and notified relevant staff!`);
+      
+      // 5. Reset and close
+      setPreviewShifts([]); // Clear preview after saving
+      setAiPrompt(''); // Clear the prompt input
+      setShowLLMGenerator(false); // Close the dialog
+      setCurrentGeneratedLog(null); // Clear the reference to the log
+
+      // 6. Invalidate queries and navigate
+      queryClient.invalidateQueries(['aiSchedules']); // Invalidate logs (to show 'approved' status)
+      queryClient.invalidateQueries(['shifts']); // Invalidate actual shifts data
+      navigate(createPageUrl('StaffRota'));
+      
+    } catch (error) {
+      console.error('Error saving shifts:', error);
+      alert('❌ Failed to save shifts. Please try again. Error: ' + (error.message || 'Unknown error'));
+    } finally {
+      setGenerating(false);
+    }
+  };
 
   // --- New LLM-based schedule generation function ---
   const generateSchedule = async () => {
@@ -93,15 +178,14 @@ export default function AIRotaGenerator() {
 
     setGenerating(true);
     setPreviewShifts([]); // Clear previous preview
+    setCurrentGeneratedLog(null); // Clear previous log reference
 
     try {
       // Ensure user data and availability data are loaded before proceeding
-      if (isLoadingUsers || isLoadingAvailabilities) {
-        alert('Please wait for staff and availability data to load.');
+      if (isLoadingUsers || isLoadingAvailabilities || isLoadingCurrentUser) {
+        alert('Please wait for staff, availability, and user data to load.');
         return; // Exit if data is not ready
       }
-
-      const user = await base44.auth.me(); // Get current user for logging purposes
 
       const staffData = users.map(u => ({
         email: u.email,
@@ -183,17 +267,23 @@ Return a JSON object with a 'shifts' array containing shift objects, a 'schedule
           input_parameters: { prompt: aiPrompt, users: staffData.length, availabilities: availabilityData.length },
           total_shifts: result.shifts?.length || 0,
           total_hours: result.total_hours || 0,
-          status: autoApprove ? 'published' : 'preview', // Status depends on auto-approve setting
-          generated_by: user.email,
-          generated_by_name: user.full_name,
+          status: autoApprove ? 'published' : 'preview', // If auto-approve, set status to published initially. Otherwise, preview.
+          generated_by: currentUser.email,
+          generated_by_name: currentUser.full_name,
         });
+        setCurrentGeneratedLog(newScheduleLog); // Store the log for potential approval
 
         queryClient.invalidateQueries(['aiSchedules']); // Invalidate to display the new log entry
 
         alert(`✅ Generated ${result.shifts?.length || 0} shifts!\n\n${result.schedule_summary || 'No summary provided.'}`);
         
         if (autoApprove && result.shifts.length > 0) {
-          await approveAndSave(result.shifts); // Immediately approve and save if auto-approve is checked
+          // If auto-approve is checked, directly call approveAndSave.
+          // In this scenario, currentGeneratedLog status was set to 'published' already.
+          // approveAndSave will then update it to 'approved' and save shifts.
+          // If the definition of autoApprove means direct publish WITHOUT an 'approved' state change,
+          // this logic would need to be separated. For now, it means auto-triggering the approval process.
+          await approveAndSave();
         }
 
       } else {
@@ -208,59 +298,6 @@ Return a JSON object with a 'shifts' array containing shift objects, a 'schedule
     }
   };
 
-  // --- Function to approve and save currently previewed shifts ---
-  const approveAndSave = async (shiftsToSave = previewShifts) => {
-    if (shiftsToSave.length === 0) {
-      alert('⚠️ No shifts to save');
-      return;
-    }
-
-    setGenerating(true); // Reusing generating state for saving process feedback
-
-    try {
-      for (const shift of shiftsToSave) {
-        // Create the actual Shift entity
-        await base44.entities.Shift.create({
-          staff_email: shift.staff_email,
-          staff_name: shift.staff_name,
-          role: shift.role,
-          department: shift.department,
-          shift_date: shift.shift_date,
-          shift_type: shift.shift_type,
-          start_time: shift.start_time,
-          end_time: shift.end_time,
-          status: 'scheduled',
-          notes: `AI Generated: ${shift.reasoning}`,
-        });
-
-        // Notify the staff member about their new shift
-        await base44.entities.Notification.create({
-          user_email: shift.staff_email,
-          user_name: shift.staff_name,
-          type: 'shift_reminder',
-          title: '📅 New Shift Scheduled',
-          message: `You've been scheduled for ${shift.shift_type} shift on ${format(new Date(shift.shift_date), 'MMM d, yyyy')} from ${shift.start_time} to ${shift.end_time}.`,
-          link_module: 'MyShifts',
-          priority: 'normal',
-        });
-      }
-
-      alert(`✅ Successfully created ${shiftsToSave.length} shifts and notified relevant staff!`);
-      setPreviewShifts([]); // Clear preview after saving
-      setAiPrompt(''); // Clear the prompt input
-      setShowLLMGenerator(false); // Close the dialog
-      queryClient.invalidateQueries(['aiSchedules']); // Invalidate logs (in case status changed)
-      queryClient.invalidateQueries(['shifts']); // Invalidate actual shifts data
-      navigate(createPageUrl('StaffRota')); // Navigate to the main staff rota view
-      
-    } catch (error) {
-      console.error('Error saving shifts:', error);
-      alert('❌ Failed to save shifts. Please try again. Error: ' + (error.message || 'Unknown error'));
-    } finally {
-      setGenerating(false);
-    }
-  };
-
   // --- Original `handlePublish` for existing `AIScheduleLog` entries ---
   // This function is retained to allow publishing of schedules that were previously generated
   // and logged (e.g., from the older AISchedulerEngine or an LLM preview that wasn't auto-approved).
@@ -268,6 +305,8 @@ Return a JSON object with a 'shifts' array containing shift objects, a 'schedule
     try {
       const schedule = await base44.entities.AIScheduleLog.update(scheduleId, {
         status: 'published',
+        published_by: currentUser?.email, // Add published_by info
+        published_by_name: currentUser?.full_name,
         published_at: new Date().toISOString(),
       });
 
@@ -289,7 +328,6 @@ Return a JSON object with a 'shifts' array containing shift objects, a 'schedule
           });
 
           // Also notify staff for these published shifts
-          // This ensures consistency with the new approveAndSave flow for notifications.
           await base44.entities.Notification.create({
             user_email: shift.staff_email,
             user_name: shift.staff_name,
@@ -300,6 +338,16 @@ Return a JSON object with a 'shifts' array containing shift objects, a 'schedule
             priority: 'normal',
           });
         }
+        // Add activity log for manual publish
+        await base44.entities.ActivityLog.create({
+          activity_type: 'other',
+          title: 'AI Schedule Manually Published',
+          description: `Manually published ${schedule.generated_shifts.length} shifts for ${format(new Date(schedule.week_start_date), 'MMM d')} - ${format(new Date(schedule.week_end_date), 'MMM d')} (Log ID: ${schedule.id})`,
+          user_email: currentUser?.email,
+          user_name: currentUser?.full_name,
+          icon: 'calendar',
+          color: 'green',
+        });
       } else {
         console.warn(`No shifts found in AIScheduleLog ${scheduleId} to publish.`);
         alert('This schedule log has no shifts to publish.');
@@ -421,10 +469,16 @@ Return a JSON object with a 'shifts' array containing shift objects, a 'schedule
                             Generated by: {schedule.generated_by_name} on {format(new Date(schedule.created_date), 'PPP')}
                         </p>
                       )}
+                      {(schedule.status === 'approved' || schedule.status === 'published') && schedule.published_by_name && (
+                        <p className="text-xs text-gray-500 mt-1">
+                            {schedule.status === 'approved' ? 'Approved' : 'Published'} by: {schedule.published_by_name || schedule.approved_by_name} on {format(new Date(schedule.published_at || schedule.approved_at), 'PPP')}
+                        </p>
+                      )}
                     </div>
                     <div className="flex items-center gap-2">
                       <Badge variant={
                         schedule.status === 'published' ? 'success' :
+                        schedule.status === 'approved' ? 'default' : // Or a distinct variant for approved
                         schedule.status === 'preview' ? 'warning' : 'default'
                       }>
                         {schedule.status}
@@ -470,7 +524,7 @@ Return a JSON object with a 'shifts' array containing shift objects, a 'schedule
               </div>
 
               {/* Display loading state for auxiliary data (users, availabilities) */}
-              {isLoadingUsers || isLoadingAvailabilities ? (
+              {isLoadingUsers || isLoadingAvailabilities || isLoadingCurrentUser ? (
                  <Alert className="bg-blue-50 border-blue-200">
                    <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
                    <AlertTitle>Loading Data</AlertTitle>
@@ -536,7 +590,7 @@ Return a JSON object with a 'shifts' array containing shift objects, a 'schedule
               </Button>
               {/* Only show "Approve and Save" if shifts are previewed and not currently generating */}
               {previewShifts.length > 0 && !generating && (
-                <Button onClick={() => approveAndSave()} className="bg-emerald-500 hover:bg-emerald-600 text-white">
+                <Button onClick={approveAndSave} className="bg-emerald-500 hover:bg-emerald-600 text-white">
                   <CheckCircle className="w-4 h-4 mr-2" />
                   Approve and Save
                 </Button>
@@ -544,7 +598,7 @@ Return a JSON object with a 'shifts' array containing shift objects, a 'schedule
               {/* Main "Generate" button */}
               <Button
                 onClick={generateSchedule}
-                disabled={generating || isLoadingUsers || isLoadingAvailabilities}
+                disabled={generating || isLoadingUsers || isLoadingAvailabilities || isLoadingCurrentUser}
                 className="bg-gradient-to-r from-purple-600 to-indigo-600"
               >
                 {generating ? (
