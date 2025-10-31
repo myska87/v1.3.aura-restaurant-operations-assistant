@@ -25,6 +25,7 @@ import {
   Moon,
   Sun,
   GraduationCap, // Added GraduationCap import
+  Sparkles, // Added Sparkles import
 } from "lucide-react";
 import {
   CommandDialog,
@@ -128,7 +129,8 @@ function VoiceSearch({ onClose, navigate }) {
       'inventory': 'InventoryDashboard',
       'stock': 'InventoryDashboard',
       'menu': 'Menu',
-      'quality': 'QualityDashboard',
+      'quality': 'QualityControl', // Updated to QualityControl
+      'quality control': 'QualityControl', // Added
       'sop': 'SOPDashboardHub',
       'procedures': 'SOPDashboardHub',
       'documents': 'DocumentsFormsHub',
@@ -137,9 +139,10 @@ function VoiceSearch({ onClose, navigate }) {
       'staff': 'StaffDashboard',
       'hygiene': 'HygieneDashboard',
       'settings': 'SettingsDashboard',
-      'training': 'TrainingAcademy', // Added for voice search
-      'academy': 'TrainingAcademy', // Added for voice search
-      'quality audit': 'QualityAuditHub', // Added for voice search
+      'training': 'TrainingAcademy',
+      'academy': 'TrainingAcademy',
+      'quality audit': 'QualityAuditHub',
+      'ai scheduler': 'AIScheduler', // Added for voice search
     };
 
     for (const [keyword, page] of Object.entries(navMap)) {
@@ -224,6 +227,8 @@ const getRoleNavigation = (user, impersonatedRole = null) => {
       { title: "Staff", url: createPageUrl("StaffDashboard"), icon: Users },
       { title: "Training Academy", url: createPageUrl("TrainingAcademy"), icon: GraduationCap },
       { title: "Inventory", url: createPageUrl("InventoryDashboard"), icon: Package },
+      { title: "Quality Control", url: createPageUrl("QualityControl"), icon: Star },
+      { title: "AI Scheduler", url: createPageUrl("AIScheduler"), icon: Sparkles },
       { title: "Reports", url: createPageUrl("Reports"), icon: BarChart3 },
       { title: "Settings", url: createPageUrl("SettingsDashboard"), icon: Settings },
     ];
@@ -236,7 +241,7 @@ const getRoleNavigation = (user, impersonatedRole = null) => {
       { title: "Training Academy", url: createPageUrl("TrainingAcademy"), icon: GraduationCap },
       { title: "SOPs", url: createPageUrl("SOPDashboardHub"), icon: BookOpen },
       { title: "Inventory", url: createPageUrl("InventoryDashboard"), icon: Package },
-      { title: "Quality", url: createPageUrl("QualityDashboard"), icon: Star },
+      { title: "Quality Control", url: createPageUrl("QualityControl"), icon: Star },
       { title: "My Shifts", url: createPageUrl("MyShifts"), icon: Calendar },
     ];
   }
@@ -259,7 +264,7 @@ const getRoleNavigation = (user, impersonatedRole = null) => {
       { title: "My Shifts", url: createPageUrl("MyShifts"), icon: Calendar },
       { title: "My Tasks", url: createPageUrl("MyTasks"), icon: ClipboardCheck },
       { title: "Training Academy", url: createPageUrl("TrainingAcademy"), icon: GraduationCap },
-      { title: "Quality Checks", url: createPageUrl("QuickQualityCheck"), icon: Star },
+      { title: "Quality Checks", url: createPageUrl("QualityControl"), icon: Star },
       { title: "Maintenance", url: createPageUrl("Maintenance"), icon: Settings },
       { title: "Team Chat", url: createPageUrl("TeamChat"), icon: MessageCircle },
     ];
@@ -293,14 +298,15 @@ const ALL_PAGES = [
   { name: "Clock In/Out", url: createPageUrl("ClockInOut"), keywords: "attendance time tracking", category: "Staff" },
   { name: "Inventory Hub", url: createPageUrl("InventoryDashboard"), keywords: "stock supplies ordering", category: "Inventory" },
   { name: "SOP Hub", url: createPageUrl("SOPDashboardHub"), keywords: "procedures training guides", category: "SOPs" },
-  { name: "Quality & Audit Hub", url: createPageUrl("QualityAuditHub"), keywords: "quality checks audits standards eho", category: "Quality" },
-  { name: "Quality Dashboard", url: createPageUrl("QualityDashboard"), keywords: "audits checks standards", category: "Quality" },
+  { name: "Quality Control", url: createPageUrl("QualityControl"), keywords: "quality inspections audits scores eho", category: "Quality" },
+  { name: "Quality & Audit Hub", url: createPageUrl("QualityAuditHub"), keywords: "quality checks audits standards detailed", category: "Quality" },
   { name: "Hygiene Central", url: createPageUrl("HygieneDashboard"), keywords: "cleanliness temperature safety", category: "Hygiene" },
   { name: "Form Intelligence", url: createPageUrl("FormIntelligence"), keywords: "checklists forms compliance", category: "Forms" },
   { name: "Team Chat", url: createPageUrl("TeamChat"), keywords: "messages communication", category: "Communication" },
+  { name: "AI Meeting Minutes", url: createPageUrl("MeetingDashboard"), keywords: "meetings transcription ai notes recording", category: "AI Tools" },
   { name: "Announcements", url: createPageUrl("Announcements"), keywords: "news updates notices", category: "Communication" },
-  { name: "Training", url: createPageUrl("OnboardingTraining"), keywords: "learning courses onboarding", category: "Training" },
   { name: "Training Academy", url: createPageUrl("TrainingAcademy"), keywords: "education courses learning development academy", category: "Training" },
+  { name: "AI Scheduler", url: createPageUrl("AIScheduler"), keywords: "ai scheduling rotas automation shifts smart", category: "AI Tools" },
   { name: "Reports", url: createPageUrl("Reports"), keywords: "analytics statistics data", category: "Reports" },
   { name: "Settings", url: createPageUrl("SettingsDashboard"), keywords: "configuration admin", category: "Settings" },
 ];
