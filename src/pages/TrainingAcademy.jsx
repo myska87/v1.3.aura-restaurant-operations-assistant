@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent } from '@/components/ui/card';
@@ -41,60 +41,11 @@ import {
   Heart,
   Wand2,
   Zap,
-  TrendingUp,
-  Users,
-  MessageSquare,
   Eye,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
-import { motion, AnimatePresence } from 'framer-motion';
-
-const POST_TYPE_CONFIG = {
-  inspiration: { 
-    icon: Sparkles, 
-    color: 'from-purple-500 to-pink-500',
-    bgLight: 'from-purple-50 to-pink-50',
-    badge: 'bg-purple-100 text-purple-700',
-    emoji: '💡'
-  },
-  training_tip: { 
-    icon: BookOpen, 
-    color: 'from-blue-500 to-cyan-500',
-    bgLight: 'from-blue-50 to-cyan-50',
-    badge: 'bg-blue-100 text-blue-700',
-    emoji: '📚'
-  },
-  success_story: { 
-    icon: Award, 
-    color: 'from-amber-500 to-yellow-500',
-    bgLight: 'from-amber-50 to-yellow-50',
-    badge: 'bg-amber-100 text-amber-700',
-    emoji: '🏆'
-  },
-  announcement: { 
-    icon: Megaphone, 
-    color: 'from-red-500 to-pink-500',
-    bgLight: 'from-red-50 to-pink-50',
-    badge: 'bg-red-100 text-red-700',
-    emoji: '📢'
-  },
-  knowledge_share: { 
-    icon: Zap, 
-    color: 'from-green-500 to-emerald-500',
-    bgLight: 'from-green-50 to-emerald-50',
-    badge: 'bg-green-100 text-green-700',
-    emoji: '✨'
-  },
-  best_practice: { 
-    icon: Star, 
-    color: 'from-indigo-500 to-purple-500',
-    bgLight: 'from-indigo-50 to-purple-50',
-    badge: 'bg-indigo-100 text-indigo-700',
-    emoji: '⭐'
-  },
-};
 
 export default function TrainingAcademy() {
   const queryClient = useQueryClient();
@@ -132,10 +83,9 @@ export default function TrainingAcademy() {
     queryKey: ['trainingPosts'],
     queryFn: async () => {
       const posts = await base44.entities.TrainingPost.list('-created_date');
-      console.log('📚 POSTS LOADED:', posts.length, posts);
+      console.log('📚 Posts loaded:', posts.length);
       return posts || [];
     },
-    refetchInterval: 2000,
   });
 
   const { data: trainingModules = [] } = useQuery({
@@ -157,16 +107,12 @@ export default function TrainingAcademy() {
 
   const createPostMutation = useMutation({
     mutationFn: async (postData) => {
-      console.log('🚀 CREATING POST:', postData);
-      const result = await base44.entities.TrainingPost.create(postData);
-      console.log('✅ POST CREATED:', result);
-      return result;
+      console.log('Creating post:', postData);
+      return await base44.entities.TrainingPost.create(postData);
     },
-    onSuccess: async (newPost) => {
-      console.log('✨ POST SAVED! Refreshing...');
+    onSuccess: async () => {
       await refetchPosts();
-      await queryClient.invalidateQueries({ queryKey: ['trainingPosts'] });
-      
+      queryClient.invalidateQueries({ queryKey: ['trainingPosts'] });
       setShowCreatePost(false);
       setNewPost({
         title: '',
@@ -178,13 +124,8 @@ export default function TrainingAcademy() {
         requires_acknowledgment: true,
         is_featured: false,
       });
-      
-      alert(`✅ Post "${newPost.data?.title || newPost.title}" published successfully!`);
+      alert('✅ Post published!');
     },
-    onError: (error) => {
-      console.error('❌ POST CREATION FAILED:', error);
-      alert('Failed to create post: ' + error.message);
-    }
   });
 
   const acknowledgePostMutation = useMutation({
@@ -202,26 +143,13 @@ export default function TrainingAcademy() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['trainingPosts'] });
-      refetchPosts();
     },
   });
 
   const generateModuleMutation = useMutation({
     mutationFn: async (prompt) => {
       const result = await base44.integrations.Core.InvokeLLM({
-        prompt: `You are an expert at creating restaurant training modules. Create a comprehensive training module based on: "${prompt}". 
-
-Create detailed content including:
-- Clear engaging title
-- Description (2-3 sentences)
-- Category: hygiene, customer_service, product_knowledge, safety, equipment_use, onboarding, or compliance
-- Content type: text, video, quiz, or mixed
-- Detailed HTML-formatted content (500+ words with headers, lists, emphasis)
-- 5-7 quiz questions with 4 options each (only 1 correct answer)
-- Duration estimate in minutes
-- Whether mandatory
-
-Return ONLY valid JSON.`,
+        prompt: `Create a restaurant training module for: "${prompt}". Include title, description, category (hygiene/customer_service/safety/etc), content (HTML), duration, quiz questions (5-7 with 4 options each), and is_mandatory boolean. Return valid JSON only.`,
         response_json_schema: {
           type: "object",
           properties: {
@@ -249,19 +177,16 @@ Return ONLY valid JSON.`,
       return result;
     },
     onSuccess: async (aiData) => {
-      const moduleData = {
+      await base44.entities.TrainingModule.create({
         ...aiData,
         order_sequence: trainingModules.length + 1,
         passing_score: 80,
         is_active: true,
-      };
-      
-      await base44.entities.TrainingModule.create(moduleData);
+      });
       queryClient.invalidateQueries({ queryKey: ['trainingModules'] });
-      
       setShowAIModuleBuilder(false);
       setAIModulePrompt('');
-      alert(`✅ Module "${aiData.title}" created!`);
+      alert(`✅ Module created!`);
     },
   });
 
@@ -277,14 +202,14 @@ Return ONLY valid JSON.`,
         photo_urls: [...prev.photo_urls, file_url],
       }));
     } catch (error) {
-      alert('Failed to upload photo');
+      alert('Upload failed');
     }
     setUploadingPhoto(false);
   };
 
   const handleCreatePost = async () => {
     if (!newPost.title?.trim() || !newPost.content?.trim()) {
-      alert('⚠️ Please provide title and content');
+      alert('Please provide title and content');
       return;
     }
 
@@ -310,107 +235,96 @@ Return ONLY valid JSON.`,
       tags: [],
     };
 
-    console.log('📤 SUBMITTING POST:', postData);
-    
-    try {
-      await createPostMutation.mutateAsync(postData);
-    } finally {
-      setCreatingPost(false);
-    }
+    await createPostMutation.mutateAsync(postData);
+    setCreatingPost(false);
   };
 
   const handleGenerateModule = async () => {
     if (!aiModulePrompt.trim()) {
-      alert('⚠️ Please describe the module');
+      alert('Please describe the module');
       return;
     }
 
     setGeneratingModule(true);
-    try {
-      await generateModuleMutation.mutateAsync(aiModulePrompt);
-    } finally {
-      setGeneratingModule(false);
-    }
+    await generateModuleMutation.mutateAsync(aiModulePrompt);
+    setGeneratingModule(false);
   };
 
   const filteredPosts = (trainingPosts || []).filter(post => {
     if (!post?.is_active) return false;
-    
     const matchesSearch = !searchQuery || 
       post.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       post.content?.toLowerCase().includes(searchQuery.toLowerCase());
-    
     const matchesType = filterType === 'all' || post.post_type === filterType;
-    
     return matchesSearch && matchesType;
   });
-
-  console.log('🎯 FILTERED POSTS:', filteredPosts.length, 'TOTAL:', trainingPosts.length);
 
   const completedModules = myProgress.filter(p => p.status === 'completed').length;
   const inProgressModules = myProgress.filter(p => p.status === 'in_progress').length;
   const totalXP = myProgress.reduce((sum, p) => sum + (p.quiz_score || 0), 0);
 
+  const getPostGradient = (postType) => {
+    const gradients = {
+      inspiration: 'from-purple-50 to-pink-50',
+      training_tip: 'from-blue-50 to-cyan-50',
+      success_story: 'from-amber-50 to-yellow-50',
+      announcement: 'from-red-50 to-pink-50',
+      knowledge_share: 'from-green-50 to-emerald-50',
+      best_practice: 'from-indigo-50 to-purple-50',
+    };
+    return gradients[postType] || gradients.inspiration;
+  };
+
+  const getPostIcon = (postType) => {
+    const icons = {
+      inspiration: Sparkles,
+      training_tip: BookOpen,
+      success_story: Award,
+      announcement: Megaphone,
+      knowledge_share: Zap,
+      best_practice: Star,
+    };
+    return icons[postType] || Sparkles;
+  };
+
+  const getPostColor = (postType) => {
+    const colors = {
+      inspiration: 'from-purple-500 to-pink-500',
+      training_tip: 'from-blue-500 to-cyan-500',
+      success_story: 'from-amber-500 to-yellow-500',
+      announcement: 'from-red-500 to-pink-500',
+      knowledge_share: 'from-green-500 to-emerald-500',
+      best_practice: 'from-indigo-500 to-purple-500',
+    };
+    return colors[postType] || colors.inspiration;
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 via-pink-50 to-blue-50">
-      {/* Hero Banner */}
-      <motion.div
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="bg-gradient-to-r from-purple-600 via-pink-600 to-purple-700 text-white py-20 px-6 mb-8 relative overflow-hidden"
-      >
-        <div className="absolute inset-0 opacity-20">
-          <div className="absolute top-10 left-10 w-32 h-32 bg-white rounded-full blur-3xl"></div>
-          <div className="absolute bottom-10 right-10 w-40 h-40 bg-pink-300 rounded-full blur-3xl"></div>
-        </div>
-        
-        <div className="max-w-7xl mx-auto text-center relative z-10">
-          <motion.div
-            initial={{ scale: 0.8 }}
-            animate={{ scale: 1 }}
-            transition={{ duration: 0.5 }}
-            className="inline-block mb-6"
-          >
-            <div className="w-28 h-28 bg-white/20 backdrop-blur-lg rounded-full flex items-center justify-center mx-auto shadow-2xl">
-              <GraduationCap className="w-16 h-16" />
-            </div>
-          </motion.div>
+      {/* Hero */}
+      <div className="bg-gradient-to-r from-purple-600 via-pink-600 to-purple-700 text-white py-16 px-6 mb-8">
+        <div className="max-w-7xl mx-auto text-center">
+          <div className="w-24 h-24 bg-white/20 backdrop-blur rounded-full flex items-center justify-center mx-auto mb-6">
+            <GraduationCap className="w-14 h-14" />
+          </div>
           
-          <motion.h1 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-            className="text-5xl md:text-6xl font-bold mb-4"
-          >
+          <h1 className="text-5xl md:text-6xl font-bold mb-4">
             We Create Craving Fans — Not Customers
-          </motion.h1>
+          </h1>
+          <p className="text-2xl opacity-90 mb-8">Your journey to excellence starts here</p>
           
-          <motion.p 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.4 }}
-            className="text-2xl opacity-90 mb-8"
-          >
-            Your journey to excellence starts here
-          </motion.p>
-          
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.6 }}
-            className="flex justify-center gap-4 flex-wrap"
-          >
-            <Button size="lg" className="bg-white text-purple-700 hover:bg-gray-100 shadow-xl">
+          <div className="flex justify-center gap-4 flex-wrap">
+            <Button size="lg" className="bg-white text-purple-700 hover:bg-gray-100">
               <Play className="w-5 h-5 mr-2" />
               Continue Learning
             </Button>
             <Button size="lg" variant="outline" className="border-2 border-white text-white hover:bg-white/20">
               <Award className="w-5 h-5 mr-2" />
-              My Certificates ({certificates.length})
+              Certificates ({certificates.length})
             </Button>
-          </motion.div>
+          </div>
         </div>
-      </motion.div>
+      </div>
 
       <div className="max-w-7xl mx-auto px-6 pb-12">
         {isManager && (
@@ -427,7 +341,7 @@ Return ONLY valid JSON.`,
               onClick={() => setShowAIModuleBuilder(true)}
               size="lg"
               variant="outline"
-              className="border-2 border-purple-300 hover:bg-purple-50"
+              className="border-2 border-purple-300"
             >
               <Wand2 className="w-5 h-5 mr-2" />
               AI Module Builder
@@ -467,98 +381,85 @@ Return ONLY valid JSON.`,
             </TabsTrigger>
           </TabsList>
 
-          {/* OVERVIEW & POSTS TAB */}
+          {/* OVERVIEW TAB */}
           <TabsContent value="overview" className="space-y-6">
-            {/* XP Progress Cards */}
+            {/* Stats */}
             <div className="grid md:grid-cols-4 gap-4">
-              <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                <Card className="bg-gradient-to-br from-purple-500 to-purple-600 text-white border-none shadow-xl">
-                  <CardContent className="p-6 text-center">
-                    <BookOpen className="w-10 h-10 mb-3 mx-auto opacity-90" />
-                    <p className="text-3xl font-bold mb-1">{trainingModules.length}</p>
-                    <p className="text-sm opacity-90">Modules</p>
-                  </CardContent>
-                </Card>
-              </motion.div>
+              <Card className="bg-gradient-to-br from-purple-500 to-purple-600 text-white border-none shadow-lg">
+                <CardContent className="p-6 text-center">
+                  <BookOpen className="w-10 h-10 mb-2 mx-auto opacity-90" />
+                  <p className="text-3xl font-bold">{trainingModules.length}</p>
+                  <p className="text-sm opacity-90">Modules</p>
+                </CardContent>
+              </Card>
 
-              <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                <Card className="bg-gradient-to-br from-green-500 to-emerald-600 text-white border-none shadow-xl">
-                  <CardContent className="p-6 text-center">
-                    <CheckCircle className="w-10 h-10 mb-3 mx-auto opacity-90" />
-                    <p className="text-3xl font-bold mb-1">{completedModules}</p>
-                    <p className="text-sm opacity-90">Completed</p>
-                  </CardContent>
-                </Card>
-              </motion.div>
+              <Card className="bg-gradient-to-br from-green-500 to-emerald-600 text-white border-none shadow-lg">
+                <CardContent className="p-6 text-center">
+                  <CheckCircle className="w-10 h-10 mb-2 mx-auto opacity-90" />
+                  <p className="text-3xl font-bold">{completedModules}</p>
+                  <p className="text-sm opacity-90">Completed</p>
+                </CardContent>
+              </Card>
 
-              <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                <Card className="bg-gradient-to-br from-blue-500 to-cyan-600 text-white border-none shadow-xl">
-                  <CardContent className="p-6 text-center">
-                    <Clock className="w-10 h-10 mb-3 mx-auto opacity-90" />
-                    <p className="text-3xl font-bold mb-1">{inProgressModules}</p>
-                    <p className="text-sm opacity-90">In Progress</p>
-                  </CardContent>
-                </Card>
-              </motion.div>
+              <Card className="bg-gradient-to-br from-blue-500 to-cyan-600 text-white border-none shadow-lg">
+                <CardContent className="p-6 text-center">
+                  <Clock className="w-10 h-10 mb-2 mx-auto opacity-90" />
+                  <p className="text-3xl font-bold">{inProgressModules}</p>
+                  <p className="text-sm opacity-90">In Progress</p>
+                </CardContent>
+              </Card>
 
-              <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                <Card className="bg-gradient-to-br from-amber-500 to-yellow-600 text-white border-none shadow-xl">
-                  <CardContent className="p-6 text-center">
-                    <Zap className="w-10 h-10 mb-3 mx-auto opacity-90" />
-                    <p className="text-3xl font-bold mb-1">{totalXP}</p>
-                    <p className="text-sm opacity-90">Total XP</p>
-                  </CardContent>
-                </Card>
-              </motion.div>
+              <Card className="bg-gradient-to-br from-amber-500 to-yellow-600 text-white border-none shadow-lg">
+                <CardContent className="p-6 text-center">
+                  <Zap className="w-10 h-10 mb-2 mx-auto opacity-90" />
+                  <p className="text-3xl font-bold">{totalXP}</p>
+                  <p className="text-sm opacity-90">Total XP</p>
+                </CardContent>
+              </Card>
             </div>
 
-            {/* Posts Section */}
+            {/* Posts */}
             <div>
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
-                  <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl flex items-center justify-center">
-                    <Megaphone className="w-7 h-7 text-white" />
-                  </div>
-                  Training Updates
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+                  <Megaphone className="w-6 h-6 text-purple-600" />
+                  Training Updates ({trainingPosts.length})
                 </h2>
-                <Badge className="bg-purple-100 text-purple-700 text-lg px-4 py-2">
-                  {trainingPosts.length} {trainingPosts.length === 1 ? 'Post' : 'Posts'}
-                </Badge>
               </div>
 
               {/* Filters */}
-              <Card className="bg-white shadow-lg mb-6 border-2 border-purple-100">
+              <Card className="bg-white shadow-md mb-6">
                 <CardContent className="p-4">
                   <div className="grid md:grid-cols-2 gap-4">
                     <div className="relative">
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                       <Input
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         placeholder="Search posts..."
-                        className="pl-10 h-12 text-base"
+                        className="pl-10"
                       />
                     </div>
 
                     <Select value={filterType} onValueChange={setFilterType}>
-                      <SelectTrigger className="h-12">
+                      <SelectTrigger>
                         <SelectValue placeholder="All Types" />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">All Types</SelectItem>
                         <SelectItem value="inspiration">💡 Inspiration</SelectItem>
-                        <SelectItem value="training_tip">📚 Training Tips</SelectItem>
-                        <SelectItem value="success_story">🏆 Success Stories</SelectItem>
+                        <SelectItem value="training_tip">📚 Tips</SelectItem>
+                        <SelectItem value="success_story">🏆 Success</SelectItem>
                         <SelectItem value="announcement">📢 Announcements</SelectItem>
-                        <SelectItem value="knowledge_share">✨ Knowledge Share</SelectItem>
-                        <SelectItem value="best_practice">⭐ Best Practices</SelectItem>
+                        <SelectItem value="knowledge_share">✨ Knowledge</SelectItem>
+                        <SelectItem value="best_practice">⭐ Best Practice</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                 </CardContent>
               </Card>
 
-              {/* Posts Feed */}
+              {/* Posts List */}
               <div className="space-y-6">
                 {postsLoading ? (
                   <Card>
@@ -572,146 +473,112 @@ Return ONLY valid JSON.`,
                     <CardContent className="p-16 text-center">
                       <Megaphone className="w-20 h-20 text-purple-300 mx-auto mb-4" />
                       <p className="text-xl font-semibold text-gray-900 mb-2">No posts yet</p>
-                      <p className="text-gray-600 mb-6">
-                        {trainingPosts.length === 0 
-                          ? "Be the first to share inspiration with your team!" 
-                          : "No posts match your search"}
-                      </p>
-                      <p className="text-sm text-gray-500 mb-4">
-                        Debug: {trainingPosts.length} total posts in database
+                      <p className="text-gray-600">
+                        {trainingPosts.length === 0 ? "Create your first post!" : "No matches"}
                       </p>
                       {isManager && (
-                        <Button
-                          onClick={() => setShowCreatePost(true)}
-                          size="lg"
-                          className="bg-gradient-to-r from-purple-600 to-pink-600"
-                        >
-                          <Plus className="w-5 h-5 mr-2" />
-                          Create Your First Post
+                        <Button onClick={() => setShowCreatePost(true)} className="mt-6 bg-purple-600">
+                          <Plus className="w-4 h-4 mr-2" />
+                          Create Post
                         </Button>
                       )}
                     </CardContent>
                   </Card>
                 ) : (
-                  <AnimatePresence>
-                    {filteredPosts.map((post, index) => {
-                      const hasAcknowledged = post.acknowledged_by?.some(ack => ack.staff_email === user?.email);
-                      const config = POST_TYPE_CONFIG[post.post_type] || POST_TYPE_CONFIG.inspiration;
-                      const Icon = config.icon;
+                  filteredPosts.map((post) => {
+                    const hasAcknowledged = post.acknowledged_by?.some(ack => ack.staff_email === user?.email);
+                    const PostIcon = getPostIcon(post.post_type);
+                    const gradient = getPostGradient(post.post_type);
+                    const iconGradient = getPostColor(post.post_type);
 
-                      return (
-                        <motion.div
-                          key={post.id}
-                          initial={{ opacity: 0, y: 30 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          exit={{ opacity: 0, y: -30 }}
-                          transition={{ delay: index * 0.1 }}
-                          whileHover={{ scale: 1.02 }}
-                        >
-                          <Card className={`bg-gradient-to-br ${config.bgLight} border-2 ${post.is_featured ? 'border-[#D4AF37] shadow-2xl' : 'border-purple-200 shadow-lg'} hover:shadow-2xl transition-all duration-300`}>
-                            {post.is_featured && (
-                              <div className="bg-gradient-to-r from-[#D4AF37] to-yellow-600 text-white px-6 py-3 flex items-center gap-2">
-                                <Star className="w-5 h-5 fill-current animate-pulse" />
-                                <span className="font-bold text-lg">⭐ Featured Post</span>
-                              </div>
-                            )}
-                            
-                            <CardContent className="p-8">
-                              <div className="flex gap-6">
-                                {/* Icon Column */}
-                                <div className={`flex-shrink-0 w-16 h-16 bg-gradient-to-br ${config.color} rounded-2xl flex items-center justify-center shadow-xl`}>
-                                  <Icon className="w-9 h-9 text-white" />
-                                </div>
+                    return (
+                      <Card key={post.id} className={`bg-gradient-to-br ${gradient} border-2 ${post.is_featured ? 'border-amber-400' : 'border-purple-200'} shadow-lg hover:shadow-2xl transition-all`}>
+                        {post.is_featured && (
+                          <div className="bg-gradient-to-r from-amber-500 to-yellow-600 text-white px-6 py-3 flex items-center gap-2">
+                            <Star className="w-5 h-5 fill-current" />
+                            <span className="font-bold">⭐ Featured Post</span>
+                          </div>
+                        )}
+                        
+                        <CardContent className="p-8">
+                          <div className="flex gap-6">
+                            <div className={`flex-shrink-0 w-16 h-16 bg-gradient-to-br ${iconGradient} rounded-2xl flex items-center justify-center shadow-lg`}>
+                              <PostIcon className="w-9 h-9 text-white" />
+                            </div>
 
-                                {/* Content Column */}
-                                <div className="flex-1">
-                                  <div className="flex items-start justify-between mb-4">
-                                    <div>
-                                      <h3 className="text-2xl font-bold text-gray-900 mb-2">{post.title}</h3>
-                                      <div className="flex items-center gap-3 text-sm text-gray-600">
-                                        <div className="flex items-center gap-2">
-                                          <div className="w-8 h-8 bg-gradient-to-br from-gray-700 to-gray-900 rounded-full flex items-center justify-center">
-                                            <span className="text-white text-xs font-semibold">
-                                              {post.author_name?.charAt(0) || 'A'}
-                                            </span>
-                                          </div>
-                                          <span className="font-medium">{post.author_name}</span>
-                                        </div>
-                                        <span>•</span>
-                                        <span>{format(new Date(post.created_date), 'MMM d, yyyy')}</span>
-                                      </div>
-                                    </div>
-                                    <Badge className={config.badge + ' text-base px-4 py-1'}>
-                                      {config.emoji} {post.post_type.replace('_', ' ')}
-                                    </Badge>
-                                  </div>
-                                  
-                                  <p className="text-gray-800 whitespace-pre-wrap mb-6 leading-relaxed text-lg">
-                                    {post.content}
-                                  </p>
-
-                                  {post.photo_urls && post.photo_urls.length > 0 && (
-                                    <div className="grid grid-cols-2 gap-3 mb-6">
-                                      {post.photo_urls.map((url, idx) => (
-                                        <motion.img
-                                          key={idx}
-                                          whileHover={{ scale: 1.05 }}
-                                          src={url}
-                                          alt="Post"
-                                          className="w-full h-64 object-cover rounded-2xl border-2 border-white shadow-lg cursor-pointer"
-                                        />
-                                      ))}
-                                    </div>
-                                  )}
-
-                                  {post.video_url && (
-                                    <div className="mb-6">
-                                      <video src={post.video_url} controls className="w-full rounded-2xl shadow-lg" />
-                                    </div>
-                                  )}
-
-                                  <div className="flex items-center justify-between pt-6 border-t-2 border-purple-200">
-                                    <div className="flex items-center gap-6">
-                                      <button className="flex items-center gap-2 text-gray-600 hover:text-purple-600 transition-colors">
-                                        <ThumbsUp className="w-5 h-5" />
-                                        <span className="font-semibold">{post.likes_count || 0}</span>
-                                      </button>
-                                      <div className="flex items-center gap-2 text-gray-600">
-                                        <CheckCircle className="w-5 h-5" />
-                                        <span className="font-semibold">{post.total_acknowledgments || 0}</span>
-                                      </div>
-                                      <div className="flex items-center gap-2 text-gray-600">
-                                        <Eye className="w-5 h-5" />
-                                        <span className="font-semibold">{post.view_count || 0}</span>
-                                      </div>
-                                    </div>
-
-                                    {post.requires_acknowledgment && !hasAcknowledged && (
-                                      <Button
-                                        onClick={() => acknowledgePostMutation.mutate({ postId: post.id, post })}
-                                        disabled={acknowledgePostMutation.isPending}
-                                        className="bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 shadow-lg"
-                                      >
-                                        <CheckCircle className="w-5 h-5 mr-2" />
-                                        I've Read This
-                                      </Button>
-                                    )}
-
-                                    {hasAcknowledged && (
-                                      <Badge className="bg-green-100 text-green-800 text-base px-4 py-2">
-                                        <CheckCircle className="w-4 h-4 mr-1" />
-                                        ✓ Acknowledged
-                                      </Badge>
-                                    )}
-                                  </div>
+                            <div className="flex-1">
+                              <div className="mb-4">
+                                <h3 className="text-2xl font-bold text-gray-900 mb-2">{post.title}</h3>
+                                <div className="flex items-center gap-2 text-sm text-gray-600">
+                                  <span className="font-medium">{post.author_name}</span>
+                                  <span>•</span>
+                                  <span>{format(new Date(post.created_date), 'MMM d, yyyy')}</span>
+                                  <Badge className="ml-2 bg-purple-100 text-purple-700">
+                                    {post.post_type.replace('_', ' ')}
+                                  </Badge>
                                 </div>
                               </div>
-                            </CardContent>
-                          </Card>
-                        </motion.div>
-                      );
-                    })}
-                  </AnimatePresence>
+                              
+                              <p className="text-lg text-gray-800 whitespace-pre-wrap mb-6 leading-relaxed">
+                                {post.content}
+                              </p>
+
+                              {post.photo_urls?.length > 0 && (
+                                <div className="grid grid-cols-2 gap-3 mb-6">
+                                  {post.photo_urls.map((url, idx) => (
+                                    <img
+                                      key={idx}
+                                      src={url}
+                                      alt="Post"
+                                      className="w-full h-48 object-cover rounded-xl shadow-md"
+                                    />
+                                  ))}
+                                </div>
+                              )}
+
+                              {post.video_url && (
+                                <video src={post.video_url} controls className="w-full rounded-xl mb-6" />
+                              )}
+
+                              <div className="flex items-center justify-between pt-4 border-t-2 border-purple-200">
+                                <div className="flex items-center gap-6 text-gray-700">
+                                  <div className="flex items-center gap-2">
+                                    <ThumbsUp className="w-5 h-5" />
+                                    <span className="font-semibold">{post.likes_count || 0}</span>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <CheckCircle className="w-5 h-5" />
+                                    <span className="font-semibold">{post.total_acknowledgments || 0}</span>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <Eye className="w-5 h-5" />
+                                    <span className="font-semibold">{post.view_count || 0}</span>
+                                  </div>
+                                </div>
+
+                                {post.requires_acknowledgment && !hasAcknowledged && (
+                                  <Button
+                                    onClick={() => acknowledgePostMutation.mutate({ postId: post.id, post })}
+                                    className="bg-emerald-600 hover:bg-emerald-700"
+                                  >
+                                    <CheckCircle className="w-4 h-4 mr-2" />
+                                    I've Read This
+                                  </Button>
+                                )}
+
+                                {hasAcknowledged && (
+                                  <Badge className="bg-green-100 text-green-800">
+                                    <CheckCircle className="w-4 h-4 mr-1" />
+                                    Acknowledged
+                                  </Badge>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })
                 )}
               </div>
             </div>
@@ -719,102 +586,84 @@ Return ONLY valid JSON.`,
 
           {/* VALUES TAB */}
           <TabsContent value="values">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-            >
-              <Card className="bg-gradient-to-r from-orange-500 to-red-600 text-white border-none shadow-2xl">
-                <CardContent className="p-16 text-center">
-                  <motion.div
-                    animate={{ scale: [1, 1.1, 1] }}
-                    transition={{ repeat: Infinity, duration: 2 }}
-                  >
-                    <Heart className="w-24 h-24 mx-auto mb-6" />
-                  </motion.div>
-                  <h2 className="text-5xl font-bold mb-4">Our Culture & Values</h2>
-                  <p className="text-2xl opacity-90 mb-8">Everything that makes us who we are</p>
-                  <Link to={createPageUrl('CultureBuilding')}>
-                    <Button size="lg" className="bg-white text-orange-700 hover:bg-gray-100 shadow-xl text-lg">
-                      <Heart className="w-6 h-6 mr-2" />
-                      Explore Our Values
-                    </Button>
-                  </Link>
-                </CardContent>
-              </Card>
-            </motion.div>
+            <Card className="bg-gradient-to-r from-orange-500 to-red-600 text-white border-none shadow-2xl">
+              <CardContent className="p-16 text-center">
+                <Heart className="w-24 h-24 mx-auto mb-6" />
+                <h2 className="text-4xl font-bold mb-4">Our Culture & Values</h2>
+                <p className="text-xl opacity-90 mb-8">Everything that makes us who we are</p>
+                <Link to={createPageUrl('CultureBuilding')}>
+                  <Button size="lg" className="bg-white text-orange-700 hover:bg-gray-100 shadow-xl">
+                    <Heart className="w-5 h-5 mr-2" />
+                    Explore Our Values
+                  </Button>
+                </Link>
+              </CardContent>
+            </Card>
           </TabsContent>
 
           {/* MODULES TAB */}
           <TabsContent value="modules">
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {trainingModules.map((module, index) => {
+              {trainingModules.map((module) => {
                 const progress = myProgress.find(p => p.module_id === module.id);
 
                 return (
-                  <motion.div
-                    key={module.id}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: index * 0.1 }}
-                    whileHover={{ y: -5 }}
-                  >
-                    <Card className="bg-white border-none shadow-lg hover:shadow-2xl transition-all h-full">
-                      <CardContent className="p-6">
-                        <div className="flex items-center justify-between mb-3">
-                          <Badge className={
-                            progress?.status === 'completed' ? 'bg-green-100 text-green-800' :
-                            progress?.status === 'in_progress' ? 'bg-blue-100 text-blue-800' :
-                            'bg-gray-100 text-gray-800'
-                          }>
-                            {progress?.status?.replace('_', ' ') || 'Not Started'}
-                          </Badge>
-                          {module.is_mandatory && (
-                            <Badge className="bg-red-100 text-red-700">Required</Badge>
-                          )}
-                        </div>
-
-                        <h3 className="text-lg font-bold text-gray-900 mb-2">{module.title}</h3>
-                        <p className="text-sm text-gray-600 mb-4 line-clamp-2">{module.description}</p>
-
-                        <div className="flex items-center gap-4 text-sm text-gray-600 mb-4">
-                          <div className="flex items-center gap-1">
-                            <Clock className="w-4 h-4" />
-                            {module.duration_minutes} min
-                          </div>
-                          {progress?.quiz_score && (
-                            <Badge className="bg-amber-100 text-amber-700">
-                              <Award className="w-3 h-3 mr-1" />
-                              {progress.quiz_score}%
-                            </Badge>
-                          )}
-                        </div>
-
-                        {progress && progress.status !== 'completed' && (
-                          <Progress value={(progress.quiz_attempts || 0) * 20} className="mb-4" />
+                  <Card key={module.id} className="bg-white shadow-lg hover:shadow-2xl transition-all">
+                    <CardContent className="p-6">
+                      <div className="flex items-center justify-between mb-3">
+                        <Badge className={
+                          progress?.status === 'completed' ? 'bg-green-100 text-green-800' :
+                          progress?.status === 'in_progress' ? 'bg-blue-100 text-blue-800' :
+                          'bg-gray-100 text-gray-800'
+                        }>
+                          {progress?.status?.replace('_', ' ') || 'Not Started'}
+                        </Badge>
+                        {module.is_mandatory && (
+                          <Badge className="bg-red-100 text-red-700">Required</Badge>
                         )}
+                      </div>
 
-                        <Button
-                          onClick={() => {
-                            setSelectedModule(module);
-                            setShowModuleViewer(true);
-                          }}
-                          className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
-                        >
-                          <Play className="w-4 h-4 mr-2" />
-                          {progress?.status === 'completed' ? 'Review' : progress?.status === 'in_progress' ? 'Continue' : 'Start'}
-                        </Button>
-                      </CardContent>
-                    </Card>
-                  </motion.div>
+                      <h3 className="text-lg font-bold text-gray-900 mb-2">{module.title}</h3>
+                      <p className="text-sm text-gray-600 mb-4 line-clamp-2">{module.description}</p>
+
+                      <div className="flex items-center gap-4 text-sm text-gray-600 mb-4">
+                        <div className="flex items-center gap-1">
+                          <Clock className="w-4 h-4" />
+                          {module.duration_minutes} min
+                        </div>
+                        {progress?.quiz_score && (
+                          <div className="flex items-center gap-1">
+                            <Award className="w-4 h-4" />
+                            {progress.quiz_score}%
+                          </div>
+                        )}
+                      </div>
+
+                      {progress && progress.status !== 'completed' && (
+                        <Progress value={(progress.quiz_attempts || 0) * 20} className="mb-4" />
+                      )}
+
+                      <Button
+                        onClick={() => {
+                          setSelectedModule(module);
+                          setShowModuleViewer(true);
+                        }}
+                        className="w-full bg-gradient-to-r from-blue-600 to-indigo-600"
+                      >
+                        <Play className="w-4 h-4 mr-2" />
+                        {progress?.status === 'completed' ? 'Review' : progress?.status === 'in_progress' ? 'Continue' : 'Start'}
+                      </Button>
+                    </CardContent>
+                  </Card>
                 );
               })}
 
               {trainingModules.length === 0 && (
                 <div className="col-span-full text-center py-16">
                   <BookOpen className="w-20 h-20 text-gray-300 mx-auto mb-4" />
-                  <p className="text-gray-600 font-medium text-lg">No modules yet</p>
+                  <p className="text-gray-600 font-medium">No modules yet</p>
                   {isManager && (
-                    <Button onClick={() => setShowAIModuleBuilder(true)} className="mt-4 bg-purple-600">
+                    <Button onClick={() => setShowAIModuleBuilder(true)} className="mt-4">
                       <Wand2 className="w-4 h-4 mr-2" />
                       Create with AI
                     </Button>
@@ -827,32 +676,24 @@ Return ONLY valid JSON.`,
           {/* CERTIFICATES TAB */}
           <TabsContent value="certificates">
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {certificates.map((cert, index) => (
-                <motion.div
-                  key={cert.id}
-                  initial={{ opacity: 0, rotate: -5 }}
-                  animate={{ opacity: 1, rotate: 0 }}
-                  transition={{ delay: index * 0.1 }}
-                  whileHover={{ rotate: 2, scale: 1.05 }}
-                >
-                  <Card className="bg-gradient-to-br from-amber-50 to-yellow-50 border-4 border-[#D4AF37] shadow-xl">
-                    <CardContent className="p-8 text-center">
-                      <Award className="w-20 h-20 text-[#D4AF37] mx-auto mb-4" />
-                      <h3 className="text-xl font-bold text-gray-900 mb-2">{cert.title}</h3>
-                      <p className="text-sm text-gray-600 mb-4">{cert.description}</p>
-                      <Badge className="bg-[#D4AF37] text-white text-base px-4 py-2">
-                        {format(new Date(cert.issued_date), 'MMM d, yyyy')}
-                      </Badge>
-                    </CardContent>
-                  </Card>
-                </motion.div>
+              {certificates.map((cert) => (
+                <Card key={cert.id} className="bg-gradient-to-br from-amber-50 to-yellow-50 border-4 border-amber-400 shadow-xl">
+                  <CardContent className="p-8 text-center">
+                    <Award className="w-20 h-20 text-amber-600 mx-auto mb-4" />
+                    <h3 className="text-xl font-bold text-gray-900 mb-2">{cert.title}</h3>
+                    <p className="text-sm text-gray-600 mb-4">{cert.description}</p>
+                    <Badge className="bg-amber-600 text-white">
+                      {format(new Date(cert.issued_date), 'MMM d, yyyy')}
+                    </Badge>
+                  </CardContent>
+                </Card>
               ))}
 
               {certificates.length === 0 && (
                 <div className="col-span-full text-center py-16">
                   <Award className="w-20 h-20 text-gray-300 mx-auto mb-4" />
-                  <p className="text-gray-600 font-medium text-lg">No certificates yet</p>
-                  <p className="text-gray-500 mt-2">Complete modules to earn certificates!</p>
+                  <p className="text-gray-600 font-medium">No certificates yet</p>
+                  <p className="text-sm text-gray-500 mt-2">Complete modules to earn certificates!</p>
                 </div>
               )}
             </div>
@@ -862,92 +703,79 @@ Return ONLY valid JSON.`,
 
       {/* CREATE POST DIALOG */}
       <Dialog open={showCreatePost} onOpenChange={setShowCreatePost}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-3 text-2xl">
-              <div className="w-12 h-12 bg-gradient-to-br from-purple-600 to-pink-600 rounded-xl flex items-center justify-center">
-                <Sparkles className="w-7 h-7 text-white" />
-              </div>
-              Create Training Post
-            </DialogTitle>
+            <DialogTitle className="text-2xl">Create Training Post</DialogTitle>
           </DialogHeader>
 
-          <div className="space-y-6 mt-6">
+          <div className="space-y-6 mt-4">
             <div className="space-y-2">
-              <label className="text-base font-semibold text-gray-900">Post Title *</label>
+              <label className="font-semibold">Post Title *</label>
               <Input
                 value={newPost.title}
                 onChange={(e) => setNewPost({ ...newPost, title: e.target.value })}
-                placeholder="e.g., 🎯 5 Tips for Perfect Customer Service"
-                className="h-12 text-base"
+                placeholder="e.g., 🎯 5 Tips for Perfect Service"
               />
             </div>
 
             <div className="space-y-2">
-              <label className="text-base font-semibold text-gray-900">Content *</label>
+              <label className="font-semibold">Content *</label>
               <Textarea
                 value={newPost.content}
                 onChange={(e) => setNewPost({ ...newPost, content: e.target.value })}
-                placeholder="Share your wisdom, tips, or announcement with the team..."
+                placeholder="Share your message..."
                 rows={8}
-                className="text-base leading-relaxed"
               />
-              <p className="text-sm text-gray-500">{newPost.content.length} characters</p>
             </div>
 
             <div className="grid md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <label className="text-base font-semibold text-gray-900">Post Type</label>
+                <label className="font-semibold">Type</label>
                 <Select value={newPost.post_type} onValueChange={(value) => setNewPost({ ...newPost, post_type: value })}>
-                  <SelectTrigger className="h-12">
+                  <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="inspiration">💡 Inspiration</SelectItem>
-                    <SelectItem value="training_tip">📚 Training Tip</SelectItem>
-                    <SelectItem value="success_story">🏆 Success Story</SelectItem>
+                    <SelectItem value="training_tip">📚 Tip</SelectItem>
+                    <SelectItem value="success_story">🏆 Success</SelectItem>
                     <SelectItem value="announcement">📢 Announcement</SelectItem>
-                    <SelectItem value="knowledge_share">✨ Knowledge Share</SelectItem>
+                    <SelectItem value="knowledge_share">✨ Knowledge</SelectItem>
                     <SelectItem value="best_practice">⭐ Best Practice</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
               <div className="space-y-2">
-                <label className="text-base font-semibold text-gray-900">Category</label>
+                <label className="font-semibold">Category</label>
                 <Select value={newPost.category} onValueChange={(value) => setNewPost({ ...newPost, category: value })}>
-                  <SelectTrigger className="h-12">
+                  <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="leadership">Leadership</SelectItem>
-                    <SelectItem value="customer_service">Customer Service</SelectItem>
-                    <SelectItem value="food_safety">Food Safety</SelectItem>
-                    <SelectItem value="teamwork">Teamwork</SelectItem>
-                    <SelectItem value="innovation">Innovation</SelectItem>
-                    <SelectItem value="excellence">Excellence</SelectItem>
                     <SelectItem value="culture">Culture</SelectItem>
-                    <SelectItem value="skills">Skills</SelectItem>
+                    <SelectItem value="food_safety">Food Safety</SelectItem>
+                    <SelectItem value="customer_service">Customer Service</SelectItem>
+                    <SelectItem value="teamwork">Teamwork</SelectItem>
+                    <SelectItem value="excellence">Excellence</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
             </div>
 
-            <div className="space-y-3">
-              <label className="text-base font-semibold text-gray-900">Add Media (Optional)</label>
-              
+            <div className="space-y-2">
+              <label className="font-semibold">Photos (Optional)</label>
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => document.getElementById('post-photo-upload').click()}
+                onClick={() => document.getElementById('post-photo').click()}
                 disabled={uploadingPhoto}
-                className="w-full h-12"
               >
-                <Camera className="w-5 h-5 mr-2" />
-                {uploadingPhoto ? 'Uploading...' : 'Upload Photos'}
+                <Camera className="w-4 h-4 mr-2" />
+                {uploadingPhoto ? 'Uploading...' : 'Add Photos'}
               </Button>
               <input
-                id="post-photo-upload"
+                id="post-photo"
                 type="file"
                 accept="image/*"
                 multiple
@@ -956,16 +784,16 @@ Return ONLY valid JSON.`,
               />
 
               {newPost.photo_urls.length > 0 && (
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-3 gap-2">
                   {newPost.photo_urls.map((url, idx) => (
-                    <div key={idx} className="relative group">
-                      <img src={url} alt="" className="w-full h-32 object-cover rounded-lg border-2" />
+                    <div key={idx} className="relative">
+                      <img src={url} alt="" className="w-full h-24 object-cover rounded-lg" />
                       <button
                         onClick={() => setNewPost(prev => ({
                           ...prev,
                           photo_urls: prev.photo_urls.filter((_, i) => i !== idx)
                         }))}
-                        className="absolute -top-2 -right-2 w-7 h-7 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                        className="absolute -top-1 -right-1 w-6 h-6 bg-red-500 text-white rounded-full text-xs"
                       >
                         ×
                       </button>
@@ -973,72 +801,50 @@ Return ONLY valid JSON.`,
                   ))}
                 </div>
               )}
+            </div>
 
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">Video URL (YouTube, Vimeo)</label>
-                <Input
-                  value={newPost.video_url}
-                  onChange={(e) => setNewPost({ ...newPost, video_url: e.target.value })}
-                  placeholder="https://youtube.com/watch?v=..."
-                  className="h-12"
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="ack"
+                  checked={newPost.requires_acknowledgment}
+                  onChange={(e) => setNewPost({ ...newPost, requires_acknowledgment: e.target.checked })}
+                  className="w-4 h-4"
                 />
+                <label htmlFor="ack">Require acknowledgment</label>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="feat"
+                  checked={newPost.is_featured}
+                  onChange={(e) => setNewPost({ ...newPost, is_featured: e.target.checked })}
+                  className="w-4 h-4"
+                />
+                <label htmlFor="feat">⭐ Feature this post</label>
               </div>
             </div>
 
-            <Card className="bg-purple-50 border-2 border-purple-200">
-              <CardContent className="p-4 space-y-3">
-                <div className="flex items-center gap-3">
-                  <input
-                    type="checkbox"
-                    id="requires_ack"
-                    checked={newPost.requires_acknowledgment}
-                    onChange={(e) => setNewPost({ ...newPost, requires_acknowledgment: e.target.checked })}
-                    className="w-5 h-5"
-                  />
-                  <label htmlFor="requires_ack" className="text-base text-gray-900">
-                    ✓ Require staff to acknowledge this post
-                  </label>
-                </div>
-
-                <div className="flex items-center gap-3">
-                  <input
-                    type="checkbox"
-                    id="is_featured"
-                    checked={newPost.is_featured}
-                    onChange={(e) => setNewPost({ ...newPost, is_featured: e.target.checked })}
-                    className="w-5 h-5"
-                  />
-                  <label htmlFor="is_featured" className="text-base text-gray-900">
-                    ⭐ Feature this post (gold banner at top)
-                  </label>
-                </div>
-              </CardContent>
-            </Card>
-
-            <div className="flex justify-end gap-3 pt-6 border-t-2">
-              <Button
-                type="button"
-                variant="outline"
-                size="lg"
-                onClick={() => setShowCreatePost(false)}
-              >
+            <div className="flex justify-end gap-3 pt-4 border-t">
+              <Button variant="outline" onClick={() => setShowCreatePost(false)}>
                 Cancel
               </Button>
               <Button
                 onClick={handleCreatePost}
                 disabled={creatingPost || !newPost.title?.trim() || !newPost.content?.trim()}
-                size="lg"
-                className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 shadow-lg"
+                className="bg-gradient-to-r from-purple-600 to-pink-600"
               >
                 {creatingPost ? (
                   <>
-                    <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                     Publishing...
                   </>
                 ) : (
                   <>
-                    <Send className="w-5 h-5 mr-2" />
-                    Publish Post
+                    <Send className="w-4 h-4 mr-2" />
+                    Publish
                   </>
                 )}
               </Button>
@@ -1051,73 +857,37 @@ Return ONLY valid JSON.`,
       <Dialog open={showAIModuleBuilder} onOpenChange={setShowAIModuleBuilder}>
         <DialogContent className="max-w-3xl">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-3 text-2xl">
-              <div className="w-12 h-12 bg-gradient-to-br from-purple-600 to-pink-600 rounded-xl flex items-center justify-center">
-                <Wand2 className="w-7 h-7 text-white" />
-              </div>
-              AI Training Module Builder
-            </DialogTitle>
+            <DialogTitle>AI Module Builder</DialogTitle>
           </DialogHeader>
 
-          <div className="space-y-6 mt-6">
-            <Card className="bg-gradient-to-br from-purple-50 to-pink-50 border-2 border-purple-200">
-              <CardContent className="p-6">
-                <p className="text-lg text-gray-800 mb-4">
-                  🤖 Describe the training module you want, and AI will create complete content with quiz questions!
-                </p>
-              </CardContent>
-            </Card>
+          <div className="space-y-4 mt-4">
+            <p className="text-gray-700">Describe the training module and AI will generate complete content with quiz.</p>
 
-            <div className="space-y-2">
-              <label className="text-base font-semibold text-gray-900">What should this module teach?</label>
-              <Textarea
-                value={aiModulePrompt}
-                onChange={(e) => setAIModulePrompt(e.target.value)}
-                placeholder="Example: 'Create a food safety module about proper handwashing techniques, when to wash hands, cross-contamination prevention, and temperature control. Include kitchen examples and best practices for restaurant staff.'"
-                rows={8}
-                className="text-base"
-              />
-            </div>
+            <Textarea
+              value={aiModulePrompt}
+              onChange={(e) => setAIModulePrompt(e.target.value)}
+              placeholder="e.g., 'Food safety module about handwashing, temperature control, and cross-contamination for kitchen staff'"
+              rows={6}
+            />
 
-            <Card className="bg-blue-50 border-2 border-blue-200">
-              <CardContent className="p-4">
-                <p className="text-sm font-semibold text-blue-900 mb-2">💡 Tips for best results:</p>
-                <ul className="text-sm text-blue-800 space-y-1 ml-5 list-disc">
-                  <li>Be specific about topics and objectives</li>
-                  <li>Mention target audience (chefs, servers, all staff)</li>
-                  <li>Include specific procedures or standards</li>
-                  <li>Ask for practical examples</li>
-                </ul>
-              </CardContent>
-            </Card>
-
-            <div className="flex justify-end gap-3 pt-6 border-t-2">
-              <Button
-                variant="outline"
-                size="lg"
-                onClick={() => {
-                  setShowAIModuleBuilder(false);
-                  setAIModulePrompt('');
-                }}
-                disabled={generatingModule}
-              >
+            <div className="flex justify-end gap-3 pt-4 border-t">
+              <Button variant="outline" onClick={() => setShowAIModuleBuilder(false)}>
                 Cancel
               </Button>
               <Button
                 onClick={handleGenerateModule}
                 disabled={generatingModule || !aiModulePrompt.trim()}
-                size="lg"
-                className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 shadow-lg"
+                className="bg-purple-600"
               >
                 {generatingModule ? (
                   <>
-                    <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                     Generating...
                   </>
                 ) : (
                   <>
-                    <Wand2 className="w-5 h-5 mr-2" />
-                    Generate Module
+                    <Wand2 className="w-4 h-4 mr-2" />
+                    Generate
                   </>
                 )}
               </Button>
@@ -1131,14 +901,11 @@ Return ONLY valid JSON.`,
         <Dialog open={showModuleViewer} onOpenChange={setShowModuleViewer}>
           <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle className="text-2xl">{selectedModule.title}</DialogTitle>
+              <DialogTitle>{selectedModule.title}</DialogTitle>
             </DialogHeader>
             <div className="mt-4 space-y-4">
-              <p className="text-lg text-gray-700">{selectedModule.description}</p>
-              <div 
-                className="prose max-w-none prose-lg" 
-                dangerouslySetInnerHTML={{ __html: selectedModule.content_text }} 
-              />
+              <p className="text-gray-700">{selectedModule.description}</p>
+              <div className="prose max-w-none" dangerouslySetInnerHTML={{ __html: selectedModule.content_text }} />
             </div>
           </DialogContent>
         </Dialog>
