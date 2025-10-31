@@ -253,60 +253,78 @@ export default function InventoryManagement() {
 
   const createOrderFromCart = async () => {
     if (cart.length === 0) {
-      alert('Cart is empty!');
+      alert('⚠️ Cart is empty!');
       return;
     }
 
-    const ordersBySupplier = {};
-
-    cart.forEach(item => {
-      if (!item.supplier_id) return;
-
-      if (!ordersBySupplier[item.supplier_id]) {
-        ordersBySupplier[item.supplier_id] = {
-          supplier_id: item.supplier_id,
-          supplier_name: item.supplier_name,
-          supplier_email: item.supplier_email,
-          items: []
-        };
-      }
-
-      ordersBySupplier[item.supplier_id].items.push({
-        ingredient_id: item.ingredient_id,
-        ingredient_name: item.ingredient_name,
-        quantity_ordered: item.quantity,
-        unit: item.unit,
-        unit_cost: item.unit_cost,
-        line_total: item.line_total,
-      });
-    });
-
-    let ordersCreatedCount = 0;
-    for (const order of Object.values(ordersBySupplier)) {
-      const subtotal = order.items.reduce((sum, item) => sum + item.line_total, 0);
-      const taxRate = 0.20;
-      const tax = subtotal * taxRate;
-      const total = subtotal + tax;
-
-      await createPurchaseOrderMutation.mutateAsync({
-        order_number: `PO-CART-${Date.now()}-${order.supplier_id.substring(0, 4)}`,
-        supplier_id: order.supplier_id,
-        supplier_name: order.supplier_name,
-        supplier_email: order.supplier_email,
-        status: 'draft',
-        items: order.items,
-        subtotal: parseFloat(subtotal.toFixed(2)),
-        tax: parseFloat(tax.toFixed(2)),
-        total: parseFloat(total.toFixed(2)),
-        order_date: new Date().toISOString().split('T')[0],
-        notes: 'Created from shopping cart',
-      });
-      ordersCreatedCount++;
+    const missingSuppliers = cart.filter(item => !item.supplier_id);
+    if (missingSuppliers.length > 0) {
+      alert(`⚠️ Cannot create orders. These items don't have suppliers:\n\n${missingSuppliers.map(i => `• ${i.ingredient_name}`).join('\n')}\n\nPlease assign suppliers first.`);
+      return;
     }
 
-    setCart([]);
-    setShowCart(false);
-    alert(`✅ ${ordersCreatedCount} Draft order(s) created! Check the Orders page.`);
+    try {
+      const ordersBySupplier = {};
+
+      cart.forEach(item => {
+        // supplier_id check already done above, but for safety in case of future changes, keep it here.
+        if (!item.supplier_id) return; 
+
+        if (!ordersBySupplier[item.supplier_id]) {
+          ordersBySupplier[item.supplier_id] = {
+            supplier_id: item.supplier_id,
+            supplier_name: item.supplier_name,
+            supplier_email: item.supplier_email,
+            items: []
+          };
+        }
+
+        ordersBySupplier[item.supplier_id].items.push({
+          ingredient_id: item.ingredient_id,
+          ingredient_name: item.ingredient_name,
+          quantity_ordered: item.quantity,
+          unit: item.unit,
+          unit_cost: item.unit_cost,
+          line_total: item.line_total,
+        });
+      });
+
+      let ordersCreatedCount = 0;
+      const poNumbers = [];
+
+      for (const order of Object.values(ordersBySupplier)) {
+        const subtotal = order.items.reduce((sum, item) => sum + item.line_total, 0);
+        const taxRate = 0.20;
+        const tax = subtotal * taxRate;
+        const total = subtotal + tax;
+        const poNumber = `PO-${Date.now().toString().slice(-8)}-${order.supplier_id.substring(0, 4)}`;
+
+        await createPurchaseOrderMutation.mutateAsync({
+          order_number: poNumber,
+          supplier_id: order.supplier_id,
+          supplier_name: order.supplier_name,
+          supplier_email: order.supplier_email,
+          status: 'draft',
+          items: order.items,
+          subtotal: parseFloat(subtotal.toFixed(2)),
+          tax: parseFloat(tax.toFixed(2)),
+          total: parseFloat(total.toFixed(2)),
+          order_date: new Date().toISOString(), // Use full ISO string as per outline
+          notes: 'Created from inventory shopping cart',
+        });
+        
+        ordersCreatedCount++;
+        poNumbers.push(poNumber);
+      }
+
+      setCart([]);
+      setShowCart(false);
+      alert(`✅ Successfully created ${ordersCreatedCount} draft order(s)!\n\nPO Numbers: ${poNumbers.join(', ')}\n\nGo to Ordering page to review and send.`);
+      
+    } catch (error) {
+      console.error('Error creating orders:', error);
+      alert('❌ Failed to create orders. Please try again.');
+    }
   };
 
   const cartTotal = cart.reduce((sum, item) => sum + item.line_total, 0);

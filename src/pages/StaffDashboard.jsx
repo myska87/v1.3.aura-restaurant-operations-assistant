@@ -1,7 +1,8 @@
+
 import React from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery } from '@tanstack/react-query';
-import { Users, Calendar, GraduationCap, TrendingUp, DollarSign, BarChart3, Lock, Home } from 'lucide-react';
+import { Users, Calendar, GraduationCap, TrendingUp, DollarSign, BarChart3, Lock, Home, Clock, MessageCircle, Mic } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
@@ -21,6 +22,15 @@ export default function StaffDashboard() {
   });
 
   const isManager = user?.role === 'admin' || user?.position === 'manager' || user?.position === 'owner';
+
+  const quickActions = [
+    { title: 'Team Directory', icon: Users, color: 'from-blue-500 to-blue-600', page: 'TeamDirectory' },
+    { title: 'My Shifts', icon: Calendar, color: 'from-purple-500 to-purple-600', page: 'MyShifts' },
+    { title: 'Clock In/Out', icon: Clock, color: 'from-emerald-500 to-emerald-600', page: 'ClockInOut' },
+    { title: 'Team Chat', icon: MessageCircle, color: 'from-pink-500 to-pink-600', page: 'TeamChat' },
+    { title: 'AI Meeting Minutes', icon: Mic, color: 'from-indigo-500 to-indigo-600', page: 'MeetingDashboard' },
+    { title: 'Performance', icon: TrendingUp, color: 'from-amber-500 to-amber-600', page: 'StaffAnalytics' },
+  ];
 
   if (!isManager) {
     return (
