@@ -41,6 +41,7 @@ export default function ProductionPlanning() {
   const [editingPlan, setEditingPlan] = useState(null);
   const [showCart, setShowCart] = useState(false);
   const [cart, setCart] = useState([]);
+  const [sendingOrderFor, setSendingOrderFor] = useState(null);
   const [formData, setFormData] = useState({
     name: "",
     date: format(new Date(), 'yyyy-MM-dd'),
@@ -120,14 +121,169 @@ export default function ProductionPlanning() {
     setPortions("");
   };
 
+  const generatePONumber = () => {
+    return `PO-${Date.now().toString().slice(-8)}`;
+  };
+
+  const generateOrderEmail = (order, poNumber) => {
+    const subject = `Purchase Order ${poNumber} - AURA Restaurant`;
+    const body = `Dear ${order.supplier_name},
+
+Please find our purchase order details below:
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📋 PURCHASE ORDER: ${poNumber}
+📅 Date: ${format(new Date(), 'PPP')}
+🏪 AURA Restaurant
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+ITEMS ORDERED:
+${order.items.map((item, i) => 
+`${i+1}. ${item.ingredient_name}
+   Quantity: ${item.quantity_ordered} ${item.unit}
+   Unit Price: £${safeNumber(item.unit_cost).toFixed(2)}
+   Total: £${safeNumber(item.line_total).toFixed(2)}`
+).join('\n\n')}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Subtotal: £${safeNumber(order.subtotal).toFixed(2)}
+VAT (20%): £${safeNumber(order.tax).toFixed(2)}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+TOTAL: £${safeNumber(order.total).toFixed(2)}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Please confirm receipt and expected delivery date.
+
+Thank you,
+AURA Restaurant Team`;
+
+    return { subject, body };
+  };
+
+  const handleOrderIngredientsDirectly = async (plan) => {
+    if (!plan.ingredients_needed || plan.ingredients_needed.length === 0) {
+      alert('⚠️ No ingredients data found for this plan!');
+      return;
+    }
+
+    const ingredientsToOrder = plan.ingredients_needed.filter(ing => safeNumber(ing.to_order) > 0);
+
+    if (ingredientsToOrder.length === 0) {
+      alert('✅ All ingredients are in stock for this plan!');
+      return;
+    }
+
+    // Check for missing suppliers
+    const missingSuppliers = [];
+    for (const ing of ingredientsToOrder) {
+      const inventoryItem = ingredients.find(i => i.id === ing.ingredient_id);
+      if (!inventoryItem || !inventoryItem.supplier_id) {
+        missingSuppliers.push(ing.ingredient_name);
+      }
+    }
+
+    if (missingSuppliers.length > 0) {
+      alert(`⚠️ Cannot create orders. These ingredients don't have suppliers assigned:\n\n${missingSuppliers.join('\n')}\n\nPlease assign suppliers in Inventory Management.`);
+      return;
+    }
+
+    setSendingOrderFor(plan.id);
+
+    try {
+      const ordersBySupplier = {};
+
+      ingredientsToOrder.forEach(ing => {
+        const inventoryItem = ingredients.find(i => i.id === ing.ingredient_id);
+        
+        if (!inventoryItem || !inventoryItem.supplier_id) return; // Should not happen due to prior check
+
+        if (!ordersBySupplier[inventoryItem.supplier_id]) {
+          ordersBySupplier[inventoryItem.supplier_id] = {
+            supplier_id: inventoryItem.supplier_id,
+            supplier_name: inventoryItem.supplier_name,
+            supplier_email: inventoryItem.supplier_email,
+            items: []
+          };
+        }
+
+        ordersBySupplier[inventoryItem.supplier_id].items.push({
+          ingredient_id: ing.ingredient_id,
+          ingredient_name: ing.ingredient_name,
+          quantity_ordered: safeNumber(ing.to_order),
+          unit: ing.unit,
+          unit_cost: safeNumber(inventoryItem.unit_cost),
+          line_total: safeNumber(ing.to_order) * safeNumber(inventoryItem.unit_cost),
+        });
+      });
+
+      let ordersCreated = 0;
+      const orderEmails = [];
+
+      for (const order of Object.values(ordersBySupplier)) {
+        const subtotal = order.items.reduce((sum, item) => sum + safeNumber(item.line_total), 0);
+        const tax = subtotal * 0.2;
+        const total = subtotal + tax;
+        const poNumber = generatePONumber();
+
+        await createOrderMutation.mutateAsync({
+          order_number: poNumber,
+          supplier_id: order.supplier_id,
+          supplier_name: order.supplier_name,
+          supplier_email: order.supplier_email,
+          status: 'pending_approval',
+          items: order.items,
+          subtotal: safeNumber(subtotal),
+          tax: safeNumber(tax),
+          total: safeNumber(total),
+          order_date: new Date().toISOString(),
+          linked_production_plan_id: plan.id,
+          linked_production_plan_name: plan.name,
+          notes: `Auto-generated from Production Plan: ${plan.name}`,
+          sent_at: new Date().toISOString(),
+        });
+
+        ordersCreated++;
+
+        // Generate email
+        const emailData = generateOrderEmail({ ...order, subtotal, tax, total }, poNumber);
+        orderEmails.push({
+          supplier_email: order.supplier_email,
+          supplier_name: order.supplier_name,
+          poNumber,
+          ...emailData,
+        });
+      }
+
+      // Update plan status
+      await updatePlanMutation.mutateAsync({
+        id: plan.id,
+        data: { status: 'approved', orders_created: true }
+      });
+
+      // Open email for first supplier
+      if (orderEmails.length > 0) {
+        const firstEmail = orderEmails[0];
+        const mailtoLink = `mailto:${firstEmail.supplier_email}?subject=${encodeURIComponent(firstEmail.subject)}&body=${encodeURIComponent(firstEmail.body)}`;
+        window.open(mailtoLink);
+      }
+
+      alert(`✅ Created ${ordersCreated} draft order(s)!\n\nPurchase Orders: ${orderEmails.map(e => e.poNumber).join(', ')}\n\n${orderEmails.length > 1 ? 'Opening first supplier email. Check Ordering page for all orders.' : 'Email client opened. Send the email to complete the order.'}`);
+
+    } catch (error) {
+      console.error('Error creating orders:', error);
+      alert('❌ Failed to create orders. Please try again.');
+    } finally {
+      setSendingOrderFor(null);
+    }
+  };
+
   const addPlanToCart = (plan) => {
     if (!plan || !plan.ingredients_needed) {
       alert('⚠️ No ingredients data found for this plan!');
       return;
     }
 
-    const ingredientsNeeded = plan.ingredients_needed || [];
-    const ingredientsToAdd = ingredientsNeeded.filter(ing => safeNumber(ing.to_order) > 0);
+    const ingredientsToAdd = plan.ingredients_needed.filter(ing => safeNumber(ing.to_order) > 0);
 
     if (ingredientsToAdd.length === 0) {
       alert('✅ All ingredients are in stock for this plan!');
@@ -144,10 +300,11 @@ export default function ProductionPlanning() {
         return;
       }
 
-      if (!inventoryItem.supplier_id) {
-        console.warn(`Ingredient ${ing.ingredient_name} has no supplier`);
-        return;
-      }
+      // Supplier ID might be missing, handled in cart checkout
+      // if (!inventoryItem.supplier_id) {
+      //   console.warn(`Ingredient ${ing.ingredient_name} has no supplier`);
+      //   // Still add to cart, but it will be flagged at checkout
+      // }
 
       const existingIndex = updatedCart.findIndex(item => item.ingredient_id === ing.ingredient_id);
 
@@ -161,7 +318,7 @@ export default function ProductionPlanning() {
           quantity: safeNumber(ing.to_order),
           unit: ing.unit,
           unit_cost: safeNumber(inventoryItem.unit_cost),
-          supplier_id: inventoryItem.supplier_id,
+          supplier_id: inventoryItem.supplier_id || null, // Allow null supplier, validate at checkout
           supplier_name: inventoryItem.supplier_name || 'Unknown',
           supplier_email: inventoryItem.supplier_email || null,
           line_total: safeNumber(ing.to_order) * safeNumber(inventoryItem.unit_cost),
@@ -234,35 +391,54 @@ export default function ProductionPlanning() {
 
       let ordersCreated = 0;
       const orderPromises = [];
+      const orderEmails = [];
+
 
       for (const order of Object.values(ordersBySupplier)) {
         const subtotal = order.items.reduce((sum, item) => sum + safeNumber(item.line_total), 0);
         const tax = subtotal * 0.2;
         const total = subtotal + tax;
+        const poNumber = generatePONumber();
 
         const orderPromise = createOrderMutation.mutateAsync({
-          order_number: `PO-CART-${Date.now()}-${order.supplier_id.substring(0, 4)}`,
+          order_number: poNumber,
           supplier_id: order.supplier_id,
           supplier_name: order.supplier_name,
           supplier_email: order.supplier_email,
-          status: 'draft',
+          status: 'pending_approval',
           items: order.items,
           subtotal: safeNumber(subtotal),
           tax: safeNumber(tax),
           total: safeNumber(total),
           order_date: new Date().toISOString(),
           notes: 'Created from Production Planning cart',
+          sent_at: new Date().toISOString(),
         });
 
         orderPromises.push(orderPromise);
         ordersCreated++;
+        const emailData = generateOrderEmail({ ...order, subtotal, tax, total }, poNumber);
+        orderEmails.push({
+          supplier_email: order.supplier_email,
+          supplier_name: order.supplier_name,
+          poNumber,
+          ...emailData,
+        });
       }
 
       await Promise.all(orderPromises);
 
       setCart([]);
       setShowCart(false);
-      alert(`✅ Successfully created ${ordersCreated} draft order(s)!\n\nView them in the Ordering page.`);
+      
+      // Open email for first supplier
+      if (orderEmails.length > 0) {
+        const firstEmail = orderEmails[0];
+        const mailtoLink = `mailto:${firstEmail.supplier_email}?subject=${encodeURIComponent(firstEmail.subject)}&body=${encodeURIComponent(firstEmail.body)}`;
+        window.open(mailtoLink);
+      }
+
+      alert(`✅ Successfully created ${ordersCreated} draft order(s)!\n\nPurchase Orders: ${orderEmails.map(e => e.poNumber).join(', ')}\n\n${orderEmails.length > 1 ? 'Opening first supplier email. Check Ordering page for all orders.' : 'Email client opened. Send the email to complete the order.'}`);
       
     } catch (error) {
       console.error('Error creating orders:', error);
@@ -390,83 +566,8 @@ export default function ProductionPlanning() {
     }
   };
 
-  const handleOrderIngredients = async (plan) => {
-    setCreatingOrders(true);
-    
-    try {
-      const ingredientsNeeded = plan.ingredients_needed || [];
-      const ingredientsToOrder = ingredientsNeeded.filter(ing => safeNumber(ing.to_order) > 0);
+  // Old handleOrderIngredients removed as it's replaced by handleOrderIngredientsDirectly
 
-      if (ingredientsToOrder.length === 0) {
-        alert('✅ All ingredients in stock!');
-        setCreatingOrders(false);
-        return;
-      }
-
-      const ordersBySupplier = {};
-      
-      ingredientsToOrder.forEach(ing => {
-        const inventoryIngredient = ingredients.find(i => i.id === ing.ingredient_id);
-        if (inventoryIngredient && inventoryIngredient.supplier_id) {
-          if (!ordersBySupplier[inventoryIngredient.supplier_id]) {
-            ordersBySupplier[inventoryIngredient.supplier_id] = {
-              supplier_id: inventoryIngredient.supplier_id,
-              supplier_name: inventoryIngredient.supplier_name,
-              supplier_email: inventoryIngredient.supplier_email,
-              items: []
-            };
-          }
-          
-          ordersBySupplier[inventoryIngredient.supplier_id].items.push({
-            ingredient_id: ing.ingredient_id,
-            ingredient_name: ing.ingredient_name,
-            quantity_ordered: safeNumber(ing.to_order),
-            unit: ing.unit,
-            unit_cost: safeNumber(inventoryIngredient.unit_cost),
-            line_total: safeNumber(ing.to_order) * safeNumber(inventoryIngredient.unit_cost),
-          });
-        }
-      });
-
-      let ordersCreated = 0;
-      for (const order of Object.values(ordersBySupplier)) {
-        const subtotal = order.items.reduce((sum, item) => sum + safeNumber(item.line_total), 0);
-        const tax = subtotal * 0.2;
-        const total = subtotal + tax;
-
-        await createOrderMutation.mutateAsync({
-          order_number: `PO-${Date.now()}-${order.supplier_id.substring(0, 4)}`,
-          supplier_id: order.supplier_id,
-          supplier_name: order.supplier_name,
-          supplier_email: order.supplier_email,
-          status: 'pending_approval',
-          items: order.items,
-          subtotal: safeNumber(subtotal),
-          tax: safeNumber(tax),
-          total: safeNumber(total),
-          order_date: new Date().toISOString(),
-          linked_production_plan_id: plan.id,
-          linked_production_plan_name: plan.name,
-          notes: `Auto-generated from Production Plan: ${plan.name}`,
-        });
-
-        ordersCreated++;
-      }
-
-      await updatePlanMutation.mutateAsync({
-        id: plan.id,
-        data: { status: 'approved', orders_created: true }
-      });
-
-      alert(`✅ Created ${ordersCreated} order(s)!`);
-      
-    } catch (error) {
-      console.error('Error:', error);
-      alert('❌ Failed to create orders');
-    }
-    
-    setCreatingOrders(false);
-  };
 
   const cartTotal = cart.reduce((sum, item) => sum + safeNumber(item.line_total), 0);
   const cartTax = cartTotal * 0.2;
@@ -559,6 +660,11 @@ export default function ProductionPlanning() {
                       <Badge className="bg-blue-100 text-blue-800">
                         {format(new Date(plan.date), "MMM d, yyyy")}
                       </Badge>
+                      {plan.orders_created && (
+                        <Badge className="bg-green-100 text-green-800 ml-2">
+                          ✅ Orders Created
+                        </Badge>
+                      )}
                     </div>
                     
                     <DropdownMenu>
@@ -580,6 +686,19 @@ export default function ProductionPlanning() {
                     </DropdownMenu>
                   </div>
 
+                  {/* Menu Items List */}
+                  {plan.menu_items && plan.menu_items.length > 0 && (
+                    <div className="mb-4 space-y-2">
+                      <p className="text-sm font-semibold text-gray-700">Menu Items:</p>
+                      {plan.menu_items.map((item, idx) => (
+                        <div key={idx} className="flex justify-between items-center p-2 bg-gray-50 rounded">
+                          <span className="text-sm text-gray-900">{item.menu_item_name}</span>
+                          <span className="text-sm text-gray-600">{item.portions_needed} portions</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
                   <div className="grid grid-cols-2 gap-4 mb-4 p-4 bg-gradient-to-br from-emerald-50 to-blue-50 rounded-lg">
                     <div>
                       <p className="text-xs text-gray-600">Total Portions</p>
@@ -599,31 +718,74 @@ export default function ProductionPlanning() {
                     </div>
                   </div>
 
+                  {/* Ingredients Summary */}
+                  {plan.ingredients_needed && plan.ingredients_needed.length > 0 && (
+                    <div className="mb-4">
+                      <p className="text-sm font-semibold text-gray-700 mb-2">
+                        Ingredients Needed ({plan.ingredients_needed.filter(ing => safeNumber(ing.to_order) > 0).length} to order):
+                      </p>
+                      <div className="grid md:grid-cols-2 gap-2">
+                        {plan.ingredients_needed
+                          .filter(ing => safeNumber(ing.to_order) > 0)
+                          .slice(0, 4)
+                          .map((ing, idx) => (
+                            <div key={idx} className="flex justify-between items-center p-2 bg-amber-50 rounded border border-amber-200">
+                              <span className="text-xs font-medium text-amber-900">{ing.ingredient_name}</span>
+                              <span className="text-xs text-amber-700">{safeNumber(ing.to_order).toFixed(1)} {ing.unit}</span>
+                            </div>
+                          ))}
+                      </div>
+                      {plan.ingredients_needed.filter(ing => safeNumber(ing.to_order) > 0).length > 4 && (
+                        <p className="text-xs text-gray-500 mt-2">
+                          + {plan.ingredients_needed.filter(ing => safeNumber(ing.to_order) > 0).length - 4} more items
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Action Buttons */}
                   <div className="flex gap-2">
-                    {plan.status === 'approved' && !plan.orders_created && (
+                    {!plan.orders_created && plan.ingredients_needed?.some(ing => safeNumber(ing.to_order) > 0) && (
                       <>
                         <Button
-                          onClick={() => handleOrderIngredients(plan)}
-                          className="flex-1 bg-green-600 hover:bg-green-700"
-                          disabled={creatingOrders}
+                          onClick={() => handleOrderIngredientsDirectly(plan)}
+                          className="flex-1 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white"
+                          disabled={sendingOrderFor === plan.id}
                         >
-                          <Send className="w-4 h-4 mr-2" />
-                          {creatingOrders ? 'Creating...' : 'Order Ingredients'}
+                          {sendingOrderFor === plan.id ? (
+                            <>
+                              <Clock className="w-4 h-4 mr-2 animate-spin" />
+                              Creating Orders...
+                            </>
+                          ) : (
+                            <>
+                              <Send className="w-4 h-4 mr-2" />
+                              Order Ingredients Now
+                            </>
+                          )}
                         </Button>
                         <Button
                           onClick={() => addPlanToCart(plan)}
                           variant="outline"
-                          className="flex-1"
+                          className="border-blue-300 hover:bg-blue-50"
                         >
                           <ShoppingCart className="w-4 h-4 mr-2" />
                           Add to Cart
                         </Button>
                       </>
                     )}
+
+                    {plan.orders_created && (
+                      <div className="flex-1 p-3 bg-green-50 border-2 border-green-300 rounded-lg">
+                        <p className="text-sm text-green-800 font-semibold text-center">
+                          ✅ Orders created! Check Ordering page.
+                        </p>
+                      </div>
+                    )}
                   </div>
 
-                  {plan.ingredients_needed?.some(ing => safeNumber(ing.to_order) > 0) && (
-                    <div className="mt-4 p-3 bg-amber-50 rounded-lg">
+                  {plan.ingredients_needed?.some(ing => safeNumber(ing.to_order) > 0) && !plan.orders_created && (
+                    <div className="mt-4 p-3 bg-amber-50 rounded-lg border border-amber-200">
                       <p className="text-sm text-amber-800 flex items-center gap-2">
                         <AlertTriangle className="w-4 h-4" />
                         {plan.ingredients_needed.filter(ing => safeNumber(ing.to_order) > 0).length} ingredient(s) need ordering
