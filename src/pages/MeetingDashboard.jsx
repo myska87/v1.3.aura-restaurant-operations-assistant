@@ -38,7 +38,7 @@ import {
   Sparkles,
   Calendar,
   Home,
-  Loader2
+  Loader2 // Added Loader2 for loading state
 } from 'lucide-react';
 import { format, formatDistanceToNow } from 'date-fns';
 import { Link, useNavigate } from 'react-router-dom';
@@ -65,7 +65,7 @@ export default function MeetingDashboard() {
   const { data: meetings = [], isLoading } = useQuery({
     queryKey: ['meetingRecordings'],
     queryFn: () => base44.entities.MeetingRecording.list('-meeting_date'),
-    refetchInterval: 10000, // Refresh every 10 seconds for processing updates
+    // refetchInterval: 10000, // Refresh every 10 seconds for processing updates - removed as per outline
   });
 
   const { data: allActions = [] } = useQuery({
@@ -78,39 +78,34 @@ export default function MeetingDashboard() {
     mutationFn: async (meetingData) => {
       return await base44.entities.MeetingRecording.create(meetingData);
     },
-    onSuccess: async () => { // Modified: newMeeting parameter removed
+    onSuccess: async (newMeeting) => {
       queryClient.invalidateQueries({ queryKey: ['meetingRecordings'] }); // Updated query key
-      // Processing initiation is moved to handleRecordingComplete, so dialog closing is handled there too.
+      setShowRecorderDialog(false);
+
+      // Start processing
+      try {
+        await MeetingTranscriptionProcessor.processMeeting(newMeeting.id);
+      } catch (error) {
+        console.error('Processing error:', error);
+      }
     },
   });
 
   const handleRecordingComplete = async ({ audio_url, audio_duration }) => {
-    try {
-      const meetingData = {
-        title: `Team Meeting - ${format(new Date(), 'MMM d, yyyy h:mm a')}`,
-        meeting_type: 'team_briefing',
-        audio_url,
-        audio_duration,
-        meeting_date: new Date().toISOString(),
-        created_by: user?.email,
-        created_by_name: user?.full_name,
-        status: 'processing',
-        processing_progress: 0,
-        department: user?.department || 'general'
-      };
+    const meetingData = {
+      title: `Team Meeting - ${format(new Date(), 'MMM d, yyyy h:mm a')}`,
+      meeting_type: 'team_briefing',
+      audio_url,
+      audio_duration,
+      meeting_date: new Date().toISOString(),
+      created_by: user?.email,
+      created_by_name: user?.full_name,
+      status: 'processing',
+      processing_progress: 0,
+      department: user?.department || 'general'
+    };
 
-      const newMeeting = await createMeetingMutation.mutateAsync(meetingData); // Modified: Store the result
-
-      // Start processing immediately
-      await MeetingTranscriptionProcessor.processMeeting(newMeeting.id);
-      
-      // Stay on dashboard after upload
-      setShowRecorderDialog(false);
-      
-    } catch (error) {
-      console.error('Recording error:', error);
-      alert('❌ Failed to save recording. Please try again.');
-    }
+    await createMeetingMutation.mutateAsync(meetingData);
   };
 
   // Filter meetings
@@ -183,11 +178,8 @@ export default function MeetingDashboard() {
     };
 
     return (
-      <Card 
-        key={meeting.id} 
-        className="bg-white border-none shadow-sm hover:shadow-lg transition-all cursor-pointer"
-        onClick={() => navigate(createPageUrl(`MeetingDetail?id=${meeting.id}`))}
-      >
+      <Card key={meeting.id} className="bg-white border-none shadow-sm hover:shadow-lg transition-all cursor-pointer"
+            onClick={() => navigate(createPageUrl(`MeetingDetail?id=${meeting.id}`))}>
         <CardContent className="p-6">
           <div className="flex items-start justify-between gap-4">
             <div className="flex-1">

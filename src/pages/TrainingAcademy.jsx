@@ -43,24 +43,15 @@ import {
   MessageCircle,
   Users,
   RefreshCw,
-  Plus,
-  Pencil,
-  Save,
-  Trash2,
-  Upload, Camera, Check, Eye, X, Pin, Wand2, // Camera added
-  Megaphone,
-  Loader2,
-  Send,
-  Lightbulb,
-  Search, // Added Search
-  Filter, // Added Filter
-  ThumbsUp, // Added ThumbsUp
-  BarChart, // Added BarChart
-  Edit, // Added Edit
+  Plus, // Added Plus icon
+  Pencil, // Added Pencil icon
+  Save, // Added Save icon
+  Trash2, // Added Trash2 icon
+  Upload, Image as ImageIcon, Check, Eye, X, Pin, Wand2 // Added Wand2 icon
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
-import { format } from 'date-fns'; // Removed formatDistanceToNow
+import { format, formatDistanceToNow } from 'date-fns';
 import { motion } from 'framer-motion';
 
 // New Motivational Quotes Array
@@ -152,72 +143,10 @@ const REFLECTION_PROMPTS = [
   'What story will you tell through the chai you serve?'
 ];
 
-const CULTURE_QUIZ = [
-  {
-    question: "What is Chai Patta's mission?",
-    options: ["Serve tea fast", "Create Craving Fans", "Sell premium drinks", "Make profit"],
-    correct_answer: 1
-  },
-  {
-    question: "Which value represents our roots and traditions?",
-    options: ["Growth", "Heritage", "Excellence", "Speed"],
-    correct_answer: 1
-  },
-  {
-    question: "What does Discipline mean at Chai Patta?",
-    options: ["Be strict", "Always show up early and prepared", "Punish mistakes", "Work longer"],
-    correct_answer: 1
-  },
-  {
-    question: "What's our morning ritual?",
-    options: ["Huddle silently", "Start with a smile", "Skip briefing", "Clock in fast"],
-    correct_answer: 1
-  },
-  {
-    question: "What makes a guest a 'Craving Fan'?",
-    options: ["Free chai", "Consistent excellence and care", "Promotions", "Fast service"],
-    correct_answer: 1
-  }
-];
-
-const POST_TYPE_ICONS = {
-  inspiration: { icon: Sparkles, color: 'text-purple-600', bg: 'bg-purple-100' },
-  training_tip: { icon: BookOpen, color: 'text-blue-600', bg: 'bg-blue-100' },
-  success_story: { icon: Award, color: 'text-amber-600', bg: 'bg-amber-100' },
-  announcement: { icon: Megaphone, color: 'text-red-600', bg: 'bg-red-100' },
-  knowledge_share: { icon: MessageCircle, color: 'text-green-600', bg: 'bg-green-100' },
-  best_practice: { icon: Star, color: 'text-pink-600', bg: 'bg-pink-100' },
-};
-
-
 export default function TrainingAcademy() {
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState('posts');
-  
-  // Posts state
-  const [showCreatePost, setShowCreatePost] = useState(false);
-  const [uploadingPhoto, setUploadingPhoto] = useState(false);
-  const [creatingPost, setCreatingPost] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [filterType, setFilterType] = useState('all');
-  const [filterCategory, setFilterCategory] = useState('all');
-  const [newPost, setNewPost] = useState({
-    title: '',
-    content: '',
-    post_type: 'inspiration',
-    category: 'culture',
-    media_type: 'none',
-    photo_urls: [],
-    video_url: '',
-    requires_acknowledgment: true,
-    is_featured: false,
-  });
-
-  // Training modules state
-  const [showCreateModule, setShowCreateModule] = useState(false); // New state for creating modules
+  const [activeTab, setActiveTab] = useState('overview');
   const [selectedModule, setSelectedModule] = useState(null);
-  const [showModuleViewer, setShowModuleViewer] = useState(false); // This seems to be the equivalent of original selectedModule state
-
   const [showQuiz, setShowQuiz] = useState(false);
   const [quizAnswers, setQuizAnswers] = useState({});
   const [quizResults, setQuizResults] = useState(null);
@@ -257,9 +186,20 @@ export default function TrainingAcademy() {
     correct_answer: 0,
   });
 
+  const [showPostForm, setShowPostForm] = useState(false);
   const [showAIHelper, setShowAIHelper] = useState(false);
   const [aiPrompt, setAiPrompt] = useState('');
   const [generatingAI, setGeneratingAI] = useState(false);
+  const [uploadingMedia, setUploadingMedia] = useState(false);
+  const [postFormData, setPostFormData] = useState({
+    title: '',
+    content: '',
+    post_type: 'inspiration',
+    category: 'culture',
+    photo_urls: [],
+    video_url: '',
+    requires_acknowledgment: true,
+  });
 
 
   const { data: user } = useQuery({
@@ -269,61 +209,46 @@ export default function TrainingAcademy() {
 
   const isManager = user?.role === 'admin' || user?.position === 'manager' || user?.position === 'owner';
 
-  const { data: trainingModules = [], isLoading: modulesLoading } = useQuery({
+  const { data: trainingModules = [] } = useQuery({
     queryKey: ['trainingModules'],
-    queryFn: async () => {
-      const modules = await base44.entities.TrainingModule.list('order_sequence');
-      console.log('📝 Loaded modules:', modules);
-      return modules;
-    },
+    queryFn: () => base44.entities.TrainingModule.list('order_sequence'),
   });
 
-  const { data: myProgress = [] } = useQuery({
-    queryKey: ['myTrainingProgress', user?.email],
-    queryFn: () => base44.entities.TrainingRecord.filter(
-      { staff_email: user?.email },
-      '-created_date'
-    ),
+  const { data: myTrainingProgress = [] } = useQuery({
+    queryKey: ['trainingProgress', user?.email],
+    queryFn: () => base44.entities.TrainingRecord.filter({ staff_email: user?.email }),
     enabled: !!user?.email,
   });
 
-  const { data: certificates = [] } = useQuery({
-    queryKey: ['myCertificates', user?.email],
-    queryFn: () => base44.entities.Certificate.filter(
-      { staff_email: user?.email },
-      '-issued_date'
-    ),
+  const { data: myCertificates = [] } = useQuery({
+    queryKey: ['certificates', user?.email],
+    queryFn: () => base44.entities.Certificate.filter({ staff_email: user?.email }),
     enabled: !!user?.email,
   });
 
-  const { data: trainingPosts = [], isLoading: postsLoading } = useQuery({
+  const { data: trainingPosts = [] } = useQuery({
     queryKey: ['trainingPosts'],
-    queryFn: async () => {
-      const posts = await base44.entities.TrainingPost.list('-created_date');
-      console.log('📝 Loaded posts:', posts);
-      return posts;
-    },
-    refetchInterval: 3000,
+    queryFn: () => base44.entities.TrainingPost.list('-created_date'),
   });
 
   const updateProgressMutation = useMutation({
     mutationFn: (data) => base44.entities.TrainingRecord.create(data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['myTrainingProgress'] });
+      queryClient.invalidateQueries({ queryKey: ['trainingProgress'] });
     },
   });
 
   const updateProgressRecordMutation = useMutation({
     mutationFn: ({ id, data }) => base44.entities.TrainingRecord.update(id, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['myTrainingProgress'] });
+      queryClient.invalidateQueries({ queryKey: ['trainingProgress'] });
     },
   });
 
   const createCertificateMutation = useMutation({
     mutationFn: (data) => base44.entities.Certificate.create(data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['myCertificates'] });
+      queryClient.invalidateQueries({ queryKey: ['certificates'] });
     },
   });
 
@@ -339,14 +264,14 @@ export default function TrainingAcademy() {
   const resetProgressMutation = useMutation({
     mutationFn: async () => {
       // Delete all training progress records for this user
-      const progressRecords = myProgress.filter(p => p.staff_email === user?.email);
+      const progressRecords = myTrainingProgress.filter(p => p.staff_email === user?.email);
       const progressIds = progressRecords.map(p => p.id);
       
       // Use Promise.all to await all delete operations
       await Promise.all(progressIds.map(id => base44.entities.TrainingRecord.delete(id)));
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['myTrainingProgress'] });
+      queryClient.invalidateQueries({ queryKey: ['trainingProgress'] });
       setShowResetDialog(false);
       alert('✅ Training progress reset! Your certificates are saved. You can now retake all modules.');
     },
@@ -390,43 +315,28 @@ export default function TrainingAcademy() {
   });
 
   const createPostMutation = useMutation({
-    mutationFn: async (postData) => {
-      console.log('🚀 Creating post:', postData);
-      return await base44.entities.TrainingPost.create(postData);
-    },
-    onSuccess: (data) => {
-      console.log('✅ Post created:', data);
+    mutationFn: (data) => base44.entities.TrainingPost.create(data),
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['trainingPosts'] });
-      setShowCreatePost(false);
-      setNewPost({
-        title: '',
-        content: '',
-        post_type: 'inspiration',
-        category: 'culture',
-        media_type: 'none',
-        photo_urls: [],
-        video_url: '',
-        requires_acknowledgment: true,
-        is_featured: false,
-      });
-    },
-    onError: (error) => {
-      console.error('❌ Error creating post:', error);
-      alert('Failed to create post. Please try again.');
+      setShowPostForm(false);
+      resetPostForm();
+      alert('✅ Post created successfully!');
     },
   });
 
   const acknowledgePostMutation = useMutation({
-    mutationFn: async ({ postId, post }) => {
-      const acknowledgment = {
-        staff_email: user?.email,
-        staff_name: user?.full_name,
+    mutationFn: async ({ postId, currentAcknowledgments }) => {
+      const newAcknowledgment = {
+        staff_email: user.email,
+        staff_name: user.full_name,
         acknowledged_at: new Date().toISOString(),
       };
 
-      return await base44.entities.TrainingPost.update(postId, {
-        acknowledged_by: [...(post.acknowledged_by || []), acknowledgment],
-        total_acknowledgments: (post.total_acknowledgments || 0) + 1,
+      const updatedAcknowledgments = [...(currentAcknowledgments || []), newAcknowledgment];
+
+      await base44.entities.TrainingPost.update(postId, {
+        acknowledged_by: updatedAcknowledgments,
+        total_acknowledgments: updatedAcknowledgments.length,
       });
     },
     onSuccess: () => {
@@ -442,21 +352,6 @@ export default function TrainingAcademy() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['trainingPosts'] });
     },
-  });
-
-  // Filter posts based on new state variables
-  const filteredPosts = trainingPosts.filter(post => {
-    if (!post) return false;
-    
-    const matchesSearch = !searchQuery || 
-      post.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      post.content?.toLowerCase().includes(searchQuery.toLowerCase());
-    
-    const matchesType = filterType === 'all' || post.post_type === filterType;
-    const matchesCategory = filterCategory === 'all' || post.category === filterCategory;
-    
-    // Only show active posts in the feed
-    return matchesSearch && matchesType && matchesCategory && post.is_active;
   });
 
   const resetModuleForm = useCallback(() => {
@@ -483,7 +378,17 @@ export default function TrainingAcademy() {
     });
   }, [trainingModules]);
 
-  // Removed original resetPostForm, replaced by setNewPost in createPostMutation.onSuccess
+  const resetPostForm = () => {
+    setPostFormData({
+      title: '',
+      content: '',
+      post_type: 'inspiration',
+      category: 'culture',
+      photo_urls: [],
+      video_url: '',
+      requires_acknowledgment: true,
+    });
+  };
 
   const handleEditModule = useCallback((module) => {
     setEditingModule(module);
@@ -570,7 +475,7 @@ export default function TrainingAcademy() {
     const files = Array.from(e.target.files || []);
     if (files.length === 0) return;
 
-    setUploadingPhoto(true); // Changed to uploadingPhoto
+    setUploadingMedia(true);
     const uploadedUrls = [];
 
     for (const file of files) {
@@ -578,62 +483,39 @@ export default function TrainingAcademy() {
       uploadedUrls.push(file_url);
     }
 
-    setNewPost(prev => ({ // Changed to newPost
+    setPostFormData(prev => ({
       ...prev,
-      photo_urls: [...prev.photo_urls, ...uploadedUrls],
-      media_type: prev.video_url ? 'both' : 'photo',
+      photo_urls: [...prev.photo_urls, ...uploadedUrls]
     }));
-    setUploadingPhoto(false); // Changed to uploadingPhoto
+    setUploadingMedia(false);
   };
 
   const handleVideoUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    setUploadingPhoto(true); // Changed to uploadingPhoto
+    setUploadingMedia(true);
     const { file_url } = await base44.integrations.Core.UploadFile({ file });
-    setNewPost(prev => ({ // Changed to newPost
+    setPostFormData(prev => ({
       ...prev,
-      video_url: file_url,
-      media_type: prev.photo_urls.length > 0 ? 'both' : 'video',
+      video_url: file_url
     }));
-    setUploadingPhoto(false); // Changed to uploadingPhoto
+    setUploadingMedia(false);
   };
 
-  const handleCreatePost = async () => { // Changed function signature to match dialog usage
-    if (!newPost.title || !newPost.content) {
-      alert('⚠️ Please fill in title and content');
-      return;
-    }
-
-    setCreatingPost(true);
-    
-    const postData = {
-      title: newPost.title,
-      content: newPost.content,
-      post_type: newPost.post_type,
-      category: newPost.category,
-      media_type: newPost.photo_urls.length > 0 && newPost.video_url ? 'both' : newPost.photo_urls.length > 0 ? 'photo' : newPost.video_url ? 'video' : 'none',
-      photo_urls: newPost.photo_urls,
-      video_url: newPost.video_url || null,
-      requires_acknowledgment: newPost.requires_acknowledgment,
-      is_featured: newPost.is_featured,
-      is_active: true,
+  const handleCreatePost = (e) => {
+    e.preventDefault();
+    createPostMutation.mutate({
+      ...postFormData,
       author_email: user?.email,
       author_name: user?.full_name,
-      total_acknowledgments: 0,
-      view_count: 0,
-      likes_count: 0,
-      acknowledged_by: [],
-      tags: [],
-    };
-
-    console.log('📤 Submitting post:', postData);
-    await createPostMutation.mutateAsync(postData);
-    setCreatingPost(false);
+      media_type: postFormData.photo_urls.length > 0 && postFormData.video_url ? 'both' : postFormData.photo_urls.length > 0 ? 'photo' : postFormData.video_url ? 'video' : 'none',
+    });
   };
 
-  // Removed original hasAcknowledged as it's now internal to render logic
+  const hasAcknowledged = (post) => {
+    return post.acknowledged_by?.some(ack => ack.staff_email === user?.email);
+  };
 
   const generateAIPost = async () => {
     if (!aiPrompt.trim()) {
@@ -673,7 +555,7 @@ Tone: Warm, professional, motivational, aligned with excellence and teamwork cul
       const validCategories = ['leadership', 'customer_service', 'food_safety', 'teamwork', 'innovation', 'excellence', 'culture', 'skills'];
       const validPostTypes = ['inspiration', 'training_tip', 'success_story', 'announcement', 'knowledge_share', 'best_practice'];
 
-      setNewPost({ // Changed to setNewPost
+      setPostFormData({
         title: result.title,
         content: result.content + (result.key_takeaways && result.key_takeaways.length > 0 ? '\n\nKey Takeaways:\n' + result.key_takeaways.map(kt => `- ${kt}`).join('\n') : ''),
         post_type: validPostTypes.includes(result.suggested_post_type) ? result.suggested_post_type : 'inspiration',
@@ -681,12 +563,10 @@ Tone: Warm, professional, motivational, aligned with excellence and teamwork cul
         photo_urls: [],
         video_url: '',
         requires_acknowledgment: true,
-        is_featured: false, // Default for AI-generated posts
-        is_active: true, // Default for AI-generated posts
       });
 
       setShowAIHelper(false);
-      setShowCreatePost(true); // Changed to setShowCreatePost
+      setShowPostForm(true);
       setAiPrompt('');
       
     } catch (error) {
@@ -746,7 +626,7 @@ Tone: Warm, professional, motivational, aligned with excellence and teamwork cul
   const handleStartModule = (module) => {
     setSelectedModule(module);
     
-    const existingProgress = myProgress.find(p => p.module_id === module.id); // Changed to myProgress
+    const existingProgress = myTrainingProgress.find(p => p.module_id === module.id);
     if (!existingProgress) {
       updateProgressMutation.mutate({
         staff_email: user?.email,
@@ -790,7 +670,7 @@ Tone: Warm, professional, motivational, aligned with excellence and teamwork cul
       results,
     });
 
-    const existingProgress = myProgress.find(p => p.module_id === selectedModule.id); // Changed to myProgress
+    const existingProgress = myTrainingProgress.find(p => p.module_id === selectedModule.id);
     if (existingProgress) {
       await updateProgressRecordMutation.mutateAsync({
         id: existingProgress.id,
@@ -810,7 +690,7 @@ Tone: Warm, professional, motivational, aligned with excellence and teamwork cul
   };
 
   const handleReflectionSubmit = async () => {
-    const existingProgress = myProgress.find(p => p.module_id === selectedModule.id); // Changed to myProgress
+    const existingProgress = myTrainingProgress.find(p => p.module_id === selectedModule.id);
     
     if (existingProgress) {
       await updateProgressRecordMutation.mutateAsync({
@@ -889,8 +769,8 @@ Tone: Warm, professional, motivational, aligned with excellence and teamwork cul
     setSelectedModule(null);
     setQuizResults(null);
     
-    await queryClient.invalidateQueries({ queryKey: ['myTrainingProgress'] }); // Changed to myTrainingProgress
-    await queryClient.invalidateQueries({ queryKey: ['myCertificates'] }); // Changed to myCertificates
+    await queryClient.invalidateQueries({ queryKey: ['trainingProgress'] });
+    await queryClient.invalidateQueries({ queryKey: ['certificates'] });
   };
 
   const handleResetProgress = () => {
@@ -902,14 +782,14 @@ Tone: Warm, professional, motivational, aligned with excellence and teamwork cul
   };
 
   const getModuleProgress = (moduleId) => {
-    return myProgress.find(p => p.module_id === moduleId); // Changed to myProgress
+    return myTrainingProgress.find(p => p.module_id === moduleId);
   };
 
   const isModuleUnlocked = (module) => {
     if (!module.prerequisites || module.prerequisites.length === 0) return true;
     
     return module.prerequisites.every(prereqId => {
-      const progress = myProgress.find(p => p.module_id === prereqId); // Changed to myProgress
+      const progress = myTrainingProgress.find(p => p.module_id === prereqId);
       return progress?.status === 'completed';
     });
   };
@@ -934,7 +814,7 @@ Tone: Warm, professional, motivational, aligned with excellence and teamwork cul
   };
 
   const totalProgress = Math.round(
-    (myProgress.filter(p => p.status === 'completed').length / // Changed to myProgress
+    (myTrainingProgress.filter(p => p.status === 'completed').length / 
     Math.max(trainingModules.length, 1)) * 100
   );
 
@@ -943,6 +823,33 @@ Tone: Warm, professional, motivational, aligned with excellence and teamwork cul
   const level2Modules = trainingModules.filter(m => m.level === 2 || m.category === 'product_knowledge');
   const level3Modules = trainingModules.filter(m => m.level === 3 || m.category === 'compliance');
 
+  const CULTURE_QUIZ = [
+    {
+      question: "What is Chai Patta's mission?",
+      options: ["Serve tea fast", "Create Craving Fans", "Sell premium drinks", "Make profit"],
+      correct_answer: 1
+    },
+    {
+      question: "Which value represents our roots and traditions?",
+      options: ["Growth", "Heritage", "Excellence", "Speed"],
+      correct_answer: 1
+    },
+    {
+      question: "What does Discipline mean at Chai Patta?",
+      options: ["Be strict", "Always show up early and prepared", "Punish mistakes", "Work longer"],
+      correct_answer: 1
+    },
+    {
+      question: "What's our morning ritual?",
+      options: ["Huddle silently", "Start with a smile", "Skip briefing", "Clock in fast"],
+      correct_answer: 1
+    },
+    {
+      question: "What makes a guest a 'Craving Fan'?",
+      options: ["Free chai", "Consistent excellence and care", "Promotions", "Fast service"],
+      correct_answer: 1
+    }
+  ];
 
   const handleCultureQuizSubmit = async () => {
     let correctCount = 0;
@@ -1000,8 +907,8 @@ Tone: Warm, professional, motivational, aligned with excellence and teamwork cul
       });
 
       triggerConfetti();
-      queryClient.invalidateQueries({ queryKey: ['myCertificates'] }); // Changed to myCertificates
-      queryClient.invalidateQueries({ queryKey: ['myTrainingProgress'] }); // Invalidate progress to update general progress bar // Changed to myTrainingProgress
+      queryClient.invalidateQueries({ queryKey: ['certificates'] });
+      queryClient.invalidateQueries({ queryKey: ['trainingProgress'] }); // Invalidate progress to update general progress bar
       queryClient.invalidateQueries({ queryKey: ['staffRewards'] }); // Invalidate rewards
     } else {
       alert(`You scored ${score}%. You need 80% to pass. Review the content and try again!`);
@@ -1011,487 +918,810 @@ Tone: Warm, professional, motivational, aligned with excellence and teamwork cul
 
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-pink-50 to-blue-50 p-6 md:p-8">
+    <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-amber-50 to-emerald-50 p-6 md:p-8">
       <div className="max-w-7xl mx-auto">
         
-        <div className="mb-8">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-3">
-              <div className="w-14 h-14 bg-gradient-to-br from-purple-600 to-pink-600 rounded-xl flex items-center justify-center shadow-lg">
-                <GraduationCap className="w-8 h-8 text-white" />
-              </div>
-              <div>
-                <h1 className="text-4xl font-bold text-gray-900">Training Academy</h1>
-                <p className="text-gray-600">Learn, grow, and achieve excellence</p>
-              </div>
-            </div>
-
-            {isManager && (
-              <div className="flex gap-3">
-                <Button
-                  onClick={() => setShowCreatePost(true)}
-                  className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
-                >
-                  <Plus className="w-4 h-4 mr-2" />
-                  Create Post
+        <div className="flex gap-3 mb-6 flex-wrap items-center">
+          <Link to={createPageUrl('TrainingWelcome')}>
+            <Button variant="outline" size="sm">
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Welcome
+            </Button>
+          </Link>
+          <Link to={createPageUrl('Dashboard')}>
+            <Button variant="outline" size="sm">
+              <Home className="w-4 h-4 mr-2" />
+              Dashboard
+            </Button>
+          </Link>
+          {isManager && (
+            <>
+              <Link to={createPageUrl('ManagerTrainingDashboard')}>
+                <Button variant="outline" size="sm">
+                  <Users className="w-4 h-4 mr-2" />
+                  Manager View
                 </Button>
-                <Link to={createPageUrl('ManagerTrainingDashboard')}>
-                  <Button variant="outline">
-                    <BarChart className="w-4 h-4 mr-2" />
-                    Training Reports
-                  </Button>
-                </Link>
-              </div>
-            )}
-          </div>
+              </Link>
+              <Button
+                onClick={() => {
+                  setEditingModule(null);
+                  resetModuleForm();
+                  setShowEditDialog(true);
+                }}
+                size="sm"
+                className="bg-blue-600 hover:bg-blue-700"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Create Module
+              </Button>
+            </>
+          )}
+          <Link to={createPageUrl('TrainingMentor')}>
+            <Button variant="outline" size="sm" className="bg-purple-50">
+              <MessageCircle className="w-4 h-4 mr-2" />
+              AI Mentor
+            </Button>
+          </Link>
+          
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleResetProgress}
+            className="ml-auto bg-orange-50 border-orange-300 hover:bg-orange-100 text-orange-700"
+            disabled={myTrainingProgress.length === 0}
+          >
+            <RefreshCw className="w-4 h-4 mr-2" />
+            Reset & Retake
+          </Button>
         </div>
 
+        {/* Training Levels Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="bg-white p-1 rounded-xl shadow-md border-2 border-purple-100">
-            <TabsTrigger
-              value="posts"
-              className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-600 data-[state=active]:to-pink-600 data-[state=active]:text-white"
-            >
-              <Megaphone className="w-4 h-4 mr-2" />
-              Training Posts ({trainingPosts.length})
+          <TabsList className="grid w-full grid-cols-5 h-auto bg-white shadow-md rounded-xl p-1"> {/* Updated grid-cols-4 to grid-cols-5 */}
+            <TabsTrigger value="overview" className="flex-col gap-2 py-4 rounded-lg data-[state=active]:bg-gradient-to-br data-[state=active]:from-pink-100 data-[state=active]:to-rose-100"> {/* Added new tab trigger */}
+              <Sparkles className="w-5 h-5" />
+              <span className="font-semibold">Overview</span>
+              <span className="text-xs text-gray-500">Your Journey</span>
             </TabsTrigger>
-            <TabsTrigger
-              value="modules"
-              className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-600 data-[state=active]:to-indigo-600 data-[state=active]:text-white"
-            >
-              <BookOpen className="w-4 h-4 mr-2" />
-              Training Modules ({trainingModules.length})
+            <TabsTrigger value="culture" className="flex-col gap-2 py-4 rounded-lg data-[state=active]:bg-gradient-to-br data-[state=active]:from-purple-100 data-[state=active]:to-pink-100"> {/* Added rounded-lg and gradient for active state */}
+              <Heart className="w-5 h-5" />
+              <span className="font-semibold">Culture & Values</span>
+              <span className="text-xs text-gray-500">Start Here</span>
             </TabsTrigger>
-            <TabsTrigger
-              value="certificates"
-              className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-amber-600 data-[state=active]:to-yellow-600 data-[state=active]:text-white"
-            >
-              <Award className="w-4 h-4 mr-2" />
-              My Certificates ({certificates.length})
+            <TabsTrigger value="level1" className="flex-col gap-2 py-4 rounded-lg data-[state=active]:bg-gradient-to-br data-[state=active]:from-blue-100 data-[state=active]:to-cyan-100"> {/* Added rounded-lg and gradient for active state */}
+              <Star className="w-5 h-5" />
+              <span className="font-semibold">Level 1</span>
+              <span className="text-xs text-gray-500">Foundation</span>
+            </TabsTrigger>
+            <TabsTrigger value="level2" className="flex-col gap-2 py-4 rounded-lg data-[state=active]:bg-gradient-to-br data-[state=active]:from-green-100 data-[state=active]:to-emerald-100"> {/* Added rounded-lg and gradient for active state */}
+              <Target className="w-5 h-5" />
+              <span className="font-semibold">Level 2</span>
+              <span className="text-xs text-gray-500">Excellence</span>
+            </TabsTrigger>
+            <TabsTrigger value="level3" className="flex-col gap-2 py-4 rounded-lg data-[state=active]:bg-gradient-to-br data-[state=active]:from-amber-100 data-[state=active]:to-orange-100"> {/* Added rounded-lg and gradient for active state */}
+              <Trophy className="w-5 h-5" />
+              <span className="font-semibold">Level 3</span>
+              <span className="text-xs text-gray-500">Leadership</span>
             </TabsTrigger>
           </TabsList>
 
-          {/* POSTS TAB */}
-          <TabsContent value="posts">
-            {/* Filters */}
-            <Card className="bg-white shadow-md mb-6">
-              <CardContent className="p-4">
-                <div className="grid md:grid-cols-4 gap-4">
-                  <div className="md:col-span-2 relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                    <Input
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      placeholder="Search posts..."
-                      className="pl-10"
-                    />
+          <TabsContent value="overview">
+            {/* Hero Header */}
+            <motion.div
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+            >
+              <Card className="bg-gradient-to-r from-[#014D40] to-emerald-600 text-white border-none shadow-xl mb-8 overflow-hidden relative"> {/* Updated background and added overflow/relative */}
+                {/* Decorative circles */}
+                <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -mr-32 -mt-32" />
+                <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/5 rounded-full -ml-24 -mb-24" />
+                <CardContent className="p-8 relative"> {/* Added relative */}
+                  <div className="flex items-center justify-between flex-wrap gap-6">
+                    <div>
+                      <h1 className="text-4xl font-bold mb-3 flex items-center gap-3">
+                        <GraduationCap className="w-12 h-12" />
+                        Training Academy
+                      </h1>
+                      <p className="text-xl text-emerald-100 mb-2"> {/* Updated text color */}
+                        Welcome back, {user?.full_name?.split(' ')[0]}! 🌟
+                      </p>
+                      <p className="text-emerald-200 italic"> {/* Updated text color and added italic */}
+                        "{randomQuote}" {/* Display random quote */}
+                      </p>
+                    </div>
+                    <div className="text-center bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20"> {/* Added border */}
+                      <div className="text-6xl font-bold mb-2">{totalProgress}%</div>
+                      <p className="text-emerald-200">Overall Progress</p> {/* Updated text color */}
+                      <div className="mt-3 flex items-center justify-center gap-2">
+                        <Award className="w-5 h-5 text-yellow-300" />
+                        <span className="text-yellow-300 font-semibold">{myCertificates.length} Certificates</span>
+                      </div>
+                    </div>
                   </div>
+                </CardContent>
+              </Card>
+            </motion.div>
 
-                  <Select value={filterType} onValueChange={setFilterType}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="All Types" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Types</SelectItem>
-                      <SelectItem value="inspiration">Inspiration</SelectItem>
-                      <SelectItem value="training_tip">Training Tips</SelectItem>
-                      <SelectItem value="success_story">Success Stories</SelectItem>
-                      <SelectItem value="announcement">Announcements</SelectItem>
-                      <SelectItem value="knowledge_share">Knowledge Share</SelectItem>
-                      <SelectItem value="best_practice">Best Practices</SelectItem>
-                    </SelectContent>
-                  </Select>
+            {/* Stats Cards */}
+            <div className="grid md:grid-cols-4 gap-4 mb-8">
+              <Card className="border-l-4 border-l-purple-500 hover:shadow-lg transition-shadow bg-gradient-to-br from-white to-purple-50"> {/* Added gradient bg */}
+                <CardContent className="p-6">
+                  <Heart className="w-8 h-8 text-purple-600 mb-2" />
+                  <p className="text-3xl font-bold text-purple-600">{getCategoryProgress('culture')}%</p>
+                  <p className="text-sm text-gray-600 font-medium">Culture Mastery</p> {/* Added font-medium */}
+                  <p className="text-xs text-gray-500 mt-1">{cultureModules.length} modules</p> {/* Added module count */}
+                </CardContent>
+              </Card>
 
-                  <Select value={filterCategory} onValueChange={setFilterCategory}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="All Categories" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Categories</SelectItem>
-                      <SelectItem value="leadership">Leadership</SelectItem>
-                      <SelectItem value="customer_service">Customer Service</SelectItem>
-                      <SelectItem value="food_safety">Food Safety</SelectItem>
-                      <SelectItem value="teamwork">Teamwork</SelectItem>
-                      <SelectItem value="innovation">Innovation</SelectItem>
-                      <SelectItem value="excellence">Excellence</SelectItem>
-                      <SelectItem value="culture">Culture</SelectItem>
-                      <SelectItem value="skills">Skills</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+              <Card className="border-l-4 border-l-blue-500 hover:shadow-lg transition-shadow bg-gradient-to-br from-white to-blue-50"> {/* Added gradient bg */}
+                <CardContent className="p-6">
+                  <Star className="w-8 h-8 text-blue-600 mb-2" />
+                  <p className="text-3xl font-bold text-blue-600">{getCategoryProgress(1)}%</p>
+                  <p className="text-sm text-gray-600 font-medium">Level 1 - Foundation</p> {/* Added font-medium */}
+                  <p className="text-xs text-gray-500 mt-1">{level1Modules.length} modules</p> {/* Added module count */}
+                </CardContent>
+              </Card>
+
+              <Card className="border-l-4 border-l-green-500 hover:shadow-lg transition-shadow bg-gradient-to-br from-white to-green-50"> {/* Added gradient bg */}
+                <CardContent className="p-6">
+                  <Target className="w-8 h-8 text-green-600 mb-2" />
+                  <p className="text-3xl font-bold text-green-600">{getCategoryProgress(2)}%</p>
+                  <p className="text-sm text-gray-600 font-medium">Level 2 - Excellence</p> {/* Added font-medium */}
+                  <p className="text-xs text-gray-500 mt-1">{level2Modules.length} modules</p> {/* Added module count */}
+                </CardContent>
+              </Card>
+
+              <Card className="border-l-4 border-l-amber-500 hover:shadow-lg transition-shadow bg-gradient-to-br from-white to-amber-50"> {/* Added gradient bg */}
+                <CardContent className="p-6">
+                  <Trophy className="w-8 h-8 text-amber-600 mb-2" />
+                  <p className="text-3xl font-bold text-amber-600">{getCategoryProgress(3)}%</p>
+                  <p className="text-sm text-gray-600 font-medium">Level 3 - Mastery</p> {/* Added font-medium */}
+                  <p className="text-xs text-gray-500 mt-1">{level3Modules.length} modules</p> {/* Added module count */}
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Quote of the Day */}
+            <Card className="bg-gradient-to-r from-amber-500 to-orange-600 text-white border-none shadow-2xl">
+              <CardContent className="p-8 text-center">
+                <p className="text-2xl md:text-3xl font-serif italic mb-4">
+                  "The only limit to your impact is your imagination and commitment."
+                </p>
+                <p className="text-amber-100 font-semibold">— Tony Robbins</p>
               </CardContent>
             </Card>
 
-            {/* Posts Feed */}
-            <div className="space-y-4">
-              {postsLoading ? (
-                <Card>
-                  <CardContent className="p-12 text-center">
-                    <Loader2 className="w-12 h-12 text-purple-600 animate-spin mx-auto mb-4" />
-                    <p className="text-gray-600">Loading posts...</p>
-                  </CardContent>
-                </Card>
-              ) : filteredPosts.length === 0 ? (
-                <Card>
-                  <CardContent className="p-12 text-center">
-                    <Megaphone className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                    <p className="text-gray-600 font-medium">
-                      {trainingPosts.length === 0 ? 'No posts yet' : 'No posts match your filters'}
-                    </p>
-                    <p className="text-sm text-gray-500 mt-2">
-                      {isManager ? 'Create your first training post!' : 'Check back soon for updates from management'}
-                    </p>
-                  </CardContent>
-                </Card>
-              ) : (
-                filteredPosts.map((post) => {
-                  const hasAcknowledged = post.acknowledged_by?.some(ack => ack.staff_email === user?.email);
-                  const postTypeIcon = POST_TYPE_ICONS[post.post_type] || POST_TYPE_ICONS.inspiration;
-                  const Icon = postTypeIcon.icon;
-
-                  return (
-                    <Card key={post.id} className={`bg-white border-2 shadow-lg hover:shadow-xl transition-all ${post.is_featured ? 'border-amber-400 bg-gradient-to-r from-amber-50 to-yellow-50' : 'border-gray-200'}`}>
-                      {post.is_featured && (
-                        <div className="bg-gradient-to-r from-amber-500 to-yellow-600 text-white px-4 py-2 flex items-center gap-2">
-                          <Star className="w-4 h-4 fill-current" />
-                          <span className="font-bold">Featured Post</span>
-                        </div>
-                      )}
+            {/* Inspiration & Learning Posts */}
+            <Card className="shadow-lg border-2 border-emerald-200">
+              <CardHeader className="bg-gradient-to-r from-emerald-600 to-teal-600 text-white">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-2xl flex items-center gap-3">
+                    <GraduationCap className="w-7 h-7" />
+                    Learning & Inspiration Feed
+                  </CardTitle>
+                  {isManager && (
+                    <div className="flex gap-2">
+                      <Button
+                        onClick={() => setShowAIHelper(true)}
+                        variant="secondary"
+                        size="sm"
+                        className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white border-none"
+                      >
+                        <Sparkles className="w-4 h-4 mr-2" />
+                        Create with AI
+                      </Button>
+                      <Button
+                        onClick={() => setShowPostForm(true)}
+                        variant="secondary"
+                        size="sm"
+                      >
+                        <Plus className="w-4 h-4 mr-2" />
+                        Create Post
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent className="p-6">
+                {trainingPosts.length === 0 ? (
+                  <div className="text-center py-12">
+                    <GraduationCap className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                    <p className="text-gray-500">No posts yet. Share knowledge and inspiration!</p>
+                    {isManager && (
+                      <Button
+                        onClick={() => setShowPostForm(true)}
+                        className="mt-4 bg-emerald-600 hover:bg-emerald-700"
+                      >
+                        <Plus className="w-4 h-4 mr-2" />
+                        Create First Post
+                      </Button>
+                    )}
+                  </div>
+                ) : (
+                  <div className="space-y-6">
+                    {trainingPosts.map((post) => {
+                      const acknowledged = hasAcknowledged(post);
                       
-                      <CardContent className="p-6">
-                        <div className="flex items-start gap-4 mb-4">
-                          <div className={`p-3 ${postTypeIcon.bg} rounded-lg`}>
-                            <Icon className={`w-6 h-6 ${postTypeIcon.color}`} />
-                          </div>
-                          <div className="flex-1">
-                            <div className="flex items-start justify-between mb-2">
+                      return (
+                        <Card key={post.id} className={`border-2 ${post.is_featured ? 'border-amber-400 shadow-xl' : 'border-gray-200'}`}>
+                          <CardContent className="p-6">
+                            {post.is_featured && (
+                              <div className="mb-3">
+                                <Badge className="bg-amber-500">
+                                  <Pin className="w-3 h-3 mr-1" />
+                                  Featured Post
+                                </Badge>
+                              </div>
+                            )}
+
+                            {/* Post Header */}
+                            <div className="flex items-start justify-between mb-4">
                               <div>
-                                <h3 className="text-xl font-bold text-gray-900 mb-1">{post.title}</h3>
-                                <div className="flex items-center gap-2 text-sm text-gray-600">
-                                  <span>{post.author_name}</span>
-                                  <span>•</span>
-                                  <span>{format(new Date(post.created_date), 'MMM d, yyyy')}</span>
+                                <h3 className="text-2xl font-bold text-gray-900 mb-2">{post.title}</h3>
+                                <div className="flex gap-2">
+                                  <Badge className="bg-emerald-100 text-emerald-800">
+                                    {post.post_type.replace('_', ' ')}
+                                  </Badge>
+                                  <Badge variant="outline">
+                                    {post.category}
+                                  </Badge>
                                 </div>
                               </div>
-                              <div className="flex flex-wrap gap-2">
-                                <Badge className={postTypeIcon.bg + ' ' + postTypeIcon.color}>
-                                  {post.post_type.replace('_', ' ')}
-                                </Badge>
-                                <Badge variant="outline" className="capitalize">
-                                  {post.category.replace('_', ' ')}
-                                </Badge>
+                              <div className="text-right text-sm text-gray-500">
+                                <p className="font-semibold">{post.author_name}</p>
+                                <p>{formatDistanceToNow(new Date(post.created_date), { addSuffix: true })}</p>
                               </div>
                             </div>
-                            
-                            <p className="text-gray-700 whitespace-pre-wrap mb-4">{post.content}</p>
 
+                            {/* Post Content */}
+                            <div className="mb-4 text-gray-700 leading-relaxed whitespace-pre-wrap">
+                              {post.content}
+                            </div>
+
+                            {/* Photos */}
                             {post.photo_urls && post.photo_urls.length > 0 && (
-                              <div className="flex gap-2 mb-4 flex-wrap">
+                              <div className="mb-4 grid grid-cols-2 md:grid-cols-3 gap-3">
                                 {post.photo_urls.map((url, idx) => (
                                   <img
                                     key={idx}
                                     src={url}
-                                    alt="Post media"
-                                    className="h-48 object-cover rounded-lg"
+                                    alt={`Post image ${idx + 1}`}
+                                    className="w-full h-48 object-cover rounded-lg shadow-md cursor-pointer hover:opacity-90 transition-opacity"
+                                    onClick={() => window.open(url, '_blank')}
                                   />
                                 ))}
                               </div>
                             )}
 
+                            {/* Video */}
                             {post.video_url && (
                               <div className="mb-4">
-                                <video
-                                  src={post.video_url}
-                                  controls
-                                  className="w-full rounded-lg"
-                                />
+                                {post.video_url.includes('youtube.com') || post.video_url.includes('youtu.be') ? (
+                                  <iframe
+                                    className="w-full h-64 md:h-96 rounded-lg shadow-lg"
+                                    src={post.video_url.replace('watch?v=', 'embed/')}
+                                    frameBorder="0"
+                                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                    allowFullScreen
+                                  />
+                                ) : (
+                                  <video
+                                    controls
+                                    className="w-full rounded-lg shadow-lg"
+                                    src={post.video_url}
+                                  />
+                                )}
                               </div>
                             )}
 
+                            {/* Action Bar */}
                             <div className="flex items-center justify-between pt-4 border-t border-gray-200">
-                              <div className="flex items-center gap-4 text-sm text-gray-600">
-                                <div className="flex items-center gap-1">
-                                  <ThumbsUp className="w-4 h-4" />
-                                  {post.likes_count || 0}
+                              <div className="flex items-center gap-4">
+                                <button
+                                  onClick={() => likePostMutation.mutate({ postId: post.id, currentLikes: post.likes_count || 0 })}
+                                  className="flex items-center gap-2 text-gray-600 hover:text-red-500 transition-colors"
+                                >
+                                  <Heart className="w-5 h-5" />
+                                  <span className="text-sm font-medium">{post.likes_count || 0}</span>
+                                </button>
+                                
+                                <div className="flex items-center gap-2 text-gray-600">
+                                  <Eye className="w-5 h-5" />
+                                  <span className="text-sm">{post.view_count || 0} views</span>
                                 </div>
-                                <div className="flex items-center gap-1">
-                                  <Check className="w-4 h-4" />
-                                  {post.total_acknowledgments || 0} read
-                                </div>
+
+                                {post.requires_acknowledgment && (
+                                  <div className="flex items-center gap-2 text-gray-600">
+                                    <Check className="w-5 h-5" />
+                                    <span className="text-sm">{post.total_acknowledgments || 0} acknowledged</span>
+                                  </div>
+                                )}
                               </div>
 
-                              {post.requires_acknowledgment && !hasAcknowledged && (
-                                <Button
-                                  onClick={() => acknowledgePostMutation.mutate({ postId: post.id, post })}
-                                  disabled={acknowledgePostMutation.isPending}
-                                  size="sm"
-                                  className="bg-emerald-600 hover:bg-emerald-700"
-                                >
-                                  <Check className="w-4 h-4 mr-2" />
-                                  I've Read This
-                                </Button>
-                              )}
-
-                              {hasAcknowledged && (
-                                <Badge className="bg-green-100 text-green-800">
-                                  <Check className="w-3 h-3 mr-1" />
-                                  Acknowledged
-                                </Badge>
+                              {/* Acknowledgment Button */}
+                              {post.requires_acknowledgment && (
+                                acknowledged ? (
+                                  <Badge className="bg-green-600 text-white px-4 py-2">
+                                    <Check className="w-4 h-4 mr-2" />
+                                    You've acknowledged this
+                                  </Badge>
+                                ) : (
+                                  <Button
+                                    onClick={() => acknowledgePostMutation.mutate({
+                                      postId: post.id,
+                                      currentAcknowledgments: post.acknowledged_by || []
+                                    })}
+                                    className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700"
+                                  >
+                                    <Check className="w-4 h-4 mr-2" />
+                                    I've Read & Understood
+                                  </Button>
+                                )
                               )}
                             </div>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  );
-                })
-              )}
-            </div>
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Certificates Section - Always visible */}
+            {myCertificates.length > 0 && (
+              <Card className="mt-8 bg-gradient-to-r from-yellow-50 to-amber-50 border-2 border-yellow-300 shadow-xl"> {/* Updated border and shadow */}
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-2xl">
+                    <Award className="w-7 h-7 text-yellow-600" />
+                    Your Achievements ({myCertificates.length} Certificates)
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid md:grid-cols-3 gap-4">
+                    {myCertificates.map(cert => (
+                      <motion.div
+                        key={cert.id}
+                        initial={{ opacity: 0, scale: 0.9 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                      >
+                        <Card className="border-2 border-yellow-400 hover:shadow-xl transition-shadow bg-gradient-to-br from-white to-yellow-50"> {/* Added gradient bg */}
+                          <CardContent className="p-6 text-center">
+                            <Trophy className="w-12 h-12 text-yellow-600 mx-auto mb-3" />
+                            <h4 className="font-semibold text-gray-900 mb-2">{cert.title}</h4>
+                            <p className="text-xs text-gray-600 mb-1">{cert.description}</p>
+                            <p className="text-xs text-gray-500 mb-3">
+                              Issued: {format(new Date(cert.issued_date), 'MMM d, yyyy')} {/* Changed text */}
+                            </p>
+                            {cert.points_awarded > 0 && (
+                              <Badge className="bg-green-100 text-green-800 mb-2"> {/* Changed mb-3 to mb-2 */}
+                                +{cert.points_awarded} XP {/* Changed text */}
+                              </Badge>
+                            )}
+                            {cert.badge_earned && ( // Conditionally render badge_earned
+                              <Badge className="bg-purple-100 text-purple-800 mb-3 block">
+                                {cert.badge_earned}
+                              </Badge>
+                            )}
+                            <Button size="sm" variant="outline" className="w-full">
+                              <Download className="w-4 h-4 mr-2" />
+                              Download PDF
+                            </Button>
+                          </CardContent>
+                        </Card>
+                      </motion.div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </TabsContent>
 
-          {/* MODULES TAB */}
-          <TabsContent value="modules" className="space-y-4">
-          <Card className="bg-gradient-to-r from-blue-500 to-indigo-500 text-white border-none shadow-lg">
+          <TabsContent value="culture" className="space-y-6">
+            <Card className="bg-gradient-to-r from-[#014D40] via-emerald-600 to-[#E0B037] text-white border-none shadow-2xl overflow-hidden relative">
+              <div className="absolute top-0 right-0 w-96 h-96 bg-white/5 rounded-full -mr-48 -mt-48" />
+              <div className="absolute bottom-0 left-0 w-64 h-64 bg-white/10 rounded-full -ml-32 -mb-32" />
+              <CardContent className="p-12 relative">
+                <div className="text-center">
+                  <h2 className="text-5xl font-bold mb-4">🌿 Culture & Values 🌿</h2>
+                  <p className="text-2xl text-emerald-100 italic mb-4">
+                    "Learn the Heart of Chai Patta"
+                  </p>
+                  <p className="text-lg text-white/90 max-w-3xl mx-auto leading-relaxed">
+                    Understand our mission, embrace our values, and discover what makes us different. 
+                    This is where every journey begins - with purpose and passion.
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Mission & Vision */}
+            <div className="grid md:grid-cols-2 gap-6">
+              <Card className="bg-gradient-to-br from-[#014D40] to-emerald-600 text-white border-none shadow-xl">
+                <CardContent className="p-8">
+                  <div className="text-6xl mb-4 text-center">🎯</div>
+                  <h3 className="text-2xl font-bold mb-4 text-center">Our Mission</h3>
+                  <p className="text-lg text-emerald-100 leading-relaxed italic text-center">
+                    "To serve every cup with a story, inspire every team member with purpose, 
+                    and build a culture of excellence."
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-gradient-to-br from-[#E0B037] to-amber-500 text-white border-none shadow-xl">
+                <CardContent className="p-8">
+                  <div className="text-6xl mb-4 text-center">✨</div>
+                  <h3 className="text-2xl font-bold mb-4 text-center">Our Vision</h3>
+                  <p className="text-lg text-amber-100 leading-relaxed italic text-center">
+                    "To become the most loved chai brand - where every team member thrives 
+                    and every guest becomes a Craving Fan."
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Core Values - Interactive Cards */}
+            <Card className="border-2 border-[#014D40] shadow-xl">
+              <CardHeader>
+                <CardTitle className="text-3xl text-center text-[#014D40]">Our 5 Core Values</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid md:grid-cols-5 gap-4">
+                  {CORE_VALUES.map((value, idx) => (
+                    <motion.div
+                      key={idx}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: idx * 0.1 }}
+                      whileHover={{ scale: 1.05, rotate: 2 }}
+                      className="cursor-pointer"
+                    >
+                      <Card className={`bg-gradient-to-br ${value.color} text-white border-none shadow-lg h-full`}>
+                        <CardContent className="p-6 text-center">
+                          <div className="text-5xl mb-3">{value.icon}</div>
+                          <h4 className="text-xl font-bold mb-2">{value.title}</h4>
+                          <p className="text-sm text-white/90 mb-3">{value.description}</p>
+                          <div className="text-xs text-white/80 italic border-t border-white/30 pt-3">
+                            {value.detail}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </motion.div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Brand Story Video */}
+            <Card className="border-2 border-[#E0B037] shadow-xl">
+              <CardHeader>
+                <CardTitle className="text-2xl text-center flex items-center justify-center gap-2">
+                  <Video className="w-6 h-6 text-[#014D40]" />
+                  The Chai Patta Story — From Spice to Spirit
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-center text-gray-600 italic mb-4">
+                  "Every great journey starts with a story. Here's ours — the blend of tradition, passion, and modern hospitality."
+                </p>
+                <div className="aspect-video bg-black rounded-xl overflow-hidden shadow-2xl">
+                  <iframe
+                    width="100%"
+                    height="100%"
+                    src="https://www.youtube.com/embed/dQw4w9WgXcQ"
+                    title="The Chai Patta Story"
+                    frameBorder="0"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                  />
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Cultural Rituals */}
+            <Card className="border-2 border-purple-400 shadow-xl">
+              <CardHeader>
+                <CardTitle className="text-2xl text-center text-[#014D40]">
+                  🪄 Cultural Rituals - Living Our Values
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid md:grid-cols-2 gap-4">
+                  {CULTURAL_RITUALS.map((ritual, idx) => (
+                    <motion.div
+                      key={idx}
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: idx * 0.1 }}
+                    >
+                      <Card className={`bg-gradient-to-r ${ritual.color} text-white border-none`}>
+                        <CardContent className="p-6">
+                          <div className="flex items-start gap-3">
+                            <div className="text-4xl">{ritual.icon}</div>
+                            <div>
+                              <h4 className="font-bold text-lg mb-2">{ritual.title}</h4>
+                              <p className="text-sm text-white/90">{ritual.description}</p>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </motion.div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Reflection Prompts */}
+            <Card className="border-2 border-purple-500 shadow-xl bg-gradient-to-br from-purple-50 to-pink-50">
+              <CardHeader>
+                <CardTitle className="text-2xl text-center text-purple-900">
+                  🧠 Reflection: Connect with Our Culture
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {REFLECTION_PROMPTS.map((prompt, idx) => (
+                  <div key={idx}>
+                    <label className="text-sm font-semibold text-purple-800 mb-2 block">
+                      {idx + 1}. {prompt}
+                    </label>
+                    <Textarea
+                      value={cultureReflections[idx] || ''}
+                      onChange={(e) => setCultureReflections({...cultureReflections, [idx]: e.target.value})}
+                      placeholder="Share your thoughts..."
+                      rows={2}
+                      className="border-purple-300 focus:border-purple-500"
+                    />
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+
+            {/* Culture Quiz */}
+            {!cultureCompleted && (
+              <Card className="border-2 border-[#E0B037] shadow-xl">
+                <CardContent className="p-8 text-center">
+                  <Trophy className="w-16 h-16 text-[#E0B037] mx-auto mb-4" />
+                  <h3 className="text-2xl font-bold text-gray-900 mb-4">
+                    Ready to Test Your Knowledge?
+                  </h3>
+                  <p className="text-gray-600 mb-6">
+                    Complete the Culture Quiz to earn your "Culture Champion" badge and unlock Level 1 training!
+                  </p>
+                  <Button
+                    onClick={() => setShowCultureQuiz(true)}
+                    className="bg-gradient-to-r from-[#014D40] to-emerald-600 hover:from-[#013830] hover:to-emerald-700 text-white px-8 py-6 text-lg"
+                  >
+                    <Sparkles className="w-5 h-5 mr-2" />
+                    Take Culture Quiz (5 Questions)
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Training Modules */}
+            {cultureModules.length > 0 && (
+              <Card className="shadow-xl">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <BookOpen className="w-6 h-6 text-[#014D40]" />
+                    Culture Training Modules
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid md:grid-cols-2 gap-4">
+                    {cultureModules.map((module, index) => (
+                      <ModuleCard
+                        key={module.id}
+                        module={module}
+                        progress={getModuleProgress(module.id)}
+                        isUnlocked={isModuleUnlocked(module)}
+                        isCompleted={getModuleProgress(module.id)?.status === 'completed'}
+                        onStart={() => handleStartModule(module)}
+                        index={index}
+                      />
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Photo Gallery Placeholders */}
+            <Card className="border-2 border-[#014D40] shadow-xl">
+              <CardHeader>
+                <CardTitle className="text-2xl text-center text-[#014D40]">Our Culture in Action</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid md:grid-cols-3 gap-4">
+                  <div className="aspect-video bg-gradient-to-br from-green-100 to-emerald-200 rounded-xl flex items-center justify-center">
+                    <div className="text-center">
+                      <Users className="w-12 h-12 text-emerald-700 mx-auto mb-2" />
+                      <p className="text-sm font-semibold text-emerald-800">Team at Work</p>
+                    </div>
+                  </div>
+                  <div className="aspect-video bg-gradient-to-br from-amber-100 to-yellow-200 rounded-xl flex items-center justify-center">
+                    <div className="text-center">
+                      <Star className="w-12 h-12 text-amber-700 mx-auto mb-2" />
+                      <p className="text-sm font-semibold text-amber-800">Happy Guests</p>
+                    </div>
+                  </div>
+                  <div className="aspect-video bg-gradient-to-br from-orange-100 to-red-200 rounded-xl flex items-center justify-center">
+                    <div className="text-center">
+                      <Heart className="w-12 h-12 text-orange-700 mx-auto mb-2" />
+                      <p className="text-sm font-semibold text-orange-800">Perfect Chai</p>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Motivational Quotes Footer */}
+            <Card className="bg-gradient-to-r from-gray-900 to-slate-800 text-white border-none shadow-xl">
+              <CardContent className="p-8 text-center">
+                <div className="space-y-4">
+                  <p className="text-2xl font-bold italic">
+                    "Raise your standard — not your excuses."
+                  </p>
+                  <p className="text-lg text-gray-300">- Tony Robbins</p>
+                  <div className="h-px bg-white/20 my-4" />
+                  <p className="text-xl italic text-emerald-300">
+                    "We don't sell chai — we share energy."
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="level1" className="space-y-4">
+            <Card className="bg-gradient-to-r from-blue-500 to-cyan-500 text-white border-none shadow-lg">
               <CardContent className="p-8">
                 <div className="flex items-start gap-4">
-                  <BookOpen className="w-16 h-16 flex-shrink-0" />
+                  <Star className="w-16 h-16 flex-shrink-0" />
                   <div className="flex-1">
-                    <h3 className="text-3xl font-bold mb-3">Training Modules</h3>
-                    <p className="text-blue-100 text-lg mb-2 font-semibold">
-                      "Structured Learning for Continuous Growth"
+                    <h3 className="text-3xl font-bold mb-3">Level 1: Foundation Training</h3>
+                    <p className="text-blue-100 text-lg mb-2 font-semibold"> {/* Changed mb-4 to mb-2 and added font-semibold */}
+                      "Master the Essentials"
                     </p>
                     <p className="text-blue-50 mb-6">
-                      Explore our comprehensive training curriculum designed to elevate your skills from foundational knowledge to leadership mastery.
+                      Build your foundation with hygiene basics, safety protocols, and essential guest interaction skills. 
+                      These are the non-negotiables for every team member.
                     </p>
                     <div className="flex items-center gap-4">
-                      <Progress value={totalProgress} className="flex-1 bg-blue-300 h-3" />
-                      <span className="font-bold text-2xl">{totalProgress}%</span>
+                      <Progress value={getCategoryProgress(1)} className="flex-1 bg-blue-300 h-3" /> {/* Added h-3 */}
+                      <span className="font-bold text-2xl">{getCategoryProgress(1)}%</span>
                     </div>
                   </div>
                 </div>
               </CardContent>
             </Card>
 
-            {isManager && (
-              <div className="flex justify-between items-center mb-4">
-                <Button
-                  onClick={() => {
-                    setEditingModule(null);
-                    resetModuleForm();
-                    setShowEditDialog(true);
-                  }}
-                  size="sm"
-                  className="bg-blue-600 hover:bg-blue-700"
-                >
-                  <Plus className="w-4 h-4 mr-2" />
-                  Create New Module
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleResetProgress}
-                  className="bg-orange-50 border-orange-300 hover:bg-orange-100 text-orange-700"
-                  disabled={myProgress.length === 0}
-                >
-                  <RefreshCw className="w-4 h-4 mr-2" />
-                  Reset & Retake All Progress
-                </Button>
-              </div>
-            )}
-
-            {trainingModules.length === 0 ? (
+            {level1Modules.length === 0 ? (
               <Card className="bg-blue-50 border-blue-200">
                 <CardContent className="p-8 text-center">
-                  <BookOpen className="w-12 h-12 text-blue-600 mx-auto mb-4" />
-                  <h3 className="text-xl font-bold text-gray-900 mb-2">No Training Modules Yet</h3>
-                  <p className="text-gray-600">Training content will appear here soon.</p>
+                  <Star className="w-12 h-12 text-blue-600 mx-auto mb-4" />
+                  <h3 className="text-xl font-bold text-gray-900 mb-2">No Level 1 Modules Yet</h3>
+                  <p className="text-gray-600">Foundation training modules will appear here.</p>
                 </CardContent>
               </Card>
             ) : (
-              <div className="space-y-6">
-                {/* Culture & Onboarding Modules */}
-                {cultureModules.length > 0 && (
-                  <Card className="shadow-xl">
-                    <CardHeader className="bg-gradient-to-r from-purple-100 to-pink-100">
-                      <CardTitle className="flex items-center gap-2 text-xl text-purple-800">
-                        <Heart className="w-5 h-5 text-purple-600" />
-                        Culture & Onboarding ({getCategoryProgress('culture')}%)
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="p-4 grid md:grid-cols-2 gap-4">
-                      {cultureModules.map((module, index) => (
-                        <ModuleCard
-                          key={module.id}
-                          module={module}
-                          progress={getModuleProgress(module.id)}
-                          isUnlocked={isModuleUnlocked(module)}
-                          isCompleted={getModuleProgress(module.id)?.status === 'completed'}
-                          onStart={() => handleStartModule(module)}
-                          index={index}
-                          isManager={isManager} // Pass isManager prop
-                        />
-                      ))}
-                    </CardContent>
-                  </Card>
-                )}
-
-                {/* Level 1 Modules */}
-                {level1Modules.length > 0 && (
-                  <Card className="shadow-xl">
-                    <CardHeader className="bg-gradient-to-r from-blue-100 to-cyan-100">
-                      <CardTitle className="flex items-center gap-2 text-xl text-blue-800">
-                        <Star className="w-5 h-5 text-blue-600" />
-                        Level 1: Foundation ({getCategoryProgress(1)}%)
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="p-4 grid md:grid-cols-2 gap-4">
-                      {level1Modules.map((module, index) => (
-                        <ModuleCard
-                          key={module.id}
-                          module={module}
-                          progress={getModuleProgress(module.id)}
-                          isUnlocked={isModuleUnlocked(module)}
-                          isCompleted={getModuleProgress(module.id)?.status === 'completed'}
-                          onStart={() => handleStartModule(module)}
-                          index={index}
-                          isManager={isManager}
-                        />
-                      ))}
-                    </CardContent>
-                  </Card>
-                )}
-
-                {/* Level 2 Modules */}
-                {level2Modules.length > 0 && (
-                  <Card className="shadow-xl">
-                    <CardHeader className="bg-gradient-to-r from-green-100 to-emerald-100">
-                      <CardTitle className="flex items-center gap-2 text-xl text-green-800">
-                        <Target className="w-5 h-5 text-green-600" />
-                        Level 2: Excellence ({getCategoryProgress(2)}%)
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="p-4 grid md:grid-cols-2 gap-4">
-                      {level2Modules.map((module, index) => (
-                        <ModuleCard
-                          key={module.id}
-                          module={module}
-                          progress={getModuleProgress(module.id)}
-                          isUnlocked={isModuleUnlocked(module)}
-                          isCompleted={getModuleProgress(module.id)?.status === 'completed'}
-                          onStart={() => handleStartModule(module)}
-                          index={index}
-                          isManager={isManager}
-                        />
-                      ))}
-                    </CardContent>
-                  </Card>
-                )}
-
-                {/* Level 3 Modules */}
-                {level3Modules.length > 0 && (
-                  <Card className="shadow-xl">
-                    <CardHeader className="bg-gradient-to-r from-amber-100 to-orange-100">
-                      <CardTitle className="flex items-center gap-2 text-xl text-amber-800">
-                        <Trophy className="w-5 h-5 text-amber-600" />
-                        Level 3: Leadership ({getCategoryProgress(3)}%)
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="p-4 grid md:grid-cols-2 gap-4">
-                      {level3Modules.map((module, index) => (
-                        <ModuleCard
-                          key={module.id}
-                          module={module}
-                          progress={getModuleProgress(module.id)}
-                          isUnlocked={isModuleUnlocked(module)}
-                          isCompleted={getModuleProgress(module.id)?.status === 'completed'}
-                          onStart={() => handleStartModule(module)}
-                          index={index}
-                          isManager={isManager}
-                        />
-                      ))}
-                    </CardContent>
-                  </Card>
-                )}
+              <div className="grid md:grid-cols-2 gap-4">
+                {level1Modules.map((module, index) => (
+                  <ModuleCard
+                    key={module.id}
+                    module={module}
+                    progress={getModuleProgress(module.id)}
+                    isUnlocked={isModuleUnlocked(module)}
+                    isCompleted={getModuleProgress(module.id)?.status === 'completed'}
+                    onStart={() => handleStartModule(module)}
+                    index={index}
+                  />
+                ))}
               </div>
             )}
           </TabsContent>
 
-          {/* CERTIFICATES TAB */}
-          <TabsContent value="certificates">
-            <Card className="bg-gradient-to-r from-amber-500 to-yellow-500 text-white border-none shadow-lg">
+          <TabsContent value="level2" className="space-y-4">
+            <Card className="bg-gradient-to-r from-green-500 to-emerald-500 text-white border-none shadow-lg">
               <CardContent className="p-8">
                 <div className="flex items-start gap-4">
-                  <Award className="w-16 h-16 flex-shrink-0" />
+                  <Target className="w-16 h-16 flex-shrink-0" />
                   <div className="flex-1">
-                    <h3 className="text-3xl font-bold mb-3">My Certificates</h3>
-                    <p className="text-amber-100 text-lg mb-2 font-semibold">
-                      "Celebrate Your Achievements!"
+                    <h3 className="text-3xl font-bold mb-3">Level 2: Excellence in Action</h3>
+                    <p className="text-green-100 text-lg mb-2 font-semibold"> {/* Changed mb-4 to mb-2 and added font-semibold */}
+                      "Serve with Precision & Pride"
                     </p>
-                    <p className="text-amber-50 mb-6">
-                      View and download all the certificates you've earned by completing training modules and quizzes.
+                    <p className="text-green-50 mb-6">
+                      Master the art of perfect Karak Chai, understand our complete menu, and deliver exceptional service. 
+                      This is where good becomes great.
                     </p>
                     <div className="flex items-center gap-4">
-                      <span className="font-bold text-4xl">{certificates.length}</span>
-                      <span className="font-semibold text-2xl text-amber-100">Certificates Earned</span>
+                      <Progress value={getCategoryProgress(2)} className="flex-1 bg-green-300 h-3" /> {/* Added h-3 */}
+                      <span className="font-bold text-2xl">{getCategoryProgress(2)}%</span>
                     </div>
                   </div>
                 </div>
               </CardContent>
             </Card>
 
-            {certificates.length === 0 ? (
-              <Card className="bg-amber-50 border-amber-200 mt-6">
+            {level2Modules.length === 0 ? (
+              <Card className="bg-green-50 border-green-200">
                 <CardContent className="p-8 text-center">
-                  <Award className="w-12 h-12 text-amber-600 mx-auto mb-4" />
-                  <h3 className="text-xl font-bold text-gray-900 mb-2">No Certificates Yet</h3>
-                  <p className="text-gray-600">Start completing modules to earn your first certificate!</p>
+                  <Target className="w-12 h-12 text-green-600 mx-auto mb-4" />
+                  <h3 className="text-xl font-bold text-gray-900 mb-2">No Level 2 Modules Yet</h3>
+                  <p className="text-gray-600">Advanced training modules will appear here.</p>
                 </CardContent>
               </Card>
             ) : (
-              <div className="grid md:grid-cols-3 gap-4 mt-6">
-                {certificates.map(cert => (
-                  <motion.div
-                    key={cert.id}
-                    initial={{ opacity: 0, scale: 0.9 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                  >
-                    <Card className="border-2 border-yellow-400 hover:shadow-xl transition-shadow bg-gradient-to-br from-white to-yellow-50">
-                      <CardContent className="p-6 text-center">
-                        <Trophy className="w-12 h-12 text-yellow-600 mx-auto mb-3" />
-                        <h4 className="font-semibold text-gray-900 mb-2">{cert.title}</h4>
-                        <p className="text-xs text-gray-600 mb-1">{cert.description}</p>
-                        <p className="text-xs text-gray-500 mb-3">
-                          Issued: {format(new Date(cert.issued_date), 'MMM d, yyyy')}
-                        </p>
-                        {cert.points_awarded > 0 && (
-                          <Badge className="bg-green-100 text-green-800 mb-2">
-                            +{cert.points_awarded} XP
-                          </Badge>
-                        )}
-                        {cert.badge_earned && (
-                          <Badge className="bg-purple-100 text-purple-800 mb-3 block">
-                            {cert.badge_earned}
-                          </Badge>
-                        )}
-                        <Button size="sm" variant="outline" className="w-full">
-                          <Download className="w-4 h-4 mr-2" />
-                          Download PDF
-                        </Button>
-                      </CardContent>
-                    </Card>
-                  </motion.div>
+              <div className="grid md:grid-cols-2 gap-4">
+                {level2Modules.map((module, index) => (
+                  <ModuleCard
+                    key={module.id}
+                    module={module}
+                    progress={getModuleProgress(module.id)}
+                    isUnlocked={isModuleUnlocked(module)}
+                    isCompleted={getModuleProgress(module.id)?.status === 'completed'}
+                    onStart={() => handleStartModule(module)}
+                    index={index}
+                  />
+                ))}
+              </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="level3" className="space-y-4">
+            <Card className="bg-gradient-to-r from-amber-500 to-orange-500 text-white border-none shadow-lg">
+              <CardContent className="p-8">
+                <div className="flex items-start gap-4">
+                  <Trophy className="w-16 h-16 flex-shrink-0" />
+                  <div className="flex-1">
+                    <h3 className="text-3xl font-bold mb-3">Level 3: Leadership & Growth</h3>
+                    <p className="text-amber-100 text-lg mb-2 font-semibold"> {/* Changed mb-4 to mb-2 and added font-semibold */}
+                      "Lead → Inspire → Grow"
+                    </p>
+                    <p className="text-amber-50 mb-6">
+                      Develop leadership skills, master conflict resolution, and learn to inspire others. 
+                      Become a mentor who creates more Craving Fans - both customers and team members.
+                    </p>
+                    <div className="flex items-center gap-4">
+                      <Progress value={getCategoryProgress(3)} className="flex-1 bg-amber-300 h-3" /> {/* Added h-3 */}
+                      <span className="font-bold text-2xl">{getCategoryProgress(3)}%</span>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {level3Modules.length === 0 ? (
+              <Card className="bg-amber-50 border-amber-200">
+                <CardContent className="p-8 text-center">
+                  <Trophy className="w-12 h-12 text-amber-600 mx-auto mb-4" />
+                  <h3 className="text-xl font-bold text-gray-900 mb-2">No Level 3 Modules Yet</h3>
+                  <p className="text-gray-600">Leadership training modules will appear here.</p>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="grid md:grid-cols-2 gap-4">
+                {level3Modules.map((module, index) => (
+                  <ModuleCard
+                    key={module.id}
+                    module={module}
+                    progress={getModuleProgress(module.id)}
+                    isUnlocked={isModuleUnlocked(module)}
+                    isCompleted={getModuleProgress(module.id)?.status === 'completed'}
+                    onStart={() => handleStartModule(module)}
+                    index={index}
+                  />
                 ))}
               </div>
             )}
           </TabsContent>
         </Tabs>
-        
+
         {/* Module Detail Dialog */}
         <Dialog open={!!selectedModule} onOpenChange={() => setSelectedModule(null)}>
           <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle className="text-2xl flex items-center gap-2">
-                <GraduationCap className="w-6 h-6 text-[#014D40]" />
+                <GraduationCap className="w-6 h-6 text-[#014D40]" /> {/* Updated text color */}
                 {selectedModule?.title}
               </DialogTitle>
             </DialogHeader>
@@ -1504,17 +1734,17 @@ Tone: Warm, professional, motivational, aligned with excellence and teamwork cul
                       {selectedModule.duration_minutes} minutes
                     </Badge>
                   )}
-                  <Badge className="bg-purple-100 text-purple-800 capitalize">
+                  <Badge className="bg-purple-100 text-purple-800 capitalize"> {/* Added capitalize */}
                     {selectedModule.category?.replace('_', ' ')}
                   </Badge>
                   {selectedModule.level && (
-                    <Badge className="bg-[#014D40] text-white">
+                    <Badge className="bg-[#014D40] text-white"> {/* Updated background and text color */}
                       Level {selectedModule.level}
                     </Badge>
                   )}
                 </div>
 
-                <Card className="bg-gradient-to-r from-green-50 to-emerald-50 border-green-200">
+                <Card className="bg-gradient-to-r from-green-50 to-emerald-50 border-green-200"> {/* Added Card wrapper and new styles */}
                   <CardContent className="p-4">
                     <p className="text-gray-800 text-lg leading-relaxed">{selectedModule.description}</p>
                   </CardContent>
@@ -1543,10 +1773,10 @@ Tone: Warm, professional, motivational, aligned with excellence and teamwork cul
                 {selectedModule.content_text && (
                   <div>
                     <h3 className="font-semibold text-lg mb-3 flex items-center gap-2">
-                      <FileText className="w-5 h-5 text-[#014D40]" />
+                      <FileText className="w-5 h-5 text-[#014D40]" /> {/* Updated text color */}
                       Course Material
                     </h3>
-                    <Card className="bg-gradient-to-br from-gray-50 to-white border-gray-200">
+                    <Card className="bg-gradient-to-br from-gray-50 to-white border-gray-200"> {/* Updated Card styles */}
                       <CardContent className="p-6">
                         <div className="whitespace-pre-wrap text-gray-800 leading-relaxed">
                           {selectedModule.content_text}
@@ -1560,14 +1790,14 @@ Tone: Warm, professional, motivational, aligned with excellence and teamwork cul
                   <div>
                     <h3 className="font-semibold text-lg mb-3 flex items-center gap-2">
                       <BookOpen className="w-5 h-5 text-green-600" />
-                      Related Procedures
+                      Related Procedures {/* Changed text */}
                     </h3>
                     <div className="flex flex-wrap gap-2">
                       {selectedModule.linked_sop_ids.map(sopId => (
                         <Link key={sopId} to={createPageUrl(`SOPViewer?id=${sopId}`)}>
-                          <Button variant="outline" size="sm" className="bg-green-50">
+                          <Button variant="outline" size="sm" className="bg-green-50"> {/* Added bg-green-50 */}
                             <BookOpen className="w-4 h-4 mr-2" />
-                            View SOP for this Recipe
+                            View SOP for this Recipe {/* Changed text */}
                           </Button>
                         </Link>
                       ))}
@@ -1578,7 +1808,7 @@ Tone: Warm, professional, motivational, aligned with excellence and teamwork cul
                 {selectedModule.quiz_questions?.length > 0 && (
                   <Button
                     onClick={() => setShowQuiz(true)}
-                    className="w-full bg-gradient-to-r from-[#014D40] to-emerald-600 hover:from-[#013830] hover:to-emerald-700 py-6 text-lg shadow-lg"
+                    className="w-full bg-gradient-to-r from-[#014D40] to-emerald-600 hover:from-[#013830] hover:to-emerald-700 py-6 text-lg shadow-lg" // Updated colors and added shadow
                   >
                     <Sparkles className="w-5 h-5 mr-2" />
                     Take Knowledge Check ({selectedModule.quiz_questions.length} questions)
@@ -1706,14 +1936,14 @@ Tone: Warm, professional, motivational, aligned with excellence and teamwork cul
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="video">🎥 Video</SelectItem>
-                          <SelectItem value="text">📝 Text</SelectItem>
-                          <SelectItem value="mixed">🎬 Video + Text</SelectItem>
-                          <SelectItem value="quiz">❓ Quiz Only</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
+                      <SelectContent>
+                        <SelectItem value="video">🎥 Video</SelectItem>
+                        <SelectItem value="text">📝 Text</SelectItem>
+                        <SelectItem value="mixed">🎬 Video + Text</SelectItem>
+                        <SelectItem value="quiz">❓ Quiz Only</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
 
                   {(moduleForm.content_type === 'video' || moduleForm.content_type === 'mixed') && (
                     <div>
@@ -2151,48 +2381,48 @@ Example:
           <DialogContent className="max-w-md">
             <DialogHeader>
               <DialogTitle className="text-2xl flex items-center gap-2">
-                <RefreshCw className="w-6 h-6 text-orange-600" />
+                <RefreshCw className="w-6 h-6 text-orange-600" /> {/* Changed icon to RefreshCw */}
                 Reset Training Progress?
               </DialogTitle>
             </DialogHeader>
             <div className="space-y-4 mt-4">
-              <Card className="bg-blue-50 border-blue-300 border-2">
+              <Card className="bg-blue-50 border-blue-300 border-2"> {/* Added border-2 */}
                 <CardContent className="p-4">
-                  <p className="text-sm text-blue-900 font-bold mb-2">
+                  <p className="text-sm text-blue-900 font-bold mb-2"> {/* Added font-bold and mb-2 */}
                     ✅ What will be SAVED:
                   </p>
                   <ul className="text-sm text-blue-800 space-y-1">
-                    <li>• <strong>All {certificates.length} certificates</strong> you earned</li>
-                    <li>• Your performance points and XP</li>
+                    <li>• <strong>All {myCertificates.length} certificates</strong> you earned</li> {/* Updated text with count and strong */}
+                    <li>• Your performance points and XP</li> {/* Added XP */}
                     <li>• Your badges and achievements</li>
-                    <li>• Historical completion records</li>
+                    <li>• Historical completion records</li> {/* New item */}
                   </ul>
                 </CardContent>
               </Card>
 
-              <Card className="bg-orange-50 border-orange-300 border-2">
+              <Card className="bg-orange-50 border-orange-300 border-2"> {/* Added border-2 */}
                 <CardContent className="p-4">
-                  <p className="text-sm text-orange-900 font-bold mb-2">
+                  <p className="text-sm text-orange-900 font-bold mb-2"> {/* Added font-bold and mb-2 */}
                     🔄 What will be RESET:
                   </p>
                   <ul className="text-sm text-orange-800 space-y-1">
                     <li>• Module completion status</li>
-                    <li>• Quiz scores (retake for improvement)</li>
+                    <li>• Quiz scores (retake for improvement)</li> {/* Added context */}
                     <li>• Progress percentages</li>
-                    <li>• Reflection notes</li>
+                    <li>• Reflection notes</li> {/* New item */}
                   </ul>
                 </CardContent>
               </Card>
 
-              <Card className="bg-gradient-to-r from-purple-100 to-pink-100 border-purple-300">
+              <Card className="bg-gradient-to-r from-purple-100 to-pink-100 border-purple-300"> {/* Updated card styles */}
                 <CardContent className="p-4 text-center">
-                  <p className="text-sm text-purple-900 font-semibold">
-                    💡 Perfect for refreshing knowledge, improving scores, or retraining!
+                  <p className="text-sm text-purple-900 font-semibold"> {/* Added font-semibold */}
+                    💡 Perfect for refreshing knowledge, improving scores, or retraining! {/* Updated text */}
                   </p>
                 </CardContent>
               </Card>
 
-              <div className="flex justify-end gap-3 pt-4 border-t">
+              <div className="flex justify-end gap-3 pt-4 border-t"> {/* Added border-t and pt-4 */}
                 <Button
                   variant="outline"
                   onClick={() => setShowResetDialog(false)}
@@ -2202,17 +2432,17 @@ Example:
                 <Button
                   onClick={confirmReset}
                   disabled={resetProgressMutation.isPending}
-                  className="bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white shadow-lg"
+                  className="bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white shadow-lg" // Updated colors and added shadow
                 >
                   {resetProgressMutation.isPending ? (
                     <>
-                      <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                      <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> {/* Spinner for pending state */}
                       Resetting...
                     </>
                   ) : (
                     <>
-                      <CheckCircle className="w-4 h-4 mr-2" />
-                      Yes, Reset & Start Fresh
+                      <CheckCircle className="w-4 h-4 mr-2" /> {/* CheckCircle for ready state */}
+                      Yes, Reset & Start Fresh {/* Changed text */}
                     </>
                   )}
                 </Button>
@@ -2221,57 +2451,60 @@ Example:
           </DialogContent>
         </Dialog>
 
-        {/* CREATE POST DIALOG */}
-        <Dialog open={showCreatePost} onOpenChange={setShowCreatePost}>
-          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+        {/* Create Post Dialog */}
+        <Dialog open={showPostForm} onOpenChange={setShowPostForm}>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <Sparkles className="w-6 h-6 text-purple-600" />
-                Create Training Post
+              <DialogTitle className="text-2xl flex items-center gap-2">
+                <Plus className="w-6 h-6 text-emerald-600" />
+                Create Inspiration Post
               </DialogTitle>
             </DialogHeader>
-
-            <div className="space-y-6 mt-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Post Title</label>
+            
+            <form onSubmit={handleCreatePost} className="space-y-6 mt-4">
+              <div>
+                <label className="text-sm font-semibold text-gray-700 mb-2 block">Post Title *</label>
                 <Input
-                  value={newPost.title}
-                  onChange={(e) => setNewPost({ ...newPost, title: e.target.value })}
-                  placeholder="e.g., Food Safety Best Practices"
+                  value={postFormData.title}
+                  onChange={(e) => setPostFormData({ ...postFormData, title: e.target.value })}
+                  placeholder="e.g., 5 Keys to Amazing Customer Service"
+                  required
+                  className="text-lg"
                 />
               </div>
 
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Content</label>
+              <div>
+                <label className="text-sm font-semibold text-gray-700 mb-2 block">Content *</label>
                 <Textarea
-                  value={newPost.content}
-                  onChange={(e) => setNewPost({ ...newPost, content: e.target.value })}
-                  placeholder="Share your training content, tips, or announcement..."
-                  rows={6}
+                  value={postFormData.content}
+                  onChange={(e) => setPostFormData({ ...postFormData, content: e.target.value })}
+                  placeholder="Share knowledge, inspiration, or important information..."
+                  rows={8}
+                  required
                 />
               </div>
 
-              <div className="grid md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Post Type</label>
-                  <Select value={newPost.post_type} onValueChange={(value) => setNewPost({ ...newPost, post_type: value })}>
+              <div className="grid md:grid-cols-3 gap-4">
+                <div>
+                  <label className="text-sm font-semibold text-gray-700 mb-2 block">Post Type</label>
+                  <Select value={postFormData.post_type} onValueChange={(v) => setPostFormData({ ...postFormData, post_type: v })}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="inspiration">💡 Inspiration</SelectItem>
-                      <SelectItem value="training_tip">📚 Training Tip</SelectItem>
+                      <SelectItem value="inspiration">✨ Inspiration</SelectItem>
+                      <SelectItem value="training_tip">💡 Training Tip</SelectItem>
                       <SelectItem value="success_story">🏆 Success Story</SelectItem>
                       <SelectItem value="announcement">📢 Announcement</SelectItem>
-                      <SelectItem value="knowledge_share">🧠 Knowledge Share</SelectItem>
+                      <SelectItem value="knowledge_share">📚 Knowledge Share</SelectItem>
                       <SelectItem value="best_practice">⭐ Best Practice</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
 
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Category</label>
-                  <Select value={newPost.category} onValueChange={(value) => setNewPost({ ...newPost, category: value })}>
+                <div>
+                  <label className="text-sm font-semibold text-gray-700 mb-2 block">Category</label>
+                  <Select value={postFormData.category} onValueChange={(v) => setPostFormData({ ...postFormData, category: v })}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
@@ -2287,20 +2520,36 @@ Example:
                     </SelectContent>
                   </Select>
                 </div>
+
+                <div>
+                  <label className="text-sm font-semibold text-gray-700 mb-2 block">Acknowledgment</label>
+                  <Select 
+                    value={postFormData.requires_acknowledgment.toString()} 
+                    onValueChange={(v) => setPostFormData({ ...postFormData, requires_acknowledgment: v === 'true' })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="true">✅ Required</SelectItem>
+                      <SelectItem value="false">❌ Optional</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
 
-              <div className="space-y-3">
-                <label className="text-sm font-medium">Media (Optional)</label>
-                
-                <div className="flex gap-3">
+              {/* Photo Upload */}
+              <div>
+                <label className="text-sm font-semibold text-gray-700 mb-2 block">Photos (Optional)</label>
+                <div className="flex gap-3 items-center mb-3">
                   <Button
                     type="button"
                     variant="outline"
                     onClick={() => document.getElementById('post-photo-upload').click()}
-                    disabled={uploadingPhoto}
+                    disabled={uploadingMedia}
                   >
-                    <Camera className="w-4 h-4 mr-2" />
-                    {uploadingPhoto ? 'Uploading...' : 'Add Photos'}
+                    <ImageIcon className="w-4 h-4 mr-2" />
+                    {uploadingMedia ? 'Uploading...' : 'Upload Photos'}
                   </Button>
                   <input
                     id="post-photo-upload"
@@ -2310,91 +2559,73 @@ Example:
                     onChange={handlePhotoUpload}
                     className="hidden"
                   />
+                  {postFormData.photo_urls.length > 0 && (
+                    <span className="text-sm text-gray-600">{postFormData.photo_urls.length} photo(s) added</span>
+                  )}
                 </div>
-
-                {newPost.photo_urls.length > 0 && (
-                  <div className="flex gap-2 flex-wrap">
-                    {newPost.photo_urls.map((url, idx) => (
-                      <div key={idx} className="relative">
-                        <img src={url} alt="Upload" className="h-24 w-24 object-cover rounded-lg" />
+                
+                {postFormData.photo_urls.length > 0 && (
+                  <div className="grid grid-cols-3 gap-2">
+                    {postFormData.photo_urls.map((url, idx) => (
+                      <div key={idx} className="relative group">
+                        <img src={url} alt={`Upload ${idx + 1}`} className="w-full h-24 object-cover rounded" />
                         <button
                           type="button"
-                          onClick={() => setNewPost(prev => ({
+                          onClick={() => setPostFormData(prev => ({
                             ...prev,
                             photo_urls: prev.photo_urls.filter((_, i) => i !== idx)
                           }))}
-                          className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center"
+                          className="absolute top-1 right-1 p-1 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
                         >
-                          ×
+                          <X className="w-3 h-3" />
                         </button>
                       </div>
                     ))}
                   </div>
                 )}
+              </div>
 
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Video URL (YouTube, Vimeo, etc.)</label>
+              {/* Video Upload/Link */}
+              <div>
+                <label className="text-sm font-semibold text-gray-700 mb-2 block">Video (Optional)</label>
+                <div className="flex gap-3 items-center mb-3">
                   <Input
-                    value={newPost.video_url}
-                    onChange={(e) => setNewPost({ ...newPost, video_url: e.target.value })}
-                    placeholder="https://youtube.com/watch?v=..."
+                    value={postFormData.video_url}
+                    onChange={(e) => setPostFormData({ ...postFormData, video_url: e.target.value })}
+                    placeholder="YouTube URL or upload video..."
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => document.getElementById('post-video-upload').click()}
+                    disabled={uploadingMedia}
+                  >
+                    <Video className="w-4 h-4 mr-2" />
+                    Upload
+                  </Button>
+                  <input
+                    id="post-video-upload"
+                    type="file"
+                    accept="video/*"
+                    onChange={handleVideoUpload}
+                    className="hidden"
                   />
                 </div>
               </div>
 
-              <div className="flex items-center gap-3">
-                <input
-                  type="checkbox"
-                  id="requires_ack"
-                  checked={newPost.requires_acknowledgment}
-                  onChange={(e) => setNewPost({ ...newPost, requires_acknowledgment: e.target.checked })}
-                  className="w-4 h-4"
-                />
-                <label htmlFor="requires_ack" className="text-sm text-gray-700">
-                  Require staff to acknowledge they've read this post
-                </label>
-              </div>
-
-              <div className="flex items-center gap-3">
-                <input
-                  type="checkbox"
-                  id="is_featured"
-                  checked={newPost.is_featured}
-                  onChange={(e) => setNewPost({ ...newPost, is_featured: e.target.checked })}
-                  className="w-4 h-4"
-                />
-                <label htmlFor="is_featured" className="text-sm text-gray-700">
-                  Feature this post (appears at top with gold banner)
-                </label>
-              </div>
-
-              <div className="flex justify-end gap-3 pt-4">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setShowCreatePost(false)}
-                >
+              <div className="flex justify-end gap-3 pt-4 border-t">
+                <Button type="button" variant="outline" onClick={() => { setShowPostForm(false); resetPostForm();}}>
                   Cancel
                 </Button>
                 <Button
-                  onClick={handleCreatePost}
-                  disabled={creatingPost || !newPost.title || !newPost.content}
-                  className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
+                  type="submit"
+                  disabled={createPostMutation.isPending || uploadingMedia}
+                  className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700"
                 >
-                  {creatingPost ? (
-                    <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Publishing...
-                    </>
-                  ) : (
-                    <>
-                      <Send className="w-4 h-4 mr-2" />
-                      Publish Post
-                    </>
-                  )}
+                  {createPostMutation.isPending ? 'Creating...' : 'Create Post'}
                 </Button>
               </div>
-            </div>
+            </form>
           </DialogContent>
         </Dialog>
 
@@ -2452,8 +2683,13 @@ Example:
   );
 }
 
-function ModuleCard({ module, progress, isUnlocked, isCompleted, onStart, index, isManager }) {
-  // isManager is passed as a prop, removed local user query
+function ModuleCard({ module, progress, isUnlocked, isCompleted, onStart, index }) {
+  const { data: user } = useQuery({
+    queryKey: ['currentUser'],
+    queryFn: () => base44.auth.me(),
+  });
+  const isManager = user?.role === 'admin' || user?.position === 'manager' || user?.position === 'owner';
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -2461,9 +2697,9 @@ function ModuleCard({ module, progress, isUnlocked, isCompleted, onStart, index,
       transition={{ delay: index * 0.1 }}
     >
       <Card className={`${
-        isCompleted ? 'border-green-500 border-2 bg-gradient-to-br from-green-50 to-emerald-50' :
-        !isUnlocked ? 'border-gray-300 bg-gray-50/50 opacity-75' :
-        'bg-white border-2 border-blue-200'
+        isCompleted ? 'border-green-500 border-2 bg-gradient-to-br from-green-50 to-emerald-50' : // Updated styles for completed
+        !isUnlocked ? 'border-gray-300 bg-gray-50/50 opacity-75' : // Updated styles for unlocked
+        'bg-white border-2 border-blue-200' // Updated border-2
       } hover:shadow-xl transition-all relative`}>
         
         {isManager && (
@@ -2484,8 +2720,8 @@ function ModuleCard({ module, progress, isUnlocked, isCompleted, onStart, index,
           <div className="flex items-start gap-4">
             <div className={`w-14 h-14 rounded-xl flex items-center justify-center flex-shrink-0 shadow-lg ${
               isCompleted ? 'bg-gradient-to-br from-green-500 to-green-600' :
-              !isUnlocked ? 'bg-gray-400' :
-              'bg-gradient-to-br from-[#014D40] to-emerald-600'
+              !isUnlocked ? 'bg-gray-400' : // Updated background color for locked
+              'bg-gradient-to-br from-[#014D40] to-emerald-600' // Updated background color
             }`}>
               {isCompleted ? (
                 <CheckCircle className="w-7 h-7 text-white" />
@@ -2512,7 +2748,7 @@ function ModuleCard({ module, progress, isUnlocked, isCompleted, onStart, index,
                     {module.content_type.replace('_', ' ')}
                   </Badge>
                 )}
-                {module.is_mandatory && (
+                {module.is_mandatory && ( // New mandatory badge
                   <Badge className="bg-red-100 text-red-800 text-xs">
                     Mandatory
                   </Badge>
@@ -2527,7 +2763,7 @@ function ModuleCard({ module, progress, isUnlocked, isCompleted, onStart, index,
               {isUnlocked && !isCompleted && (
                 <Button
                   onClick={onStart}
-                  className="w-full bg-gradient-to-r from-[#014D40] to-emerald-600 hover:from-[#013830] hover:to-emerald-700 shadow-md"
+                  className="w-full bg-gradient-to-r from-[#014D40] to-emerald-600 hover:from-[#013830] hover:to-emerald-700 shadow-md" // Updated colors and added shadow
                 >
                   <Play className="w-4 h-4 mr-2" />
                   {progress?.status === 'in_progress' ? 'Continue Learning' : 'Start Module'}
@@ -2535,14 +2771,14 @@ function ModuleCard({ module, progress, isUnlocked, isCompleted, onStart, index,
               )}
 
               {isCompleted && progress?.completed_at && (
-                <div className="flex items-center gap-2 text-sm text-green-700 bg-green-50 px-3 py-2 rounded-lg font-medium border border-green-200">
+                <div className="flex items-center gap-2 text-sm text-green-700 bg-green-50 px-3 py-2 rounded-lg font-medium border border-green-200"> {/* Added border */}
                   <CheckCircle className="w-4 h-4" />
                   Completed {format(new Date(progress.completed_at), 'MMM d, yyyy')}
                 </div>
               )}
 
               {!isUnlocked && (
-                <div className="flex items-center gap-2 text-sm text-gray-500 bg-gray-100 px-3 py-2 rounded-lg border border-gray-200">
+                <div className="flex items-center gap-2 text-sm text-gray-500 bg-gray-100 px-3 py-2 rounded-lg border border-gray-200"> {/* Added border */}
                   <Lock className="w-4 h-4" />
                   Complete prerequisites to unlock
                 </div>
