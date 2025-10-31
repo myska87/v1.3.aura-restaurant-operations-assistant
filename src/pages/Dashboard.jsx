@@ -179,7 +179,7 @@ export default function Dashboard() {
                   AI Tools & Automation
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3"> {/* Adjusted grid for smaller screens */}
-                  <Link to={createPageUrl('AIScheduler')}>
+                  <Link to={createPageUrl('AIRotaGenerator')}>
                     <Button className="w-full bg-white/20 hover:bg-white/30 text-white border-white/30">
                       <Calendar className="w-4 h-4 mr-2" />
                       AI Scheduler
