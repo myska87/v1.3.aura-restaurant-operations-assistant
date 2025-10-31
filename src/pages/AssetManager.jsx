@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import {
   Select,
@@ -23,56 +24,57 @@ import {
   Package,
   Plus,
   Search,
+  Camera,
   Wrench,
   AlertTriangle,
   CheckCircle,
-  Calendar,
-  MapPin,
-  Upload,
-  FileText,
-  Download,
   Clock,
+  MapPin,
+  Calendar,
+  Edit,
+  Trash2,
+  FileText,
   TrendingUp,
-  Sparkles,
 } from 'lucide-react';
-import { format, differenceInDays } from 'date-fns';
-import AccessGuard from '../components/AccessGuard';
-
-const CATEGORY_ICONS = {
-  kitchen_equipment: { icon: Package, color: 'text-blue-600', bg: 'bg-blue-100' },
-  refrigeration: { icon: Package, color: 'text-cyan-600', bg: 'bg-cyan-100' },
-  hvac: { icon: Package, color: 'text-purple-600', bg: 'bg-purple-100' },
-  furniture: { icon: Package, color: 'text-amber-600', bg: 'bg-amber-100' },
-  technology: { icon: Package, color: 'text-indigo-600', bg: 'bg-indigo-100' },
-  cleaning_equipment: { icon: Package, color: 'text-green-600', bg: 'bg-green-100' },
-  bar_equipment: { icon: Package, color: 'text-pink-600', bg: 'bg-pink-100' },
-  safety_equipment: { icon: Package, color: 'text-red-600', bg: 'bg-red-100' },
-  other: { icon: Package, color: 'text-gray-600', bg: 'bg-gray-100' },
-};
+import { format, addDays, differenceInDays } from 'date-fns';
 
 export default function AssetManager() {
   const queryClient = useQueryClient();
+  const [showForm, setShowForm] = useState(false);
+  const [editingAsset, setEditingAsset] = useState(null);
+  const [showMaintenanceLog, setShowMaintenanceLog] = useState(null);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterLocation, setFilterLocation] = useState('all');
-  const [filterCategory, setFilterCategory] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
-  const [showAddAsset, setShowAddAsset] = useState(false);
-  const [selectedAsset, setSelectedAsset] = useState(null);
-  const [showMaintenanceLog, setShowMaintenanceLog] = useState(false);
-  const [uploadingPhoto, setUploadingPhoto] = useState(false);
-  const [newAsset, setNewAsset] = useState({
+  
+  const [formData, setFormData] = useState({
     name: '',
     category: 'kitchen_equipment',
+    photo_url: '',
     location: '',
     serial_number: '',
     purchase_date: '',
-    service_due_date: '',
-    condition: 'good',
-    status: 'active',
+    purchase_cost: '',
     supplier_name: '',
     supplier_contact: '',
+    warranty_expiry: '',
+    last_service_date: '',
+    next_service_date: '',
+    service_frequency_days: 90,
+    condition: 'good',
+    status: 'active',
+    assigned_to_email: '',
+    assigned_to_name: '',
     notes: '',
-    photo_url: '',
+    is_critical: false,
+    maintenance_logs: [],
+  });
+
+  const [maintenanceEntry, setMaintenanceEntry] = useState({
+    actions_taken: '',
+    cost: '',
+    next_due: '',
   });
 
   const { data: user } = useQuery({
@@ -85,25 +87,17 @@ export default function AssetManager() {
     queryFn: () => base44.entities.AssetItem.list('-created_date'),
   });
 
+  const { data: staff = [] } = useQuery({
+    queryKey: ['staff'],
+    queryFn: () => base44.entities.User.list(),
+  });
+
   const createAssetMutation = useMutation({
     mutationFn: (data) => base44.entities.AssetItem.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['assets'] });
-      setShowAddAsset(false);
-      setNewAsset({
-        name: '',
-        category: 'kitchen_equipment',
-        location: '',
-        serial_number: '',
-        purchase_date: '',
-        service_due_date: '',
-        condition: 'good',
-        status: 'active',
-        supplier_name: '',
-        supplier_contact: '',
-        notes: '',
-        photo_url: '',
-      });
+      resetForm();
+      alert('✅ Asset created successfully!');
     },
   });
 
@@ -111,9 +105,55 @@ export default function AssetManager() {
     mutationFn: ({ id, data }) => base44.entities.AssetItem.update(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['assets'] });
-      setSelectedAsset(null);
+      resetForm();
+      alert('✅ Asset updated successfully!');
     },
   });
+
+  const deleteAssetMutation = useMutation({
+    mutationFn: (id) => base44.entities.AssetItem.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['assets'] });
+      alert('✅ Asset deleted successfully!');
+    },
+  });
+
+  const resetForm = () => {
+    setShowForm(false);
+    setEditingAsset(null);
+    setFormData({
+      name: '',
+      category: 'kitchen_equipment',
+      photo_url: '',
+      location: '',
+      serial_number: '',
+      purchase_date: '',
+      purchase_cost: '',
+      supplier_name: '',
+      supplier_contact: '',
+      warranty_expiry: '',
+      last_service_date: '',
+      next_service_date: '',
+      service_frequency_days: 90,
+      condition: 'good',
+      status: 'active',
+      assigned_to_email: '',
+      assigned_to_name: '',
+      notes: '',
+      is_critical: false,
+      maintenance_logs: [],
+    });
+  };
+
+  const handleEdit = (asset) => {
+    setEditingAsset(asset);
+    setFormData({
+      ...asset,
+      purchase_cost: asset.purchase_cost?.toString() || '',
+      service_frequency_days: asset.service_frequency_days || 90,
+    });
+    setShowForm(true);
+  };
 
   const handlePhotoUpload = async (e) => {
     const file = e.target.files?.[0];
@@ -122,745 +162,630 @@ export default function AssetManager() {
     setUploadingPhoto(true);
     try {
       const { file_url } = await base44.integrations.Core.UploadFile({ file });
-      setNewAsset(prev => ({ ...prev, photo_url: file_url }));
+      setFormData(prev => ({ ...prev, photo_url: file_url }));
     } catch (error) {
+      console.error('Photo upload failed:', error);
       alert('Failed to upload photo');
     }
     setUploadingPhoto(false);
   };
 
-  const handleCreateAsset = () => {
-    if (!newAsset.name || !newAsset.location) {
-      alert('Please fill in asset name and location');
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+
+    const data = {
+      ...formData,
+      purchase_cost: formData.purchase_cost ? parseFloat(formData.purchase_cost) : null,
+      service_frequency_days: parseInt(formData.service_frequency_days),
+    };
+
+    if (editingAsset) {
+      await updateAssetMutation.mutateAsync({ id: editingAsset.id, data });
+    } else {
+      await createAssetMutation.mutateAsync(data);
+    }
+  };
+
+  const handleAddMaintenance = async (asset) => {
+    if (!maintenanceEntry.actions_taken) {
+      alert('Please describe the maintenance actions taken');
       return;
     }
 
-    createAssetMutation.mutate({
-      ...newAsset,
-      assigned_to: user?.email,
-      assigned_to_name: user?.full_name,
-      maintenance_logs: [],
-    });
-  };
+    const newLog = {
+      date: new Date().toISOString(),
+      performed_by: user?.full_name,
+      actions_taken: maintenanceEntry.actions_taken,
+      cost: maintenanceEntry.cost ? parseFloat(maintenanceEntry.cost) : 0,
+      next_due: maintenanceEntry.next_due || null,
+      attachments: [],
+    };
 
-  const handleAddMaintenanceLog = async (asset, logEntry) => {
-    const updatedLogs = [...(asset.maintenance_logs || []), logEntry];
-    
+    const updatedLogs = [...(asset.maintenance_logs || []), newLog];
+
     await updateAssetMutation.mutateAsync({
       id: asset.id,
       data: {
         maintenance_logs: updatedLogs,
-        last_service_date: logEntry.date,
-        service_due_date: logEntry.next_due,
+        last_service_date: format(new Date(), 'yyyy-MM-dd'),
+        next_service_date: maintenanceEntry.next_due || null,
+        status: 'active',
       }
     });
 
-    setShowMaintenanceLog(false);
+    setShowMaintenanceLog(null);
+    setMaintenanceEntry({ actions_taken: '', cost: '', next_due: '' });
   };
 
-  // Filter assets
+  // Filters
   const filteredAssets = assets.filter(asset => {
     const matchesSearch = !searchQuery ||
       asset.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       asset.location?.toLowerCase().includes(searchQuery.toLowerCase());
     
     const matchesLocation = filterLocation === 'all' || asset.location === filterLocation;
-    const matchesCategory = filterCategory === 'all' || asset.category === filterCategory;
     const matchesStatus = filterStatus === 'all' || asset.status === filterStatus;
     
-    return matchesSearch && matchesLocation && matchesCategory && matchesStatus;
+    return matchesSearch && matchesLocation && matchesStatus;
   });
 
-  // Stats
   const totalAssets = assets.length;
   const underMaintenance = assets.filter(a => a.status === 'under_maintenance').length;
-  const upcomingServices = assets.filter(a => {
-    if (!a.service_due_date) return false;
-    const daysUntil = differenceInDays(new Date(a.service_due_date), new Date());
-    return daysUntil > 0 && daysUntil <= 30;
-  }).length;
-  const overdueServices = assets.filter(a => {
-    if (!a.service_due_date) return false;
-    return new Date(a.service_due_date) < new Date();
+  const serviceDueSoon = assets.filter(a => {
+    if (!a.next_service_date) return false;
+    const daysUntil = differenceInDays(new Date(a.next_service_date), new Date());
+    return daysUntil >= 0 && daysUntil <= 30;
   }).length;
 
-  const uniqueLocations = [...new Set(assets.map(a => a.location).filter(Boolean))];
+  const locations = [...new Set(assets.map(a => a.location).filter(Boolean))];
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'active': return 'bg-green-100 text-green-800 border-green-300';
+      case 'under_maintenance': return 'bg-orange-100 text-orange-800 border-orange-300';
+      case 'out_of_service': return 'bg-red-100 text-red-800 border-red-300';
+      case 'retired': return 'bg-gray-100 text-gray-800 border-gray-300';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const getConditionColor = (condition) => {
+    switch (condition) {
+      case 'excellent': return 'text-green-700';
+      case 'good': return 'text-blue-700';
+      case 'fair': return 'text-yellow-700';
+      case 'poor': return 'text-orange-700';
+      case 'needs_repair': return 'text-red-700';
+      default: return 'text-gray-700';
+    }
+  };
 
   return (
-    <AccessGuard allowedRoles={['admin']} allowedPositions={['owner', 'manager']}>
-      <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-teal-50 to-green-50 p-6 md:p-8">
-        <div className="max-w-7xl mx-auto">
-          
-          {/* Header */}
-          <div className="mb-8">
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center gap-4">
-                <div className="w-16 h-16 bg-gradient-to-br from-[#004C3F] to-emerald-600 rounded-2xl flex items-center justify-center shadow-xl">
-                  <Package className="w-9 h-9 text-white" />
-                </div>
-                <div>
-                  <h1 className="text-4xl font-bold text-gray-900">Asset Manager</h1>
-                  <p className="text-gray-600 text-lg">Track, maintain, and manage all physical assets</p>
-                </div>
-              </div>
-
-              <Button
-                onClick={() => setShowAddAsset(true)}
-                className="bg-gradient-to-r from-[#004C3F] to-emerald-600 hover:from-[#003830] hover:to-emerald-700"
-              >
-                <Plus className="w-5 h-5 mr-2" />
-                Add Asset
-              </Button>
-            </div>
-
-            {/* KPI Cards */}
-            <div className="grid md:grid-cols-4 gap-4">
-              <Card className="bg-gradient-to-br from-emerald-500 to-green-600 text-white border-none shadow-lg">
-                <CardContent className="p-6">
-                  <Package className="w-10 h-10 mb-3 opacity-90" />
-                  <p className="text-3xl font-bold">{totalAssets}</p>
-                  <p className="text-sm opacity-90">Total Assets</p>
-                </CardContent>
-              </Card>
-
-              <Card className="bg-gradient-to-br from-amber-500 to-orange-600 text-white border-none shadow-lg">
-                <CardContent className="p-6">
-                  <Wrench className="w-10 h-10 mb-3 opacity-90" />
-                  <p className="text-3xl font-bold">{underMaintenance}</p>
-                  <p className="text-sm opacity-90">Under Maintenance</p>
-                </CardContent>
-              </Card>
-
-              <Card className="bg-gradient-to-br from-blue-500 to-indigo-600 text-white border-none shadow-lg">
-                <CardContent className="p-6">
-                  <Calendar className="w-10 h-10 mb-3 opacity-90" />
-                  <p className="text-3xl font-bold">{upcomingServices}</p>
-                  <p className="text-sm opacity-90">Services Due (30 days)</p>
-                </CardContent>
-              </Card>
-
-              <Card className="bg-gradient-to-br from-red-500 to-pink-600 text-white border-none shadow-lg">
-                <CardContent className="p-6">
-                  <AlertTriangle className="w-10 h-10 mb-3 opacity-90" />
-                  <p className="text-3xl font-bold">{overdueServices}</p>
-                  <p className="text-sm opacity-90">Overdue Services</p>
-                </CardContent>
-              </Card>
-            </div>
+    <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-teal-50 to-green-50 p-6 md:p-8">
+      <div className="max-w-7xl mx-auto">
+        
+        {/* Header */}
+        <div className="flex justify-between items-center mb-8">
+          <div>
+            <h1 className="text-4xl font-bold text-gray-900 mb-2">Asset Manager</h1>
+            <p className="text-gray-600">Track equipment, maintenance, and service schedules</p>
           </div>
+          <Button
+            onClick={() => setShowForm(true)}
+            className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Add Asset
+          </Button>
+        </div>
 
-          {/* Filters */}
-          <Card className="bg-white shadow-md mb-6">
-            <CardContent className="p-4">
-              <div className="grid md:grid-cols-4 gap-4">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                  <Input
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Search assets..."
-                    className="pl-10"
-                  />
-                </div>
-
-                <Select value={filterLocation} onValueChange={setFilterLocation}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="All Locations" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Locations</SelectItem>
-                    {uniqueLocations.map(loc => (
-                      <SelectItem key={loc} value={loc}>{loc}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-
-                <Select value={filterCategory} onValueChange={setFilterCategory}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="All Categories" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Categories</SelectItem>
-                    <SelectItem value="kitchen_equipment">Kitchen Equipment</SelectItem>
-                    <SelectItem value="refrigeration">Refrigeration</SelectItem>
-                    <SelectItem value="hvac">HVAC</SelectItem>
-                    <SelectItem value="furniture">Furniture</SelectItem>
-                    <SelectItem value="technology">Technology</SelectItem>
-                    <SelectItem value="cleaning_equipment">Cleaning Equipment</SelectItem>
-                    <SelectItem value="bar_equipment">Bar Equipment</SelectItem>
-                    <SelectItem value="safety_equipment">Safety Equipment</SelectItem>
-                  </SelectContent>
-                </Select>
-
-                <Select value={filterStatus} onValueChange={setFilterStatus}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="All Status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Status</SelectItem>
-                    <SelectItem value="active">Active</SelectItem>
-                    <SelectItem value="under_maintenance">Under Maintenance</SelectItem>
-                    <SelectItem value="retired">Retired</SelectItem>
-                    <SelectItem value="broken">Broken</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+        {/* KPI Cards */}
+        <div className="grid md:grid-cols-3 gap-6 mb-8">
+          <Card className="bg-gradient-to-br from-emerald-500 to-emerald-600 text-white border-none shadow-lg">
+            <CardContent className="p-6">
+              <Package className="w-10 h-10 mb-3 opacity-90" />
+              <p className="text-3xl font-bold mb-1">{totalAssets}</p>
+              <p className="text-sm opacity-90">Total Assets</p>
             </CardContent>
           </Card>
 
-          {/* Assets Grid */}
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredAssets.map((asset) => {
-              const daysUntilService = asset.service_due_date 
-                ? differenceInDays(new Date(asset.service_due_date), new Date())
+          <Card className="bg-gradient-to-br from-orange-500 to-orange-600 text-white border-none shadow-lg">
+            <CardContent className="p-6">
+              <Wrench className="w-10 h-10 mb-3 opacity-90" />
+              <p className="text-3xl font-bold mb-1">{underMaintenance}</p>
+              <p className="text-sm opacity-90">Under Maintenance</p>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-gradient-to-br from-amber-500 to-amber-600 text-white border-none shadow-lg">
+            <CardContent className="p-6">
+              <Clock className="w-10 h-10 mb-3 opacity-90" />
+              <p className="text-3xl font-bold mb-1">{serviceDueSoon}</p>
+              <p className="text-sm opacity-90">Service Due (30 days)</p>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Filters */}
+        <Card className="bg-white shadow-md mb-6">
+          <CardContent className="p-4">
+            <div className="grid md:grid-cols-3 gap-4">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <Input
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search assets..."
+                  className="pl-10"
+                />
+              </div>
+
+              <Select value={filterLocation} onValueChange={setFilterLocation}>
+                <SelectTrigger>
+                  <SelectValue placeholder="All Locations" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Locations</SelectItem>
+                  {locations.map(loc => (
+                    <SelectItem key={loc} value={loc}>{loc}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <Select value={filterStatus} onValueChange={setFilterStatus}>
+                <SelectTrigger>
+                  <SelectValue placeholder="All Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Status</SelectItem>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="under_maintenance">Under Maintenance</SelectItem>
+                  <SelectItem value="out_of_service">Out of Service</SelectItem>
+                  <SelectItem value="retired">Retired</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Assets Grid */}
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {filteredAssets.length === 0 ? (
+            <div className="col-span-full text-center py-12">
+              <Package className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+              <p className="text-gray-600 font-medium">No assets found</p>
+              <Button onClick={() => setShowForm(true)} className="mt-4">
+                <Plus className="w-4 h-4 mr-2" />
+                Add Your First Asset
+              </Button>
+            </div>
+          ) : (
+            filteredAssets.map((asset) => {
+              const daysUntilService = asset.next_service_date
+                ? differenceInDays(new Date(asset.next_service_date), new Date())
                 : null;
               
+              const isServiceDue = daysUntilService !== null && daysUntilService <= 7;
               const isOverdue = daysUntilService !== null && daysUntilService < 0;
-              const isDueSoon = daysUntilService !== null && daysUntilService >= 0 && daysUntilService <= 7;
-
-              const statusColors = {
-                active: 'bg-green-100 text-green-800 border-green-300',
-                under_maintenance: 'bg-orange-100 text-orange-800 border-orange-300',
-                retired: 'bg-gray-100 text-gray-800 border-gray-300',
-                broken: 'bg-red-100 text-red-800 border-red-300',
-              };
-
-              const conditionColors = {
-                excellent: 'bg-green-100 text-green-800',
-                good: 'bg-blue-100 text-blue-800',
-                fair: 'bg-yellow-100 text-yellow-800',
-                poor: 'bg-orange-100 text-orange-800',
-                needs_replacement: 'bg-red-100 text-red-800',
-              };
 
               return (
-                <Card
-                  key={asset.id}
-                  className="bg-white border-2 border-gray-200 hover:border-[#004C3F] hover:shadow-2xl transition-all duration-300 cursor-pointer"
-                  onClick={() => setSelectedAsset(asset)}
-                >
+                <Card key={asset.id} className="bg-white border-2 border-gray-200 hover:shadow-xl transition-all">
                   {asset.photo_url && (
-                    <div className="h-48 w-full overflow-hidden rounded-t-xl">
+                    <div className="h-48 overflow-hidden rounded-t-lg">
                       <img
                         src={asset.photo_url}
                         alt={asset.name}
-                        className="w-full h-full object-cover hover:scale-110 transition-transform duration-300"
+                        className="w-full h-full object-cover"
                       />
                     </div>
                   )}
                   
-                  <CardContent className="p-5">
+                  <CardContent className="p-6">
                     <div className="flex items-start justify-between mb-3">
                       <div>
-                        <h3 className="text-lg font-bold text-gray-900 mb-1">{asset.name}</h3>
-                        <div className="flex items-center gap-2 text-sm text-gray-600">
-                          <MapPin className="w-4 h-4" />
-                          <span>{asset.location}</span>
-                        </div>
+                        <h3 className="text-lg font-bold text-gray-900">{asset.name}</h3>
+                        <p className="text-sm text-gray-600 capitalize">{asset.category.replace('_', ' ')}</p>
                       </div>
-                      <Badge className={statusColors[asset.status]} variant="outline">
+                      {asset.is_critical && (
+                        <Badge className="bg-red-100 text-red-800">
+                          <AlertTriangle className="w-3 h-3 mr-1" />
+                          Critical
+                        </Badge>
+                      )}
+                    </div>
+
+                    <div className="space-y-2 mb-4 text-sm">
+                      <div className="flex items-center gap-2 text-gray-700">
+                        <MapPin className="w-4 h-4" />
+                        {asset.location}
+                      </div>
+                      {asset.assigned_to_name && (
+                        <div className="flex items-center gap-2 text-gray-700">
+                          <Package className="w-4 h-4" />
+                          {asset.assigned_to_name}
+                        </div>
+                      )}
+                      {asset.next_service_date && (
+                        <div className={`flex items-center gap-2 ${isOverdue ? 'text-red-700 font-semibold' : isServiceDue ? 'text-orange-700' : 'text-gray-700'}`}>
+                          <Calendar className="w-4 h-4" />
+                          Service: {format(new Date(asset.next_service_date), 'MMM d, yyyy')}
+                          {isOverdue && ' (OVERDUE)'}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex gap-2 mb-4">
+                      <Badge className={getStatusColor(asset.status)}>
                         {asset.status.replace('_', ' ')}
                       </Badge>
-                    </div>
-
-                    <div className="space-y-2 mb-4">
-                      <Badge className={conditionColors[asset.condition]}>
+                      <Badge variant="outline" className={getConditionColor(asset.condition)}>
                         {asset.condition}
                       </Badge>
-                      <Badge variant="outline" className="ml-2 capitalize">
-                        {asset.category.replace('_', ' ')}
-                      </Badge>
                     </div>
 
-                    {asset.service_due_date && (
-                      <div className={`flex items-center gap-2 text-sm p-3 rounded-lg ${
-                        isOverdue ? 'bg-red-50 text-red-800' :
-                        isDueSoon ? 'bg-amber-50 text-amber-800' :
-                        'bg-green-50 text-green-800'
-                      }`}>
-                        <Calendar className="w-4 h-4" />
-                        <div>
-                          <p className="font-semibold">
-                            {isOverdue ? `⚠️ Overdue ${Math.abs(daysUntilService)} days` :
-                             isDueSoon ? `Due in ${daysUntilService} days` :
-                             `Service due ${format(new Date(asset.service_due_date), 'MMM d')}`}
-                          </p>
-                        </div>
-                      </div>
-                    )}
-
-                    <div className="flex gap-2 mt-4">
+                    <div className="flex gap-2">
                       <Button
-                        size="sm"
+                        onClick={() => setShowMaintenanceLog(asset)}
                         variant="outline"
+                        size="sm"
                         className="flex-1"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setSelectedAsset(asset);
-                        }}
                       >
-                        <FileText className="w-4 h-4 mr-2" />
-                        Details
+                        <Wrench className="w-4 h-4 mr-1" />
+                        Maintenance ({asset.maintenance_logs?.length || 0})
                       </Button>
                       <Button
-                        size="sm"
-                        className="flex-1 bg-[#004C3F] hover:bg-[#003830]"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setSelectedAsset(asset);
-                          setShowMaintenanceLog(true);
-                        }}
+                        onClick={() => handleEdit(asset)}
+                        variant="ghost"
+                        size="icon"
                       >
-                        <Wrench className="w-4 h-4 mr-2" />
-                        Service Log
+                        <Edit className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        onClick={() => {
+                          if (confirm(`Delete ${asset.name}?`)) {
+                            deleteAssetMutation.mutate(asset.id);
+                          }
+                        }}
+                        variant="ghost"
+                        size="icon"
+                      >
+                        <Trash2 className="w-4 h-4 text-red-500" />
                       </Button>
                     </div>
                   </CardContent>
                 </Card>
               );
-            })}
-
-            {filteredAssets.length === 0 && (
-              <div className="col-span-full text-center py-16">
-                <Package className="w-20 h-20 text-gray-300 mx-auto mb-4" />
-                <p className="text-gray-600 font-medium text-lg">No assets found</p>
-                <p className="text-sm text-gray-500 mt-2">
-                  {assets.length === 0 ? 'Start by adding your first asset' : 'Try adjusting your filters'}
-                </p>
-              </div>
-            )}
-          </div>
+            })
+          )}
         </div>
+      </div>
 
-        {/* Add Asset Dialog */}
-        <Dialog open={showAddAsset} onOpenChange={setShowAddAsset}>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <Plus className="w-6 h-6 text-emerald-600" />
-                Add New Asset
-              </DialogTitle>
-            </DialogHeader>
+      {/* Add/Edit Asset Dialog */}
+      <Dialog open={showForm} onOpenChange={(open) => !open && resetForm()}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{editingAsset ? 'Edit Asset' : 'Add New Asset'}</DialogTitle>
+          </DialogHeader>
 
-            <div className="space-y-4 mt-4">
-              <div className="grid md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Asset Name *</label>
-                  <Input
-                    value={newAsset.name}
-                    onChange={(e) => setNewAsset({ ...newAsset, name: e.target.value })}
-                    placeholder="e.g., Commercial Oven #1"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Location *</label>
-                  <Input
-                    value={newAsset.location}
-                    onChange={(e) => setNewAsset({ ...newAsset, location: e.target.value })}
-                    placeholder="e.g., Main Kitchen"
-                  />
-                </div>
-              </div>
-
-              <div className="grid md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Category</label>
-                  <Select value={newAsset.category} onValueChange={(value) => setNewAsset({ ...newAsset, category: value })}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="kitchen_equipment">Kitchen Equipment</SelectItem>
-                      <SelectItem value="refrigeration">Refrigeration</SelectItem>
-                      <SelectItem value="hvac">HVAC</SelectItem>
-                      <SelectItem value="furniture">Furniture</SelectItem>
-                      <SelectItem value="technology">Technology</SelectItem>
-                      <SelectItem value="cleaning_equipment">Cleaning Equipment</SelectItem>
-                      <SelectItem value="bar_equipment">Bar Equipment</SelectItem>
-                      <SelectItem value="safety_equipment">Safety Equipment</SelectItem>
-                      <SelectItem value="other">Other</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Serial Number</label>
-                  <Input
-                    value={newAsset.serial_number}
-                    onChange={(e) => setNewAsset({ ...newAsset, serial_number: e.target.value })}
-                    placeholder="e.g., SN-12345"
-                  />
-                </div>
-              </div>
-
-              <div className="grid md:grid-cols-3 gap-4">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Purchase Date</label>
-                  <Input
-                    type="date"
-                    value={newAsset.purchase_date}
-                    onChange={(e) => setNewAsset({ ...newAsset, purchase_date: e.target.value })}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Condition</label>
-                  <Select value={newAsset.condition} onValueChange={(value) => setNewAsset({ ...newAsset, condition: value })}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="excellent">Excellent</SelectItem>
-                      <SelectItem value="good">Good</SelectItem>
-                      <SelectItem value="fair">Fair</SelectItem>
-                      <SelectItem value="poor">Poor</SelectItem>
-                      <SelectItem value="needs_replacement">Needs Replacement</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Status</label>
-                  <Select value={newAsset.status} onValueChange={(value) => setNewAsset({ ...newAsset, status: value })}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="active">Active</SelectItem>
-                      <SelectItem value="under_maintenance">Under Maintenance</SelectItem>
-                      <SelectItem value="retired">Retired</SelectItem>
-                      <SelectItem value="broken">Broken</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              <div className="grid md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Supplier Name</label>
-                  <Input
-                    value={newAsset.supplier_name}
-                    onChange={(e) => setNewAsset({ ...newAsset, supplier_name: e.target.value })}
-                    placeholder="e.g., KitchenPro Ltd"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Supplier Contact</label>
-                  <Input
-                    value={newAsset.supplier_contact}
-                    onChange={(e) => setNewAsset({ ...newAsset, supplier_contact: e.target.value })}
-                    placeholder="Phone or email"
-                  />
-                </div>
+          <form onSubmit={handleSubmit} className="space-y-6 mt-4">
+            <div className="grid md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Asset Name *</Label>
+                <Input
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  placeholder="e.g., Commercial Oven #1"
+                  required
+                />
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm font-medium">Service Due Date</label>
+                <Label>Category *</Label>
+                <Select value={formData.category} onValueChange={(value) => setFormData({ ...formData, category: value })}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="kitchen_equipment">Kitchen Equipment</SelectItem>
+                    <SelectItem value="refrigeration">Refrigeration</SelectItem>
+                    <SelectItem value="furniture">Furniture</SelectItem>
+                    <SelectItem value="technology">Technology</SelectItem>
+                    <SelectItem value="safety_equipment">Safety Equipment</SelectItem>
+                    <SelectItem value="cleaning_equipment">Cleaning Equipment</SelectItem>
+                    <SelectItem value="vehicles">Vehicles</SelectItem>
+                    <SelectItem value="other">Other</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Location *</Label>
+                <Input
+                  value={formData.location}
+                  onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                  placeholder="e.g., Main Kitchen, Bar Area"
+                  required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Serial Number</Label>
+                <Input
+                  value={formData.serial_number}
+                  onChange={(e) => setFormData({ ...formData, serial_number: e.target.value })}
+                  placeholder="Model/Serial number"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Purchase Date</Label>
                 <Input
                   type="date"
-                  value={newAsset.service_due_date}
-                  onChange={(e) => setNewAsset({ ...newAsset, service_due_date: e.target.value })}
+                  value={formData.purchase_date}
+                  onChange={(e) => setFormData({ ...formData, purchase_date: e.target.value })}
                 />
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm font-medium">Asset Photo</label>
-                <div className="flex gap-3">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => document.getElementById('asset-photo-upload').click()}
-                    disabled={uploadingPhoto}
-                  >
-                    <Upload className="w-4 h-4 mr-2" />
-                    {uploadingPhoto ? 'Uploading...' : 'Upload Photo'}
-                  </Button>
-                  <input
-                    id="asset-photo-upload"
-                    type="file"
-                    accept="image/*"
-                    onChange={handlePhotoUpload}
-                    className="hidden"
-                  />
-                </div>
-                {newAsset.photo_url && (
-                  <img src={newAsset.photo_url} alt="Preview" className="h-32 w-32 object-cover rounded-lg border mt-2" />
-                )}
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Notes</label>
-                <Textarea
-                  value={newAsset.notes}
-                  onChange={(e) => setNewAsset({ ...newAsset, notes: e.target.value })}
-                  placeholder="Additional information..."
-                  rows={3}
+                <Label>Purchase Cost (£)</Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  value={formData.purchase_cost}
+                  onChange={(e) => setFormData({ ...formData, purchase_cost: e.target.value })}
+                  placeholder="0.00"
                 />
               </div>
 
-              <div className="flex justify-end gap-3 pt-4 border-t">
-                <Button variant="outline" onClick={() => setShowAddAsset(false)}>
-                  Cancel
-                </Button>
-                <Button
-                  onClick={handleCreateAsset}
-                  disabled={createAssetMutation.isPending}
-                  className="bg-gradient-to-r from-[#004C3F] to-emerald-600"
-                >
-                  {createAssetMutation.isPending ? 'Creating...' : 'Create Asset'}
-                </Button>
+              <div className="space-y-2">
+                <Label>Supplier Name</Label>
+                <Input
+                  value={formData.supplier_name}
+                  onChange={(e) => setFormData({ ...formData, supplier_name: e.target.value })}
+                  placeholder="Supplier or manufacturer"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Supplier Contact</Label>
+                <Input
+                  value={formData.supplier_contact}
+                  onChange={(e) => setFormData({ ...formData, supplier_contact: e.target.value })}
+                  placeholder="Phone or email"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Warranty Expiry</Label>
+                <Input
+                  type="date"
+                  value={formData.warranty_expiry}
+                  onChange={(e) => setFormData({ ...formData, warranty_expiry: e.target.value })}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Next Service Date</Label>
+                <Input
+                  type="date"
+                  value={formData.next_service_date}
+                  onChange={(e) => setFormData({ ...formData, next_service_date: e.target.value })}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Service Frequency (days)</Label>
+                <Input
+                  type="number"
+                  value={formData.service_frequency_days}
+                  onChange={(e) => setFormData({ ...formData, service_frequency_days: e.target.value })}
+                  placeholder="90"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Condition</Label>
+                <Select value={formData.condition} onValueChange={(value) => setFormData({ ...formData, condition: value })}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="excellent">Excellent</SelectItem>
+                    <SelectItem value="good">Good</SelectItem>
+                    <SelectItem value="fair">Fair</SelectItem>
+                    <SelectItem value="poor">Poor</SelectItem>
+                    <SelectItem value="needs_repair">Needs Repair</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Status</Label>
+                <Select value={formData.status} onValueChange={(value) => setFormData({ ...formData, status: value })}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="active">Active</SelectItem>
+                    <SelectItem value="under_maintenance">Under Maintenance</SelectItem>
+                    <SelectItem value="out_of_service">Out of Service</SelectItem>
+                    <SelectItem value="retired">Retired</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Assigned To</Label>
+                <Select value={formData.assigned_to_email} onValueChange={(value) => {
+                  const selectedStaff = staff.find(s => s.email === value);
+                  setFormData({
+                    ...formData,
+                    assigned_to_email: value,
+                    assigned_to_name: selectedStaff?.full_name || ''
+                  });
+                }}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select staff member" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={null}>None</SelectItem>
+                    {staff.map(s => (
+                      <SelectItem key={s.email} value={s.email}>{s.full_name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
-          </DialogContent>
-        </Dialog>
 
-        {/* Asset Details Dialog */}
-        {selectedAsset && !showMaintenanceLog && (
-          <Dialog open={!!selectedAsset} onOpenChange={() => setSelectedAsset(null)}>
-            <DialogContent className="max-w-3xl">
-              <DialogHeader>
-                <DialogTitle className="flex items-center gap-2">
-                  <Package className="w-6 h-6 text-emerald-600" />
-                  {selectedAsset.name}
-                </DialogTitle>
-              </DialogHeader>
-
-              <div className="space-y-6 mt-4">
-                {selectedAsset.photo_url && (
-                  <img
-                    src={selectedAsset.photo_url}
-                    alt={selectedAsset.name}
-                    className="w-full h-64 object-cover rounded-xl"
-                  />
-                )}
-
-                <div className="grid md:grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-sm text-gray-600">Location</p>
-                    <p className="font-semibold text-gray-900">{selectedAsset.location}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600">Category</p>
-                    <p className="font-semibold text-gray-900 capitalize">{selectedAsset.category.replace('_', ' ')}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600">Serial Number</p>
-                    <p className="font-semibold text-gray-900">{selectedAsset.serial_number || 'N/A'}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600">Condition</p>
-                    <Badge className={`capitalize ${
-                      selectedAsset.condition === 'excellent' ? 'bg-green-100 text-green-800' :
-                      selectedAsset.condition === 'good' ? 'bg-blue-100 text-blue-800' :
-                      selectedAsset.condition === 'fair' ? 'bg-yellow-100 text-yellow-800' :
-                      'bg-red-100 text-red-800'
-                    }`}>
-                      {selectedAsset.condition}
-                    </Badge>
-                  </div>
-                  {selectedAsset.purchase_date && (
-                    <div>
-                      <p className="text-sm text-gray-600">Purchase Date</p>
-                      <p className="font-semibold text-gray-900">{format(new Date(selectedAsset.purchase_date), 'MMM d, yyyy')}</p>
-                    </div>
-                  )}
-                  {selectedAsset.service_due_date && (
-                    <div>
-                      <p className="text-sm text-gray-600">Next Service Due</p>
-                      <p className="font-semibold text-gray-900">{format(new Date(selectedAsset.service_due_date), 'MMM d, yyyy')}</p>
-                    </div>
-                  )}
-                </div>
-
-                {selectedAsset.notes && (
-                  <div>
-                    <p className="text-sm text-gray-600 mb-2">Notes</p>
-                    <p className="text-gray-900 bg-gray-50 p-4 rounded-lg">{selectedAsset.notes}</p>
-                  </div>
-                )}
-
-                <div className="flex gap-3">
-                  <Button
-                    className="flex-1 bg-[#004C3F]"
-                    onClick={() => setShowMaintenanceLog(true)}
-                  >
-                    <Wrench className="w-4 h-4 mr-2" />
-                    View Maintenance Log
-                  </Button>
-                </div>
+            <div className="space-y-2">
+              <Label>Photo</Label>
+              <div className="flex items-center gap-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => document.getElementById('asset-photo-upload').click()}
+                  disabled={uploadingPhoto}
+                >
+                  <Camera className="w-4 h-4 mr-2" />
+                  {uploadingPhoto ? 'Uploading...' : formData.photo_url ? 'Change Photo' : 'Upload Photo'}
+                </Button>
+                <input
+                  id="asset-photo-upload"
+                  type="file"
+                  accept="image/*"
+                  onChange={handlePhotoUpload}
+                  className="hidden"
+                />
               </div>
-            </DialogContent>
-          </Dialog>
-        )}
+              {formData.photo_url && (
+                <img src={formData.photo_url} alt="Asset" className="h-32 object-cover rounded-lg mt-2" />
+              )}
+            </div>
 
-        {/* Maintenance Log Dialog */}
-        {showMaintenanceLog && selectedAsset && (
-          <MaintenanceLogDialog
-            asset={selectedAsset}
-            onClose={() => {
-              setShowMaintenanceLog(false);
-              setSelectedAsset(null);
-            }}
-            onAddLog={handleAddMaintenanceLog}
-          />
-        )}
-      </div>
-    </AccessGuard>
-  );
-}
+            <div className="space-y-2">
+              <Label>Notes</Label>
+              <Textarea
+                value={formData.notes}
+                onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                rows={3}
+              />
+            </div>
 
-function MaintenanceLogDialog({ asset, onClose, onAddLog }) {
-  const [showAddLog, setShowAddLog] = useState(false);
-  const [newLog, setNewLog] = useState({
-    date: new Date().toISOString().split('T')[0],
-    performed_by: '',
-    actions_taken: '',
-    next_due: '',
-    cost: 0,
-  });
+            <div className="flex items-center gap-3">
+              <input
+                type="checkbox"
+                id="is_critical"
+                checked={formData.is_critical}
+                onChange={(e) => setFormData({ ...formData, is_critical: e.target.checked })}
+                className="w-4 h-4"
+              />
+              <Label htmlFor="is_critical">Critical Asset (affects operations if down)</Label>
+            </div>
 
-  const handleAdd = () => {
-    if (!newLog.actions_taken) {
-      alert('Please describe the actions taken');
-      return;
-    }
+            <div className="flex justify-end gap-3 pt-4 border-t">
+              <Button type="button" variant="outline" onClick={resetForm}>
+                Cancel
+              </Button>
+              <Button type="submit" className="bg-emerald-600 hover:bg-emerald-700">
+                {editingAsset ? 'Update Asset' : 'Create Asset'}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
 
-    onAddLog(asset, {
-      ...newLog,
-      date: new Date(newLog.date).toISOString(),
-      performed_by: newLog.performed_by,
-      attachments: [],
-    });
+      {/* Maintenance Log Dialog */}
+      <Dialog open={!!showMaintenanceLog} onOpenChange={(open) => !open && setShowMaintenanceLog(null)}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Wrench className="w-5 h-5 text-emerald-600" />
+              Maintenance Log: {showMaintenanceLog?.name}
+            </DialogTitle>
+          </DialogHeader>
 
-    setNewLog({
-      date: new Date().toISOString().split('T')[0],
-      performed_by: '',
-      actions_taken: '',
-      next_due: '',
-      cost: 0,
-    });
-    setShowAddLog(false);
-  };
-
-  return (
-    <Dialog open={true} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Wrench className="w-6 h-6 text-emerald-600" />
-            Maintenance Log: {asset.name}
-          </DialogTitle>
-        </DialogHeader>
-
-        <div className="space-y-4 mt-4">
-          <Button
-            onClick={() => setShowAddLog(!showAddLog)}
-            className="bg-[#004C3F]"
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            Add Maintenance Record
-          </Button>
-
-          {showAddLog && (
-            <Card className="bg-blue-50 border-2 border-blue-300">
-              <CardContent className="p-4 space-y-3">
-                <div className="grid md:grid-cols-2 gap-3">
+          <div className="space-y-6 mt-4">
+            {/* Add New Maintenance Entry */}
+            <Card className="bg-emerald-50 border-emerald-200">
+              <CardContent className="p-4">
+                <h3 className="font-semibold text-gray-900 mb-4">Record New Maintenance</h3>
+                <div className="space-y-3">
                   <div>
-                    <label className="text-sm font-medium">Date</label>
-                    <Input
-                      type="date"
-                      value={newLog.date}
-                      onChange={(e) => setNewLog({ ...newLog, date: e.target.value })}
+                    <Label>Actions Taken *</Label>
+                    <Textarea
+                      value={maintenanceEntry.actions_taken}
+                      onChange={(e) => setMaintenanceEntry({ ...maintenanceEntry, actions_taken: e.target.value })}
+                      placeholder="Describe maintenance performed..."
+                      rows={3}
                     />
                   </div>
-                  <div>
-                    <label className="text-sm font-medium">Performed By</label>
-                    <Input
-                      value={newLog.performed_by}
-                      onChange={(e) => setNewLog({ ...newLog, performed_by: e.target.value })}
-                      placeholder="Technician name"
-                    />
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label>Cost (£)</Label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={maintenanceEntry.cost}
+                        onChange={(e) => setMaintenanceEntry({ ...maintenanceEntry, cost: e.target.value })}
+                        placeholder="0.00"
+                      />
+                    </div>
+                    <div>
+                      <Label>Next Service Due</Label>
+                      <Input
+                        type="date"
+                        value={maintenanceEntry.next_due}
+                        onChange={(e) => setMaintenanceEntry({ ...maintenanceEntry, next_due: e.target.value })}
+                      />
+                    </div>
                   </div>
-                </div>
-
-                <div>
-                  <label className="text-sm font-medium">Actions Taken</label>
-                  <Textarea
-                    value={newLog.actions_taken}
-                    onChange={(e) => setNewLog({ ...newLog, actions_taken: e.target.value })}
-                    placeholder="Describe maintenance performed..."
-                    rows={3}
-                  />
-                </div>
-
-                <div className="grid md:grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-sm font-medium">Next Service Due</label>
-                    <Input
-                      type="date"
-                      value={newLog.next_due}
-                      onChange={(e) => setNewLog({ ...newLog, next_due: e.target.value })}
-                    />
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium">Cost (£)</label>
-                    <Input
-                      type="number"
-                      value={newLog.cost}
-                      onChange={(e) => setNewLog({ ...newLog, cost: parseFloat(e.target.value) })}
-                      placeholder="0.00"
-                    />
-                  </div>
-                </div>
-
-                <div className="flex justify-end gap-2">
-                  <Button variant="outline" size="sm" onClick={() => setShowAddLog(false)}>
-                    Cancel
-                  </Button>
-                  <Button size="sm" onClick={handleAdd} className="bg-emerald-600">
-                    Save Log
+                  <Button
+                    onClick={() => handleAddMaintenance(showMaintenanceLog)}
+                    className="w-full bg-emerald-600"
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    Add Maintenance Record
                   </Button>
                 </div>
               </CardContent>
             </Card>
-          )}
 
-          {/* Maintenance History */}
-          <div className="space-y-3">
-            <h3 className="font-semibold text-gray-900">Maintenance History</h3>
-            {asset.maintenance_logs && asset.maintenance_logs.length > 0 ? (
-              asset.maintenance_logs.map((log, idx) => (
-                <Card key={idx} className="border-l-4 border-l-emerald-500">
-                  <CardContent className="p-4">
-                    <div className="flex justify-between items-start mb-2">
-                      <div>
-                        <p className="font-semibold text-gray-900">{format(new Date(log.date), 'PPP')}</p>
-                        <p className="text-sm text-gray-600">By {log.performed_by}</p>
-                      </div>
-                      {log.cost > 0 && (
-                        <Badge className="bg-amber-100 text-amber-800">£{log.cost}</Badge>
-                      )}
-                    </div>
-                    <p className="text-sm text-gray-700">{log.actions_taken}</p>
-                    {log.next_due && (
-                      <p className="text-xs text-gray-500 mt-2">Next service: {format(new Date(log.next_due), 'MMM d, yyyy')}</p>
-                    )}
-                  </CardContent>
-                </Card>
-              ))
-            ) : (
-              <Card className="bg-gray-50">
-                <CardContent className="p-8 text-center">
-                  <Wrench className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                  <p className="text-gray-600">No maintenance records yet</p>
-                </CardContent>
-              </Card>
-            )}
+            {/* Maintenance History */}
+            <div>
+              <h3 className="font-semibold text-gray-900 mb-3">Maintenance History</h3>
+              {showMaintenanceLog?.maintenance_logs?.length === 0 ? (
+                <p className="text-center text-gray-500 py-8">No maintenance records yet</p>
+              ) : (
+                <div className="space-y-3">
+                  {showMaintenanceLog?.maintenance_logs?.map((log, idx) => (
+                    <Card key={idx}>
+                      <CardContent className="p-4">
+                        <div className="flex justify-between items-start mb-2">
+                          <div>
+                            <p className="font-semibold text-gray-900">{log.performed_by}</p>
+                            <p className="text-sm text-gray-600">{format(new Date(log.date), 'PPP')}</p>
+                          </div>
+                          {log.cost > 0 && (
+                            <Badge className="bg-blue-100 text-blue-800">
+                              £{log.cost.toFixed(2)}
+                            </Badge>
+                          )}
+                        </div>
+                        <p className="text-gray-700 mb-2">{log.actions_taken}</p>
+                        {log.next_due && (
+                          <p className="text-sm text-gray-600">
+                            Next due: {format(new Date(log.next_due), 'MMM d, yyyy')}
+                          </p>
+                        )}
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
-        </div>
-      </DialogContent>
-    </Dialog>
+        </DialogContent>
+      </Dialog>
+    </div>
   );
 }
