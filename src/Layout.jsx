@@ -24,7 +24,8 @@ import {
   Mic,
   Moon,
   Sun,
-  GraduationCap, // Added GraduationCap import
+  GraduationCap,
+  Sparkles, // Added Sparkles import for AI Scheduler
 } from "lucide-react";
 import {
   CommandDialog,
@@ -141,6 +142,7 @@ function VoiceSearch({ onClose, navigate }) {
       'quality audit': 'QualityAuditHub', // Added for voice search
       'quality control': 'QualityControl', // Added for voice search
       'ai rota': 'AIRotaGenerator', // Added for voice search
+      'ai scheduler': 'AIRotaGenerator', // Added for voice search
       'ai meeting': 'MeetingDashboard', // Added for voice search
     };
 
@@ -225,8 +227,9 @@ const getRoleNavigation = (user, impersonatedRole = null) => {
       { title: "Operations", url: createPageUrl("OperationsDashboard"), icon: ClipboardCheck },
       { title: "Staff", url: createPageUrl("StaffDashboard"), icon: Users },
       { title: "Training Academy", url: createPageUrl("TrainingAcademy"), icon: GraduationCap },
-      { title: "Quality Control", url: createPageUrl("QualityControl"), icon: Star },
       { title: "Inventory", url: createPageUrl("InventoryDashboard"), icon: Package },
+      { title: "Quality Control", url: createPageUrl("QualityControl"), icon: Star },
+      { title: "AI Scheduler", url: createPageUrl("AIRotaGenerator"), icon: Sparkles }, // Changed order, added AI Scheduler
       { title: "Reports", url: createPageUrl("Reports"), icon: BarChart3 },
       { title: "Settings", url: createPageUrl("SettingsDashboard"), icon: Settings },
     ];
@@ -294,16 +297,15 @@ const ALL_PAGES = [
   { name: "My Shifts", url: createPageUrl("MyShifts"), keywords: "schedule rota roster", category: "Staff" },
   { name: "Staff Rota", url: createPageUrl("StaffRota"), keywords: "schedule weekly planning", category: "Staff" },
   { name: "Clock In/Out", url: createPageUrl("ClockInOut"), keywords: "attendance time tracking", category: "Staff" },
-  { name: "AI Rota Generator", url: createPageUrl("AIRotaGenerator"), keywords: "ai schedule automation smart", category: "Staff" },
+  { name: "AI Rota Generator", url: createPageUrl("AIRotaGenerator"), keywords: "ai schedule automation smart rota scheduler", category: "AI Tools" }, // Category changed, keywords updated
   { name: "Inventory Hub", url: createPageUrl("InventoryDashboard"), keywords: "stock supplies ordering", category: "Inventory" },
   { name: "SOP Hub", url: createPageUrl("SOPDashboardHub"), keywords: "procedures training guides", category: "SOPs" },
-  { name: "Quality Control", url: createPageUrl("QualityControl"), keywords: "quality inspections audits checks", category: "Quality" },
-  { name: "Quality & Audit Hub", url: createPageUrl("QualityAuditHub"), keywords: "quality checks audits standards eho", category: "Quality" },
-  { name: "Quality Dashboard", url: createPageUrl("QualityDashboard"), keywords: "audits checks standards", category: "Quality" },
+  { name: "Quality Control", url: createPageUrl("QualityControl"), keywords: "quality inspections audits scores eho", category: "Quality" }, // Keywords updated
+  { name: "Quality & Audit Hub", url: createPageUrl("QualityAuditHub"), keywords: "quality checks audits standards detailed", category: "Quality" }, // Keywords updated
   { name: "Hygiene Central", url: createPageUrl("HygieneDashboard"), keywords: "cleanliness temperature safety", category: "Hygiene" },
   { name: "Form Intelligence", url: createPageUrl("FormIntelligence"), keywords: "checklists forms compliance", category: "Forms" },
   { name: "Team Chat", url: createPageUrl("TeamChat"), keywords: "messages communication", category: "Communication" },
-  { name: "AI Meeting Minutes", url: createPageUrl("MeetingDashboard"), keywords: "meetings recording transcription ai", category: "Communication" },
+  { name: "AI Meeting Minutes", url: createPageUrl("MeetingDashboard"), keywords: "meetings transcription ai notes recording", category: "AI Tools" }, // Category changed, keywords updated
   { name: "Announcements", url: createPageUrl("Announcements"), keywords: "news updates notices", category: "Communication" },
   { name: "Training Academy", url: createPageUrl("TrainingAcademy"), keywords: "education courses learning development academy", category: "Training" },
   { name: "Reports", url: createPageUrl("Reports"), keywords: "analytics statistics data", category: "Reports" },
