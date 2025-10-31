@@ -25,7 +25,6 @@ import {
   Moon,
   Sun,
   GraduationCap, // Added GraduationCap import
-  Sparkles, // Added Sparkles import
 } from "lucide-react";
 import {
   CommandDialog,
@@ -40,8 +39,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-}
- from "@/components/ui/dialog";
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 
 import AgentInitializer from './components/aurabrain/AgentInitializer';
@@ -64,7 +62,7 @@ function VoiceSearch({ onClose, navigate }) {
 
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     const recognitionInstance = new SpeechRecognition();
-    
+
     recognitionInstance.continuous = false;
     recognitionInstance.interimResults = true;
     recognitionInstance.lang = 'en-US';
@@ -129,8 +127,7 @@ function VoiceSearch({ onClose, navigate }) {
       'inventory': 'InventoryDashboard',
       'stock': 'InventoryDashboard',
       'menu': 'Menu',
-      'quality': 'QualityControl', // Updated to QualityControl
-      'quality control': 'QualityControl', // Added
+      'quality': 'QualityDashboard',
       'sop': 'SOPDashboardHub',
       'procedures': 'SOPDashboardHub',
       'documents': 'DocumentsFormsHub',
@@ -139,10 +136,12 @@ function VoiceSearch({ onClose, navigate }) {
       'staff': 'StaffDashboard',
       'hygiene': 'HygieneDashboard',
       'settings': 'SettingsDashboard',
-      'training': 'TrainingAcademy',
-      'academy': 'TrainingAcademy',
-      'quality audit': 'QualityAuditHub',
-      'ai scheduler': 'AIScheduler', // Added for voice search
+      'training': 'TrainingAcademy', // Added for voice search
+      'academy': 'TrainingAcademy', // Added for voice search
+      'quality audit': 'QualityAuditHub', // Added for voice search
+      'quality control': 'QualityControl', // Added for voice search
+      'ai rota': 'AIRotaGenerator', // Added for voice search
+      'ai meeting': 'MeetingDashboard', // Added for voice search
     };
 
     for (const [keyword, page] of Object.entries(navMap)) {
@@ -182,8 +181,8 @@ function VoiceSearch({ onClose, navigate }) {
           <Button
             onClick={isListening ? stopListening : startListening}
             className={`w-20 h-20 rounded-full ${
-              isListening 
-                ? 'bg-red-500 hover:bg-red-600 animate-pulse' 
+              isListening
+                ? 'bg-red-500 hover:bg-red-600 animate-pulse'
                 : 'bg-blue-600 hover:bg-blue-700'
             }`}
           >
@@ -226,9 +225,8 @@ const getRoleNavigation = (user, impersonatedRole = null) => {
       { title: "Operations", url: createPageUrl("OperationsDashboard"), icon: ClipboardCheck },
       { title: "Staff", url: createPageUrl("StaffDashboard"), icon: Users },
       { title: "Training Academy", url: createPageUrl("TrainingAcademy"), icon: GraduationCap },
-      { title: "Inventory", url: createPageUrl("InventoryDashboard"), icon: Package },
       { title: "Quality Control", url: createPageUrl("QualityControl"), icon: Star },
-      { title: "AI Scheduler", url: createPageUrl("AIScheduler"), icon: Sparkles },
+      { title: "Inventory", url: createPageUrl("InventoryDashboard"), icon: Package },
       { title: "Reports", url: createPageUrl("Reports"), icon: BarChart3 },
       { title: "Settings", url: createPageUrl("SettingsDashboard"), icon: Settings },
     ];
@@ -241,7 +239,7 @@ const getRoleNavigation = (user, impersonatedRole = null) => {
       { title: "Training Academy", url: createPageUrl("TrainingAcademy"), icon: GraduationCap },
       { title: "SOPs", url: createPageUrl("SOPDashboardHub"), icon: BookOpen },
       { title: "Inventory", url: createPageUrl("InventoryDashboard"), icon: Package },
-      { title: "Quality Control", url: createPageUrl("QualityControl"), icon: Star },
+      { title: "Quality", url: createPageUrl("QualityDashboard"), icon: Star },
       { title: "My Shifts", url: createPageUrl("MyShifts"), icon: Calendar },
     ];
   }
@@ -264,7 +262,7 @@ const getRoleNavigation = (user, impersonatedRole = null) => {
       { title: "My Shifts", url: createPageUrl("MyShifts"), icon: Calendar },
       { title: "My Tasks", url: createPageUrl("MyTasks"), icon: ClipboardCheck },
       { title: "Training Academy", url: createPageUrl("TrainingAcademy"), icon: GraduationCap },
-      { title: "Quality Checks", url: createPageUrl("QualityControl"), icon: Star },
+      { title: "Quality Checks", url: createPageUrl("QuickQualityCheck"), icon: Star },
       { title: "Maintenance", url: createPageUrl("Maintenance"), icon: Settings },
       { title: "Team Chat", url: createPageUrl("TeamChat"), icon: MessageCircle },
     ];
@@ -296,17 +294,18 @@ const ALL_PAGES = [
   { name: "My Shifts", url: createPageUrl("MyShifts"), keywords: "schedule rota roster", category: "Staff" },
   { name: "Staff Rota", url: createPageUrl("StaffRota"), keywords: "schedule weekly planning", category: "Staff" },
   { name: "Clock In/Out", url: createPageUrl("ClockInOut"), keywords: "attendance time tracking", category: "Staff" },
+  { name: "AI Rota Generator", url: createPageUrl("AIRotaGenerator"), keywords: "ai schedule automation smart", category: "Staff" },
   { name: "Inventory Hub", url: createPageUrl("InventoryDashboard"), keywords: "stock supplies ordering", category: "Inventory" },
   { name: "SOP Hub", url: createPageUrl("SOPDashboardHub"), keywords: "procedures training guides", category: "SOPs" },
-  { name: "Quality Control", url: createPageUrl("QualityControl"), keywords: "quality inspections audits scores eho", category: "Quality" },
-  { name: "Quality & Audit Hub", url: createPageUrl("QualityAuditHub"), keywords: "quality checks audits standards detailed", category: "Quality" },
+  { name: "Quality Control", url: createPageUrl("QualityControl"), keywords: "quality inspections audits checks", category: "Quality" },
+  { name: "Quality & Audit Hub", url: createPageUrl("QualityAuditHub"), keywords: "quality checks audits standards eho", category: "Quality" },
+  { name: "Quality Dashboard", url: createPageUrl("QualityDashboard"), keywords: "audits checks standards", category: "Quality" },
   { name: "Hygiene Central", url: createPageUrl("HygieneDashboard"), keywords: "cleanliness temperature safety", category: "Hygiene" },
   { name: "Form Intelligence", url: createPageUrl("FormIntelligence"), keywords: "checklists forms compliance", category: "Forms" },
   { name: "Team Chat", url: createPageUrl("TeamChat"), keywords: "messages communication", category: "Communication" },
-  { name: "AI Meeting Minutes", url: createPageUrl("MeetingDashboard"), keywords: "meetings transcription ai notes recording", category: "AI Tools" },
+  { name: "AI Meeting Minutes", url: createPageUrl("MeetingDashboard"), keywords: "meetings recording transcription ai", category: "Communication" },
   { name: "Announcements", url: createPageUrl("Announcements"), keywords: "news updates notices", category: "Communication" },
   { name: "Training Academy", url: createPageUrl("TrainingAcademy"), keywords: "education courses learning development academy", category: "Training" },
-  { name: "AI Scheduler", url: createPageUrl("AIScheduler"), keywords: "ai scheduling rotas automation shifts smart", category: "AI Tools" },
   { name: "Reports", url: createPageUrl("Reports"), keywords: "analytics statistics data", category: "Reports" },
   { name: "Settings", url: createPageUrl("SettingsDashboard"), keywords: "configuration admin", category: "Settings" },
 ];
@@ -405,8 +404,8 @@ export default function Layout({ children }) {
         <DataIntegrityChecker />
         <div className="min-h-screen flex w-full bg-gray-50 dark:bg-gray-900">
           {impersonationData && (
-            <ImpersonationBanner 
-              role={impersonationData.role} 
+            <ImpersonationBanner
+              role={impersonationData.role}
               onExit={handleExitImpersonation}
             />
           )}
@@ -467,7 +466,7 @@ export default function Layout({ children }) {
             {user && (
               <div className="px-4 py-3 flex-shrink-0">
                 <div className={`px-3 py-2 rounded-lg border ${
-                  impersonationData 
+                  impersonationData
                     ? 'bg-gradient-to-r from-orange-50 to-red-50 border-orange-300'
                     : 'bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 border-blue-200 dark:border-blue-800'
                 }`}>
@@ -592,7 +591,7 @@ export default function Layout({ children }) {
                   <MenuIcon className="w-5 h-5 text-gray-600 dark:text-gray-300" />
                 </button>
                 <h1 className="text-xl font-bold text-gray-900 dark:text-white">AURA</h1>
-                
+
                 {/* Mobile Notification Bell */}
                 <div className="ml-auto flex items-center gap-2">
                   <NotificationBell />
@@ -683,8 +682,8 @@ export default function Layout({ children }) {
                   Voice Navigation
                 </DialogTitle>
               </DialogHeader>
-              <VoiceSearch 
-                onClose={() => setVoiceSearchOpen(false)} 
+              <VoiceSearch
+                onClose={() => setVoiceSearchOpen(false)}
                 navigate={(url) => {
                   window.location.href = url;
                   setVoiceSearchOpen(false);

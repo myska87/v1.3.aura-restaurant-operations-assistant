@@ -136,7 +136,6 @@ import ManagerTrainingDashboard from './pages/ManagerTrainingDashboard';
 import ProtectionDashboard from './pages/ProtectionDashboard';
 import QualityAuditHub from './pages/QualityAuditHub';
 import QualityControl from './pages/QualityControl';
-import AIScheduler from './pages/AIScheduler';
 import Layout from './Layout.jsx';
 
 
@@ -279,7 +278,6 @@ export const PAGES = {
     "ProtectionDashboard": ProtectionDashboard,
     "QualityAuditHub": QualityAuditHub,
     "QualityControl": QualityControl,
-    "AIScheduler": AIScheduler,
 }
 
 export const pagesConfig = {

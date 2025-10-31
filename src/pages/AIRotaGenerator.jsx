@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
@@ -6,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import {
   Dialog,
   DialogContent,
@@ -30,80 +31,239 @@ import {
   AlertTriangle,
   CheckCircle,
   Loader2,
+  Brain,
+  Hourglass,
+  CheckSquare,
 } from 'lucide-react';
 import { format, addDays, startOfWeek } from 'date-fns';
-import { AISchedulerEngine } from '../components/AISchedulerEngine';
+// AISchedulerEngine is no longer directly used in the new generation flow via LLM.
+// import { AISchedulerEngine } from '../components/AISchedulerEngine'; 
+import { useNavigate } from 'react-router-dom';
+
+// Assuming createPageUrl is a utility function available globally or imported.
+// If this function is not defined elsewhere, uncomment and adjust the mock below.
+// For the purpose of this implementation, we'll assume it returns a valid URL string.
+const createPageUrl = (pageName) => `/app/${pageName.toLowerCase().replace(/\s/g, '')}`;
+
 
 export default function AIRotaGenerator() {
-  const [showGenerator, setShowGenerator] = useState(false);
+  const queryClient = useQueryClient();
+  const navigate = useNavigate();
+
+  // State for the new LLM-based generation flow
+  const [aiPrompt, setAiPrompt] = useState('');
+  const [generating, setGenerating] = useState(false); // Used for both generation and saving
+  const [previewShifts, setPreviewShifts] = useState([]);
+  const [autoApprove, setAutoApprove] = useState(false);
+  const [showLLMGenerator, setShowLLMGenerator] = useState(false); // Controls the new LLM dialog
+
+  // Keeping some original state variables as they might be relevant for other parts of the UI
+  // or if the component had a dual mode (old engine + new LLM).
+  // For the LLM flow, `selectedWeek`, `department`, `maxHoursPerStaff` are implicitly handled by the prompt.
   const [selectedWeek, setSelectedWeek] = useState(
     format(addDays(new Date(), 7), 'yyyy-MM-dd')
   );
   const [department, setDepartment] = useState('all');
   const [maxHoursPerStaff, setMaxHoursPerStaff] = useState(40);
-  const [generatedSchedule, setGeneratedSchedule] = useState(null);
-  const [isGenerating, setIsGenerating] = useState(false);
+  // `generatedSchedule` and `isGenerating` from the old flow are superseded by `previewShifts` and `generating`.
 
-  const queryClient = useQueryClient();
-
-  const { data: existingSchedules = [] } = useQuery({
+  // --- Data Queries ---
+  const { data: existingSchedules = [], isLoading: isLoadingExistingSchedules } = useQuery({
     queryKey: ['aiSchedules'],
     queryFn: () => base44.entities.AIScheduleLog.list('-created_date', 20),
   });
 
-  const handleGenerate = async () => {
-    setIsGenerating(true);
+  const { data: users = [], isLoading: isLoadingUsers } = useQuery({
+    queryKey: ['users'],
+    queryFn: () => base44.entities.User.list(), // Fetch all users
+  });
+
+  const { data: availabilities = [], isLoading: isLoadingAvailabilities } = useQuery({
+    queryKey: ['staffAvailabilities'],
+    queryFn: () => base44.entities.StaffAvailability.list(), // Fetch all staff availabilities
+  });
+
+
+  // --- New LLM-based schedule generation function ---
+  const generateSchedule = async () => {
+    if (!aiPrompt.trim()) {
+      alert('⚠️ Please describe what schedule you need');
+      return;
+    }
+
+    setGenerating(true);
+    setPreviewShifts([]); // Clear previous preview
+
     try {
-      const user = await base44.auth.me();
-      
-      const scheduler = new AISchedulerEngine({
-        max_hours_per_staff: maxHoursPerStaff,
-        min_rest_hours: 11,
+      // Ensure user data and availability data are loaded before proceeding
+      if (isLoadingUsers || isLoadingAvailabilities) {
+        alert('Please wait for staff and availability data to load.');
+        return; // Exit if data is not ready
+      }
+
+      const user = await base44.auth.me(); // Get current user for logging purposes
+
+      const staffData = users.map(u => ({
+        email: u.email,
+        name: u.full_name,
+        position: u.position, // Assuming 'position' field exists on User entity
+        department: u.department, // Assuming 'department' field exists on User entity
+      }));
+
+      const availabilityData = availabilities.map(a => ({
+        staff_email: a.staff_email,
+        date: a.date,
+        is_available: a.is_available,
+        preferred_shift_type: a.preferred_shift_type,
+      }));
+
+      // Construct the detailed prompt for the LLM
+      const prompt = `You are an AI scheduling assistant for AURA Restaurant.
+
+User request: "${aiPrompt}"
+
+Available staff:
+${staffData.map(s => `- ${s.name} (${s.position || 'Unknown Position'}, ${s.department || 'Unknown Department'})`).join('\n')}
+
+Availability data:
+${availabilityData.length > 0 ? availabilityData.slice(0, 20).map(a => `${a.staff_email}: ${a.date} - ${a.is_available ? 'Available' : 'Unavailable'}`).join('\n') : 'No specific availability constraints provided.'}
+
+Generate a weekly schedule for the next 7 days from today (${format(new Date(), 'yyyy-MM-dd')}) that:
+1. Assigns staff to appropriate shifts based on their position and department.
+2. Respects availability preferences and unavailability records.
+3. Balances workload (e.g., no one works more than 5 days, if possible, and distribute hours evenly).
+4. Ensures proper coverage for all shifts based on typical restaurant operations.
+5. Uses standard shift times: Opening (07:00-15:00), Mid (11:00-19:00), Closing (15:00-23:00).
+6. Each shift object must include 'staff_email', 'staff_name', 'role', 'department', 'shift_date' (YYYY-MM-DD), 'shift_type' (e.g., Opening, Mid, Closing), 'start_time' (HH:MM), 'end_time' (HH:MM), and 'reasoning' (a brief explanation for the assignment).
+
+Return a JSON object with a 'shifts' array containing shift objects, a 'schedule_summary' string, 'total_hours' number, and 'coverage_analysis' string.`;
+
+      const result = await base44.integrations.Core.InvokeLLM({
+        prompt,
+        response_json_schema: {
+          type: 'object',
+          properties: {
+            shifts: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  staff_email: { type: 'string' },
+                  staff_name: { type: 'string' },
+                  role: { type: 'string' }, // e.g., Chef, Server, Bartender
+                  department: { type: 'string' }, // e.g., Kitchen, Front of House, Bar
+                  shift_date: { type: 'string', format: 'date' }, // YYYY-MM-DD
+                  shift_type: { type: 'string' }, // Opening, Mid, Closing, or Custom
+                  start_time: { type: 'string', format: 'time' }, // HH:MM
+                  end_time: { type: 'string', format: 'time' }, // HH:MM
+                  reasoning: { type: 'string' }
+                },
+                required: ['staff_email', 'staff_name', 'role', 'department', 'shift_date', 'shift_type', 'start_time', 'end_time', 'reasoning']
+              }
+            },
+            schedule_summary: { type: 'string' },
+            total_hours: { type: 'number' },
+            coverage_analysis: { type: 'string' }
+          },
+          required: ['shifts', 'schedule_summary']
+        }
       });
 
-      const result = await scheduler.generateSchedule({
-        week_start_date: selectedWeek,
-        department,
-        required_roles: {
-          chef: 2,
-          server: 3,
-          bartender: 1,
-        },
-      });
+      if (result && result.shifts && result.shifts.length > 0) {
+        setPreviewShifts(result.shifts);
+        
+        // Save an AIScheduleLog entry for auditing and record-keeping
+        const newScheduleLog = await base44.entities.AIScheduleLog.create({
+          schedule_name: `AI Generated - ${format(new Date(), 'MMM d, yyyy')} (LLM)`,
+          week_start_date: format(new Date(), 'yyyy-MM-dd'),
+          week_end_date: format(addDays(new Date(), 6), 'yyyy-MM-dd'), // Next 7 days from today
+          department: 'all', // The LLM typically generates for all relevant departments
+          generated_shifts: result.shifts,
+          algorithm_version: 'LLM-2.0', // Indicate this was generated by LLM
+          input_parameters: { prompt: aiPrompt, users: staffData.length, availabilities: availabilityData.length },
+          total_shifts: result.shifts?.length || 0,
+          total_hours: result.total_hours || 0,
+          status: autoApprove ? 'published' : 'preview', // Status depends on auto-approve setting
+          generated_by: user.email,
+          generated_by_name: user.full_name,
+        });
 
-      const scheduleData = {
-        schedule_name: `AI Generated - ${format(new Date(selectedWeek), 'MMM d, yyyy')}`,
-        week_start_date: selectedWeek,
-        week_end_date: format(addDays(new Date(selectedWeek), 6), 'yyyy-MM-dd'),
-        department,
-        generated_shifts: result.generated_shifts,
-        total_shifts: result.total_shifts,
-        total_hours: result.total_hours,
-        conflicts_detected: result.conflicts_detected,
-        processing_time_ms: result.processing_time_ms,
-        optimization_score: result.optimization_score,
-        generated_by: user.email,
-        generated_by_name: user.full_name,
-        status: 'preview',
-        weights_used: {
-          role_match: 40,
-          availability: 30,
-          performance_score: 20,
-          overtime_penalty: 10,
-        },
-      };
+        queryClient.invalidateQueries(['aiSchedules']); // Invalidate to display the new log entry
 
-      const saved = await base44.entities.AIScheduleLog.create(scheduleData);
-      setGeneratedSchedule(saved);
+        alert(`✅ Generated ${result.shifts?.length || 0} shifts!\n\n${result.schedule_summary || 'No summary provided.'}`);
+        
+        if (autoApprove && result.shifts.length > 0) {
+          await approveAndSave(result.shifts); // Immediately approve and save if auto-approve is checked
+        }
+
+      } else {
+        alert('❌ The AI did not return any shifts. Please try a different prompt or check your prompt for clarity.');
+      }
       
     } catch (error) {
-      console.error('Generation error:', error);
-      alert('Failed to generate schedule. Please try again.');
+      console.error('Error generating schedule:', error);
+      alert('❌ Failed to generate schedule. Please try again. Error: ' + (error.message || 'Unknown error'));
     } finally {
-      setIsGenerating(false);
+      setGenerating(false);
     }
   };
 
+  // --- Function to approve and save currently previewed shifts ---
+  const approveAndSave = async (shiftsToSave = previewShifts) => {
+    if (shiftsToSave.length === 0) {
+      alert('⚠️ No shifts to save');
+      return;
+    }
+
+    setGenerating(true); // Reusing generating state for saving process feedback
+
+    try {
+      for (const shift of shiftsToSave) {
+        // Create the actual Shift entity
+        await base44.entities.Shift.create({
+          staff_email: shift.staff_email,
+          staff_name: shift.staff_name,
+          role: shift.role,
+          department: shift.department,
+          shift_date: shift.shift_date,
+          shift_type: shift.shift_type,
+          start_time: shift.start_time,
+          end_time: shift.end_time,
+          status: 'scheduled',
+          notes: `AI Generated: ${shift.reasoning}`,
+        });
+
+        // Notify the staff member about their new shift
+        await base44.entities.Notification.create({
+          user_email: shift.staff_email,
+          user_name: shift.staff_name,
+          type: 'shift_reminder',
+          title: '📅 New Shift Scheduled',
+          message: `You've been scheduled for ${shift.shift_type} shift on ${format(new Date(shift.shift_date), 'MMM d, yyyy')} from ${shift.start_time} to ${shift.end_time}.`,
+          link_module: 'MyShifts',
+          priority: 'normal',
+        });
+      }
+
+      alert(`✅ Successfully created ${shiftsToSave.length} shifts and notified relevant staff!`);
+      setPreviewShifts([]); // Clear preview after saving
+      setAiPrompt(''); // Clear the prompt input
+      setShowLLMGenerator(false); // Close the dialog
+      queryClient.invalidateQueries(['aiSchedules']); // Invalidate logs (in case status changed)
+      queryClient.invalidateQueries(['shifts']); // Invalidate actual shifts data
+      navigate(createPageUrl('StaffRota')); // Navigate to the main staff rota view
+      
+    } catch (error) {
+      console.error('Error saving shifts:', error);
+      alert('❌ Failed to save shifts. Please try again. Error: ' + (error.message || 'Unknown error'));
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  // --- Original `handlePublish` for existing `AIScheduleLog` entries ---
+  // This function is retained to allow publishing of schedules that were previously generated
+  // and logged (e.g., from the older AISchedulerEngine or an LLM preview that wasn't auto-approved).
   const handlePublish = async (scheduleId) => {
     try {
       const schedule = await base44.entities.AIScheduleLog.update(scheduleId, {
@@ -111,32 +271,47 @@ export default function AIRotaGenerator() {
         published_at: new Date().toISOString(),
       });
 
-      for (const shift of schedule.generated_shifts) {
-        await base44.entities.Shift.create({
-          shift_date: shift.date,
-          staff_email: shift.staff_email,
-          staff_name: shift.staff_name,
-          role: shift.role,
-          start_time: shift.start_time,
-          end_time: shift.end_time,
-          status: 'scheduled',
-        });
+      if (schedule.generated_shifts && schedule.generated_shifts.length > 0) {
+        for (const shift of schedule.generated_shifts) {
+          // Ensure shift has all required properties before creating.
+          // Fallbacks for older log entries or varying LLM output schemas.
+          await base44.entities.Shift.create({
+            shift_date: shift.shift_date || shift.date, 
+            staff_email: shift.staff_email,
+            staff_name: shift.staff_name,
+            role: shift.role,
+            department: shift.department || 'General', // Provide a default if not present in old logs
+            start_time: shift.start_time,
+            end_time: shift.end_time,
+            status: 'scheduled',
+            shift_type: shift.shift_type || 'Custom', // Provide a default if not present
+            notes: `AI Generated (Log ID: ${scheduleId}): ${shift.reasoning || 'No specific reasoning provided.'}`,
+          });
+
+          // Also notify staff for these published shifts
+          // This ensures consistency with the new approveAndSave flow for notifications.
+          await base44.entities.Notification.create({
+            user_email: shift.staff_email,
+            user_name: shift.staff_name,
+            type: 'shift_reminder',
+            title: '📅 Your Shift Schedule is Ready',
+            message: `Your shifts for the week starting ${format(new Date(schedule.week_start_date), 'MMM d, yyyy')} have been published. Check the app for details.`,
+            link_module: 'MyShifts',
+            priority: 'normal',
+          });
+        }
+      } else {
+        console.warn(`No shifts found in AIScheduleLog ${scheduleId} to publish.`);
+        alert('This schedule log has no shifts to publish.');
       }
 
-      await base44.integrations.Core.SendEmail({
-        to: shift.staff_email,
-        subject: 'Your Shift Schedule is Ready',
-        body: `Your shifts for the week have been published. Check the app for details.`,
-      });
-
-      queryClient.invalidateQueries(['aiSchedules']);
+      queryClient.invalidateQueries(['aiSchedules']); // Invalidate to update the log status
+      queryClient.invalidateQueries(['shifts']); // Invalidate actual shifts data
       alert('Schedule published successfully!');
-      setGeneratedSchedule(null);
-      setShowGenerator(false);
       
     } catch (error) {
       console.error('Publish error:', error);
-      alert('Failed to publish schedule');
+      alert('Failed to publish schedule. Please try again. Error: ' + (error.message || 'Unknown error'));
     }
   };
 
@@ -155,15 +330,17 @@ export default function AIRotaGenerator() {
             </p>
           </div>
 
+          {/* Button to open the new LLM-based generation dialog */}
           <Button
-            onClick={() => setShowGenerator(true)}
+            onClick={() => setShowLLMGenerator(true)}
             className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700"
           >
-            <Sparkles className="w-4 h-4 mr-2" />
-            Generate Next Week
+            <Brain className="w-4 h-4 mr-2" />
+            Generate with AI Prompt
           </Button>
         </div>
 
+        {/* Info Cards */}
         <div className="grid md:grid-cols-3 gap-4 mb-8">
           <Card>
             <CardHeader className="pb-3">
@@ -205,16 +382,22 @@ export default function AIRotaGenerator() {
           </Card>
         </div>
 
+        {/* Recent AI-Generated Schedules Section */}
         <Card>
           <CardHeader>
             <CardTitle>Recent AI-Generated Schedules</CardTitle>
           </CardHeader>
           <CardContent>
-            {existingSchedules.length === 0 ? (
+            {isLoadingExistingSchedules ? (
+              <div className="text-center py-8 text-gray-500">
+                <Loader2 className="w-8 h-8 mx-auto mb-3 animate-spin text-gray-400" />
+                <p>Loading recent schedules...</p>
+              </div>
+            ) : existingSchedules.length === 0 ? (
               <div className="text-center py-8 text-gray-500">
                 <Sparkles className="w-12 h-12 mx-auto mb-3 text-gray-400" />
                 <p>No schedules generated yet</p>
-                <p className="text-sm mt-1">Click "Generate Next Week" to create your first AI schedule</p>
+                <p className="text-sm mt-1">Click "Generate with AI Prompt" to create your first AI schedule</p>
               </div>
             ) : (
               <div className="space-y-3">
@@ -233,6 +416,11 @@ export default function AIRotaGenerator() {
                         <span>{schedule.total_shifts} shifts</span>
                         <span>{schedule.total_hours}h total</span>
                       </div>
+                      {schedule.generated_by_name && (
+                        <p className="text-xs text-gray-500 mt-1">
+                            Generated by: {schedule.generated_by_name} on {format(new Date(schedule.created_date), 'PPP')}
+                        </p>
+                      )}
                     </div>
                     <div className="flex items-center gap-2">
                       <Badge variant={
@@ -245,6 +433,7 @@ export default function AIRotaGenerator() {
                         <Button
                           onClick={() => handlePublish(schedule.id)}
                           size="sm"
+                          className="bg-emerald-500 hover:bg-emerald-600 text-white"
                         >
                           Publish
                         </Button>
@@ -257,83 +446,122 @@ export default function AIRotaGenerator() {
           </CardContent>
         </Card>
 
-        <Dialog open={showGenerator} onOpenChange={setShowGenerator}>
-          <DialogContent className="max-w-2xl">
+        {/* --- New Dialog for LLM-based Generation --- */}
+        <Dialog open={showLLMGenerator} onOpenChange={setShowLLMGenerator}>
+          <DialogContent className="max-w-3xl">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
-                <Sparkles className="w-5 h-5 text-purple-600" />
-                Generate AI Schedule
+                <Brain className="w-5 h-5 text-indigo-600" />
+                Generate Schedule with AI Prompt
               </DialogTitle>
             </DialogHeader>
 
             <div className="space-y-4 py-4">
               <div>
-                <Label>Week Starting</Label>
+                <Label htmlFor="aiPrompt">What schedule do you need?</Label>
                 <Input
-                  type="date"
-                  value={selectedWeek}
-                  onChange={(e) => setSelectedWeek(e.target.value)}
+                  id="aiPrompt"
+                  placeholder="e.g., 'Generate a weekly schedule for next week, ensuring 2 chefs and 3 servers are on shift during peak hours, and keep staff hours balanced.'"
+                  value={aiPrompt}
+                  onChange={(e) => setAiPrompt(e.target.value)}
+                  disabled={generating}
                 />
+                <p className="text-xs text-gray-500 mt-1">Be as descriptive as possible. The AI will consider available staff and their past availability.</p>
               </div>
 
-              <div>
-                <Label>Department</Label>
-                <Select value={department} onValueChange={setDepartment}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Departments</SelectItem>
-                    <SelectItem value="kitchen">Kitchen</SelectItem>
-                    <SelectItem value="front_of_house">Front of House</SelectItem>
-                    <SelectItem value="bar">Bar</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+              {/* Display loading state for auxiliary data (users, availabilities) */}
+              {isLoadingUsers || isLoadingAvailabilities ? (
+                 <Alert className="bg-blue-50 border-blue-200">
+                   <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
+                   <AlertTitle>Loading Data</AlertTitle>
+                   <AlertDescription>Fetching staff and availability data for the AI...</AlertDescription>
+                 </Alert>
+              ) : (
+                <Alert className="bg-yellow-50 border-yellow-200">
+                  <AlertTriangle className="h-4 w-4 text-yellow-600" />
+                  <AlertTitle>Data Used for AI Generation</AlertTitle>
+                  <AlertDescription>
+                    The AI will consider {users.length} staff members and {availabilities.length} availability entries.
+                    Ensure this data is up-to-date in your system for best results.
+                  </AlertDescription>
+                </Alert>
+              )}
 
-              <div>
-                <Label>Max Hours Per Staff</Label>
-                <Input
-                  type="number"
-                  value={maxHoursPerStaff}
-                  onChange={(e) => setMaxHoursPerStaff(Number(e.target.value))}
+              {/* Display a preview of generated shifts */}
+              {previewShifts.length > 0 && (
+                <div className="space-y-3 p-4 border rounded-md bg-gray-50 max-h-60 overflow-y-auto">
+                  <h3 className="font-semibold text-lg flex items-center gap-2">
+                    <Hourglass className="w-5 h-5 text-purple-600" />
+                    Generated Shift Preview ({previewShifts.length} shifts)
+                  </h3>
+                  {previewShifts.map((shift, index) => (
+                    <div key={index} className="flex flex-col p-2 bg-white rounded-md shadow-sm text-sm">
+                      <div className="font-medium text-gray-800">{shift.staff_name} ({shift.role})</div>
+                      <div className="text-gray-600">
+                        {format(new Date(shift.shift_date), 'EEE, MMM d')} | {shift.start_time} - {shift.end_time} ({shift.shift_type})
+                      </div>
+                      <div className="text-gray-500 text-xs italic">Reasoning: {shift.reasoning}</div>
+                    </div>
+                  ))}
+                  <Alert className="bg-emerald-50 border-emerald-200">
+                    <CheckCircle className="h-4 w-4 text-emerald-600" />
+                    <AlertDescription>
+                      Review the generated shifts above. If satisfied, click "Approve and Save" to add them to your rota.
+                    </AlertDescription>
+                  </Alert>
+                </div>
+              )}
+
+              {/* Auto-approve checkbox */}
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  id="autoApprove"
+                  checked={autoApprove}
+                  onChange={(e) => setAutoApprove(e.target.checked)}
+                  className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
+                  disabled={generating}
                 />
+                <Label htmlFor="autoApprove" className="flex items-center gap-1.5 cursor-pointer">
+                  <CheckSquare className="w-4 h-4" />
+                  Auto-approve and publish shifts immediately (bypasses manual review)
+                </Label>
               </div>
 
-              <Alert>
-                <TrendingUp className="w-4 h-4" />
-                <AlertDescription>
-                  AI will generate an optimized schedule considering staff availability,
-                  role requirements, and performance data.
-                </AlertDescription>
-              </Alert>
             </div>
 
             <DialogFooter>
-              <Button variant="outline" onClick={() => setShowGenerator(false)}>
+              <Button variant="outline" onClick={() => setShowLLMGenerator(false)} disabled={generating}>
                 Cancel
               </Button>
+              {/* Only show "Approve and Save" if shifts are previewed and not currently generating */}
+              {previewShifts.length > 0 && !generating && (
+                <Button onClick={() => approveAndSave()} className="bg-emerald-500 hover:bg-emerald-600 text-white">
+                  <CheckCircle className="w-4 h-4 mr-2" />
+                  Approve and Save
+                </Button>
+              )}
+              {/* Main "Generate" button */}
               <Button
-                onClick={handleGenerate}
-                disabled={isGenerating}
+                onClick={generateSchedule}
+                disabled={generating || isLoadingUsers || isLoadingAvailabilities}
                 className="bg-gradient-to-r from-purple-600 to-indigo-600"
               >
-                {isGenerating ? (
+                {generating ? (
                   <>
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                     Generating...
                   </>
                 ) : (
                   <>
-                    <Sparkles className="w-4 h-4 mr-2" />
-                    Generate Schedule
+                    <Brain className="w-4 h-4 mr-2" />
+                    Generate with AI
                   </>
                 )}
               </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
-
       </div>
     </div>
   );
