@@ -137,7 +137,6 @@ import ProtectionDashboard from './pages/ProtectionDashboard';
 import QualityAuditHub from './pages/QualityAuditHub';
 import QualityControl from './pages/QualityControl';
 import MeetingDetail from './pages/MeetingDetail';
-import AssetManager from './pages/AssetManager';
 import Layout from './Layout.jsx';
 
 
@@ -281,7 +280,6 @@ export const PAGES = {
     "QualityAuditHub": QualityAuditHub,
     "QualityControl": QualityControl,
     "MeetingDetail": MeetingDetail,
-    "AssetManager": AssetManager,
 }
 
 export const pagesConfig = {
