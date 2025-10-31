@@ -134,6 +134,7 @@ import TrainingWelcome from './pages/TrainingWelcome';
 import TrainingMentor from './pages/TrainingMentor';
 import ManagerTrainingDashboard from './pages/ManagerTrainingDashboard';
 import ProtectionDashboard from './pages/ProtectionDashboard';
+import QualityAuditHub from './pages/QualityAuditHub';
 import Layout from './Layout.jsx';
 
 
@@ -274,6 +275,7 @@ export const PAGES = {
     "TrainingMentor": TrainingMentor,
     "ManagerTrainingDashboard": ManagerTrainingDashboard,
     "ProtectionDashboard": ProtectionDashboard,
+    "QualityAuditHub": QualityAuditHub,
 }
 
 export const pagesConfig = {

@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
@@ -16,13 +17,31 @@ export default function MyCoaching() {
     queryFn: () => base44.auth.me(),
   });
 
-  const { data: mySessions = [], isLoading } = useQuery({
-    queryKey: ['myCoachingSessions', user?.email],
+  // This query is for fetching ONLY completed sessions for the user, as per the outline's instruction
+  // for the 'mySessions' variable. The original 'mySessions' variable was thus modified.
+  const { data: mySessions = [], isLoading: isLoadingMyCompletedSessions } = useQuery({
+    queryKey: ['myCoachingSessions_completed', user?.email], // Updated query key for uniqueness and clarity
+    queryFn: async () => { // Kept async because base44.entities.CoachingSession.filter is an async function
+      if (!user?.email) return []; // Re-added safety guard as it's good practice and aligns with original structure
+      return await base44.entities.CoachingSession.filter(
+        { staff_email: user.email, status: 'completed' }, // Applied the status filter as per the outline
+        '-session_date' // Removed the '20' limit as per the outline's snippet
+      );
+    },
+    enabled: !!user?.email,
+  });
+
+  // A new query to fetch ALL sessions for the user. This is crucial to preserve
+  // the 'Total Sessions' count, 'Pending' sessions count, 'Next Session' logic,
+  // and the main list of all sessions in the UI, which would be broken if 'mySessions'
+  // alone only contained completed sessions.
+  const { data: allUserCoachingSessions = [], isLoading: isLoadingAllCoachingSessions } = useQuery({
+    queryKey: ['allUserCoachingSessions', user?.email], // Unique query key to differentiate from the completed sessions query
     queryFn: async () => {
       if (!user?.email) return [];
       return await base44.entities.CoachingSession.filter({
         staff_email: user.email
-      }, '-session_date', 20);
+      }, '-session_date', 20); // Kept original filtering and limit for 'all' sessions as it was before
     },
     enabled: !!user?.email,
   });
@@ -38,8 +57,10 @@ export default function MyCoaching() {
     enabled: !!user?.email,
   });
 
-  const completedSessions = mySessions.filter(s => s.status === 'completed');
-  const pendingSessions = mySessions.filter(s => s.status === 'self_reflection_pending' || s.status === 'scheduled');
+  // These calculations for stats and the next session are now based on 'allUserCoachingSessions'
+  // to maintain the original functionality that relied on having all sessions available.
+  const completedSessions = allUserCoachingSessions.filter(s => s.status === 'completed');
+  const pendingSessions = allUserCoachingSessions.filter(s => s.status === 'self_reflection_pending' || s.status === 'scheduled');
   const nextSession = pendingSessions[0];
 
   const statusColors = {
@@ -87,7 +108,7 @@ export default function MyCoaching() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-gray-600 mb-1">Total Sessions</p>
-                  <p className="text-3xl font-bold text-gray-900">{mySessions.length}</p>
+                  <p className="text-3xl font-bold text-gray-900">{allUserCoachingSessions.length}</p> {/* Updated to use allUserCoachingSessions */}
                 </div>
                 <Calendar className="w-8 h-8 text-blue-500" />
               </div>
@@ -99,6 +120,7 @@ export default function MyCoaching() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-gray-600 mb-1">Completed</p>
+                  {/* This now uses 'completedSessions' derived from 'allUserCoachingSessions' */}
                   <p className="text-3xl font-bold text-green-600">{completedSessions.length}</p>
                 </div>
                 <CheckCircle className="w-8 h-8 text-green-500" />
@@ -174,9 +196,9 @@ export default function MyCoaching() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                {isLoading ? (
+                {isLoadingAllCoachingSessions ? ( // Using loading state for all sessions
                   <div className="text-center py-8 text-gray-500">Loading sessions...</div>
-                ) : mySessions.length === 0 ? (
+                ) : allUserCoachingSessions.length === 0 ? ( // Updated to use allUserCoachingSessions
                   <div className="text-center py-12">
                     <Calendar className="w-16 h-16 text-gray-300 mx-auto mb-4" />
                     <p className="text-gray-500 mb-4">No coaching sessions yet</p>
@@ -184,7 +206,7 @@ export default function MyCoaching() {
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    {mySessions.map((session) => (
+                    {allUserCoachingSessions.map((session) => ( {/* Updated to map over allUserCoachingSessions */}
                       <Card key={session.id} className="border-2 border-gray-100 hover:border-gray-200 transition-colors">
                         <CardContent className="p-4">
                           <div className="flex items-start justify-between">

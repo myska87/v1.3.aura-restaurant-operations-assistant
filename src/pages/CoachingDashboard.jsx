@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
@@ -29,9 +30,30 @@ export default function CoachingDashboard() {
     queryFn: () => base44.auth.me(),
   });
 
+  const isManager = user?.role === 'admin' || user?.position === 'manager' || user?.position === 'owner';
+
+  // Managers see all sessions, staff see only their own
   const { data: allSessions = [], isLoading } = useQuery({
-    queryKey: ['coachingSessions'],
-    queryFn: () => base44.entities.CoachingSession.list('-session_date'),
+    queryKey: ['coachingSessions', user?.email, isManager],
+    queryFn: async () => {
+      if (!user?.email) {
+        return []; // Don't fetch if user email is not available
+      }
+      if (isManager) {
+        // Managers see all sessions they conducted
+        return await base44.entities.CoachingSession.filter(
+          { manager_email: user.email },
+          '-session_date'
+        );
+      } else {
+        // Staff see only their own completed sessions
+        return await base44.entities.CoachingSession.filter(
+          { staff_email: user.email, status: 'completed' },
+          '-session_date'
+        );
+      }
+    },
+    enabled: !!user?.email, // Only run the query if user data is available
   });
 
   const { data: allStaff = [] } = useQuery({
@@ -115,7 +137,7 @@ export default function CoachingDashboard() {
             </h1>
             <p className="text-gray-600">Manage team coaching sessions and track progress</p>
           </div>
-          <Button 
+          <Button
             onClick={() => navigate(createPageUrl("StartCoachingSession"))}
             className="bg-green-600 hover:bg-green-700"
           >
