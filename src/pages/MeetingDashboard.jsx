@@ -60,12 +60,12 @@ export default function MeetingDashboard() {
     queryFn: () => base44.auth.me(),
   });
 
-  const isManager = user?.position === 'manager' || user?.position === 'owner' || user?.role === 'admin';
+  const isManager = user?.role === 'admin' || user?.position === 'manager' || user?.position === 'owner';
 
   const { data: meetings = [], isLoading } = useQuery({
-    queryKey: ['meetings'],
-    queryFn: () => base44.entities.MeetingRecording.list('-created_date', 50),
-    refetchInterval: 10000, // Refresh every 10 seconds for processing updates
+    queryKey: ['meetingRecordings'],
+    queryFn: () => base44.entities.MeetingRecording.list('-meeting_date'),
+    // refetchInterval: 10000, // Refresh every 10 seconds for processing updates - removed as per outline
   });
 
   const { data: allActions = [] } = useQuery({
@@ -79,7 +79,7 @@ export default function MeetingDashboard() {
       return await base44.entities.MeetingRecording.create(meetingData);
     },
     onSuccess: async (newMeeting) => {
-      queryClient.invalidateQueries({ queryKey: ['meetings'] });
+      queryClient.invalidateQueries({ queryKey: ['meetingRecordings'] }); // Updated query key
       setShowRecorderDialog(false);
 
       // Start processing
@@ -260,7 +260,7 @@ export default function MeetingDashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6 md:p-8">
+    <div className="min-h-screen bg-gradient-to-br from-green-50 to-teal-50 p-6 md:p-8">
       <div className="max-w-7xl mx-auto space-y-8">
         {/* Header */}
         <div>
@@ -279,6 +279,30 @@ export default function MeetingDashboard() {
             }
           />
         </div>
+
+        {/* Quick Start Card */}
+        {isManager && (
+          <Card className="shadow-lg border-2 border-green-200 bg-gradient-to-r from-green-50 to-emerald-50">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-xl font-bold text-gray-900 mb-2">✨ AI Meeting Assistant</h3>
+                  <p className="text-gray-600">
+                    Record meetings and get instant AI summaries with action items
+                  </p>
+                </div>
+                <Button
+                  onClick={() => setShowRecorderDialog(true)}
+                  className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700"
+                  size="lg"
+                >
+                  <Mic className="w-5 h-5 mr-2" />
+                  Start Recording
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Stats */}
         <div className="grid grid-cols-2 md:grid-cols-5 gap-4">

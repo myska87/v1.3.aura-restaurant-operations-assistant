@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -20,11 +21,13 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogDescription,
 } from "@/components/ui/dialog";
-import { Plus, Pencil, Trash2, ChefHat, Camera, Image as ImageIcon, Folder, Calculator, ShoppingCart, ArrowLeft, Home } from "lucide-react";
+import { Plus, Pencil, Trash2, ChefHat, Camera, Image as ImageIcon, Folder, Calculator, ShoppingCart, ArrowLeft, Home, Send, Mail } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
+import { format } from "date-fns"; // Added for date formatting in email
 
 // Safe number formatting helper
 const safeNumber = (value, decimals = -1) => {
@@ -48,6 +51,8 @@ export default function MenuManagement() {
   const [showItemForm, setShowItemForm] = useState(false);
   const [showCategoryForm, setShowCategoryForm] = useState(false);
   const [showProfitCalculator, setShowProfitCalculator] = useState(false);
+  const [showOrderModal, setShowOrderModal] = useState(false);
+  const [orderModalData, setOrderModalData] = useState(null);
   const [calculatorItem, setCalculatorItem] = useState(null);
   const [servings, setServings] = useState(1);
   const [wastePercentage, setWastePercentage] = useState(0);
@@ -472,16 +477,55 @@ export default function MenuManagement() {
     };
   };
 
-  const handleOrderIngredients = async () => {
-    const metrics = calculateProfitMetrics();
-    if (!metrics || !calculatorItem) return;
+  const generatePONumber = () => {
+    return `PO-MENU-${Date.now().toString().slice(-8)}`;
+  };
 
+  const generateOrderEmail = (order, poNumber) => {
+    const subject = `Purchase Order ${poNumber} - AURA Restaurant`;
+    const body = `Dear ${order.supplier_name},
+
+Please find our purchase order details below:
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📋 PURCHASE ORDER: ${poNumber}
+📅 Date: ${format(new Date(), 'PPP')}
+🏪 AURA Restaurant
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+ITEMS ORDERED:
+${order.items.map((item, i) => 
+`${i+1}. ${item.ingredient_name}
+   Quantity: ${item.quantity_ordered} ${item.unit}
+   Unit Price: £${formatPrice(item.unit_cost)}
+   Total: £${formatPrice(item.line_total)}`
+).join('\n\n')}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Subtotal: £${formatPrice(order.subtotal)}
+VAT (20%): £${formatPrice(order.tax)}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+TOTAL: £${formatPrice(order.total)}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Please confirm receipt and expected delivery date.
+
+Thank you,
+AURA Restaurant Team`;
+
+    return { subject, body };
+  };
+
+  const handleOrderNowClick = (item, metrics) => {
+    setOrderModalData({ item, metrics });
+    setShowOrderModal(true);
+  };
+
+  const handleSendEmailOrder = async () => {
+    if (!orderModalData) return;
+
+    const { metrics } = orderModalData;
     const { ingredientsNeeded } = metrics;
-
-    if (ingredientsNeeded.length === 0) {
-      alert('⚠️ No ingredients found in the recipe to order!');
-      return;
-    }
 
     const missingIngredients = ingredientsNeeded.filter(ing => ing.missing);
     if (missingIngredients.length > 0) {
@@ -503,10 +547,8 @@ export default function MenuManagement() {
 
     const ordersBySupplier = {};
 
-    for (const item of ingredientsNeeded) { // Renamed from recipeItem for clarity
-      // These checks are defensive as previous filters should catch them
-      if (item.missing) continue;
-      if (!item.supplier_id) continue; 
+    for (const item of ingredientsNeeded) {
+      if (item.missing || !item.supplier_id) continue; 
 
       if (!ordersBySupplier[item.supplier_id]) {
         ordersBySupplier[item.supplier_id] = {
@@ -520,10 +562,10 @@ export default function MenuManagement() {
       ordersBySupplier[item.supplier_id].items.push({
         ingredient_id: item.ingredient_id,
         ingredient_name: item.ingredient_name,
-        quantity_ordered: safeNumber(item.quantity_needed, 2), // Round for purchase order
+        quantity_ordered: safeNumber(item.quantity_needed, 2),
         unit: item.unit,
-        unit_cost: safeNumber(item.unit_cost, 2), // Round for purchase order
-        line_total: safeNumber(item.total_cost, 2), // Round for purchase order
+        unit_cost: safeNumber(item.unit_cost, 2),
+        line_total: safeNumber(item.total_cost, 2),
       });
     }
 
@@ -534,14 +576,17 @@ export default function MenuManagement() {
 
     try {
       let ordersCreated = 0;
+      const orderEmails = [];
+
       for (const order of Object.values(ordersBySupplier)) {
         const subtotal = safeNumber(order.items.reduce((sum, item) => sum + safeNumber(item.line_total), 0));
         const taxRate = 0.20; // 20% tax
         const tax = safeNumber(subtotal * taxRate);
         const total = safeNumber(subtotal + tax);
+        const poNumber = generatePONumber();
 
         await createPurchaseOrderMutation.mutateAsync({
-          order_number: `PO-MENU-${Date.now()}-${order.supplier_id.substring(0, 4)}`,
+          order_number: poNumber,
           supplier_id: order.supplier_id,
           supplier_name: order.supplier_name,
           supplier_email: order.supplier_email,
@@ -551,13 +596,31 @@ export default function MenuManagement() {
           tax: tax,
           total: total,
           order_date: new Date().toISOString(),
-          notes: `Order for ${calculatorItem.name} (${servings} servings) - Generated from Profit Calculator`,
+          notes: `Order for ${calculatorItem.name} (${servings} servings) - Generated from Menu Management`,
         });
         ordersCreated++;
+        
+        const emailData = generateOrderEmail({ ...order, subtotal, tax, total }, poNumber);
+        orderEmails.push({
+          supplier_email: order.supplier_email,
+          supplier_name: order.supplier_name,
+          poNumber,
+          ...emailData,
+        });
       }
-      
-      alert(`✅ ${ordersCreated} draft order(s) created successfully! Check the Ordering page.`);
+
+      setShowOrderModal(false);
       setShowProfitCalculator(false);
+
+      // Open first supplier email
+      if (orderEmails.length > 0) {
+        const firstEmail = orderEmails[0];
+        const mailtoLink = `mailto:${firstEmail.supplier_email}?subject=${encodeURIComponent(firstEmail.subject)}&body=${encodeURIComponent(firstEmail.body)}`;
+        window.open(mailtoLink);
+      }
+
+      alert(`✅ ${ordersCreated} draft order(s) created successfully!\n\nPO Numbers: ${orderEmails.map(e => e.poNumber).join(', ')}\n\n${orderEmails.length > 0 ? 'Email opened for the first supplier. ' : ''}Check the Ordering page for all orders.`);
+      
     } catch (error) {
       console.error("Failed to create purchase order(s):", error);
       alert("❌ Failed to create purchase order(s). Please try again.");
@@ -1305,13 +1368,88 @@ export default function MenuManagement() {
                     Close
                   </Button>
                   <Button
-                    onClick={handleOrderIngredients}
-                    className="bg-green-600 hover:bg-green-700"
-                    disabled={createPurchaseOrderMutation.isPending || metrics.ingredientsNeeded.length === 0 || metrics.ingredientsNeeded.some(ing => ing.missing || !ing.supplier_id)}
+                    onClick={() => handleOrderNowClick(calculatorItem, metrics)}
+                    className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700"
+                    disabled={metrics.ingredientsNeeded.length === 0 || metrics.ingredientsNeeded.some(ing => ing.missing || !ing.supplier_id)}
                   >
                     <ShoppingCart className="w-4 h-4 mr-2" />
-                    {createPurchaseOrderMutation.isPending ? 'Creating Order...' : 'Order Ingredients Now'}
+                    Order Ingredients Now
                   </Button>
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
+
+        {/* Order Method Selection Modal */}
+        <Dialog open={showOrderModal} onOpenChange={setShowOrderModal}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle className="text-2xl">Choose Order Method</DialogTitle>
+              <DialogDescription>
+                How would you like to order these ingredients?
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="grid md:grid-cols-2 gap-6 mt-6">
+              {/* Email Order Option */}
+              <Card className="border-2 border-blue-300 cursor-pointer hover:shadow-xl transition-shadow group">
+                <CardContent className="p-8 text-center">
+                  <div className="w-20 h-20 mx-auto mb-4 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <Mail className="w-10 h-10 text-white" />
+                  </div>
+                  <h3 className="text-xl font-bold text-gray-900 mb-2">
+                    Send Email Order
+                  </h3>
+                  <p className="text-sm text-gray-600 mb-6">
+                    Opens your email client with pre-filled order details and PO number
+                  </p>
+                  <Button
+                    onClick={handleSendEmailOrder}
+                    className="w-full bg-blue-600 hover:bg-blue-700"
+                  >
+                    <Mail className="w-4 h-4 mr-2" />
+                    Send Email Now
+                  </Button>
+                </CardContent>
+              </Card>
+
+              {/* Save as Draft Option */}
+              <Card className="border-2 border-emerald-300 cursor-pointer hover:shadow-xl transition-shadow group">
+                <CardContent className="p-8 text-center">
+                  <div className="w-20 h-20 mx-auto mb-4 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <ShoppingCart className="w-10 h-10 text-white" />
+                  </div>
+                  <h3 className="text-xl font-bold text-gray-900 mb-2">
+                    Save as Draft
+                  </h3>
+                  <p className="text-sm text-gray-600 mb-6">
+                    Create draft purchase order in Ordering page for review later
+                  </p>
+                  <Button
+                    onClick={async () => {
+                      await handleSendEmailOrder(); // Per outline, this still triggers the email as well
+                      setShowOrderModal(false);
+                    }}
+                    variant="outline"
+                    className="w-full border-emerald-600 text-emerald-700 hover:bg-emerald-50"
+                  >
+                    <ShoppingCart className="w-4 h-4 mr-2" />
+                    Save Draft
+                  </Button>
+                </CardContent>
+              </Card>
+            </div>
+
+            {orderModalData && (
+              <div className="mt-6 p-4 bg-gray-50 rounded-lg">
+                <p className="text-sm font-semibold text-gray-700 mb-2">Order Summary:</p>
+                <div className="space-y-1 text-sm text-gray-600">
+                  <p>• Item: {orderModalData.item.name}</p>
+                  <p>• Servings: {servings}</p>
+                  <p>• Total Cost: £{formatPrice(orderModalData.metrics.totalCost)}</p>
+                  <p>• Ingredients: {orderModalData.metrics.ingredientsNeeded.length}</p>
+                  <p>• Suppliers: {new Set(orderModalData.metrics.ingredientsNeeded.map(i => i.supplier_name)).size}</p>
                 </div>
               </div>
             )}
