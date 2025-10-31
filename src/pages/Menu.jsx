@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery } from '@tanstack/react-query';
@@ -34,17 +33,24 @@ const safeNumber = (value, decimals = 2) => {
 
 const formatPrice = (price) => safeNumber(price, 2).toFixed(2);
 
+const getProfitColor = (percentage) => {
+  if (percentage < 20) return 'bg-red-100 text-red-800 border-red-300';
+  if (percentage < 30) return 'bg-orange-100 text-orange-800 border-orange-300';
+  if (percentage < 40) return 'bg-yellow-100 text-yellow-800 border-yellow-300';
+  return 'bg-green-100 text-green-800 border-green-300';
+};
+
 export default function Menu() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
-  const [viewMode, setViewMode] = useState('grid'); // 'grid' or 'list'
+  const [viewMode, setViewMode] = useState('grid');
 
   const { data: user } = useQuery({
     queryKey: ['currentUser'],
     queryFn: () => base44.auth.me(),
   });
 
-  const { data: menuItems = [] } = useQuery({
+  const { data: menuItems = [], isLoading: loadingMenu } = useQuery({
     queryKey: ['menuItems'],
     queryFn: () => base44.entities.MenuItem.list(),
   });
@@ -84,13 +90,6 @@ export default function Menu() {
   const lowStockIngredients = ingredients.filter(ing => 
     safeNumber(ing.current_stock) <= safeNumber(ing.reorder_point)
   ).length;
-
-  const getProfitColor = (percentage) => {
-    if (percentage < 20) return 'bg-red-100 text-red-800 border-red-300';
-    if (percentage < 30) return 'bg-orange-100 text-orange-800 border-orange-300';
-    if (percentage < 40) return 'bg-yellow-100 text-yellow-800 border-yellow-300';
-    return 'bg-green-100 text-green-800 border-green-300';
-  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6 md:p-8">
@@ -168,7 +167,7 @@ export default function Menu() {
         {(isManager || isChef) && (
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
             <Link to={createPageUrl('MenuManagement')}>
-              <Card className="hover:shadow-xl transition-all cursor-pointer bg-gradient-to-br from-green-50 to-green-100 border-green-200">
+              <Card className="hover:shadow-xl transition-all cursor-pointer bg-gradient-to-br from-green-50 to-green-100 border-green-200 card-hover">
                 <CardContent className="p-6 text-center">
                   <Edit className="w-12 h-12 text-green-600 mx-auto mb-3" />
                   <h3 className="font-bold text-lg text-gray-900 mb-1">Manage Menu</h3>
@@ -178,7 +177,7 @@ export default function Menu() {
             </Link>
 
             <Link to={createPageUrl('AllergyTable')}>
-              <Card className="hover:shadow-xl transition-all cursor-pointer bg-gradient-to-br from-red-50 to-red-100 border-red-200">
+              <Card className="hover:shadow-xl transition-all cursor-pointer bg-gradient-to-br from-red-50 to-red-100 border-red-200 card-hover">
                 <CardContent className="p-6 text-center">
                   <FileText className="w-12 h-12 text-red-600 mx-auto mb-3" />
                   <h3 className="font-bold text-lg text-gray-900 mb-1">Allergen Info</h3>
@@ -188,7 +187,7 @@ export default function Menu() {
             </Link>
 
             <Link to={createPageUrl('MenuAnalysis')}>
-              <Card className="hover:shadow-xl transition-all cursor-pointer bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
+              <Card className="hover:shadow-xl transition-all cursor-pointer bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200 card-hover">
                 <CardContent className="p-6 text-center">
                   <Calculator className="w-12 h-12 text-blue-600 mx-auto mb-3" />
                   <h3 className="font-bold text-lg text-gray-900 mb-1">Cost Analysis</h3>
@@ -198,7 +197,7 @@ export default function Menu() {
             </Link>
 
             <Link to={createPageUrl('InventoryDashboard')}>
-              <Card className="hover:shadow-xl transition-all cursor-pointer bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200">
+              <Card className="hover:shadow-xl transition-all cursor-pointer bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200 card-hover">
                 <CardContent className="p-6 text-center">
                   <Package className="w-12 h-12 text-purple-600 mx-auto mb-3" />
                   <h3 className="font-bold text-lg text-gray-900 mb-1">Inventory</h3>
@@ -252,7 +251,18 @@ export default function Menu() {
         </Card>
 
         <div className={viewMode === 'grid' ? 'grid md:grid-cols-2 lg:grid-cols-3 gap-6' : 'space-y-4'}>
-          {filteredMenuItems.length === 0 ? (
+          {loadingMenu ? (
+            <div className="col-span-full">
+              <Card>
+                <CardContent className="p-12 text-center">
+                  <div className="animate-pulse">
+                    <Utensils className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                    <p className="text-gray-600">Loading menu...</p>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          ) : filteredMenuItems.length === 0 ? (
             <div className="col-span-full">
               <Card>
                 <CardContent className="p-12 text-center">
@@ -276,7 +286,7 @@ export default function Menu() {
             filteredMenuItems.map(item => (
               viewMode === 'grid' ? (
                 <Link key={item.id} to={createPageUrl(`MenuItemView?id=${item.id}`)}>
-                  <Card className="hover:shadow-xl transition-all cursor-pointer overflow-hidden group">
+                  <Card className="hover:shadow-xl transition-all cursor-pointer overflow-hidden group card-hover">
                     <div className="relative h-48 bg-gray-100 overflow-hidden">
                       {item.image_url ? (
                         <img
@@ -336,7 +346,7 @@ export default function Menu() {
                   </Card>
                 </Link>
               ) : (
-                <Card key={item.id} className="hover:shadow-lg transition-all">
+                <Card key={item.id} className="hover:shadow-lg transition-all card-hover">
                   <CardContent className="p-4">
                     <div className="flex gap-4">
                       <div className="w-24 h-24 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
