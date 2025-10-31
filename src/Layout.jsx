@@ -515,6 +515,11 @@ export default function Layout({ children }) {
                       ⏰ Clock In/Out
                     </button>
                   </Link>
+                  <Link to={createPageUrl("MeetingDashboard")} onClick={() => setSidebarOpen(false)}>
+                    <button className="w-full text-left px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors">
+                      🎤 AI Meeting Minutes
+                    </button>
+                  </Link>
                   <Link to={createPageUrl("TeamChat")} onClick={() => setSidebarOpen(false)}>
                     <button className="w-full text-left px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors">
                       💬 Team Chat

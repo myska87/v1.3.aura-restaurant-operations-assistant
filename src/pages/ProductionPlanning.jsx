@@ -743,55 +743,71 @@ AURA Restaurant Team`;
                     </div>
                   )}
 
-                  {/* Action Buttons */}
-                  <div className="flex gap-2">
-                    {!plan.orders_created && plan.ingredients_needed?.some(ing => safeNumber(ing.to_order) > 0) && (
-                      <>
-                        <Button
-                          onClick={() => handleOrderIngredientsDirectly(plan)}
-                          className="flex-1 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white"
-                          disabled={sendingOrderFor === plan.id}
-                        >
-                          {sendingOrderFor === plan.id ? (
-                            <>
-                              <Clock className="w-4 h-4 mr-2 animate-spin" />
-                              Creating Orders...
-                            </>
-                          ) : (
-                            <>
-                              <Send className="w-4 h-4 mr-2" />
-                              Order Ingredients Now
-                            </>
-                          )}
-                        </Button>
-                        <Button
-                          onClick={() => addPlanToCart(plan)}
-                          variant="outline"
-                          className="border-blue-300 hover:bg-blue-50"
-                        >
-                          <ShoppingCart className="w-4 h-4 mr-2" />
-                          Add to Cart
-                        </Button>
-                      </>
-                    )}
+                {/* Action Buttons */}
+                <div className="flex gap-2">
+                  {!plan.orders_created && plan.ingredients_needed?.some(ing => safeNumber(ing.to_order) > 0) && (
+                    <>
+                      <Button
+                        onClick={() => handleOrderIngredientsDirectly(plan)}
+                        className="flex-1 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-semibold"
+                        disabled={sendingOrderFor === plan.id}
+                      >
+                        {sendingOrderFor === plan.id ? (
+                          <>
+                            <Clock className="w-4 h-4 mr-2 animate-spin" />
+                            Creating Orders...
+                          </>
+                        ) : (
+                          <>
+                            <Send className="w-4 h-4 mr-2" />
+                            📧 Order Ingredients Now
+                          </>
+                        )}
+                      </Button>
+                      <Button
+                        onClick={() => addPlanToCart(plan)}
+                        variant="outline"
+                        className="border-blue-300 hover:bg-blue-50 font-semibold"
+                      >
+                        <ShoppingCart className="w-4 h-4 mr-2" />
+                        Add to Cart
+                      </Button>
+                    </>
+                  )}
 
-                    {plan.orders_created && (
-                      <div className="flex-1 p-3 bg-green-50 border-2 border-green-300 rounded-lg">
-                        <p className="text-sm text-green-800 font-semibold text-center">
-                          ✅ Orders created! Check Ordering page.
-                        </p>
-                      </div>
-                    )}
-                  </div>
-
-                  {plan.ingredients_needed?.some(ing => safeNumber(ing.to_order) > 0) && !plan.orders_created && (
-                    <div className="mt-4 p-3 bg-amber-50 rounded-lg border border-amber-200">
-                      <p className="text-sm text-amber-800 flex items-center gap-2">
-                        <AlertTriangle className="w-4 h-4" />
-                        {plan.ingredients_needed.filter(ing => safeNumber(ing.to_order) > 0).length} ingredient(s) need ordering
+                  {plan.orders_created && (
+                    <div className="flex-1 p-3 bg-green-50 border-2 border-green-300 rounded-lg">
+                      <p className="text-sm text-green-800 font-semibold text-center">
+                        ✅ Orders created! Check Ordering page.
                       </p>
                     </div>
                   )}
+
+                  {(!plan.ingredients_needed || plan.ingredients_needed.length === 0) && !plan.orders_created && (
+                    <div className="flex-1 p-3 bg-blue-50 border-2 border-blue-300 rounded-lg">
+                      <p className="text-sm text-blue-800 font-semibold text-center">
+                        ℹ️ No ingredients data calculated yet. Edit plan to recalculate.
+                      </p>
+                    </div>
+                  )}
+
+                  {plan.ingredients_needed?.length > 0 && !plan.ingredients_needed.some(ing => safeNumber(ing.to_order) > 0) && !plan.orders_created && (
+                    <div className="flex-1 p-3 bg-green-50 border-2 border-green-300 rounded-lg">
+                      <p className="text-sm text-green-800 font-semibold text-center">
+                        ✅ All ingredients in stock! No ordering needed.
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {plan.ingredients_needed?.some(ing => safeNumber(ing.to_order) > 0) && !plan.orders_created && (
+                  <div className="mt-4 p-3 bg-amber-50 rounded-lg border border-amber-200">
+                    <p className="text-sm text-amber-800 flex items-center gap-2">
+                      <AlertTriangle className="w-4 h-4" />
+                      {plan.ingredients_needed.filter(ing => safeNumber(ing.to_order) > 0).length} ingredient(s) need ordering
+                    </p>
+                  </div>
+                )}
                 </CardContent>
               </Card>
             ))

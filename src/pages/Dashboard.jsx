@@ -21,6 +21,9 @@ import {
   FileText,
   Zap,
   ArrowRight,
+  Sparkles, // Added Sparkles icon
+  Mic, // Added Mic icon
+  GraduationCap, // Added GraduationCap icon
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
@@ -105,7 +108,7 @@ export default function Dashboard() {
   const staffOnDuty = allShifts.filter(s => s.status === 'in_progress').length;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-emerald-50 p-6 md:p-8">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-6 md:p-8">
       <div className="max-w-7xl mx-auto">
 
         {/* Welcome Header */}
@@ -164,6 +167,40 @@ export default function Dashboard() {
               </div>
             </CardContent>
           </Card>
+        )}
+
+        {/* AI Tools Quick Access - Managers Only */}
+        {isManager && (
+          <div className="mb-6"> {/* Changed px-6 pb-4 to mb-6 for consistent spacing */}
+            <Card className="bg-gradient-to-r from-purple-500 to-pink-600 border-none shadow-xl">
+              <CardContent className="p-6">
+                <h3 className="text-white text-lg font-bold mb-4 flex items-center gap-2">
+                  <Sparkles className="w-5 h-5" />
+                  AI Tools & Automation
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3"> {/* Adjusted grid for smaller screens */}
+                  <Link to={createPageUrl('AIScheduler')}>
+                    <Button className="w-full bg-white/20 hover:bg-white/30 text-white border-white/30">
+                      <Calendar className="w-4 h-4 mr-2" />
+                      AI Scheduler
+                    </Button>
+                  </Link>
+                  <Link to={createPageUrl('MeetingDashboard')}>
+                    <Button className="w-full bg-white/20 hover:bg-white/30 text-white border-white/30">
+                      <Mic className="w-4 h-4 mr-2" />
+                      AI Meeting Notes
+                    </Button>
+                  </Link>
+                  <Link to={createPageUrl('TrainingAcademy')}>
+                    <Button className="w-full bg-white/20 hover:bg-white/30 text-white border-white/30">
+                      <GraduationCap className="w-4 h-4 mr-2" />
+                      AI Training Posts
+                    </Button>
+                  </Link>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         )}
 
         {/* KPI Cards - Role Specific */}
