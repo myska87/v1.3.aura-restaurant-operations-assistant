@@ -199,7 +199,14 @@ export default function TrainingAcademy() {
     photo_urls: [],
     video_url: '',
     requires_acknowledgment: true,
+    is_featured: false, // Added for new feature
+    is_active: true, // Added for filtering/management
   });
+
+  // New state variables for post filtering
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterType, setFilterType] = useState('all');
+  const [filterCategory, setFilterCategory] = useState('all');
 
 
   const { data: user } = useQuery({
@@ -226,9 +233,10 @@ export default function TrainingAcademy() {
     enabled: !!user?.email,
   });
 
-  const { data: trainingPosts = [] } = useQuery({
+  const { data: trainingPosts = [], isLoading: postsLoading } = useQuery({
     queryKey: ['trainingPosts'],
     queryFn: () => base44.entities.TrainingPost.list('-created_date'),
+    refetchInterval: 5000, // Auto-refresh every 5 seconds
   });
 
   const updateProgressMutation = useMutation({
@@ -315,11 +323,16 @@ export default function TrainingAcademy() {
   });
 
   const createPostMutation = useMutation({
-    mutationFn: (data) => base44.entities.TrainingPost.create(data),
+    mutationFn: async (postData) => { // Made async
+      return await base44.entities.TrainingPost.create({ // Await the API call and return its result
+        ...postData,
+        is_active: true, // Ensure posts are active by default
+      });
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['trainingPosts'] });
-      setShowPostForm(false);
-      resetPostForm();
+      setShowPostForm(false); // Use existing setShowPostForm
+      resetPostForm(); // Use existing resetPostForm
       alert('✅ Post created successfully!');
     },
   });
@@ -352,6 +365,21 @@ export default function TrainingAcademy() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['trainingPosts'] });
     },
+  });
+
+  // Filter posts based on new state variables
+  const filteredPosts = trainingPosts.filter(post => {
+    if (!post) return false;
+    
+    const matchesSearch = !searchQuery || 
+      post.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      post.content?.toLowerCase().includes(searchQuery.toLowerCase());
+    
+    const matchesType = filterType === 'all' || post.post_type === filterType;
+    const matchesCategory = filterCategory === 'all' || post.category === filterCategory;
+    
+    // Only show active posts in the feed
+    return matchesSearch && matchesType && matchesCategory && post.is_active;
   });
 
   const resetModuleForm = useCallback(() => {
@@ -387,6 +415,8 @@ export default function TrainingAcademy() {
       photo_urls: [],
       video_url: '',
       requires_acknowledgment: true,
+      is_featured: false,
+      is_active: true,
     });
   };
 
@@ -563,6 +593,8 @@ Tone: Warm, professional, motivational, aligned with excellence and teamwork cul
         photo_urls: [],
         video_url: '',
         requires_acknowledgment: true,
+        is_featured: false, // Default for AI-generated posts
+        is_active: true, // Default for AI-generated posts
       });
 
       setShowAIHelper(false);
@@ -1123,7 +1155,47 @@ Tone: Warm, professional, motivational, aligned with excellence and teamwork cul
                 </div>
               </CardHeader>
               <CardContent className="p-6">
-                {trainingPosts.length === 0 ? (
+                 {/* Filtering UI */}
+                <div className="mb-6 flex flex-wrap gap-4 items-center">
+                  <Input
+                    placeholder="Search posts..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="max-w-xs"
+                  />
+                  <Select value={filterType} onValueChange={setFilterType}>
+                    <SelectTrigger className="w-[180px]">
+                      <SelectValue placeholder="Filter by Type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Types</SelectItem>
+                      <SelectItem value="inspiration">Inspiration</SelectItem>
+                      <SelectItem value="training_tip">Training Tip</SelectItem>
+                      <SelectItem value="success_story">Success Story</SelectItem>
+                      <SelectItem value="announcement">Announcement</SelectItem>
+                      <SelectItem value="knowledge_share">Knowledge Share</SelectItem>
+                      <SelectItem value="best_practice">Best Practice</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Select value={filterCategory} onValueChange={setFilterCategory}>
+                    <SelectTrigger className="w-[180px]">
+                      <SelectValue placeholder="Filter by Category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Categories</SelectItem>
+                      <SelectItem value="leadership">Leadership</SelectItem>
+                      <SelectItem value="customer_service">Customer Service</SelectItem>
+                      <SelectItem value="food_safety">Food Safety</SelectItem>
+                      <SelectItem value="teamwork">Teamwork</SelectItem>
+                      <SelectItem value="innovation">Innovation</SelectItem>
+                      <SelectItem value="excellence">Excellence</SelectItem>
+                      <SelectItem value="culture">Culture</SelectItem>
+                      <SelectItem value="skills">Skills</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {postsLoading && <span className="text-sm text-gray-500 flex items-center"><RefreshCw className="w-4 h-4 mr-1 animate-spin" /> Loading posts...</span>}
+                </div>
+                {filteredPosts.length === 0 ? (
                   <div className="text-center py-12">
                     <GraduationCap className="w-16 h-16 text-gray-300 mx-auto mb-4" />
                     <p className="text-gray-500">No posts yet. Share knowledge and inspiration!</p>
@@ -1139,7 +1211,7 @@ Tone: Warm, professional, motivational, aligned with excellence and teamwork cul
                   </div>
                 ) : (
                   <div className="space-y-6">
-                    {trainingPosts.map((post) => {
+                    {filteredPosts.map((post) => {
                       const acknowledged = hasAcknowledged(post);
                       
                       return (
@@ -1936,14 +2008,14 @@ Tone: Warm, professional, motivational, aligned with excellence and teamwork cul
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="video">🎥 Video</SelectItem>
-                        <SelectItem value="text">📝 Text</SelectItem>
-                        <SelectItem value="mixed">🎬 Video + Text</SelectItem>
-                        <SelectItem value="quiz">❓ Quiz Only</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+                        <SelectContent>
+                          <SelectItem value="video">🎥 Video</SelectItem>
+                          <SelectItem value="text">📝 Text</SelectItem>
+                          <SelectItem value="mixed">🎬 Video + Text</SelectItem>
+                          <SelectItem value="quiz">❓ Quiz Only</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
 
                   {(moduleForm.content_type === 'video' || moduleForm.content_type === 'mixed') && (
                     <div>
