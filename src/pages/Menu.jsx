@@ -1,5 +1,4 @@
-
-import React, { useState } from 'react';
+import React from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,408 +7,297 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import {
   Utensils,
-  ChefHat,
   Search,
-  TrendingUp,
+  ChefHat,
+  Star,
+  Clock,
   DollarSign,
-  Package,
-  Settings,
-  Calculator,
-  ShoppingCart,
-  FileText,
-  Home,
-  Plus,
-  Eye,
   Edit,
-  Grid3x3,
-  List,
+  ArrowLeft,
+  Settings,
+  FileText,
+  AlertCircle,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 
-const safeNumber = (value, decimals = 2) => {
-  const num = parseFloat(value);
-  return isNaN(num) || num === null || num === undefined ? 0 : parseFloat(num.toFixed(decimals));
-};
-
-const formatPrice = (price) => safeNumber(price, 2).toFixed(2);
-
 export default function Menu() {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('all');
-  const [viewMode, setViewMode] = useState('grid'); // 'grid' or 'list'
+  const [searchQuery, setSearchQuery] = React.useState('');
+  const [selectedCategory, setSelectedCategory] = React.useState('all');
+
+  const { data: menuItems = [], isLoading: loadingItems } = useQuery({
+    queryKey: ['menuItems'],
+    queryFn: () => base44.entities.MenuItem.list(),
+  });
+
+  const { data: categories = [], isLoading: loadingCategories } = useQuery({
+    queryKey: ['menuCategories'],
+    queryFn: () => base44.entities.MenuCategory.list(),
+  });
 
   const { data: user } = useQuery({
     queryKey: ['currentUser'],
     queryFn: () => base44.auth.me(),
   });
 
-  const { data: menuItems = [] } = useQuery({
-    queryKey: ['menuItems'],
-    queryFn: () => base44.entities.MenuItem.list(),
-  });
-
-  const { data: categories = [] } = useQuery({
-    queryKey: ['menuCategories'],
-    queryFn: () => base44.entities.MenuCategory.list(),
-  });
-
-  const { data: ingredients = [] } = useQuery({
-    queryKey: ['ingredients'],
-    queryFn: () => base44.entities.Ingredient.list(),
-  });
-
   const isManager = user?.role === 'admin' || user?.position === 'manager' || user?.position === 'owner';
-  const isChef = user?.position === 'chef' || user?.position === 'sous_chef';
 
-  const filteredMenuItems = menuItems
-    .filter(item => {
-      const matchesSearch = item.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        item.description?.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesCategory = selectedCategory === 'all' || item.category_id === selectedCategory;
-      return matchesSearch && matchesCategory;
-    })
-    .sort((a, b) => {
-      const catA = categories.find(c => c.id === a.category_id);
-      const catB = categories.find(c => c.id === b.category_id);
-      const orderA = catA?.display_order || 999;
-      const orderB = catB?.display_order || 999;
-      return orderA - orderB;
-    });
+  // Filter menu items
+  const filteredItems = menuItems.filter(item => {
+    const matchesSearch = !searchQuery || 
+      item.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      item.description?.toLowerCase().includes(searchQuery.toLowerCase());
+    
+    const matchesCategory = selectedCategory === 'all' || item.category_id === selectedCategory;
+    
+    return matchesSearch && matchesCategory;
+  });
 
-  const totalMenuValue = menuItems.reduce((sum, item) => sum + safeNumber(item.sell_price), 0);
-  const avgFoodCost = menuItems.length > 0 
-    ? menuItems.reduce((sum, item) => sum + safeNumber(item.food_cost_percentage), 0) / menuItems.length
-    : 0;
-  const lowStockIngredients = ingredients.filter(ing => 
-    safeNumber(ing.current_stock) <= safeNumber(ing.reorder_point)
-  ).length;
-
-  const getProfitColor = (percentage) => {
-    if (percentage < 20) return 'bg-red-100 text-red-800 border-red-300';
-    if (percentage < 30) return 'bg-orange-100 text-orange-800 border-orange-300';
-    if (percentage < 40) return 'bg-yellow-100 text-yellow-800 border-yellow-300';
-    return 'bg-green-100 text-green-800 border-green-300';
-  };
+  // Group items by category
+  const itemsByCategory = categories.map(category => ({
+    ...category,
+    items: filteredItems.filter(item => item.category_id === category.id),
+  })).filter(cat => cat.items.length > 0);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6 md:p-8">
+    <div className="min-h-screen bg-gray-50 p-6 md:p-8">
       <div className="max-w-7xl mx-auto">
-        
-        <div className="flex gap-3 mb-6">
-          <Link to={createPageUrl('Dashboard')}>
-            <Button variant="outline" size="sm">
-              <Home className="w-4 h-4 mr-2" />
-              Dashboard
-            </Button>
-          </Link>
-        </div>
-
+        {/* Header */}
         <div className="mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 mb-3 flex items-center gap-3">
-            <Utensils className="w-10 h-10 text-green-600" />
-            Menu Hub
-          </h1>
-          <p className="text-gray-600 text-lg">
-            Your complete menu with recipes, costs, and profitability
-          </p>
+          <div className="flex justify-between items-start mb-4">
+            <div>
+              <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-2 flex items-center gap-3">
+                <Utensils className="w-8 h-8 text-emerald-600" />
+                Restaurant Menu
+              </h1>
+              <p className="text-gray-600">Browse dishes, recipes, and allergen information</p>
+            </div>
+            {isManager && (
+              <Link to={createPageUrl('MenuManagement')}>
+                <Button className="bg-emerald-600 hover:bg-emerald-700">
+                  <Settings className="w-4 h-4 mr-2" />
+                  Manage Menu
+                </Button>
+              </Link>
+            )}
+          </div>
+
+          {/* Search & Filter */}
+          <div className="flex flex-col md:flex-row gap-4">
+            <div className="flex-1 relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <Input
+                placeholder="Search menu items..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+            <div className="flex gap-2 flex-wrap">
+              <Button
+                variant={selectedCategory === 'all' ? 'default' : 'outline'}
+                onClick={() => setSelectedCategory('all')}
+                size="sm"
+              >
+                All Items
+              </Button>
+              {categories.map(cat => (
+                <Button
+                  key={cat.id}
+                  variant={selectedCategory === cat.id ? 'default' : 'outline'}
+                  onClick={() => setSelectedCategory(cat.id)}
+                  size="sm"
+                >
+                  {cat.name}
+                </Button>
+              ))}
+            </div>
+          </div>
         </div>
 
-        <div className="grid md:grid-cols-4 gap-4 mb-8">
-          <Card className="border-l-4 border-l-green-500">
-            <CardContent className="p-4">
-              <div className="flex justify-between items-start">
-                <div>
-                  <p className="text-sm text-gray-600 mb-1">Menu Items</p>
-                  <p className="text-3xl font-bold text-green-600">{menuItems.length}</p>
-                </div>
-                <Utensils className="w-8 h-8 text-green-500" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="border-l-4 border-l-blue-500">
-            <CardContent className="p-4">
-              <div className="flex justify-between items-start">
-                <div>
-                  <p className="text-sm text-gray-600 mb-1">Categories</p>
-                  <p className="text-3xl font-bold text-blue-600">{categories.length}</p>
-                </div>
-                <FileText className="w-8 h-8 text-blue-500" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="border-l-4 border-l-purple-500">
-            <CardContent className="p-4">
-              <div className="flex justify-between items-start">
-                <div>
-                  <p className="text-sm text-gray-600 mb-1">Avg Food Cost %</p>
-                  <p className="text-3xl font-bold text-purple-600">{safeNumber(avgFoodCost, 1).toFixed(1)}%</p>
-                </div>
-                <TrendingUp className="w-8 h-8 text-purple-500" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="border-l-4 border-l-orange-500">
-            <CardContent className="p-4">
-              <div className="flex justify-between items-start">
-                <div>
-                  <p className="text-sm text-gray-600 mb-1">Low Stock Items</p>
-                  <p className="text-3xl font-bold text-orange-600">{lowStockIngredients}</p>
-                </div>
-                <Package className="w-8 h-8 text-orange-500" />
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {(isManager || isChef) && (
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-            <Link to={createPageUrl('MenuManagement')}>
-              <Card className="hover:shadow-xl transition-all cursor-pointer bg-gradient-to-br from-green-50 to-green-100 border-green-200">
-                <CardContent className="p-6 text-center">
-                  <Edit className="w-12 h-12 text-green-600 mx-auto mb-3" />
-                  <h3 className="font-bold text-lg text-gray-900 mb-1">Manage Menu</h3>
-                  <p className="text-sm text-gray-600">Add items, recipes & photos</p>
+        {/* Loading State */}
+        {(loadingItems || loadingCategories) && (
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {Array(6).fill(0).map((_, i) => (
+              <Card key={i} className="bg-white">
+                <CardContent className="p-0">
+                  <div className="h-48 bg-gray-200 animate-pulse" />
+                  <div className="p-4 space-y-3">
+                    <div className="h-4 bg-gray-200 rounded animate-pulse w-3/4" />
+                    <div className="h-3 bg-gray-200 rounded animate-pulse w-1/2" />
+                  </div>
                 </CardContent>
               </Card>
-            </Link>
-
-            <Link to={createPageUrl('AllergyTable')}>
-              <Card className="hover:shadow-xl transition-all cursor-pointer bg-gradient-to-br from-red-50 to-red-100 border-red-200">
-                <CardContent className="p-6 text-center">
-                  <FileText className="w-12 h-12 text-red-600 mx-auto mb-3" />
-                  <h3 className="font-bold text-lg text-gray-900 mb-1">Allergen Info</h3>
-                  <p className="text-sm text-gray-600">View allergen matrix</p>
-                </CardContent>
-              </Card>
-            </Link>
-
-            <Link to={createPageUrl('MenuAnalysis')}>
-              <Card className="hover:shadow-xl transition-all cursor-pointer bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
-                <CardContent className="p-6 text-center">
-                  <Calculator className="w-12 h-12 text-blue-600 mx-auto mb-3" />
-                  <h3 className="font-bold text-lg text-gray-900 mb-1">Cost Analysis</h3>
-                  <p className="text-sm text-gray-600">Profit & costing tools</p>
-                </CardContent>
-              </Card>
-            </Link>
-
-            <Link to={createPageUrl('InventoryDashboard')}>
-              <Card className="hover:shadow-xl transition-all cursor-pointer bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200">
-                <CardContent className="p-6 text-center">
-                  <Package className="w-12 h-12 text-purple-600 mx-auto mb-3" />
-                  <h3 className="font-bold text-lg text-gray-900 mb-1">Inventory</h3>
-                  <p className="text-sm text-gray-600">Stock & ingredients</p>
-                </CardContent>
-              </Card>
-            </Link>
+            ))}
           </div>
         )}
 
-        <Card className="mb-6">
-          <CardContent className="p-4">
-            <div className="flex flex-col md:flex-row gap-4">
-              <div className="flex-1 relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-                <Input
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search menu items..."
-                  className="pl-10"
-                />
-              </div>
-              <select
-                value={selectedCategory}
-                onChange={(e) => setSelectedCategory(e.target.value)}
-                className="px-4 py-2 border rounded-lg bg-white text-gray-900"
-              >
-                <option value="all">All Categories</option>
-                {categories.map(cat => (
-                  <option key={cat.id} value={cat.id}>{cat.name}</option>
-                ))}
-              </select>
-              <div className="flex gap-2">
-                <Button
-                  variant={viewMode === 'grid' ? 'default' : 'outline'}
-                  size="icon"
-                  onClick={() => setViewMode('grid')}
-                >
-                  <Grid3x3 className="w-4 h-4" />
-                </Button>
-                <Button
-                  variant={viewMode === 'list' ? 'default' : 'outline'}
-                  size="icon"
-                  onClick={() => setViewMode('list')}
-                >
-                  <List className="w-4 h-4" />
-                </Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <div className={viewMode === 'grid' ? 'grid md:grid-cols-2 lg:grid-cols-3 gap-6' : 'space-y-4'}>
-          {filteredMenuItems.length === 0 ? (
-            <div className="col-span-full">
-              <Card>
-                <CardContent className="p-12 text-center">
-                  <ChefHat className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-xl font-bold text-gray-900 mb-2">No Menu Items Found</h3>
-                  <p className="text-gray-600 mb-4">
-                    {searchQuery ? 'Try adjusting your search' : 'Start by adding your first menu item'}
-                  </p>
-                  {(isManager || isChef) && (
-                    <Link to={createPageUrl('MenuManagement')}>
-                      <Button className="bg-green-600 hover:bg-green-700">
-                        <Plus className="w-4 h-4 mr-2" />
-                        Add Menu Item
-                      </Button>
-                    </Link>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
-          ) : (
-            filteredMenuItems.map(item => (
-              viewMode === 'grid' ? (
-                <Link key={item.id} to={createPageUrl(`MenuItemView?id=${item.id}`)}>
-                  <Card className="hover:shadow-xl transition-all cursor-pointer overflow-hidden group">
-                    <div className="relative h-48 bg-gray-100 overflow-hidden">
-                      {item.image_url ? (
-                        <img
-                          src={item.image_url}
-                          alt={item.name}
-                          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center">
-                          <Utensils className="w-16 h-16 text-gray-300" />
-                        </div>
-                      )}
-                      <div className="absolute top-2 right-2">
-                        <Badge className="bg-green-600">
-                          £{formatPrice(item.sell_price)}
-                        </Badge>
-                      </div>
-                    </div>
-
-                    <CardContent className="p-4">
-                      <div className="mb-3">
-                        <h3 className="text-lg font-bold text-gray-900 mb-1">{item.name}</h3>
-                        <Badge variant="outline" className="text-xs">
-                          {item.category_name || 'Uncategorized'}
-                        </Badge>
-                      </div>
-
-                      {item.description && (
-                        <p className="text-sm text-gray-600 mb-3 line-clamp-2">
-                          {item.description}
-                        </p>
-                      )}
-
-                      <div className="space-y-2 text-sm">
-                        <div className="flex justify-between items-center">
-                          <span className="text-gray-600">Food Cost:</span>
-                          <span className="font-semibold">£{formatPrice(item.total_cost)}</span>
-                        </div>
-                        <div className="flex justify-between items-center">
-                          <span className="text-gray-600">Profit:</span>
-                          <span className={`font-semibold ${safeNumber(item.profit_margin) > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                            £{formatPrice(item.profit_margin)}
-                          </span>
-                        </div>
-                        <div className="flex justify-between items-center pt-2 border-t">
-                          <span className="text-gray-600">Food Cost %:</span>
-                          <Badge className={getProfitColor(safeNumber(item.food_cost_percentage))}>
-                            {safeNumber(item.food_cost_percentage, 1).toFixed(1)}%
-                          </Badge>
-                        </div>
-                      </div>
-
-                      <div className="mt-4 pt-3 border-t text-xs text-gray-500">
-                        {item.recipe?.length || 0} ingredients • {item.prep_time_minutes || 0} min prep
-                      </div>
-                    </CardContent>
-                  </Card>
+        {/* Empty State */}
+        {!loadingItems && !loadingCategories && filteredItems.length === 0 && (
+          <Card className="bg-white">
+            <CardContent className="p-12 text-center">
+              <ChefHat className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+              <h3 className="text-xl font-semibold text-gray-900 mb-2">No menu items found</h3>
+              <p className="text-gray-600 mb-6">
+                {searchQuery ? 'Try a different search term' : 'Start building your menu'}
+              </p>
+              {isManager && !searchQuery && (
+                <Link to={createPageUrl('MenuManagement')}>
+                  <Button className="bg-emerald-600 hover:bg-emerald-700">
+                    <Settings className="w-4 h-4 mr-2" />
+                    Add Menu Items
+                  </Button>
                 </Link>
-              ) : (
-                <Card key={item.id} className="hover:shadow-lg transition-all">
-                  <CardContent className="p-4">
-                    <div className="flex gap-4">
-                      <div className="w-24 h-24 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
-                        {item.image_url ? (
-                          <img src={item.image_url} alt={item.name} className="w-full h-full object-cover" />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center">
-                            <Utensils className="w-8 h-8 text-gray-300" />
-                          </div>
-                        )}
-                      </div>
-                      <div className="flex-1">
-                        <div className="flex items-start justify-between mb-2">
-                          <div>
-                            <h3 className="text-lg font-bold text-gray-900">{item.name}</h3>
-                            <Badge variant="outline" className="text-xs mt-1">
-                              {item.category_name || 'Uncategorized'}
-                            </Badge>
-                          </div>
-                          <Badge className="bg-green-600 text-lg px-3 py-1">
-                            £{formatPrice(item.sell_price)}
-                          </Badge>
-                        </div>
-                        {item.description && (
-                          <p className="text-sm text-gray-600 mb-3">{item.description}</p>
-                        )}
-                        <div className="flex gap-4 text-sm">
-                          <div>
-                            <span className="text-gray-600">Cost: </span>
-                            <span className="font-semibold">£{formatPrice(item.total_cost)}</span>
-                          </div>
-                          <div>
-                            <span className="text-gray-600">Profit: </span>
-                            <span className={`font-semibold ${safeNumber(item.profit_margin) > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                              £{formatPrice(item.profit_margin)}
-                            </span>
-                          </div>
-                          <Badge className={getProfitColor(safeNumber(item.food_cost_percentage))}>
-                            {safeNumber(item.food_cost_percentage, 1).toFixed(1)}% Food Cost
-                          </Badge>
-                        </div>
-                        <div className="mt-2 flex gap-2">
-                          <Link to={createPageUrl(`MenuItemView?id=${item.id}`)}>
-                            <Button size="sm" variant="outline">
-                              <Eye className="w-4 h-4 mr-1" />
-                              View
-                            </Button>
-                          </Link>
-                          {(isManager || isChef) && (
-                            <Link to={createPageUrl('MenuManagement')}>
-                              <Button size="sm" variant="outline">
-                                <Edit className="w-4 h-4 mr-1" />
-                                Edit
-                              </Button>
-                            </Link>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Menu Items by Category */}
+        {!loadingItems && !loadingCategories && itemsByCategory.length > 0 && (
+          <div className="space-y-12">
+            {itemsByCategory.map(category => (
+              <div key={category.id}>
+                <div className="mb-6">
+                  <h2 className="text-2xl font-bold text-gray-900 mb-2">{category.name}</h2>
+                  {category.description && (
+                    <p className="text-gray-600">{category.description}</p>
+                  )}
+                </div>
+
+                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {category.items.map(item => (
+                    <Link key={item.id} to={createPageUrl(`MenuItemView?id=${item.id}`)}>
+                      <Card className="bg-white hover:shadow-xl transition-all duration-300 cursor-pointer group overflow-hidden">
+                        {/* Image */}
+                        <div className="relative h-48 bg-gray-100 overflow-hidden">
+                          {item.image_url ? (
+                            <img
+                              src={item.image_url}
+                              alt={item.name}
+                              className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200">
+                              <ChefHat className="w-16 h-16 text-gray-300" />
+                            </div>
+                          )}
+                          {item.allergen_tags && item.allergen_tags.length > 0 && (
+                            <div className="absolute top-2 left-2">
+                              <Badge className="bg-red-500 text-white">
+                                <AlertCircle className="w-3 h-3 mr-1" />
+                                Allergens
+                              </Badge>
+                            </div>
                           )}
                         </div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              )
-            ))
-          )}
-        </div>
 
-        {(isManager || isChef) && (
-          <div className="fixed bottom-6 right-6 flex flex-col gap-3">
+                        <CardContent className="p-4">
+                          <div className="mb-3">
+                            <h3 className="text-lg font-bold text-gray-900 mb-1 group-hover:text-emerald-600 transition-colors">
+                              {item.name}
+                            </h3>
+                            {item.description && (
+                              <p className="text-sm text-gray-600 line-clamp-2">{item.description}</p>
+                            )}
+                          </div>
+
+                          <div className="space-y-2 mb-4">
+                            <div className="flex items-center justify-between text-sm">
+                              <span className="text-gray-600 flex items-center gap-1">
+                                <DollarSign className="w-4 h-4" />
+                                Price
+                              </span>
+                              <span className="font-bold text-gray-900 text-lg">£{(item.sell_price || 0).toFixed(2)}</span>
+                            </div>
+                            {item.prep_time_minutes > 0 && (
+                              <div className="flex items-center justify-between text-sm">
+                                <span className="text-gray-600 flex items-center gap-1">
+                                  <Clock className="w-4 h-4" />
+                                  Prep Time
+                                </span>
+                                <span className="text-gray-900">{item.prep_time_minutes} min</span>
+                              </div>
+                            )}
+                            {item.food_cost_percentage > 0 && (
+                              <div className="flex items-center justify-between text-sm">
+                                <span className="text-gray-600">Food Cost</span>
+                                <Badge variant="outline" className={
+                                  item.food_cost_percentage < 30 ? 'text-green-700 border-green-300' :
+                                  item.food_cost_percentage < 40 ? 'text-amber-700 border-amber-300' :
+                                  'text-red-700 border-red-300'
+                                }>
+                                  {item.food_cost_percentage.toFixed(1)}%
+                                </Badge>
+                              </div>
+                            )}
+                          </div>
+
+                          {item.allergen_tags && item.allergen_tags.length > 0 && (
+                            <div className="pt-3 border-t border-gray-100">
+                              <p className="text-xs text-gray-500 mb-1">Contains:</p>
+                              <div className="flex flex-wrap gap-1">
+                                {item.allergen_tags.slice(0, 3).map(allergen => (
+                                  <Badge key={allergen} variant="outline" className="text-xs">
+                                    {allergen}
+                                  </Badge>
+                                ))}
+                                {item.allergen_tags.length > 3 && (
+                                  <Badge variant="outline" className="text-xs">
+                                    +{item.allergen_tags.length - 3} more
+                                  </Badge>
+                                )}
+                              </div>
+                            </div>
+                          )}
+
+                          {item.linked_sop_id && (
+                            <div className="mt-3 pt-3 border-t border-gray-100">
+                              <div className="flex items-center gap-2 text-sm text-blue-600">
+                                <FileText className="w-4 h-4" />
+                                <span>Has Recipe SOP</span>
+                              </div>
+                            </div>
+                          )}
+                        </CardContent>
+                      </Card>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Quick Links */}
+        {isManager && (
+          <div className="mt-12 grid md:grid-cols-3 gap-4">
             <Link to={createPageUrl('MenuManagement')}>
-              <Button size="lg" className="bg-green-600 hover:bg-green-700 shadow-2xl">
-                <Settings className="w-5 h-5 mr-2" />
-                Manage Menu
-              </Button>
+              <Card className="bg-white hover:shadow-lg transition-shadow cursor-pointer">
+                <CardContent className="p-6 text-center">
+                  <Edit className="w-8 h-8 text-emerald-600 mx-auto mb-3" />
+                  <h3 className="font-semibold text-gray-900 mb-1">Menu Management</h3>
+                  <p className="text-sm text-gray-600">Edit items & recipes</p>
+                </CardContent>
+              </Card>
+            </Link>
+            <Link to={createPageUrl('AllergyTable')}>
+              <Card className="bg-white hover:shadow-lg transition-shadow cursor-pointer">
+                <CardContent className="p-6 text-center">
+                  <AlertCircle className="w-8 h-8 text-red-600 mx-auto mb-3" />
+                  <h3 className="font-semibold text-gray-900 mb-1">Allergen Table</h3>
+                  <p className="text-sm text-gray-600">View all allergens</p>
+                </CardContent>
+              </Card>
+            </Link>
+            <Link to={createPageUrl('MenuAnalysis')}>
+              <Card className="bg-white hover:shadow-lg transition-shadow cursor-pointer">
+                <CardContent className="p-6 text-center">
+                  <DollarSign className="w-8 h-8 text-blue-600 mx-auto mb-3" />
+                  <h3 className="font-semibold text-gray-900 mb-1">Profit Analysis</h3>
+                  <p className="text-sm text-gray-600">Cost & profit reports</p>
+                </CardContent>
+              </Card>
             </Link>
           </div>
         )}
