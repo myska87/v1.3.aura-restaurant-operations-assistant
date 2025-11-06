@@ -133,7 +133,7 @@ function VoiceSearch({ onClose, navigate }) {
       'procedures': 'SOPDashboardHub',
       'documents': 'DocumentsFormsHub',
       'forms': 'DocumentsFormsHub',
-      'reports': 'Reports',
+      'reports': 'ReportsDashboard', // Updated for voice search
       'staff': 'StaffDashboard',
       'hygiene': 'HygieneDashboard',
       'settings': 'SettingsDashboard',
@@ -230,7 +230,7 @@ const getRoleNavigation = (user, impersonatedRole = null) => {
       { title: "Inventory", url: createPageUrl("InventoryDashboard"), icon: Package },
       { title: "Quality Control", url: createPageUrl("QualityControl"), icon: Star },
       { title: "AI Scheduler", url: createPageUrl("AIRotaGenerator"), icon: Sparkles }, // Changed order, added AI Scheduler
-      { title: "Reports", url: createPageUrl("Reports"), icon: BarChart3 },
+      { title: "Reports", url: createPageUrl("ReportsDashboard"), icon: BarChart3 }, // Changed URL
       { title: "Settings", url: createPageUrl("SettingsDashboard"), icon: Settings },
     ];
   }
@@ -308,7 +308,7 @@ const ALL_PAGES = [
   { name: "AI Meeting Minutes", url: createPageUrl("MeetingDashboard"), keywords: "meetings transcription ai notes recording", category: "AI Tools" }, // Category changed, keywords updated
   { name: "Announcements", url: createPageUrl("Announcements"), keywords: "news updates notices", category: "Communication" },
   { name: "Training Academy", url: createPageUrl("TrainingAcademy"), keywords: "education courses learning development academy", category: "Training" },
-  { name: "Reports", url: createPageUrl("Reports"), keywords: "analytics statistics data", category: "Reports" },
+  { name: "Reports", url: createPageUrl("ReportsDashboard"), keywords: "analytics statistics data business insights", category: "Reports" }, // Updated URL and keywords
   { name: "Settings", url: createPageUrl("SettingsDashboard"), keywords: "configuration admin", category: "Settings" },
 ];
 

@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery } from '@tanstack/react-query';
@@ -21,9 +20,9 @@ import {
   FileText,
   Zap,
   ArrowRight,
-  Sparkles, // Added Sparkles icon
-  Mic, // Added Mic icon
-  GraduationCap, // Added GraduationCap icon
+  Sparkles,
+  Mic,
+  GraduationCap,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
@@ -113,10 +112,10 @@ export default function Dashboard() {
 
         {/* Welcome Header */}
         <div className="mb-8">
-          <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-2">
+          <h1 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-2">
             Welcome back, {user?.full_name || 'User'}! 👋
           </h1>
-          <p className="text-gray-600">
+          <p className="text-gray-600 dark:text-gray-400">
             {format(new Date(), 'EEEE, MMMM d, yyyy')}
           </p>
         </div>
@@ -171,14 +170,14 @@ export default function Dashboard() {
 
         {/* AI Tools Quick Access - Managers Only */}
         {isManager && (
-          <div className="mb-6"> {/* Changed px-6 pb-4 to mb-6 for consistent spacing */}
+          <div className="mb-6">
             <Card className="bg-gradient-to-r from-purple-500 to-pink-600 border-none shadow-xl">
               <CardContent className="p-6">
                 <h3 className="text-white text-lg font-bold mb-4 flex items-center gap-2">
                   <Sparkles className="w-5 h-5" />
                   AI Tools & Automation
                 </h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3"> {/* Adjusted grid for smaller screens */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                   <Link to={createPageUrl('AIRotaGenerator')}>
                     <Button className="w-full bg-white/20 hover:bg-white/30 text-white border-white/30">
                       <Calendar className="w-4 h-4 mr-2" />
@@ -208,54 +207,54 @@ export default function Dashboard() {
           
           {/* My Tasks - Everyone */}
           <Link to={createPageUrl('MyTasks')}>
-            <Card className="bg-white border-none shadow-sm hover:shadow-lg transition-all cursor-pointer">
+            <Card className="bg-white dark:bg-gray-800 border-none shadow-sm hover:shadow-lg transition-all cursor-pointer">
               <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-medium text-gray-600 flex items-center gap-2">
+                <CardTitle className="text-sm font-medium text-gray-600 dark:text-gray-400 flex items-center gap-2">
                   <CheckCircle className="w-4 h-4 text-blue-600" />
                   My Tasks
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-3xl font-bold text-gray-900 mb-1">
+                <div className="text-3xl font-bold text-gray-900 dark:text-white mb-1">
                   {myTasks.length}
                 </div>
-                <p className="text-xs text-gray-500">Pending tasks</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Pending tasks</p>
               </CardContent>
             </Card>
           </Link>
 
           {/* My Forms - Everyone */}
           <Link to={createPageUrl('FormLibrary')}>
-            <Card className="bg-white border-none shadow-sm hover:shadow-lg transition-all cursor-pointer">
+            <Card className="bg-white dark:bg-gray-800 border-none shadow-sm hover:shadow-lg transition-all cursor-pointer">
               <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-medium text-gray-600 flex items-center gap-2">
+                <CardTitle className="text-sm font-medium text-gray-600 dark:text-gray-400 flex items-center gap-2">
                   <FileText className="w-4 h-4 text-purple-600" />
                   Forms Due
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-3xl font-bold text-gray-900 mb-1">
+                <div className="text-3xl font-bold text-gray-900 dark:text-white mb-1">
                   {myForms.length}
                 </div>
-                <p className="text-xs text-gray-500">To complete</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">To complete</p>
               </CardContent>
             </Card>
           </Link>
 
           {/* My Shifts - Everyone */}
           <Link to={createPageUrl('MyShifts')}>
-            <Card className="bg-white border-none shadow-sm hover:shadow-lg transition-all cursor-pointer">
+            <Card className="bg-white dark:bg-gray-800 border-none shadow-sm hover:shadow-lg transition-all cursor-pointer">
               <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-medium text-gray-600 flex items-center gap-2">
+                <CardTitle className="text-sm font-medium text-gray-600 dark:text-gray-400 flex items-center gap-2">
                   <Calendar className="w-4 h-4 text-emerald-600" />
                   My Shifts
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-3xl font-bold text-gray-900 mb-1">
+                <div className="text-3xl font-bold text-gray-900 dark:text-white mb-1">
                   {myShifts.length}
                 </div>
-                <p className="text-xs text-gray-500">Upcoming shifts</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Upcoming shifts</p>
               </CardContent>
             </Card>
           </Link>
@@ -263,18 +262,18 @@ export default function Dashboard() {
           {/* Manager: Staff on Duty - ONLY FOR MANAGERS */}
           {isManager && (
             <Link to={createPageUrl('StaffRota')}>
-              <Card className="bg-white border-none shadow-sm hover:shadow-lg transition-all cursor-pointer">
+              <Card className="bg-white dark:bg-gray-800 border-none shadow-sm hover:shadow-lg transition-all cursor-pointer">
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-sm font-medium text-gray-600 flex items-center gap-2">
+                  <CardTitle className="text-sm font-medium text-gray-600 dark:text-gray-400 flex items-center gap-2">
                     <Users className="w-4 h-4 text-amber-600" />
                     Staff On Duty
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold text-gray-900 mb-1">
+                  <div className="text-3xl font-bold text-gray-900 dark:text-white mb-1">
                     {staffOnDuty}
                   </div>
-                  <p className="text-xs text-gray-500">Currently working</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Currently working</p>
                 </CardContent>
               </Card>
             </Link>
@@ -283,18 +282,18 @@ export default function Dashboard() {
           {/* Manager: Low Stock */}
           {isManager && (
             <Link to={createPageUrl('InventoryDashboard')}>
-              <Card className="bg-white border-none shadow-sm hover:shadow-lg transition-all cursor-pointer">
+              <Card className="bg-white dark:bg-gray-800 border-none shadow-sm hover:shadow-lg transition-all cursor-pointer">
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-sm font-medium text-gray-600 flex items-center gap-2">
+                  <CardTitle className="text-sm font-medium text-gray-600 dark:text-gray-400 flex items-center gap-2">
                     <Package className="w-4 h-4 text-red-600" />
                     Low Stock
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold text-gray-900 mb-1">
+                  <div className="text-3xl font-bold text-gray-900 dark:text-white mb-1">
                     {lowStockItems.length}
                   </div>
-                  <p className="text-xs text-gray-500">Items need ordering</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Items need ordering</p>
                 </CardContent>
               </Card>
             </Link>
@@ -302,9 +301,9 @@ export default function Dashboard() {
         </div>
 
         {/* Role-Specific Quick Actions */}
-        <Card className="bg-white border-none shadow-sm mb-8">
+        <Card className="bg-white dark:bg-gray-800 border-none shadow-sm mb-8">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
+            <CardTitle className="flex items-center gap-2 dark:text-white">
               <Zap className="w-5 h-5 text-blue-600" />
               Quick Actions
             </CardTitle>
@@ -353,7 +352,7 @@ export default function Dashboard() {
                       Manager View
                     </Button>
                   </Link>
-                  <Link to={createPageUrl('Reports')}>
+                  <Link to={createPageUrl('ReportsDashboard')}>
                     <Button variant="outline" className="w-full justify-start">
                       <BarChart3 className="w-4 h-4 mr-2" />
                       Analytics
@@ -401,15 +400,15 @@ export default function Dashboard() {
               {/* Front of House */}
               {isFrontOfHouse && (
                 <>
-                  <Link to={createPageUrl('DocumentsDashboard')}>
+                  <Link to={createPageUrl('DocumentsFormsHub')}>
                     <Button variant="outline" className="w-full justify-start">
                       <FileText className="w-4 h-4 mr-2" />
                       Documents
                     </Button>
                   </Link>
-                  <Link to={createPageUrl('OnboardingTraining')}>
+                  <Link to={createPageUrl('TrainingAcademy')}>
                     <Button variant="outline" className="w-full justify-start">
-                      <FileText className="w-4 h-4 mr-2" />
+                      <GraduationCap className="w-4 h-4 mr-2" />
                       Training
                     </Button>
                   </Link>
@@ -421,9 +420,9 @@ export default function Dashboard() {
 
         {/* My Priorities Today */}
         {(myTasks.length > 0 || myForms.length > 0) && (
-          <Card className="bg-white border-none shadow-sm mb-8">
+          <Card className="bg-white dark:bg-gray-800 border-none shadow-sm mb-8">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
+              <CardTitle className="flex items-center gap-2 dark:text-white">
                 <AlertTriangle className="w-5 h-5 text-amber-600" />
                 Your Priorities Today
               </CardTitle>
@@ -432,12 +431,12 @@ export default function Dashboard() {
               <div className="space-y-3">
                 {/* Tasks */}
                 {myTasks.slice(0, 3).map((task) => (
-                  <div key={task.id} className="flex items-center justify-between p-3 bg-blue-50 rounded-lg border border-blue-200">
+                  <div key={task.id} className="flex items-center justify-between p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
                     <div className="flex items-center gap-3">
                       <CheckCircle className="w-5 h-5 text-blue-600" />
                       <div>
-                        <p className="font-medium text-gray-900">{task.task_name}</p>
-                        <p className="text-sm text-gray-600">Task • {task.category}</p>
+                        <p className="font-medium text-gray-900 dark:text-white">{task.task_name}</p>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">Task • {task.category}</p>
                       </div>
                     </div>
                     <Badge className="bg-blue-600 text-white">Task</Badge>
@@ -446,12 +445,12 @@ export default function Dashboard() {
 
                 {/* Forms */}
                 {myForms.slice(0, 3).map((form) => (
-                  <div key={form.id} className="flex items-center justify-between p-3 bg-purple-50 rounded-lg border border-purple-200">
+                  <div key={form.id} className="flex items-center justify-between p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg border border-purple-200 dark:border-purple-800">
                     <div className="flex items-center gap-3">
                       <FileText className="w-5 h-5 text-purple-600" />
                       <div>
-                        <p className="font-medium text-gray-900">{form.form_name}</p>
-                        <p className="text-sm text-gray-600">
+                        <p className="font-medium text-gray-900 dark:text-white">{form.form_name}</p>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">
                           Form • Due {format(new Date(form.due_date), 'MMM d, h:mm a')}
                         </p>
                       </div>
@@ -475,9 +474,9 @@ export default function Dashboard() {
         )}
 
         {/* Recent Activity Feed */}
-        <Card className="bg-white border-none shadow-sm">
+        <Card className="bg-white dark:bg-gray-800 border-none shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="flex items-center gap-2">
+            <CardTitle className="flex items-center gap-2 dark:text-white">
               <Activity className="w-5 h-5 text-blue-600" />
               Recent Activity
             </CardTitle>
@@ -485,25 +484,25 @@ export default function Dashboard() {
           </CardHeader>
           <CardContent>
             {recentActivities.length === 0 ? (
-              <div className="text-center py-12 text-gray-500">
-                <Activity className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+              <div className="text-center py-12 text-gray-500 dark:text-gray-400">
+                <Activity className="w-16 h-16 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
                 <p className="font-medium">No recent activity</p>
               </div>
             ) : (
               <div className="space-y-3">
                 {recentActivities.map((activity) => (
-                  <div key={activity.id} className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg border border-gray-200 hover:shadow-md transition-shadow">
-                    <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
+                  <div key={activity.id} className="flex items-start gap-3 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-200 dark:border-gray-600 hover:shadow-md transition-shadow">
+                    <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center flex-shrink-0">
                       <Activity className="w-4 h-4 text-blue-600" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-gray-900 text-sm">
+                      <p className="font-semibold text-gray-900 dark:text-white text-sm">
                         {activity.title}
                       </p>
-                      <p className="text-sm text-gray-600 mt-0.5">
+                      <p className="text-sm text-gray-600 dark:text-gray-400 mt-0.5">
                         {activity.description}
                       </p>
-                      <p className="text-xs text-gray-500 mt-1">
+                      <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
                         {activity.user_name} • {formatDistanceToNow(new Date(activity.created_date), { addSuffix: true })}
                       </p>
                     </div>
