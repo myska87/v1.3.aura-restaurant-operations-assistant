@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { base44 } from '@/api/base44Client';
+import { AlertCircle } from 'lucide-react';
 
 const CRITICAL_MODULES = [
   'SOPCore', 'DocumentCore', 'TrainingAcademy', 'EventHub',
