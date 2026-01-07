@@ -749,21 +749,22 @@ AURA Restaurant Team`;
               return (
                 <Card key={item.id} className="bg-white border-none shadow-sm hover:shadow-lg transition-shadow overflow-hidden group">
                   {/* Dish Image */}
-                  <Link to={createPageUrl(`MenuItemView?id=${item.id}`)}>
-                    <div className="relative h-48 bg-gray-100 overflow-hidden cursor-pointer">
-                      {item.image_url ? (
-                        <img 
-                          src={item.image_url} 
-                          alt={item.name} 
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center">
-                          <ImageIcon className="w-16 h-16 text-gray-300" />
-                        </div>
-                      )}
-                    </div>
-                  </Link>
+                  <div className="relative">
+                    <Link to={createPageUrl(`MenuItemView?id=${item.id}`)}>
+                      <div className="h-48 bg-gray-100 overflow-hidden cursor-pointer">
+                        {item.image_url ? (
+                          <img 
+                            src={item.image_url} 
+                            alt={item.name} 
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center">
+                            <ImageIcon className="w-16 h-16 text-gray-300" />
+                          </div>
+                        )}
+                      </div>
+                    </Link>
                     <div className="absolute top-2 right-2 flex gap-1 z-10">
                       <Button
                         variant="secondary"
