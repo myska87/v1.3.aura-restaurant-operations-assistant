@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -539,10 +538,15 @@ export default function Layout({ children }) {
                         🛡️ Owner Control
                       </button>
                     </Link>
-                  )}
-                </div>
-              </div>
-            </div>
+                    )}
+                    <Link to={createPageUrl("AppDocumentation")} onClick={() => setSidebarOpen(false)}>
+                    <button className="w-full text-left px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors">
+                      📚 Documentation
+                    </button>
+                    </Link>
+                    </div>
+                    </div>
+                    </div>
 
             <div className="border-t border-gray-100 dark:border-gray-700 p-4 flex-shrink-0 bg-white dark:bg-gray-800">
               {user && (
