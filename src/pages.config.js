@@ -8,7 +8,6 @@ import AdvancedChecklists from './pages/AdvancedChecklists';
 import AllergyTable from './pages/AllergyTable';
 import AnalyticsDashboard from './pages/AnalyticsDashboard';
 import Announcements from './pages/Announcements';
-import Dashboard from './pages/Dashboard';
 import AttendanceApproval from './pages/AttendanceApproval';
 import AttendanceReports from './pages/AttendanceReports';
 import AuraBrainDashboard from './pages/AuraBrainDashboard';
@@ -31,6 +30,7 @@ import CostAnalyticsDashboard from './pages/CostAnalyticsDashboard';
 import CreateOperationTask from './pages/CreateOperationTask';
 import CultureBuilding from './pages/CultureBuilding';
 import DailyChecklists from './pages/DailyChecklists';
+import Dashboard from './pages/Dashboard';
 import DashboardPro from './pages/DashboardPro';
 import DataBridgeMonitor from './pages/DataBridgeMonitor';
 import DataManagement from './pages/DataManagement';
@@ -152,7 +152,6 @@ export const PAGES = {
     "AllergyTable": AllergyTable,
     "AnalyticsDashboard": AnalyticsDashboard,
     "Announcements": Announcements,
-    "Dashboard": Dashboard,
     "AttendanceApproval": AttendanceApproval,
     "AttendanceReports": AttendanceReports,
     "AuraBrainDashboard": AuraBrainDashboard,
@@ -175,6 +174,7 @@ export const PAGES = {
     "CreateOperationTask": CreateOperationTask,
     "CultureBuilding": CultureBuilding,
     "DailyChecklists": DailyChecklists,
+    "Dashboard": Dashboard,
     "DashboardPro": DashboardPro,
     "DataBridgeMonitor": DataBridgeMonitor,
     "DataManagement": DataManagement,
