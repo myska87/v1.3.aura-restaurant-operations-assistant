@@ -23,7 +23,6 @@ import {
   Sparkles,
   Mic,
   GraduationCap,
-  BookOpen,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
@@ -473,24 +472,6 @@ export default function Dashboard() {
             </CardContent>
           </Card>
         )}
-
-        {/* Help Banner */}
-        <Card className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white border-none shadow-lg mb-8">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-lg font-bold mb-1">Need Help?</h3>
-                <p className="text-blue-50 text-sm">Access our comprehensive documentation and guides</p>
-              </div>
-              <Link to={createPageUrl('AppDocumentation')}>
-                <Button variant="secondary">
-                  <BookOpen className="w-4 h-4 mr-2" />
-                  View Docs
-                </Button>
-              </Link>
-            </div>
-          </CardContent>
-        </Card>
 
         {/* Recent Activity Feed */}
         <Card className="bg-white dark:bg-gray-800 border-none shadow-sm">
