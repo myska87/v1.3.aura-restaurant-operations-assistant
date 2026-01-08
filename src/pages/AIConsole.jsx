@@ -23,7 +23,7 @@ import {
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
-// import aiAssistant from '../components/AIManagerConsole';
+import aiAssistant from '../components/AIManagerConsole';
 
 export default function AIConsole() {
   const [messages, setMessages] = useState([
@@ -92,29 +92,21 @@ export default function AIConsole() {
     }]);
 
     try {
-      // Process with AI using LLM
-      const response = await base44.integrations.Core.InvokeLLM({
-        prompt: `You are AURA, an AI assistant for restaurant operations. The user said: "${userMessage}". Respond helpfully and concisely in a friendly tone. If they're asking about data, explain what you can help with.`,
-        response_json_schema: {
-          type: "object",
-          properties: {
-            message: { type: "string" },
-            success: { type: "boolean" }
-          }
-        }
-      });
+      // Process with AI
+      const response = await aiAssistant.processCommand(userMessage, user);
 
       // Add assistant response
       setMessages(prev => [...prev, {
         role: 'assistant',
-        content: response.message || "I'm here to help! What would you like to know?",
-        success: response.success !== false,
+        content: response.message,
+        data: response.data,
+        success: response.success,
         timestamp: new Date().toISOString()
       }]);
 
       // Speak response if enabled
-      if (speechEnabled && response.success !== false) {
-        speak(response.message || "I'm here to help!");
+      if (speechEnabled && response.success) {
+        speak(response.message);
       }
 
     } catch (error) {

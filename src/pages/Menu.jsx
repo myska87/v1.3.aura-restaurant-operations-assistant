@@ -167,8 +167,8 @@ export default function Menu() {
 
                 <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {category.items.map(item => (
-                    <Card key={item.id} className="bg-white hover:shadow-xl transition-all duration-300 cursor-pointer group overflow-hidden">
-                      <Link to={createPageUrl(`MenuItemView?id=${item.id}`)}>
+                    <Link key={item.id} to={createPageUrl(`MenuItemView?id=${item.id}`)}>
+                      <Card className="bg-white hover:shadow-xl transition-all duration-300 cursor-pointer group overflow-hidden">
                         {/* Image */}
                         <div className="relative h-48 bg-gray-100 overflow-hidden">
                           {item.image_url ? (
@@ -260,8 +260,8 @@ export default function Menu() {
                             </div>
                           )}
                         </CardContent>
-                      </Link>
-                    </Card>
+                      </Card>
+                    </Link>
                   ))}
                 </div>
               </div>
