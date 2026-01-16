@@ -168,7 +168,39 @@ export default function Dashboard() {
           </Card>
         )}
 
-
+        {/* AI Tools Quick Access - Managers Only */}
+        {isManager && (
+          <div className="mb-6">
+            <Card className="bg-gradient-to-r from-purple-500 to-pink-600 border-none shadow-xl">
+              <CardContent className="p-6">
+                <h3 className="text-white text-lg font-bold mb-4 flex items-center gap-2">
+                  <Sparkles className="w-5 h-5" />
+                  AI Tools & Automation
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <Link to={createPageUrl('AIRotaGenerator')}>
+                    <Button className="w-full bg-white/20 hover:bg-white/30 text-white border-white/30">
+                      <Calendar className="w-4 h-4 mr-2" />
+                      AI Scheduler
+                    </Button>
+                  </Link>
+                  <Link to={createPageUrl('MeetingDashboard')}>
+                    <Button className="w-full bg-white/20 hover:bg-white/30 text-white border-white/30">
+                      <Mic className="w-4 h-4 mr-2" />
+                      AI Meeting Notes
+                    </Button>
+                  </Link>
+                  <Link to={createPageUrl('TrainingAcademy')}>
+                    <Button className="w-full bg-white/20 hover:bg-white/30 text-white border-white/30">
+                      <GraduationCap className="w-4 h-4 mr-2" />
+                      AI Training Posts
+                    </Button>
+                  </Link>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
 
         {/* KPI Cards - Role Specific */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">

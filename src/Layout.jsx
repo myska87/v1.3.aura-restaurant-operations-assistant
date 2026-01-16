@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -140,7 +141,9 @@ function VoiceSearch({ onClose, navigate }) {
       'academy': 'TrainingAcademy', // Added for voice search
       'quality audit': 'QualityAuditHub', // Added for voice search
       'quality control': 'QualityControl', // Added for voice search
-
+      'ai rota': 'AIRotaGenerator', // Added for voice search
+      'ai scheduler': 'AIRotaGenerator', // Added for voice search
+      'ai meeting': 'MeetingDashboard', // Added for voice search
     };
 
     for (const [keyword, page] of Object.entries(navMap)) {
@@ -514,7 +517,11 @@ export default function Layout({ children }) {
                       ⏰ Clock In/Out
                     </button>
                   </Link>
-
+                  <Link to={createPageUrl("MeetingDashboard")} onClick={() => setSidebarOpen(false)}>
+                    <button className="w-full text-left px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors">
+                      🎤 AI Meeting Minutes
+                    </button>
+                  </Link>
                   <Link to={createPageUrl("TeamChat")} onClick={() => setSidebarOpen(false)}>
                     <button className="w-full text-left px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors">
                       💬 Team Chat
