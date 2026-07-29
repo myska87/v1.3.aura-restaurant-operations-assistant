@@ -1,0 +1,44 @@
+{
+  "name": "DocumentBuilderComment",
+  "type": "object",
+  "properties": {
+    "document_id": {
+      "type": "string",
+      "description": "Reference to DocumentBuilder"
+    },
+    "staff_email": {
+      "type": "string",
+      "description": "Commenter email"
+    },
+    "staff_name": {
+      "type": "string",
+      "description": "Commenter name"
+    },
+    "comment": {
+      "type": "string",
+      "description": "Comment text"
+    },
+    "parent_comment_id": {
+      "type": "string",
+      "description": "For threaded replies"
+    },
+    "is_resolved": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether feedback was addressed"
+    },
+    "resolved_by": {
+      "type": "string",
+      "description": "Who resolved"
+    },
+    "resolved_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "document_id",
+    "staff_email",
+    "comment"
+  ]
+}

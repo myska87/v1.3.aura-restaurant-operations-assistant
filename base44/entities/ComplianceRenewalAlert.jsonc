@@ -1,0 +1,168 @@
+{
+  "name": "ComplianceRenewalAlert",
+  "type": "object",
+  "properties": {
+    "document_id": {
+      "type": "string",
+      "description": "Reference to ComplianceDocument"
+    },
+    "document_title": {
+      "type": "string",
+      "description": "Cached document title"
+    },
+    "document_category": {
+      "type": "string",
+      "description": "Certificate category"
+    },
+    "expiry_date": {
+      "type": "string",
+      "format": "date",
+      "description": "When document expires"
+    },
+    "days_until_expiry": {
+      "type": "number",
+      "description": "Days remaining"
+    },
+    "alert_type": {
+      "type": "string",
+      "enum": [
+        "30_days",
+        "15_days",
+        "7_days",
+        "expired"
+      ],
+      "description": "Alert threshold"
+    },
+    "severity": {
+      "type": "string",
+      "enum": [
+        "info",
+        "warning",
+        "critical",
+        "urgent"
+      ],
+      "default": "warning",
+      "description": "Alert severity"
+    },
+    "recipient_emails": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Who to notify"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "sent",
+        "acknowledged",
+        "renewed",
+        "dismissed"
+      ],
+      "default": "pending",
+      "description": "Alert status"
+    },
+    "sent_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When alert was sent"
+    },
+    "acknowledged_by": {
+      "type": "string",
+      "description": "Manager who acknowledged"
+    },
+    "acknowledged_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "renewal_task_created": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether renewal task was auto-created"
+    },
+    "renewal_task_id": {
+      "type": "string",
+      "description": "Auto-created task reference"
+    },
+    "event_id": {
+      "type": "string",
+      "description": "EventHub event reference"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Additional notes"
+    }
+  },
+  "required": [
+    "document_id",
+    "expiry_date",
+    "days_until_expiry",
+    "alert_type",
+    "status"
+  ],
+  "rls": {
+    "create": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "manager"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        }
+      ]
+    },
+    "read": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "manager"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "manager"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

@@ -1,0 +1,137 @@
+{
+  "name": "BackupSettings",
+  "type": "object",
+  "properties": {
+    "setting_key": {
+      "type": "string",
+      "description": "Unique setting identifier",
+      "enum": [
+        "auto_backup_config"
+      ]
+    },
+    "enabled": {
+      "type": "boolean",
+      "default": true,
+      "description": "Whether auto-backup is enabled"
+    },
+    "frequency": {
+      "type": "string",
+      "enum": [
+        "twice_daily",
+        "daily",
+        "weekly"
+      ],
+      "default": "twice_daily",
+      "description": "How often to backup"
+    },
+    "backup_times": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": [
+        "09:00",
+        "21:00"
+      ],
+      "description": "Times to run backup (HH:mm format)"
+    },
+    "retention_days": {
+      "type": "number",
+      "default": 30,
+      "description": "Days to keep old backups"
+    },
+    "last_backup_time": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Last successful backup timestamp"
+    },
+    "next_backup_time": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Next scheduled backup"
+    },
+    "total_backups_created": {
+      "type": "number",
+      "default": 0,
+      "description": "Total number of auto-backups"
+    },
+    "last_cleanup_time": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Last time old backups were cleaned up"
+    },
+    "notify_on_backup": {
+      "type": "boolean",
+      "default": true,
+      "description": "Send notification after backup"
+    },
+    "notify_on_failure": {
+      "type": "boolean",
+      "default": true,
+      "description": "Send notification on backup failure"
+    },
+    "updated_by": {
+      "type": "string",
+      "description": "Who last updated settings"
+    }
+  },
+  "required": [
+    "setting_key",
+    "enabled",
+    "frequency"
+  ],
+  "rls": {
+    "create": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        }
+      ]
+    },
+    "read": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "manager"
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

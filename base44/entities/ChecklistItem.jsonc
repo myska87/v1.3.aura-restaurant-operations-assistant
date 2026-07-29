@@ -1,0 +1,165 @@
+{
+  "name": "ChecklistItem",
+  "type": "object",
+  "properties": {
+    "checklist_id": {
+      "type": "string",
+      "description": "Reference to DailyChecklist"
+    },
+    "task_name": {
+      "type": "string",
+      "description": "Name of the task"
+    },
+    "description": {
+      "type": "string",
+      "description": "Detailed task description"
+    },
+    "priority": {
+      "type": "string",
+      "enum": [
+        "low",
+        "medium",
+        "high",
+        "critical"
+      ],
+      "default": "medium",
+      "description": "Task priority"
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "hygiene",
+        "safety",
+        "equipment",
+        "cleaning",
+        "admin",
+        "prep",
+        "other"
+      ],
+      "description": "Task category"
+    },
+    "required_photo": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether photo evidence is required"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "done",
+        "failed",
+        "na"
+      ],
+      "default": "pending",
+      "description": "Task completion status"
+    },
+    "photo_url": {
+      "type": "string",
+      "description": "Evidence photo URL"
+    },
+    "comment": {
+      "type": "string",
+      "description": "Staff comment or notes"
+    },
+    "completed_by_email": {
+      "type": "string",
+      "description": "Who completed this task"
+    },
+    "completed_by_name": {
+      "type": "string",
+      "description": "Name of completer"
+    },
+    "completed_time": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When task was completed"
+    },
+    "order_index": {
+      "type": "number",
+      "description": "Display order"
+    },
+    "temperature_value": {
+      "type": "number",
+      "description": "Temperature reading if applicable"
+    },
+    "manager_notes": {
+      "type": "string",
+      "description": "Manager feedback on this task"
+    }
+  },
+  "required": [
+    "checklist_id",
+    "task_name",
+    "status"
+  ],
+  "rls": {
+    "create": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "manager"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        }
+      ]
+    },
+    "read": {
+      "user_condition": {
+        "email": {
+          "$exists": true
+        }
+      }
+    },
+    "update": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "manager"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        },
+        {
+          "completed_by_email": "{{user.email}}"
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "manager"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        }
+      ]
+    }
+  }
+}

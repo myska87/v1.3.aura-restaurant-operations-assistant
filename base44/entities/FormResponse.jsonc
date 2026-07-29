@@ -1,0 +1,195 @@
+{
+  "name": "FormResponse",
+  "type": "object",
+  "properties": {
+    "form_id": {
+      "type": "string",
+      "description": "Reference to FormTemplate"
+    },
+    "form_name": {
+      "type": "string",
+      "description": "Cached form name"
+    },
+    "assignment_id": {
+      "type": "string",
+      "description": "Reference to FormAssignment"
+    },
+    "staff_email": {
+      "type": "string",
+      "description": "Who completed the form"
+    },
+    "staff_name": {
+      "type": "string",
+      "description": "Staff member name"
+    },
+    "response_data": {
+      "type": "object",
+      "description": "Field responses as JSON key-value pairs"
+    },
+    "attachments": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Uploaded file URLs"
+    },
+    "signature_url": {
+      "type": "string",
+      "description": "Digital signature image URL"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "submitted",
+        "approved",
+        "rejected"
+      ],
+      "default": "draft"
+    },
+    "score": {
+      "type": "number",
+      "description": "Auto-calculated score if applicable"
+    },
+    "passed": {
+      "type": "boolean",
+      "description": "Whether form passed minimum score"
+    },
+    "started_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "submitted_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "approved_by": {
+      "type": "string",
+      "description": "Manager who approved"
+    },
+    "approved_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "rejection_reason": {
+      "type": "string",
+      "description": "Why form was rejected"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Additional notes or comments"
+    },
+    "location": {
+      "type": "string",
+      "description": "Where form was completed"
+    },
+    "due_date": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When this form was due"
+    },
+    "is_overdue": {
+      "type": "boolean",
+      "default": false
+    }
+  },
+  "required": [
+    "form_id",
+    "staff_email",
+    "response_data"
+  ],
+  "rls": {
+    "create": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "manager"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        },
+        {
+          "staff_email": "{{user.email}}"
+        }
+      ]
+    },
+    "read": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "manager"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        },
+        {
+          "staff_email": "{{user.email}}"
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "manager"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        },
+        {
+          "$and": [
+            {
+              "staff_email": "{{user.email}}"
+            },
+            {
+              "status": "draft"
+            }
+          ]
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "manager"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        }
+      ]
+    }
+  }
+}

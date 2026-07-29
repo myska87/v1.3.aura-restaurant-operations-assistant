@@ -1,0 +1,344 @@
+{
+  "name": "FormTemplate",
+  "type": "object",
+  "properties": {
+    "form_name": {
+      "type": "string",
+      "description": "Name of the form template"
+    },
+    "description": {
+      "type": "string",
+      "description": "What this form is for"
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "haccp",
+        "workflow",
+        "equipment",
+        "pest",
+        "sops",
+        "training",
+        "suppliers",
+        "allergens",
+        "chemicals",
+        "waste",
+        "other"
+      ],
+      "description": "EHO compliance category"
+    },
+    "assigned_position": {
+      "type": "string",
+      "enum": [
+        "manager",
+        "chef",
+        "line_cook",
+        "server",
+        "bartender",
+        "cleaner",
+        "maintenance",
+        "any"
+      ],
+      "description": "Role linked to this form"
+    },
+    "trigger_type": {
+      "type": "string",
+      "enum": [
+        "shift_start",
+        "shift_end",
+        "opening",
+        "closing",
+        "mid_day",
+        "manual",
+        "custom"
+      ],
+      "description": "When this form should be triggered"
+    },
+    "frequency": {
+      "type": "string",
+      "enum": [
+        "daily",
+        "weekly",
+        "monthly",
+        "six_monthly",
+        "yearly",
+        "custom"
+      ],
+      "description": "How often form should be scheduled"
+    },
+    "schedule_day_of_week": {
+      "type": "string",
+      "enum": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "sunday"
+      ],
+      "description": "For weekly forms - which day to schedule"
+    },
+    "schedule_day_of_month": {
+      "type": "number",
+      "description": "For monthly forms - which day (1-31)"
+    },
+    "schedule_time": {
+      "type": "string",
+      "description": "Time to schedule form (HH:mm)"
+    },
+    "next_due_date": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Next scheduled date for this form"
+    },
+    "auto_generate": {
+      "type": "boolean",
+      "default": false,
+      "description": "Auto-create assignments based on schedule"
+    },
+    "fields": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "field_id": {
+            "type": "string"
+          },
+          "field_type": {
+            "type": "string",
+            "enum": [
+              "text",
+              "number",
+              "dropdown",
+              "checkbox",
+              "radio",
+              "yesno",
+              "date",
+              "file",
+              "photo",
+              "signature",
+              "rating",
+              "section_header",
+              "textarea"
+            ]
+          },
+          "field_label": {
+            "type": "string"
+          },
+          "field_hint": {
+            "type": "string"
+          },
+          "options": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "required": {
+            "type": "boolean",
+            "default": false
+          },
+          "conditional_logic": {
+            "type": "object",
+            "properties": {
+              "show_if_field": {
+                "type": "string"
+              },
+              "show_if_value": {
+                "type": "string"
+              }
+            }
+          },
+          "critical_value_check": {
+            "type": "object",
+            "properties": {
+              "enabled": {
+                "type": "boolean",
+                "default": false
+              },
+              "condition": {
+                "type": "string",
+                "enum": [
+                  "greater_than",
+                  "less_than",
+                  "equals",
+                  "not_equals"
+                ]
+              },
+              "threshold_value": {
+                "type": "number"
+              },
+              "require_photo": {
+                "type": "boolean",
+                "default": false
+              },
+              "require_comment": {
+                "type": "boolean",
+                "default": false
+              },
+              "alert_manager": {
+                "type": "boolean",
+                "default": false
+              }
+            },
+            "description": "Auto-trigger alerts if value meets condition (e.g., Fridge Temp > 8\u00b0C)"
+          },
+          "order_index": {
+            "type": "number"
+          }
+        }
+      },
+      "description": "Form fields configuration"
+    },
+    "requires_signature": {
+      "type": "boolean",
+      "default": true,
+      "description": "Whether signature is required"
+    },
+    "auto_calculate_score": {
+      "type": "boolean",
+      "default": false,
+      "description": "Auto-calculate score from yes/no answers"
+    },
+    "passing_score": {
+      "type": "number",
+      "description": "Minimum score to pass (percentage)"
+    },
+    "editable": {
+      "type": "boolean",
+      "default": true,
+      "description": "Whether managers can edit this form"
+    },
+    "version_number": {
+      "type": "number",
+      "default": 1,
+      "description": "Template version for tracking"
+    },
+    "last_edited_by": {
+      "type": "string",
+      "description": "User who last edited"
+    },
+    "last_edited_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "active",
+        "archived",
+        "draft"
+      ],
+      "default": "active"
+    },
+    "color_theme": {
+      "type": "string",
+      "default": "#014D40",
+      "description": "Form brand color"
+    },
+    "icon": {
+      "type": "string",
+      "description": "Emoji or icon for form"
+    },
+    "auto_assign_enabled": {
+      "type": "boolean",
+      "default": false,
+      "description": "Enable smart auto-assignment"
+    },
+    "notification_enabled": {
+      "type": "boolean",
+      "default": true,
+      "description": "Send notifications when assigned"
+    },
+    "reminder_hours_before_deadline": {
+      "type": "number",
+      "default": 2,
+      "description": "Hours before deadline to send reminder"
+    },
+    "completion_deadline_hours": {
+      "type": "number",
+      "default": 24,
+      "description": "Hours to complete form after assignment"
+    }
+  },
+  "required": [
+    "form_name",
+    "fields"
+  ],
+  "rls": {
+    "create": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "manager"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        }
+      ]
+    },
+    "read": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "manager"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        },
+        {
+          "user_condition": {
+            "email": {
+              "$exists": true
+            }
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "manager"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

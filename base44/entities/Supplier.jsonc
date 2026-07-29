@@ -1,0 +1,116 @@
+{
+  "name": "Supplier",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Supplier company name"
+    },
+    "email": {
+      "type": "string",
+      "description": "Supplier email for orders"
+    },
+    "phone": {
+      "type": "string",
+      "description": "Contact phone number"
+    },
+    "contact_person": {
+      "type": "string",
+      "description": "Primary contact name"
+    },
+    "address": {
+      "type": "string",
+      "description": "Supplier address"
+    },
+    "payment_terms": {
+      "type": "string",
+      "description": "e.g., Net 30, COD"
+    },
+    "minimum_order": {
+      "type": "number",
+      "description": "Minimum order value"
+    },
+    "delivery_days": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Days they deliver"
+    },
+    "notes": {
+      "type": "string"
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true
+    }
+  },
+  "required": [
+    "name",
+    "email"
+  ],
+  "rls": {
+    "create": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "manager"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        }
+      ]
+    },
+    "read": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "manager"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "manager"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

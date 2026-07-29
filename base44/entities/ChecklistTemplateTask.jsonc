@@ -1,0 +1,129 @@
+{
+  "name": "ChecklistTemplateTask",
+  "type": "object",
+  "properties": {
+    "checklist_type": {
+      "type": "string",
+      "enum": [
+        "opening",
+        "closing"
+      ],
+      "description": "Opening or closing"
+    },
+    "department": {
+      "type": "string",
+      "enum": [
+        "kitchen",
+        "front_of_house",
+        "bar",
+        "management",
+        "cleaning",
+        "maintenance"
+      ],
+      "description": "Which department"
+    },
+    "task_name": {
+      "type": "string",
+      "description": "Task name"
+    },
+    "description": {
+      "type": "string",
+      "description": "Task description"
+    },
+    "priority": {
+      "type": "string",
+      "enum": [
+        "low",
+        "medium",
+        "high",
+        "critical"
+      ],
+      "default": "medium"
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "hygiene",
+        "safety",
+        "equipment",
+        "cleaning",
+        "admin",
+        "prep",
+        "other"
+      ]
+    },
+    "required_photo": {
+      "type": "boolean",
+      "default": false
+    },
+    "requires_temperature": {
+      "type": "boolean",
+      "default": false
+    },
+    "order_index": {
+      "type": "number",
+      "description": "Display order"
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true
+    }
+  },
+  "required": [
+    "checklist_type",
+    "department",
+    "task_name"
+  ],
+  "rls": {
+    "create": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "manager"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        }
+      ]
+    },
+    "read": {
+      "user_condition": {
+        "email": {
+          "$exists": true
+        }
+      }
+    },
+    "update": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "manager"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

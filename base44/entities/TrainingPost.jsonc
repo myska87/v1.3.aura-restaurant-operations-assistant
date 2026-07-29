@@ -1,0 +1,203 @@
+{
+  "name": "TrainingPost",
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string",
+      "description": "Post title or headline"
+    },
+    "content": {
+      "type": "string",
+      "description": "Post content/message"
+    },
+    "post_type": {
+      "type": "string",
+      "enum": [
+        "inspiration",
+        "training_tip",
+        "success_story",
+        "announcement",
+        "knowledge_share",
+        "best_practice"
+      ],
+      "default": "inspiration",
+      "description": "Type of post"
+    },
+    "author_email": {
+      "type": "string",
+      "description": "Who created the post"
+    },
+    "author_name": {
+      "type": "string",
+      "description": "Author's full name"
+    },
+    "media_type": {
+      "type": "string",
+      "enum": [
+        "none",
+        "photo",
+        "video",
+        "both"
+      ],
+      "default": "none",
+      "description": "Media attached to post"
+    },
+    "photo_urls": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Array of photo URLs"
+    },
+    "video_url": {
+      "type": "string",
+      "description": "Video URL (YouTube, Vimeo, or uploaded)"
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "leadership",
+        "customer_service",
+        "food_safety",
+        "teamwork",
+        "innovation",
+        "excellence",
+        "culture",
+        "skills"
+      ],
+      "default": "culture",
+      "description": "Post category"
+    },
+    "requires_acknowledgment": {
+      "type": "boolean",
+      "default": true,
+      "description": "Staff must click 'Read & Understood'"
+    },
+    "acknowledged_by": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "staff_email": {
+            "type": "string"
+          },
+          "staff_name": {
+            "type": "string"
+          },
+          "acknowledged_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "description": "List of staff who acknowledged"
+    },
+    "total_acknowledgments": {
+      "type": "number",
+      "default": 0,
+      "description": "Count of acknowledgments"
+    },
+    "is_featured": {
+      "type": "boolean",
+      "default": false,
+      "description": "Featured post (shown at top)"
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true,
+      "description": "Whether post is visible"
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Searchable tags"
+    },
+    "view_count": {
+      "type": "number",
+      "default": 0,
+      "description": "Total views"
+    },
+    "likes_count": {
+      "type": "number",
+      "default": 0,
+      "description": "Total likes"
+    },
+    "expires_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When post should be archived"
+    }
+  },
+  "required": [
+    "title",
+    "content",
+    "author_email",
+    "post_type"
+  ],
+  "rls": {
+    "create": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "manager"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        }
+      ]
+    },
+    "read": {
+      "user_condition": {
+        "email": {
+          "$exists": true
+        }
+      }
+    },
+    "update": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "manager"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        },
+        {
+          "author_email": "{{user.email}}"
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        }
+      ]
+    }
+  }
+}

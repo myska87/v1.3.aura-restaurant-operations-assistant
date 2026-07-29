@@ -1,0 +1,219 @@
+{
+  "name": "AttendanceRecord",
+  "type": "object",
+  "properties": {
+    "staff_email": {
+      "type": "string",
+      "description": "Staff member email"
+    },
+    "staff_name": {
+      "type": "string",
+      "description": "Staff member name"
+    },
+    "shift_id": {
+      "type": "string",
+      "description": "Reference to Shift"
+    },
+    "shift_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Date of shift"
+    },
+    "scheduled_start": {
+      "type": "string",
+      "description": "Scheduled start time (HH:mm)"
+    },
+    "scheduled_end": {
+      "type": "string",
+      "description": "Scheduled end time (HH:mm)"
+    },
+    "actual_clock_in": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Actual clock in timestamp"
+    },
+    "actual_clock_out": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Actual clock out timestamp"
+    },
+    "clock_in_location": {
+      "type": "object",
+      "properties": {
+        "latitude": {
+          "type": "number"
+        },
+        "longitude": {
+          "type": "number"
+        },
+        "name": {
+          "type": "string"
+        }
+      },
+      "description": "GPS location when clocked in"
+    },
+    "clock_out_location": {
+      "type": "object",
+      "properties": {
+        "latitude": {
+          "type": "number"
+        },
+        "longitude": {
+          "type": "number"
+        },
+        "name": {
+          "type": "string"
+        }
+      },
+      "description": "GPS location when clocked out"
+    },
+    "total_hours": {
+      "type": "number",
+      "description": "Total hours worked (auto-calculated)"
+    },
+    "scheduled_hours": {
+      "type": "number",
+      "description": "Scheduled shift duration"
+    },
+    "overtime_hours": {
+      "type": "number",
+      "description": "Overtime hours (auto-calculated)"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "on_time",
+        "late",
+        "early",
+        "pending",
+        "verified",
+        "missing_clock_out"
+      ],
+      "default": "pending",
+      "description": "Attendance status"
+    },
+    "lateness_minutes": {
+      "type": "number",
+      "description": "Minutes late for clock in"
+    },
+    "early_departure_minutes": {
+      "type": "number",
+      "description": "Minutes early for clock out"
+    },
+    "verified_by": {
+      "type": "string",
+      "description": "Manager who verified attendance"
+    },
+    "verified_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Additional notes or manager comments"
+    },
+    "reminder_sent_clock_in": {
+      "type": "boolean",
+      "default": false
+    },
+    "reminder_sent_clock_out": {
+      "type": "boolean",
+      "default": false
+    },
+    "flagged_for_review": {
+      "type": "boolean",
+      "default": false
+    }
+  },
+  "required": [
+    "staff_email",
+    "shift_id",
+    "shift_date",
+    "scheduled_start",
+    "scheduled_end"
+  ],
+  "rls": {
+    "create": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "manager"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        },
+        {
+          "staff_email": "{{user.email}}"
+        }
+      ]
+    },
+    "read": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "manager"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        },
+        {
+          "staff_email": "{{user.email}}"
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "manager"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "manager"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        }
+      ]
+    }
+  }
+}

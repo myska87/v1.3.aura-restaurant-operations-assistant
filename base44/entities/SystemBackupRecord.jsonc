@@ -1,0 +1,66 @@
+{
+  "name": "SystemBackupRecord",
+  "type": "object",
+  "properties": {
+    "backup_name": {
+      "type": "string",
+      "description": "Backup identifier"
+    },
+    "backup_type": {
+      "type": "string",
+      "enum": [
+        "full",
+        "entities_only",
+        "modules_only",
+        "critical_only",
+        "manual"
+      ],
+      "default": "full",
+      "description": "Type of backup"
+    },
+    "entities_backed_up": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "List of entity names backed up"
+    },
+    "total_records": {
+      "type": "number",
+      "description": "Total records in backup"
+    },
+    "backup_data": {
+      "type": "object",
+      "description": "Complete backup data (JSON)"
+    },
+    "file_size_mb": {
+      "type": "number",
+      "description": "Backup file size"
+    },
+    "created_by": {
+      "type": "string",
+      "description": "User who created backup"
+    },
+    "created_by_name": {
+      "type": "string"
+    },
+    "restore_available": {
+      "type": "boolean",
+      "default": true,
+      "description": "Whether this backup can be restored"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Backup notes"
+    },
+    "encryption_enabled": {
+      "type": "boolean",
+      "default": false
+    }
+  },
+  "required": [
+    "backup_name",
+    "backup_type",
+    "created_by"
+  ]
+}

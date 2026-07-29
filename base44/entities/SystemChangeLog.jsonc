@@ -1,0 +1,130 @@
+{
+  "name": "SystemChangeLog",
+  "type": "object",
+  "properties": {
+    "change_id": {
+      "type": "string",
+      "description": "Unique change identifier"
+    },
+    "module_name": {
+      "type": "string",
+      "description": "Module that was changed"
+    },
+    "file_path": {
+      "type": "string",
+      "description": "File that was modified"
+    },
+    "change_type": {
+      "type": "string",
+      "enum": [
+        "created",
+        "modified",
+        "deleted",
+        "refactored",
+        "bugfix",
+        "feature"
+      ],
+      "description": "Type of change"
+    },
+    "protection_level": {
+      "type": "string",
+      "enum": [
+        "locked",
+        "warning",
+        "monitored",
+        "unrestricted"
+      ],
+      "description": "Protection level of changed module"
+    },
+    "was_locked": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether module was locked when changed"
+    },
+    "override_reason": {
+      "type": "string",
+      "description": "Reason for overriding lock"
+    },
+    "feature_ticket_id": {
+      "type": "string",
+      "description": "Feature ticket reference if applicable"
+    },
+    "changed_by": {
+      "type": "string",
+      "description": "User who made the change"
+    },
+    "changed_by_name": {
+      "type": "string",
+      "description": "User full name"
+    },
+    "description": {
+      "type": "string",
+      "description": "What was changed and why"
+    },
+    "code_snapshot_before": {
+      "type": "string",
+      "description": "Code state before change"
+    },
+    "code_snapshot_after": {
+      "type": "string",
+      "description": "Code state after change"
+    },
+    "rollback_instructions": {
+      "type": "string",
+      "description": "How to rollback this change"
+    },
+    "severity": {
+      "type": "string",
+      "enum": [
+        "minor",
+        "moderate",
+        "major",
+        "critical"
+      ],
+      "default": "moderate",
+      "description": "Impact level of change"
+    },
+    "tested": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether change was tested"
+    },
+    "approved_by": {
+      "type": "string",
+      "description": "Who approved this change"
+    },
+    "approved_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "version_tag": {
+      "type": "string",
+      "description": "Version tag (e.g., v1.1, feature-sopai-v2)"
+    },
+    "is_breaking_change": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether this breaks existing functionality"
+    },
+    "affected_entities": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Entities affected by this change"
+    },
+    "affected_pages": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Pages affected by this change"
+    }
+  },
+  "required": [
+    "change_id",
+    "module_name",
+    "change_type",
+    "changed_by"
+  ]
+}

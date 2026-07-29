@@ -1,0 +1,80 @@
+{
+  "name": "AuditCheckpoint",
+  "type": "object",
+  "properties": {
+    "checkpoint_name": {
+      "type": "string",
+      "description": "Audit checkpoint name"
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "food_safety",
+        "hygiene",
+        "temperature_control",
+        "cleaning",
+        "pest_control",
+        "staff_training",
+        "documentation",
+        "equipment",
+        "storage",
+        "waste_management"
+      ],
+      "description": "Audit category"
+    },
+    "description": {
+      "type": "string",
+      "description": "What to check"
+    },
+    "compliance_standard": {
+      "type": "string",
+      "description": "FSA/HACCP standard reference"
+    },
+    "evidence_required": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "What evidence is needed"
+    },
+    "passing_criteria": {
+      "type": "string",
+      "description": "What passes this checkpoint"
+    },
+    "weight": {
+      "type": "number",
+      "description": "Importance weight (1-10)"
+    },
+    "is_critical": {
+      "type": "boolean",
+      "default": false,
+      "description": "Critical control point"
+    },
+    "frequency": {
+      "type": "string",
+      "enum": [
+        "daily",
+        "weekly",
+        "monthly",
+        "quarterly",
+        "yearly",
+        "on_inspection"
+      ],
+      "description": "How often to check"
+    },
+    "assigned_role": {
+      "type": "string",
+      "description": "Who is responsible"
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true
+    }
+  },
+  "required": [
+    "checkpoint_name",
+    "category",
+    "description",
+    "weight"
+  ]
+}

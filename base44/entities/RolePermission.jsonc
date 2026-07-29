@@ -1,0 +1,139 @@
+{
+  "name": "RolePermission",
+  "type": "object",
+  "properties": {
+    "role_name": {
+      "type": "string",
+      "enum": [
+        "owner",
+        "admin",
+        "manager",
+        "chef",
+        "sous_chef",
+        "line_cook",
+        "server",
+        "bartender",
+        "host",
+        "cleaner",
+        "maintenance",
+        "dishwasher"
+      ],
+      "description": "Position/role name"
+    },
+    "feature_key": {
+      "type": "string",
+      "description": "Unique feature identifier (e.g., 'staff.view', 'reports.access', 'inventory.edit')"
+    },
+    "feature_name": {
+      "type": "string",
+      "description": "Display name for the feature"
+    },
+    "feature_category": {
+      "type": "string",
+      "enum": [
+        "core",
+        "staff",
+        "operations",
+        "inventory",
+        "quality",
+        "reports",
+        "settings",
+        "documents",
+        "advanced"
+      ],
+      "description": "Feature category for grouping"
+    },
+    "is_enabled": {
+      "type": "boolean",
+      "default": true,
+      "description": "Whether this role has access to this feature"
+    },
+    "permission_level": {
+      "type": "string",
+      "enum": [
+        "none",
+        "view",
+        "edit",
+        "full"
+      ],
+      "default": "view",
+      "description": "Level of access granted"
+    },
+    "description": {
+      "type": "string",
+      "description": "What this permission controls"
+    },
+    "is_system_required": {
+      "type": "boolean",
+      "default": false,
+      "description": "Cannot be disabled (e.g., Dashboard access)"
+    },
+    "updated_by": {
+      "type": "string",
+      "description": "Who last updated this permission"
+    },
+    "updated_by_name": {
+      "type": "string",
+      "description": "Name of updater"
+    }
+  },
+  "required": [
+    "role_name",
+    "feature_key",
+    "is_enabled"
+  ],
+  "rls": {
+    "create": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        }
+      ]
+    },
+    "read": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "manager"
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

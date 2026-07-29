@@ -1,0 +1,165 @@
+{
+  "name": "AgentConfig",
+  "type": "object",
+  "properties": {
+    "agent_name": {
+      "type": "string",
+      "enum": [
+        "hygiene_agent",
+        "inventory_agent",
+        "quality_agent",
+        "operations_agent",
+        "compliance_agent"
+      ],
+      "description": "Agent identifier"
+    },
+    "is_enabled": {
+      "type": "boolean",
+      "default": true,
+      "description": "Whether agent is currently active"
+    },
+    "run_frequency": {
+      "type": "string",
+      "enum": [
+        "realtime",
+        "hourly",
+        "daily",
+        "event_triggered"
+      ],
+      "default": "event_triggered",
+      "description": "How often agent runs"
+    },
+    "rules": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "rule_id": {
+            "type": "string"
+          },
+          "condition": {
+            "type": "string"
+          },
+          "action": {
+            "type": "string"
+          },
+          "priority": {
+            "type": "number"
+          },
+          "enabled": {
+            "type": "boolean",
+            "default": true
+          }
+        }
+      },
+      "description": "Agent decision rules"
+    },
+    "thresholds": {
+      "type": "object",
+      "description": "Thresholds for triggering actions"
+    },
+    "notification_settings": {
+      "type": "object",
+      "properties": {
+        "notify_managers": {
+          "type": "boolean",
+          "default": true
+        },
+        "notify_staff": {
+          "type": "boolean",
+          "default": false
+        },
+        "notification_channel": {
+          "type": "string",
+          "enum": [
+            "email",
+            "chat",
+            "both"
+          ],
+          "default": "chat"
+        }
+      }
+    },
+    "auto_execute": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether to auto-execute actions without manager approval"
+    },
+    "last_run_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Last time agent ran"
+    },
+    "total_actions_taken": {
+      "type": "number",
+      "default": 0,
+      "description": "Total actions performed by this agent"
+    },
+    "success_rate": {
+      "type": "number",
+      "description": "Percentage of successful actions"
+    },
+    "updated_by": {
+      "type": "string",
+      "description": "Admin who last updated config"
+    }
+  },
+  "required": [
+    "agent_name",
+    "is_enabled"
+  ],
+  "rls": {
+    "create": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        }
+      ]
+    },
+    "read": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "manager"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

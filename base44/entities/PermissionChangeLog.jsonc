@@ -1,0 +1,101 @@
+{
+  "name": "PermissionChangeLog",
+  "type": "object",
+  "properties": {
+    "admin_id": {
+      "type": "string",
+      "description": "Admin who made the change"
+    },
+    "admin_email": {
+      "type": "string",
+      "description": "Admin email"
+    },
+    "admin_name": {
+      "type": "string",
+      "description": "Admin full name"
+    },
+    "role_changed": {
+      "type": "string",
+      "description": "Which role was affected"
+    },
+    "feature_key": {
+      "type": "string",
+      "description": "Feature that was changed"
+    },
+    "feature_name": {
+      "type": "string",
+      "description": "Display name of feature"
+    },
+    "old_value": {
+      "type": "boolean",
+      "description": "Previous enabled state"
+    },
+    "new_value": {
+      "type": "boolean",
+      "description": "New enabled state"
+    },
+    "change_type": {
+      "type": "string",
+      "enum": [
+        "enabled",
+        "disabled",
+        "bulk_update",
+        "reset",
+        "cloned"
+      ],
+      "description": "Type of change"
+    },
+    "ip_address": {
+      "type": "string",
+      "description": "IP address of admin"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Additional notes about change"
+    }
+  },
+  "required": [
+    "admin_id",
+    "admin_email",
+    "role_changed",
+    "feature_key",
+    "old_value",
+    "new_value"
+  ],
+  "rls": {
+    "create": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        }
+      ]
+    },
+    "read": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        }
+      ]
+    },
+    "update": false,
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

@@ -1,0 +1,62 @@
+{
+  "name": "AuditAction",
+  "type": "object",
+  "properties": {
+    "audit_id": {
+      "type": "string",
+      "description": "Reference to AuditReport"
+    },
+    "action_description": {
+      "type": "string",
+      "description": "What needs to be done"
+    },
+    "priority": {
+      "type": "string",
+      "enum": [
+        "low",
+        "medium",
+        "high",
+        "critical"
+      ],
+      "default": "medium"
+    },
+    "assigned_to_email": {
+      "type": "string",
+      "description": "Staff responsible"
+    },
+    "assigned_to_name": {
+      "type": "string"
+    },
+    "due_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "in_progress",
+        "completed",
+        "overdue"
+      ],
+      "default": "pending"
+    },
+    "completed_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "evidence_photo": {
+      "type": "string",
+      "description": "Photo of completed action"
+    },
+    "notes": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "audit_id",
+    "action_description",
+    "assigned_to_email",
+    "due_date"
+  ]
+}

@@ -1,0 +1,319 @@
+{
+  "name": "AIScheduleLog",
+  "type": "object",
+  "properties": {
+    "schedule_name": {
+      "type": "string",
+      "description": "Name of AI-generated schedule"
+    },
+    "week_start_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Start of week for this schedule"
+    },
+    "week_end_date": {
+      "type": "string",
+      "format": "date",
+      "description": "End of week for this schedule"
+    },
+    "department": {
+      "type": "string",
+      "enum": [
+        "all",
+        "kitchen",
+        "front_of_house",
+        "bar",
+        "management",
+        "cleaning",
+        "maintenance"
+      ],
+      "default": "all"
+    },
+    "generated_shifts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "date": {
+            "type": "string",
+            "format": "date"
+          },
+          "staff_email": {
+            "type": "string"
+          },
+          "staff_name": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string"
+          },
+          "start_time": {
+            "type": "string"
+          },
+          "end_time": {
+            "type": "string"
+          },
+          "confidence_score": {
+            "type": "number",
+            "description": "AI confidence in this assignment (0-100)"
+          },
+          "reasoning": {
+            "type": "string",
+            "description": "Why AI chose this assignment"
+          }
+        }
+      },
+      "description": "AI-generated shift assignments"
+    },
+    "algorithm_version": {
+      "type": "string",
+      "default": "1.0",
+      "description": "Version of AI algorithm used"
+    },
+    "input_parameters": {
+      "type": "object",
+      "properties": {
+        "max_hours_per_staff": {
+          "type": "number"
+        },
+        "min_rest_hours": {
+          "type": "number"
+        },
+        "required_roles": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "demand_forecast": {
+          "type": "object"
+        }
+      },
+      "description": "Parameters used for generation"
+    },
+    "weights_used": {
+      "type": "object",
+      "properties": {
+        "role_match": {
+          "type": "number",
+          "default": 40
+        },
+        "availability": {
+          "type": "number",
+          "default": 30
+        },
+        "performance_score": {
+          "type": "number",
+          "default": 20
+        },
+        "overtime_penalty": {
+          "type": "number",
+          "default": 10
+        }
+      },
+      "description": "Algorithm weights used"
+    },
+    "total_shifts": {
+      "type": "number",
+      "description": "Total shifts generated"
+    },
+    "total_hours": {
+      "type": "number",
+      "description": "Total hours scheduled"
+    },
+    "estimated_cost": {
+      "type": "number",
+      "description": "Estimated labor cost"
+    },
+    "conflicts_detected": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "overlap",
+              "fatigue",
+              "availability",
+              "max_hours"
+            ]
+          },
+          "staff_email": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "severity": {
+            "type": "string",
+            "enum": [
+              "low",
+              "medium",
+              "high",
+              "critical"
+            ]
+          }
+        }
+      },
+      "description": "Conflicts found during generation"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "preview",
+        "approved",
+        "published",
+        "rejected"
+      ],
+      "default": "preview"
+    },
+    "generated_by": {
+      "type": "string",
+      "description": "Manager who generated this"
+    },
+    "generated_by_name": {
+      "type": "string"
+    },
+    "approved_by": {
+      "type": "string",
+      "description": "Manager who approved"
+    },
+    "approved_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "published_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "manual_adjustments": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "shift_index": {
+            "type": "number"
+          },
+          "field_changed": {
+            "type": "string"
+          },
+          "old_value": {
+            "type": "string"
+          },
+          "new_value": {
+            "type": "string"
+          },
+          "adjusted_by": {
+            "type": "string"
+          },
+          "adjusted_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "reason": {
+            "type": "string"
+          }
+        }
+      },
+      "description": "Manager manual adjustments for AI learning"
+    },
+    "ai_model_used": {
+      "type": "string",
+      "description": "AI model identifier (e.g., 'gpt-4', 'internal-v1')"
+    },
+    "processing_time_ms": {
+      "type": "number",
+      "description": "Time taken to generate schedule"
+    },
+    "optimization_score": {
+      "type": "number",
+      "description": "Overall optimization quality (0-100)"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Additional notes"
+    }
+  },
+  "required": [
+    "schedule_name",
+    "week_start_date",
+    "week_end_date",
+    "generated_by",
+    "status"
+  ],
+  "rls": {
+    "create": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "manager"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        }
+      ]
+    },
+    "read": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "manager"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "manager"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        }
+      ]
+    }
+  }
+}

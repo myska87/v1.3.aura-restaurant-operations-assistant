@@ -1,0 +1,120 @@
+{
+  "name": "WageRate",
+  "type": "object",
+  "properties": {
+    "role": {
+      "type": "string",
+      "enum": [
+        "owner",
+        "manager",
+        "chef",
+        "line_cook",
+        "server",
+        "bartender",
+        "cleaner",
+        "maintenance"
+      ],
+      "description": "Position role"
+    },
+    "base_hourly_rate": {
+      "type": "number",
+      "description": "Standard hourly wage in \u00a3"
+    },
+    "overtime_rate": {
+      "type": "number",
+      "description": "Overtime multiplier (e.g., 1.5 for time-and-a-half)"
+    },
+    "night_shift_bonus": {
+      "type": "number",
+      "default": 0,
+      "description": "Extra \u00a3 per hour for night shifts"
+    },
+    "weekend_bonus": {
+      "type": "number",
+      "default": 0,
+      "description": "Extra \u00a3 per hour for weekends"
+    },
+    "effective_from": {
+      "type": "string",
+      "format": "date",
+      "description": "When this rate becomes effective"
+    },
+    "effective_to": {
+      "type": "string",
+      "format": "date",
+      "description": "When this rate expires (null = current)"
+    },
+    "created_by": {
+      "type": "string",
+      "description": "Manager who set this rate"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Additional notes about this rate"
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true
+    }
+  },
+  "required": [
+    "role",
+    "base_hourly_rate",
+    "overtime_rate",
+    "effective_from"
+  ],
+  "rls": {
+    "create": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        }
+      ]
+    },
+    "read": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "manager"
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

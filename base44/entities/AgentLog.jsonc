@@ -1,0 +1,228 @@
+{
+  "name": "AgentLog",
+  "type": "object",
+  "properties": {
+    "agent_name": {
+      "type": "string",
+      "enum": [
+        "hygiene_agent",
+        "inventory_agent",
+        "quality_agent",
+        "operations_agent",
+        "compliance_agent"
+      ],
+      "description": "Which AI agent took this action"
+    },
+    "action_type": {
+      "type": "string",
+      "enum": [
+        "reminder_sent",
+        "task_created",
+        "order_suggested",
+        "alert_triggered",
+        "recommendation_made",
+        "auto_action",
+        "prediction",
+        "analysis"
+      ],
+      "description": "Type of action taken"
+    },
+    "action_description": {
+      "type": "string",
+      "description": "Detailed description of what the agent did"
+    },
+    "trigger_event": {
+      "type": "string",
+      "description": "What triggered this agent action"
+    },
+    "related_entity": {
+      "type": "string",
+      "description": "Entity type involved (ChecklistExecution, Ingredient, etc.)"
+    },
+    "related_entity_id": {
+      "type": "string",
+      "description": "ID of related record"
+    },
+    "related_entity_name": {
+      "type": "string",
+      "description": "Cached name/title of related record"
+    },
+    "decision_data": {
+      "type": "object",
+      "description": "Data used to make the decision"
+    },
+    "decision_reasoning": {
+      "type": "string",
+      "description": "AI reasoning for this action"
+    },
+    "confidence_score": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1,
+      "description": "Agent confidence level (0-1)"
+    },
+    "severity": {
+      "type": "string",
+      "enum": [
+        "info",
+        "low",
+        "medium",
+        "high",
+        "critical"
+      ],
+      "default": "info",
+      "description": "Importance level"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "completed",
+        "failed",
+        "approved",
+        "dismissed"
+      ],
+      "default": "pending",
+      "description": "Action status"
+    },
+    "created_task_id": {
+      "type": "string",
+      "description": "Auto-created task ID if applicable"
+    },
+    "created_order_id": {
+      "type": "string",
+      "description": "Auto-created order ID if applicable"
+    },
+    "notification_sent": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether notification was sent to managers"
+    },
+    "notification_recipients": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "List of recipient emails"
+    },
+    "approved_by": {
+      "type": "string",
+      "description": "Manager who approved this action"
+    },
+    "approved_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When action was approved"
+    },
+    "dismissed_by": {
+      "type": "string",
+      "description": "Manager who dismissed this action"
+    },
+    "dismissed_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "dismissal_reason": {
+      "type": "string",
+      "description": "Why action was dismissed"
+    },
+    "processing_time_ms": {
+      "type": "number",
+      "description": "Time taken to process"
+    },
+    "ai_model_used": {
+      "type": "string",
+      "description": "AI model identifier"
+    },
+    "success": {
+      "type": "boolean",
+      "description": "Whether action was successful"
+    },
+    "error_message": {
+      "type": "string",
+      "description": "Error details if action failed"
+    },
+    "impact_score": {
+      "type": "number",
+      "description": "Estimated impact of this action (0-100)"
+    },
+    "cost_saved": {
+      "type": "number",
+      "description": "Estimated cost savings from this action"
+    },
+    "metadata": {
+      "type": "object",
+      "description": "Additional context data"
+    }
+  },
+  "required": [
+    "agent_name",
+    "action_type",
+    "action_description",
+    "status"
+  ],
+  "rls": {
+    "create": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "manager"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        }
+      ]
+    },
+    "read": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "manager"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "manager"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

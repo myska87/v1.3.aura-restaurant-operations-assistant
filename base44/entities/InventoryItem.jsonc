@@ -1,0 +1,118 @@
+{
+  "name": "InventoryItem",
+  "type": "object",
+  "properties": {
+    "item_name": {
+      "type": "string",
+      "description": "Name of inventory item"
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "produce",
+        "meat_poultry",
+        "dairy",
+        "dry_goods",
+        "beverages",
+        "cleaning_supplies",
+        "disposables"
+      ],
+      "description": "Item category"
+    },
+    "current_quantity": {
+      "type": "number",
+      "description": "Current stock level"
+    },
+    "unit": {
+      "type": "string",
+      "description": "Unit of measurement (kg, liters, pieces, etc.)"
+    },
+    "minimum_quantity": {
+      "type": "number",
+      "description": "Reorder threshold"
+    },
+    "unit_cost": {
+      "type": "number",
+      "description": "Cost per unit"
+    },
+    "supplier": {
+      "type": "string",
+      "description": "Supplier name"
+    },
+    "supplier_contact": {
+      "type": "string",
+      "description": "Supplier phone or email"
+    },
+    "last_ordered": {
+      "type": "string",
+      "format": "date"
+    },
+    "expiry_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Expiration date if applicable"
+    },
+    "storage_location": {
+      "type": "string",
+      "description": "Where item is stored"
+    }
+  },
+  "required": [
+    "item_name",
+    "category",
+    "current_quantity",
+    "unit"
+  ],
+  "rls": {
+    "create": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "manager"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        }
+      ]
+    },
+    "read": {
+      "user_condition": {
+        "email": {
+          "$exists": true
+        }
+      }
+    },
+    "update": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "manager"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

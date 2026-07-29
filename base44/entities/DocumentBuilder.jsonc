@@ -1,0 +1,243 @@
+{
+  "name": "DocumentBuilder",
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string",
+      "description": "Document title"
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "sop",
+        "policy",
+        "training",
+        "guide",
+        "quality",
+        "procedure",
+        "emergency",
+        "customer_service",
+        "other"
+      ],
+      "description": "Document category"
+    },
+    "description": {
+      "type": "string",
+      "description": "Brief description"
+    },
+    "content_html": {
+      "type": "string",
+      "description": "Rich text content in HTML format"
+    },
+    "content_json": {
+      "type": "object",
+      "description": "Structured content as JSON for AI processing"
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Searchable tags"
+    },
+    "version": {
+      "type": "number",
+      "default": 1,
+      "description": "Document version number"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "published",
+        "archived"
+      ],
+      "default": "draft",
+      "description": "Publishing status"
+    },
+    "created_by": {
+      "type": "string",
+      "description": "Creator email"
+    },
+    "created_by_name": {
+      "type": "string",
+      "description": "Creator name"
+    },
+    "updated_by": {
+      "type": "string",
+      "description": "Last editor email"
+    },
+    "updated_by_name": {
+      "type": "string",
+      "description": "Last editor name"
+    },
+    "published_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When document was published"
+    },
+    "linked_sop_id": {
+      "type": "string",
+      "description": "Reference to SOPDocument"
+    },
+    "linked_menu_item_id": {
+      "type": "string",
+      "description": "Reference to MenuItem"
+    },
+    "linked_role": {
+      "type": "string",
+      "description": "Position this document is for"
+    },
+    "department": {
+      "type": "string",
+      "enum": [
+        "all",
+        "kitchen",
+        "front_of_house",
+        "bar",
+        "management",
+        "cleaning",
+        "maintenance"
+      ],
+      "default": "all",
+      "description": "Target department"
+    },
+    "requires_signature": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether staff must sign off"
+    },
+    "signature_count": {
+      "type": "number",
+      "default": 0,
+      "description": "Total signatures received"
+    },
+    "view_count": {
+      "type": "number",
+      "default": 0,
+      "description": "Total views"
+    },
+    "template_source": {
+      "type": "string",
+      "description": "Template used to create this doc"
+    },
+    "ai_generated": {
+      "type": "boolean",
+      "default": false,
+      "description": "Was this created with AI"
+    },
+    "media_urls": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Embedded images/videos"
+    },
+    "attachments": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          }
+        }
+      },
+      "description": "Attached files"
+    },
+    "comments_enabled": {
+      "type": "boolean",
+      "default": true,
+      "description": "Allow staff comments"
+    },
+    "last_reviewed": {
+      "type": "string",
+      "format": "date",
+      "description": "Last review date"
+    },
+    "next_review": {
+      "type": "string",
+      "format": "date",
+      "description": "Next review due date"
+    }
+  },
+  "required": [
+    "title",
+    "category",
+    "created_by",
+    "status"
+  ],
+  "rls": {
+    "create": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "manager"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        }
+      ]
+    },
+    "read": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "manager"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        },
+        {
+          "status": "published"
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "manager"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

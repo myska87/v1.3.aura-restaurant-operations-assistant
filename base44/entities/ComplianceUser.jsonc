@@ -1,0 +1,92 @@
+{
+  "name": "ComplianceUser",
+  "type": "object",
+  "properties": {
+    "user_id": {
+      "type": "string",
+      "description": "Reference to User entity (read-only link)"
+    },
+    "user_email": {
+      "type": "string",
+      "format": "email",
+      "description": "Cached user email"
+    },
+    "user_name": {
+      "type": "string",
+      "description": "Cached user name"
+    },
+    "consent_version": {
+      "type": "string",
+      "description": "Version of privacy policy accepted"
+    },
+    "consent_timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When user gave consent"
+    },
+    "data_export_requested": {
+      "type": "boolean",
+      "default": false,
+      "description": "User requested data export"
+    },
+    "data_export_completed_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When export was completed"
+    },
+    "data_export_url": {
+      "type": "string",
+      "description": "URL to download exported data"
+    },
+    "data_delete_requested": {
+      "type": "boolean",
+      "default": false,
+      "description": "User requested account deletion"
+    },
+    "data_delete_requested_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When deletion was requested"
+    },
+    "data_delete_scheduled_for": {
+      "type": "string",
+      "format": "date",
+      "description": "Scheduled deletion date (30 days notice)"
+    },
+    "gdpr_compliant": {
+      "type": "boolean",
+      "default": true,
+      "description": "User data meets GDPR requirements"
+    },
+    "last_data_access": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Last time user accessed their data"
+    },
+    "marketing_consent": {
+      "type": "boolean",
+      "default": false,
+      "description": "User consented to marketing emails"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "active",
+        "export_pending",
+        "deletion_pending",
+        "deleted"
+      ],
+      "default": "active"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Compliance notes"
+    }
+  },
+  "required": [
+    "user_id",
+    "user_email",
+    "consent_version",
+    "status"
+  ]
+}

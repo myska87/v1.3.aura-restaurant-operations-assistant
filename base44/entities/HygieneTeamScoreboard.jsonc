@@ -1,0 +1,106 @@
+{
+  "name": "HygieneTeamScoreboard",
+  "type": "object",
+  "properties": {
+    "venue_id": {
+      "type": "string",
+      "description": "Venue reference"
+    },
+    "venue_name": {
+      "type": "string",
+      "description": "Venue name"
+    },
+    "period_start": {
+      "type": "string",
+      "format": "date",
+      "description": "Scoring period start"
+    },
+    "period_end": {
+      "type": "string",
+      "format": "date",
+      "description": "Scoring period end"
+    },
+    "total_points": {
+      "type": "number",
+      "default": 0,
+      "description": "Team total points"
+    },
+    "avg_compliance_rate": {
+      "type": "number",
+      "description": "Average compliance percentage"
+    },
+    "total_records": {
+      "type": "number",
+      "default": 0
+    },
+    "records_on_time": {
+      "type": "number",
+      "default": 0
+    },
+    "variance_alerts": {
+      "type": "number",
+      "default": 0
+    },
+    "critical_failures": {
+      "type": "number",
+      "default": 0
+    },
+    "star_rating": {
+      "type": "number",
+      "description": "Leafe Star Rating (0-5)"
+    },
+    "audit_readiness_score": {
+      "type": "number",
+      "description": "EHO audit readiness (0-100)"
+    },
+    "top_performers": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "staff_email": {
+            "type": "string"
+          },
+          "staff_name": {
+            "type": "string"
+          },
+          "points": {
+            "type": "number"
+          }
+        }
+      },
+      "description": "Top 5 staff members"
+    },
+    "areas_needing_improvement": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Identified problem areas"
+    },
+    "achievements_this_period": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "trend": {
+      "type": "string",
+      "enum": [
+        "improving",
+        "declining",
+        "stable"
+      ],
+      "description": "Performance trend"
+    },
+    "last_calculated": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "venue_id",
+    "period_start",
+    "period_end"
+  ]
+}

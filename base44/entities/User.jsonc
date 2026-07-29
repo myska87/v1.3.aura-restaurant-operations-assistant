@@ -1,0 +1,94 @@
+{
+  "type": "object",
+  "properties": {
+    "position": {
+      "type": "string",
+      "enum": [
+        "owner",
+        "manager",
+        "chef",
+        "sous_chef",
+        "line_cook",
+        "server",
+        "bartender",
+        "host",
+        "cleaner",
+        "maintenance",
+        "dishwasher"
+      ],
+      "description": "Staff position"
+    },
+    "department": {
+      "type": "string",
+      "enum": [
+        "management",
+        "kitchen",
+        "front_of_house",
+        "bar",
+        "cleaning",
+        "maintenance"
+      ],
+      "description": "Department"
+    },
+    "phone": {
+      "type": "string",
+      "description": "Contact phone number"
+    },
+    "photo_url": {
+      "type": "string",
+      "description": "Profile photo URL"
+    },
+    "hire_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Date hired"
+    },
+    "shift_start": {
+      "type": "string",
+      "description": "Default shift start time (HH:mm)"
+    },
+    "shift_end": {
+      "type": "string",
+      "description": "Default shift end time (HH:mm)"
+    },
+    "shift_preference": {
+      "type": "string",
+      "enum": [
+        "morning",
+        "afternoon",
+        "evening",
+        "night",
+        "flexible"
+      ],
+      "description": "Preferred shift timing"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "active",
+        "inactive",
+        "on_leave",
+        "probation"
+      ],
+      "default": "active",
+      "description": "Employment status"
+    },
+    "certifications": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Food safety, first aid, etc."
+    },
+    "emergency_contact": {
+      "type": "string",
+      "description": "Emergency contact info"
+    },
+    "hourly_rate": {
+      "type": "number",
+      "description": "Hourly pay rate"
+    }
+  },
+  "name": "User",
+  "required": []
+}

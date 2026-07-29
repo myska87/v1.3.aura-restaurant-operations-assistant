@@ -1,0 +1,297 @@
+{
+  "name": "MeetingRecording",
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string",
+      "description": "Meeting title (auto-generated or manual)"
+    },
+    "meeting_type": {
+      "type": "string",
+      "enum": [
+        "team_briefing",
+        "shift_handover",
+        "training",
+        "compliance_review",
+        "supplier_meeting",
+        "performance_review",
+        "other"
+      ],
+      "description": "Type of meeting"
+    },
+    "audio_url": {
+      "type": "string",
+      "description": "Secure URL to audio file"
+    },
+    "audio_duration": {
+      "type": "number",
+      "description": "Duration in seconds"
+    },
+    "transcribed_text": {
+      "type": "string",
+      "description": "Full transcription of the meeting"
+    },
+    "summary": {
+      "type": "string",
+      "description": "AI-generated summary (2-3 paragraphs)"
+    },
+    "key_topics": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "AI-detected topics (hygiene, staffing, supplies, etc.)"
+    },
+    "action_items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "description": {
+            "type": "string"
+          },
+          "assigned_to": {
+            "type": "string"
+          },
+          "due_date": {
+            "type": "string",
+            "format": "date"
+          },
+          "priority": {
+            "type": "string",
+            "enum": [
+              "low",
+              "medium",
+              "high",
+              "urgent"
+            ]
+          },
+          "linked_module": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "in_progress",
+              "completed"
+            ],
+            "default": "pending"
+          }
+        }
+      },
+      "description": "Extracted action items"
+    },
+    "decisions_made": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Key decisions from the meeting"
+    },
+    "sentiment": {
+      "type": "string",
+      "enum": [
+        "positive",
+        "neutral",
+        "urgent",
+        "concerned"
+      ],
+      "description": "Overall meeting sentiment"
+    },
+    "department": {
+      "type": "string",
+      "description": "Relevant department"
+    },
+    "venue_id": {
+      "type": "string",
+      "description": "Location/venue if applicable"
+    },
+    "venue_name": {
+      "type": "string",
+      "description": "Cached venue name"
+    },
+    "meeting_date": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When meeting took place"
+    },
+    "created_by": {
+      "type": "string",
+      "description": "Manager who recorded meeting"
+    },
+    "created_by_name": {
+      "type": "string",
+      "description": "Manager name"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "recording",
+        "processing",
+        "transcribing",
+        "summarizing",
+        "review_pending",
+        "approved",
+        "archived"
+      ],
+      "default": "recording",
+      "description": "Processing status"
+    },
+    "processing_progress": {
+      "type": "number",
+      "description": "Processing percentage (0-100)"
+    },
+    "speaker_diarization": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "speaker_id": {
+            "type": "string"
+          },
+          "speaker_name": {
+            "type": "string"
+          },
+          "segments": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "start_time": {
+                  "type": "number"
+                },
+                "end_time": {
+                  "type": "number"
+                },
+                "text": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      },
+      "description": "Speaker identification and segments"
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Searchable tags"
+    },
+    "approved_by": {
+      "type": "string",
+      "description": "Manager who approved notes"
+    },
+    "approved_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "is_confidential": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether meeting contains sensitive info"
+    },
+    "auto_delete_audio_after_days": {
+      "type": "number",
+      "default": 90,
+      "description": "Days to keep audio (compliance requirement)"
+    },
+    "version_number": {
+      "type": "number",
+      "default": 1,
+      "description": "Version tracking for edits"
+    },
+    "previous_version_id": {
+      "type": "string",
+      "description": "Link to previous version if edited"
+    }
+  },
+  "required": [
+    "title",
+    "meeting_date",
+    "created_by",
+    "status"
+  ],
+  "rls": {
+    "create": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "manager"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        }
+      ]
+    },
+    "read": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "manager"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        },
+        {
+          "created_by": "{{user.email}}"
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "manager"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        },
+        {
+          "created_by": "{{user.email}}"
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        }
+      ]
+    }
+  }
+}

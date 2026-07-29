@@ -1,0 +1,152 @@
+{
+  "name": "TaskNotification",
+  "type": "object",
+  "properties": {
+    "notification_type": {
+      "type": "string",
+      "enum": [
+        "shift_tasks_ready",
+        "task_completed",
+        "task_overdue",
+        "all_tasks_complete",
+        "no_responsibilities"
+      ],
+      "description": "Type of notification"
+    },
+    "recipient_email": {
+      "type": "string",
+      "description": "Who receives this notification"
+    },
+    "recipient_name": {
+      "type": "string",
+      "description": "Recipient's name"
+    },
+    "sender_type": {
+      "type": "string",
+      "enum": [
+        "system",
+        "manager",
+        "staff"
+      ],
+      "default": "system"
+    },
+    "title": {
+      "type": "string",
+      "description": "Notification title"
+    },
+    "message": {
+      "type": "string",
+      "description": "Notification message content"
+    },
+    "related_task_id": {
+      "type": "string",
+      "description": "Reference to task if applicable"
+    },
+    "related_shift_id": {
+      "type": "string",
+      "description": "Reference to shift if applicable"
+    },
+    "related_staff_email": {
+      "type": "string",
+      "description": "Related staff member"
+    },
+    "priority": {
+      "type": "string",
+      "enum": [
+        "info",
+        "warning",
+        "urgent"
+      ],
+      "default": "info"
+    },
+    "is_read": {
+      "type": "boolean",
+      "default": false
+    },
+    "read_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "action_url": {
+      "type": "string",
+      "description": "Link to relevant page"
+    },
+    "metadata": {
+      "type": "object",
+      "description": "Additional data"
+    }
+  },
+  "required": [
+    "notification_type",
+    "recipient_email",
+    "title",
+    "message"
+  ],
+  "rls": {
+    "create": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "manager"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        }
+      ]
+    },
+    "read": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "manager"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        },
+        {
+          "recipient_email": "{{user.email}}"
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "recipient_email": "{{user.email}}"
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "recipient_email": "{{user.email}}"
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,193 @@
+{
+  "name": "SOPCertification",
+  "type": "object",
+  "properties": {
+    "staff_id": {
+      "type": "string",
+      "description": "Reference to User"
+    },
+    "staff_email": {
+      "type": "string",
+      "description": "Staff member email"
+    },
+    "staff_name": {
+      "type": "string",
+      "description": "Staff member name"
+    },
+    "staff_role": {
+      "type": "string",
+      "description": "Staff role at time of certification"
+    },
+    "sop_id": {
+      "type": "string",
+      "description": "Reference to SOPDocument"
+    },
+    "sop_title": {
+      "type": "string",
+      "description": "Cached SOP title"
+    },
+    "sop_version": {
+      "type": "number",
+      "description": "Version certified on"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "in_progress",
+        "completed",
+        "expired",
+        "overdue"
+      ],
+      "default": "pending",
+      "description": "Certification status"
+    },
+    "assigned_date": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When SOP was assigned to staff"
+    },
+    "started_date": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When staff started reading"
+    },
+    "completed_date": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When staff completed and signed"
+    },
+    "expiry_date": {
+      "type": "string",
+      "format": "date",
+      "description": "When certification expires (next review date)"
+    },
+    "signature_log_id": {
+      "type": "string",
+      "description": "Reference to SOPSignatureLog"
+    },
+    "completion_method": {
+      "type": "string",
+      "enum": [
+        "manual",
+        "voice_mode",
+        "training_session"
+      ],
+      "description": "How SOP was completed"
+    },
+    "quiz_score": {
+      "type": "number",
+      "description": "Score if quiz was taken"
+    },
+    "time_spent_minutes": {
+      "type": "number",
+      "description": "Time spent on SOP"
+    },
+    "reminder_sent": {
+      "type": "boolean",
+      "default": false
+    },
+    "reminder_count": {
+      "type": "number",
+      "default": 0
+    },
+    "last_reminder_date": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Additional notes"
+    }
+  },
+  "required": [
+    "staff_id",
+    "staff_email",
+    "sop_id",
+    "status"
+  ],
+  "rls": {
+    "create": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "manager"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        }
+      ]
+    },
+    "read": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "manager"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        },
+        {
+          "staff_email": "{{user.email}}"
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "manager"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        },
+        {
+          "staff_email": "{{user.email}}"
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "manager"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        }
+      ]
+    }
+  }
+}

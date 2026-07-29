@@ -1,0 +1,158 @@
+{
+  "name": "QualityScore",
+  "type": "object",
+  "properties": {
+    "period_start": {
+      "type": "string",
+      "format": "date",
+      "description": "Scoring period start"
+    },
+    "period_end": {
+      "type": "string",
+      "format": "date",
+      "description": "Scoring period end"
+    },
+    "area": {
+      "type": "string",
+      "description": "Area being scored"
+    },
+    "category": {
+      "type": "string",
+      "description": "Category being scored"
+    },
+    "average_score": {
+      "type": "number",
+      "description": "Average quality score for period"
+    },
+    "total_checks": {
+      "type": "number",
+      "default": 0
+    },
+    "excellent_count": {
+      "type": "number",
+      "default": 0,
+      "description": "Checks scoring 5"
+    },
+    "good_count": {
+      "type": "number",
+      "default": 0,
+      "description": "Checks scoring 4"
+    },
+    "needs_improvement_count": {
+      "type": "number",
+      "default": 0,
+      "description": "Checks scoring <3"
+    },
+    "corrective_actions_created": {
+      "type": "number",
+      "default": 0
+    },
+    "corrective_actions_completed": {
+      "type": "number",
+      "default": 0
+    },
+    "top_performer": {
+      "type": "string",
+      "description": "Staff with highest quality scores"
+    },
+    "recurring_issues": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "AI-detected repeated problems"
+    },
+    "improvement_percentage": {
+      "type": "number",
+      "description": "Change vs previous period"
+    },
+    "trend": {
+      "type": "string",
+      "enum": [
+        "improving",
+        "stable",
+        "declining"
+      ],
+      "default": "stable"
+    },
+    "venue_id": {
+      "type": "string",
+      "description": "Venue/location"
+    },
+    "calculated_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "period_start",
+    "period_end",
+    "area",
+    "category",
+    "average_score"
+  ],
+  "rls": {
+    "create": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "manager"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        }
+      ]
+    },
+    "read": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "manager"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "manager"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

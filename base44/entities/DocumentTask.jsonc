@@ -1,0 +1,93 @@
+{
+  "name": "DocumentTask",
+  "type": "object",
+  "properties": {
+    "document_id": {
+      "type": "string",
+      "description": "Reference to Document"
+    },
+    "document_title": {
+      "type": "string",
+      "description": "Cached document title"
+    },
+    "document_category": {
+      "type": "string",
+      "description": "Document category"
+    },
+    "assigned_to_email": {
+      "type": "string",
+      "description": "Staff email or 'all'"
+    },
+    "assigned_to_name": {
+      "type": "string",
+      "description": "Staff name"
+    },
+    "assigned_to_role": {
+      "type": "string",
+      "description": "Role assignment"
+    },
+    "assigned_to_department": {
+      "type": "string",
+      "description": "Department assignment"
+    },
+    "due_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Acknowledgment deadline"
+    },
+    "priority": {
+      "type": "string",
+      "enum": [
+        "low",
+        "normal",
+        "high",
+        "urgent"
+      ],
+      "default": "normal"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "in_progress",
+        "acknowledged",
+        "overdue"
+      ],
+      "default": "pending"
+    },
+    "reminder_sent": {
+      "type": "boolean",
+      "default": false
+    },
+    "reminder_count": {
+      "type": "number",
+      "default": 0
+    },
+    "last_reminder_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "assigned_by": {
+      "type": "string",
+      "description": "Manager who assigned"
+    },
+    "assigned_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "completed_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "review_id": {
+      "type": "string",
+      "description": "Link to DocumentReview"
+    }
+  },
+  "required": [
+    "document_id",
+    "assigned_to_email",
+    "due_date",
+    "status"
+  ]
+}

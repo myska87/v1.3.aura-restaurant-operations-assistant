@@ -1,0 +1,195 @@
+{
+  "name": "StaffActivity",
+  "type": "object",
+  "properties": {
+    "staff_id": {
+      "type": "string",
+      "description": "Reference to User entity"
+    },
+    "staff_email": {
+      "type": "string",
+      "description": "Staff member email"
+    },
+    "staff_name": {
+      "type": "string",
+      "description": "Staff member name"
+    },
+    "date": {
+      "type": "string",
+      "format": "date",
+      "description": "Activity date"
+    },
+    "shift_id": {
+      "type": "string",
+      "description": "Reference to Shift"
+    },
+    "clock_in": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Actual clock in time"
+    },
+    "clock_out": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Actual clock out time"
+    },
+    "scheduled_start": {
+      "type": "string",
+      "description": "Scheduled start time (HH:mm)"
+    },
+    "scheduled_end": {
+      "type": "string",
+      "description": "Scheduled end time (HH:mm)"
+    },
+    "total_hours": {
+      "type": "number",
+      "description": "Hours worked this shift"
+    },
+    "tasks_completed": {
+      "type": "number",
+      "default": 0,
+      "description": "Tasks completed during shift"
+    },
+    "tasks_assigned": {
+      "type": "number",
+      "default": 0,
+      "description": "Total tasks assigned"
+    },
+    "checklists_completed": {
+      "type": "number",
+      "default": 0,
+      "description": "Checklists completed"
+    },
+    "forms_completed": {
+      "type": "number",
+      "default": 0,
+      "description": "Forms submitted"
+    },
+    "lateness_minutes": {
+      "type": "number",
+      "default": 0,
+      "description": "Minutes late for shift"
+    },
+    "early_departure_minutes": {
+      "type": "number",
+      "default": 0,
+      "description": "Minutes left early"
+    },
+    "quality_scores": {
+      "type": "array",
+      "items": {
+        "type": "number"
+      },
+      "description": "Quality check scores during shift"
+    },
+    "average_quality": {
+      "type": "number",
+      "description": "Average quality score for shift"
+    },
+    "hygiene_records_count": {
+      "type": "number",
+      "default": 0,
+      "description": "Hygiene records submitted"
+    },
+    "role": {
+      "type": "string",
+      "description": "Role during this shift"
+    },
+    "department": {
+      "type": "string",
+      "description": "Department for this shift"
+    },
+    "productivity_score": {
+      "type": "number",
+      "description": "Calculated productivity score (0-100)"
+    },
+    "punctuality_score": {
+      "type": "number",
+      "description": "Punctuality score (0-100)"
+    },
+    "overall_score": {
+      "type": "number",
+      "description": "Overall performance score (0-100)"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Activity notes"
+    },
+    "auto_generated": {
+      "type": "boolean",
+      "default": true,
+      "description": "Whether this was auto-created"
+    }
+  },
+  "required": [
+    "staff_email",
+    "date"
+  ],
+  "rls": {
+    "create": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "manager"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        }
+      ]
+    },
+    "read": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "manager"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        },
+        {
+          "staff_email": "{{user.email}}"
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "manager"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

@@ -1,0 +1,182 @@
+{
+  "name": "QualityInspection",
+  "type": "object",
+  "properties": {
+    "inspection_date": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When inspection was performed"
+    },
+    "location": {
+      "type": "string",
+      "enum": [
+        "kitchen",
+        "front_of_house",
+        "bar",
+        "storage",
+        "washroom",
+        "dining_area",
+        "preparation",
+        "delivery"
+      ],
+      "description": "Location inspected"
+    },
+    "inspector_email": {
+      "type": "string",
+      "description": "Who performed inspection"
+    },
+    "inspector_name": {
+      "type": "string",
+      "description": "Inspector's name"
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "hygiene",
+        "food_safety",
+        "cleanliness",
+        "equipment",
+        "temperature",
+        "staff_practices",
+        "general"
+      ],
+      "description": "Inspection category"
+    },
+    "score": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 100,
+      "description": "Inspection score (0-100)"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Inspection notes and observations"
+    },
+    "photo_urls": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Evidence photos"
+    },
+    "corrective_action": {
+      "type": "string",
+      "description": "Required corrective action"
+    },
+    "corrective_action_status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "in_progress",
+        "completed"
+      ],
+      "default": "pending",
+      "description": "Status of corrective action"
+    },
+    "corrective_action_photo": {
+      "type": "string",
+      "description": "Photo after correction"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "passed",
+        "failed",
+        "requires_action"
+      ],
+      "default": "passed",
+      "description": "Overall inspection result"
+    },
+    "verified_by": {
+      "type": "string",
+      "description": "Manager who verified"
+    },
+    "verified_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "inspection_date",
+    "location",
+    "inspector_email",
+    "category",
+    "score"
+  ],
+  "rls": {
+    "create": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "manager"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        },
+        {
+          "inspector_email": "{{user.email}}"
+        }
+      ]
+    },
+    "read": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "manager"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "manager"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        }
+      ]
+    }
+  }
+}

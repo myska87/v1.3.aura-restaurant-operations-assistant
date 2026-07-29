@@ -1,0 +1,267 @@
+{
+  "name": "OperationTask",
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string",
+      "description": "Task title"
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "sop",
+        "audit",
+        "checklist",
+        "quality",
+        "general"
+      ],
+      "description": "Type of operational task"
+    },
+    "frequency": {
+      "type": "string",
+      "enum": [
+        "daily",
+        "weekly",
+        "monthly",
+        "quarterly",
+        "yearly",
+        "custom",
+        "one_time"
+      ],
+      "default": "daily",
+      "description": "How often this task recurs"
+    },
+    "department": {
+      "type": "string",
+      "enum": [
+        "all",
+        "kitchen",
+        "front_of_house",
+        "bar",
+        "management",
+        "cleaning",
+        "maintenance"
+      ],
+      "default": "all",
+      "description": "Department responsible"
+    },
+    "assigned_to": {
+      "type": "string",
+      "description": "User email assigned to this task"
+    },
+    "assigned_to_name": {
+      "type": "string",
+      "description": "User name assigned"
+    },
+    "linked_sop_id": {
+      "type": "string",
+      "description": "Reference to SOPDocument"
+    },
+    "linked_sop_title": {
+      "type": "string",
+      "description": "Cached SOP title"
+    },
+    "linked_checklist_id": {
+      "type": "string",
+      "description": "Reference to ChecklistExecution"
+    },
+    "linked_checklist_name": {
+      "type": "string",
+      "description": "Cached checklist name"
+    },
+    "linked_quality_id": {
+      "type": "string",
+      "description": "Reference to QualityRecord"
+    },
+    "linked_quality_title": {
+      "type": "string",
+      "description": "Cached quality check title"
+    },
+    "linked_form_id": {
+      "type": "string",
+      "description": "Reference to FormTemplate"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "in_progress",
+        "completed",
+        "overdue",
+        "skipped",
+        "cancelled"
+      ],
+      "default": "pending",
+      "description": "Current task status"
+    },
+    "due_date": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When task is due"
+    },
+    "completion_date": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When task was completed"
+    },
+    "completed_by_email": {
+      "type": "string",
+      "description": "Who completed the task"
+    },
+    "completed_by_name": {
+      "type": "string",
+      "description": "Name of completer"
+    },
+    "attachments": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "File URLs for evidence/photos"
+    },
+    "comments": {
+      "type": "string",
+      "description": "Notes or comments about the task"
+    },
+    "ai_summary": {
+      "type": "string",
+      "description": "AI-generated insights or recommendations"
+    },
+    "priority": {
+      "type": "string",
+      "enum": [
+        "low",
+        "medium",
+        "high",
+        "critical"
+      ],
+      "default": "medium",
+      "description": "Task priority level"
+    },
+    "auto_generated": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether this task was auto-created"
+    },
+    "recurrence_rule": {
+      "type": "string",
+      "description": "Cron-like rule for recurring tasks"
+    },
+    "parent_task_id": {
+      "type": "string",
+      "description": "For recurring tasks - reference to original template"
+    },
+    "score": {
+      "type": "number",
+      "description": "Quality/performance score if applicable"
+    },
+    "completion_time_minutes": {
+      "type": "number",
+      "description": "Time taken to complete task"
+    },
+    "reminder_sent": {
+      "type": "boolean",
+      "default": false
+    },
+    "escalated": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether task was escalated to manager"
+    },
+    "metadata": {
+      "type": "object",
+      "description": "Additional task metadata"
+    }
+  },
+  "required": [
+    "title",
+    "type",
+    "frequency",
+    "department",
+    "status"
+  ],
+  "rls": {
+    "create": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "manager"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        }
+      ]
+    },
+    "read": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "manager"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        },
+        {
+          "assigned_to": "{{user.email}}"
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "manager"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        },
+        {
+          "assigned_to": "{{user.email}}"
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "manager"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,138 @@
+{
+  "name": "Certificate",
+  "type": "object",
+  "properties": {
+    "certificate_id": {
+      "type": "string",
+      "description": "Unique certificate identifier (UUID)"
+    },
+    "staff_email": {
+      "type": "string",
+      "description": "Staff member who earned this"
+    },
+    "staff_name": {
+      "type": "string",
+      "description": "Staff member name"
+    },
+    "certificate_type": {
+      "type": "string",
+      "enum": [
+        "onboarding_step",
+        "master_onboarding",
+        "training_module",
+        "culture_completion"
+      ],
+      "description": "Type of certificate"
+    },
+    "title": {
+      "type": "string",
+      "description": "Certificate title"
+    },
+    "description": {
+      "type": "string",
+      "description": "What was achieved"
+    },
+    "step_id": {
+      "type": "string",
+      "description": "Reference to OnboardingStep if applicable"
+    },
+    "step_number": {
+      "type": "number",
+      "description": "Step number if applicable"
+    },
+    "issued_date": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When certificate was issued"
+    },
+    "issued_by": {
+      "type": "string",
+      "description": "System or manager who issued"
+    },
+    "certificate_url": {
+      "type": "string",
+      "description": "PDF file URL"
+    },
+    "qr_code_url": {
+      "type": "string",
+      "description": "QR code for verification"
+    },
+    "verification_url": {
+      "type": "string",
+      "description": "Public verification link"
+    },
+    "is_verified": {
+      "type": "boolean",
+      "default": true
+    },
+    "points_awarded": {
+      "type": "number",
+      "description": "Performance points given",
+      "default": 0
+    },
+    "badge_earned": {
+      "type": "string",
+      "description": "Badge name if applicable"
+    },
+    "metadata": {
+      "type": "object",
+      "description": "Additional certificate data"
+    }
+  },
+  "required": [
+    "certificate_id",
+    "staff_email",
+    "certificate_type",
+    "title",
+    "issued_date"
+  ],
+  "rls": {
+    "create": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "manager"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        }
+      ]
+    },
+    "read": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "manager"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        },
+        {
+          "staff_email": "{{user.email}}"
+        }
+      ]
+    },
+    "update": false,
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

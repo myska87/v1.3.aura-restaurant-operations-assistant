@@ -1,0 +1,179 @@
+{
+  "name": "Notification",
+  "type": "object",
+  "properties": {
+    "user_id": {
+      "type": "string",
+      "description": "Reference to User entity"
+    },
+    "user_email": {
+      "type": "string",
+      "description": "User email for filtering"
+    },
+    "user_name": {
+      "type": "string",
+      "description": "User full name"
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "announcement",
+        "task_reminder",
+        "shift_reminder",
+        "sop_update",
+        "form_due",
+        "manager_message",
+        "system_alert",
+        "achievement",
+        "other"
+      ],
+      "description": "Type of notification"
+    },
+    "title": {
+      "type": "string",
+      "description": "Notification title/headline"
+    },
+    "message": {
+      "type": "string",
+      "description": "Notification message content"
+    },
+    "link_url": {
+      "type": "string",
+      "description": "Link to relevant page"
+    },
+    "link_module": {
+      "type": "string",
+      "description": "Module name (MyTasks, MyShifts, SOPDashboardHub, etc.)"
+    },
+    "related_entity_type": {
+      "type": "string",
+      "description": "Entity type (StaffTask, Shift, SOPDocument, etc.)"
+    },
+    "related_entity_id": {
+      "type": "string",
+      "description": "ID of related record"
+    },
+    "priority": {
+      "type": "string",
+      "enum": [
+        "low",
+        "normal",
+        "high",
+        "urgent"
+      ],
+      "default": "normal",
+      "description": "Notification priority"
+    },
+    "is_read": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether user has read this notification"
+    },
+    "read_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When notification was read"
+    },
+    "sender_email": {
+      "type": "string",
+      "description": "Who sent this (for manager messages/announcements)"
+    },
+    "sender_name": {
+      "type": "string",
+      "description": "Sender's name"
+    },
+    "target_audience": {
+      "type": "string",
+      "enum": [
+        "all",
+        "managers",
+        "kitchen",
+        "front_of_house",
+        "bar",
+        "specific_user"
+      ],
+      "default": "specific_user",
+      "description": "Who should see this notification"
+    },
+    "expires_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When notification should be auto-archived"
+    },
+    "action_required": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether user needs to take action"
+    },
+    "metadata": {
+      "type": "object",
+      "description": "Additional context data"
+    }
+  },
+  "required": [
+    "user_email",
+    "type",
+    "title",
+    "message"
+  ],
+  "rls": {
+    "create": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "manager"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        },
+        {
+          "sender_email": "{{user.email}}"
+        }
+      ]
+    },
+    "read": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_email": "{{user.email}}"
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_email": "{{user.email}}"
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_email": "{{user.email}}"
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,133 @@
+{
+  "name": "AuditReport",
+  "type": "object",
+  "properties": {
+    "audit_title": {
+      "type": "string",
+      "description": "Audit report title"
+    },
+    "audit_type": {
+      "type": "string",
+      "enum": [
+        "internal",
+        "external",
+        "eho",
+        "self_assessment",
+        "surprise"
+      ],
+      "description": "Type of audit"
+    },
+    "audit_date": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "auditor_name": {
+      "type": "string",
+      "description": "Who conducted audit"
+    },
+    "overall_score": {
+      "type": "number",
+      "description": "Overall score (0-100)"
+    },
+    "sections": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "section_name": {
+            "type": "string"
+          },
+          "score": {
+            "type": "number"
+          },
+          "comments": {
+            "type": "string"
+          },
+          "photo_urls": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "description": "Audit sections and scores"
+    },
+    "strengths": {
+      "type": "string",
+      "description": "Areas of excellence"
+    },
+    "weaknesses": {
+      "type": "string",
+      "description": "Areas needing improvement"
+    },
+    "corrective_actions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string"
+          },
+          "priority": {
+            "type": "string",
+            "enum": [
+              "low",
+              "medium",
+              "high",
+              "critical"
+            ]
+          },
+          "assigned_to": {
+            "type": "string"
+          },
+          "deadline": {
+            "type": "string",
+            "format": "date"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "in_progress",
+              "completed"
+            ]
+          }
+        }
+      }
+    },
+    "attachments": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Audit report PDFs, photos"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "completed",
+        "passed",
+        "failed",
+        "follow_up_required"
+      ],
+      "default": "draft"
+    },
+    "conducted_by_email": {
+      "type": "string"
+    },
+    "follow_up_date": {
+      "type": "string",
+      "format": "date"
+    }
+  },
+  "required": [
+    "audit_title",
+    "audit_type",
+    "audit_date",
+    "auditor_name",
+    "overall_score",
+    "status"
+  ]
+}

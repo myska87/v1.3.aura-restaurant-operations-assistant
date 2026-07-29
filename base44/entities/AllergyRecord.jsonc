@@ -1,0 +1,134 @@
+{
+  "name": "AllergyRecord",
+  "type": "object",
+  "properties": {
+    "menu_item_id": {
+      "type": "string",
+      "description": "Reference to MenuItem"
+    },
+    "menu_item_name": {
+      "type": "string",
+      "description": "Cached menu item name"
+    },
+    "category": {
+      "type": "string",
+      "description": "Menu item category"
+    },
+    "allergens_detected": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "List of allergens (milk, nuts, gluten, soy, egg, fish, shellfish, sesame, celery, mustard, sulphites, lupin)"
+    },
+    "ingredient_sources": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "ingredient_id": {
+            "type": "string"
+          },
+          "ingredient_name": {
+            "type": "string"
+          },
+          "allergens": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "description": "Which ingredients contribute which allergens"
+    },
+    "auto_generated": {
+      "type": "boolean",
+      "default": true,
+      "description": "Whether this record was auto-generated"
+    },
+    "verified_by": {
+      "type": "string",
+      "description": "Manager who verified accuracy"
+    },
+    "verified_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "risk_level": {
+      "type": "string",
+      "enum": [
+        "none",
+        "low",
+        "medium",
+        "high"
+      ],
+      "description": "Allergen risk classification"
+    },
+    "compliance_notes": {
+      "type": "string",
+      "description": "Additional compliance information"
+    },
+    "last_synced": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Last time allergens were recalculated"
+    }
+  },
+  "required": [
+    "menu_item_id",
+    "allergens_detected"
+  ],
+  "rls": {
+    "create": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "manager"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        }
+      ]
+    },
+    "read": {
+      "user_condition": {
+        "email": {
+          "$exists": true
+        }
+      }
+    },
+    "update": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "manager"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

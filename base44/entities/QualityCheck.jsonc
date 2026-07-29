@@ -1,0 +1,106 @@
+{
+  "name": "QualityCheck",
+  "type": "object",
+  "properties": {
+    "check_title": {
+      "type": "string",
+      "description": "Quality check title"
+    },
+    "check_type": {
+      "type": "string",
+      "enum": [
+        "food_quality",
+        "hygiene",
+        "service",
+        "equipment",
+        "presentation",
+        "temperature",
+        "cleanliness",
+        "safety",
+        "compliance"
+      ],
+      "description": "Type of quality check"
+    },
+    "area": {
+      "type": "string",
+      "enum": [
+        "kitchen",
+        "front_of_house",
+        "bar",
+        "storage",
+        "washroom",
+        "dining_area",
+        "delivery",
+        "preparation"
+      ],
+      "description": "Area being checked"
+    },
+    "score": {
+      "type": "number",
+      "minimum": 1,
+      "maximum": 5,
+      "description": "Quality score (1-5 stars)"
+    },
+    "photo_urls": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Evidence photos"
+    },
+    "comments": {
+      "type": "string",
+      "description": "Detailed observations"
+    },
+    "corrective_action_required": {
+      "type": "boolean",
+      "default": false
+    },
+    "corrective_action": {
+      "type": "string",
+      "description": "Action taken to fix issue"
+    },
+    "corrective_action_photo": {
+      "type": "string",
+      "description": "Photo after correction"
+    },
+    "checked_by_email": {
+      "type": "string",
+      "description": "Who performed the check"
+    },
+    "checked_by_name": {
+      "type": "string",
+      "description": "Staff member name"
+    },
+    "verified_by_email": {
+      "type": "string",
+      "description": "Manager who verified"
+    },
+    "verified_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "recorded",
+        "needs_action",
+        "action_taken",
+        "verified",
+        "closed"
+      ],
+      "default": "recorded"
+    },
+    "linked_sop_id": {
+      "type": "string",
+      "description": "Related SOP document"
+    }
+  },
+  "required": [
+    "check_title",
+    "check_type",
+    "area",
+    "score",
+    "checked_by_email"
+  ]
+}

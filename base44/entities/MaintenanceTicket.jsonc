@@ -1,0 +1,156 @@
+{
+  "name": "MaintenanceTicket",
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string",
+      "description": "Brief description of issue"
+    },
+    "description": {
+      "type": "string",
+      "description": "Detailed description"
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "equipment",
+        "plumbing",
+        "electrical",
+        "hvac",
+        "structural",
+        "cleaning",
+        "other"
+      ],
+      "description": "Issue category"
+    },
+    "location": {
+      "type": "string",
+      "description": "Where the issue is located"
+    },
+    "priority": {
+      "type": "string",
+      "enum": [
+        "urgent",
+        "high",
+        "medium",
+        "low"
+      ],
+      "default": "medium"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "open",
+        "in_progress",
+        "awaiting_parts",
+        "completed",
+        "cancelled"
+      ],
+      "default": "open"
+    },
+    "reported_by": {
+      "type": "string",
+      "description": "Staff member who reported"
+    },
+    "assigned_to": {
+      "type": "string",
+      "description": "Technician or staff assigned"
+    },
+    "photo_urls": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Photos of the issue"
+    },
+    "estimated_cost": {
+      "type": "number",
+      "description": "Repair cost estimate"
+    },
+    "completed_date": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "resolution_notes": {
+      "type": "string",
+      "description": "How issue was resolved"
+    }
+  },
+  "required": [
+    "title",
+    "category",
+    "location",
+    "priority",
+    "status"
+  ],
+  "rls": {
+    "create": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "manager"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        },
+        {
+          "created_by": "{{user.email}}"
+        }
+      ]
+    },
+    "read": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "manager"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        },
+        {
+          "created_by": "{{user.email}}"
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "manager"
+          }
+        },
+        {
+          "user_condition": {
+            "position": "owner"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}
